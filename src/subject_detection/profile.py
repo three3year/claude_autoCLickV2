@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -26,12 +27,16 @@ def load_default_config() -> dict:
         return yaml.safe_load(f)
 
 
+if TYPE_CHECKING:
+    from .registration import Artifacts
+
+
 @dataclass
 class Template:
     """One registered template: name + capture image paths."""
     name: str
     capture_paths: list[Path]
-    artifacts: object | None = None  # registration artifacts, engine-internal
+    artifacts: "Artifacts | None" = None  # filled in by Engine.load_profile
 
 
 @dataclass
@@ -39,10 +44,6 @@ class Profile:
     root: Path
     config: dict
     templates: dict[str, Template] = field(default_factory=dict)
-
-    @property
-    def registered_dir(self) -> Path:
-        return self.root / "registered"
 
 
 def _is_template_dir(path: Path) -> bool:

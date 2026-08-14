@@ -25,6 +25,7 @@ import cv2
 import numpy as np
 
 from .imio import imread, imwrite
+from .matching import gradient_map
 
 _REG_VERSION = 2
 # config keys that change registration artifacts (threshold-type keys do not)
@@ -44,15 +45,8 @@ class Artifacts:
     embedding: np.ndarray | None = None   # subject embedding, L2-normalized
 
 
-def _gradient(gray: np.ndarray) -> np.ndarray:
-    g = gray.astype(np.float32)
-    gx = cv2.Scharr(g, cv2.CV_32F, 1, 0)
-    gy = cv2.Scharr(g, cv2.CV_32F, 0, 1)
-    return cv2.magnitude(gx, gy)
-
-
 def _norm_grad(gray: np.ndarray) -> np.ndarray:
-    g = cv2.GaussianBlur(_gradient(gray), (0, 0), 1.2)
+    g = cv2.GaussianBlur(gradient_map(gray), (0, 0), 1.2)
     scale = np.percentile(g, _EDGE_PERCENTILE)
     return g / (scale + 1e-6)
 
@@ -69,7 +63,7 @@ def _align_to_ref(ref_gray: np.ndarray, cap_gray: np.ndarray) -> np.ndarray | No
     core = resized[my:rh - my, mx:rw - mx]
     if core.shape[0] < 4 or core.shape[1] < 4:
         return resized
-    res = cv2.matchTemplate(_gradient(ref_gray), _gradient(core),
+    res = cv2.matchTemplate(gradient_map(ref_gray), gradient_map(core),
                             cv2.TM_CCOEFF_NORMED)
     res = np.nan_to_num(res, nan=-1.0)
     _, val, _, loc = cv2.minMaxLoc(res)

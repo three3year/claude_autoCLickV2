@@ -15,7 +15,7 @@ import numpy as np
 
 from .matching import find_candidates
 from .profile import Profile, load_profile_dir
-from .registration import load_or_register
+from .registration import Artifacts, load_or_register
 
 
 @dataclass
@@ -38,7 +38,7 @@ class Engine:
             warnings.warn(f"verification unavailable, running coarse-only: {exc}")
             self._verifier = None
 
-    def _embed_template(self, art) -> np.ndarray:
+    def _embed_template(self, art: Artifacts) -> np.ndarray:
         from .verification import masked_fill
         return self._verifier.embed([masked_fill(art.ref_bgr, art.mask)])[0]
 
@@ -84,7 +84,7 @@ class Engine:
             return QueryResult(found=False, box=None,
                                score=candidates[0].score, debug=debug)
 
-        if self._verifier is None or template.artifacts.embedding is None:
+        if self._verifier is None or art.embedding is None:
             best = passing[0]
             return QueryResult(found=True, box=best.box, score=best.score,
                                debug=debug)
@@ -98,10 +98,16 @@ class Engine:
             x, y, w, h = c.box
             x0, y0 = max(0, x), max(0, y)
             x1, y1 = min(sw, x + w), min(sh, y + h)
-            crops.append(masked_fill(search_region[y0:y1, x0:x1],
-                                     template.artifacts.mask))
+            mask = art.mask
+            if mask is not None and (x0, y0, x1, y1) != (x, y, x + w, y + h):
+                # candidate is clipped by the scene edge: crop the mask to
+                # the visible fraction so it stays aligned with the crop
+                mh, mw = mask.shape
+                mask = mask[round((y0 - y) / h * mh):round((y1 - y) / h * mh),
+                            round((x0 - x) / w * mw):round((x1 - x) / w * mw)]
+            crops.append(masked_fill(search_region[y0:y1, x0:x1], mask))
         embs = self._verifier.embed(crops)
-        sims = embs @ template.artifacts.embedding
+        sims = embs @ art.embedding
         order = int(np.argmax(sims))
         best, verify_score = passing[order], float(sims[order])
         debug["verify_scores"] = [round(float(s), 4) for s in sims]

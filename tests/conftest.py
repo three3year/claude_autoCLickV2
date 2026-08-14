@@ -49,11 +49,7 @@ def paste(scene: np.ndarray, patch: np.ndarray, x: int, y: int) -> np.ndarray:
     return out
 
 
-def imwrite(path: Path, img: np.ndarray) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    ok, buf = cv2.imencode(path.suffix, img)
-    assert ok
-    path.write_bytes(buf.tobytes())
+from subject_detection.imio import imwrite  # noqa: E402  (shared helper)
 
 
 def write_profile(root: Path, templates: dict[str, np.ndarray | dict[str, np.ndarray]],

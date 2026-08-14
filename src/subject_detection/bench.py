@@ -9,6 +9,7 @@ Case folder contract (adding a case = dropping files, no code change):
                          expected: present | absent
                          center: [x, y]      (required when present)
                          tolerance: 15       (px, optional)
+                         screenshot: <file>  (optional, defaults to screenshot.png)
 
 Folders starting with "_" are assets, not cases. A "miss" is a present-case
 reported not-found; a wrong position or a hit on an absent-case are both
