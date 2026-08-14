@@ -2,6 +2,6 @@
 # Copy this file into <profile>/config.yaml and tune per game.
 scale_range: [0.5, 2.0]     # template-to-screen scale factors swept by the coarse stage
 aspect_jitter: 0.1          # +/- relative width distortion tolerated
-match_threshold: 0.7        # coarse-stage acceptance (loose: favors recall)
+match_threshold: 0.65       # coarse-stage acceptance (loose: favors recall)
 verify_threshold: 0.6       # verification-stage acceptance (strict: favors precision)
 mask_strategy: multi_capture  # multi_capture | single
