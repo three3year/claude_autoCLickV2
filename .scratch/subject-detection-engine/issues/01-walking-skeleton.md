@@ -4,10 +4,10 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 引擎為可 import 的 Python 套件,Engine 建構一次後可重複查詢(常駐)
-- [ ] 建立明日方舟遊戲設定檔,模板自 autoClick 專案複製進設定檔的模板庫(至少含「返回」等數個同尺度可命中的模板)
-- [ ] query 對「主體存在」的截圖回報 found=true 且座標在容差內;對「主體不存在」的截圖回報 found=false
-- [ ] config.yaml 被讀取並生效(至少 match_threshold),引擎附一份保守預設 config
-- [ ] pytest 測試只經公開 API 進出,CPU 可跑
+- [x] 引擎為可 import 的 Python 套件,Engine 建構一次後可重複查詢(常駐)
+- [x] 建立明日方舟遊戲設定檔,模板自 autoClick 專案複製進設定檔的模板庫(至少含「返回」等數個同尺度可命中的模板)
+- [x] query 對「主體存在」的截圖回報 found=true 且座標在容差內;對「主體不存在」的截圖回報 found=false
+- [x] config.yaml 被讀取並生效(至少 match_threshold),引擎附一份保守預設 config
+- [x] pytest 測試只經公開 API 進出,CPU 可跑
