@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "subject-detection"
+version = "0.1.0"
+description = "Game-agnostic subject detection engine: registration + query over template libraries"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "opencv-python",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+verify = ["torch"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+subject_detection = ["default_config.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
