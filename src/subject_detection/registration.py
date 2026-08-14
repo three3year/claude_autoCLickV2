@@ -26,7 +26,7 @@ import numpy as np
 
 from .imio import imread, imwrite
 
-_REG_VERSION = 1
+_REG_VERSION = 2
 # config keys that change registration artifacts (threshold-type keys do not)
 _REG_CONFIG_KEYS = ("mask_strategy", "scale_range")
 
@@ -38,8 +38,10 @@ _MIN_COVERAGE = 0.12     # mask below this fraction falls back to edge-only
 
 @dataclass
 class Artifacts:
+    ref_bgr: np.ndarray           # reference capture, color uint8
     ref_gray: np.ndarray          # reference capture, grayscale uint8
     mask: np.ndarray | None       # float32 [0,1], ref-sized; None = all valid
+    embedding: np.ndarray | None = None   # subject embedding, L2-normalized
 
 
 def _gradient(gray: np.ndarray) -> np.ndarray:
@@ -108,16 +110,18 @@ def _multi_mask(ref_gray: np.ndarray, others: list[np.ndarray]) -> np.ndarray:
 
 
 def compute_artifacts(captures: list[np.ndarray], strategy: str) -> Artifacts:
-    grays = [cv2.cvtColor(c, cv2.COLOR_BGR2GRAY) for c in captures]
-    ref = max(grays, key=lambda g: g.shape[0] * g.shape[1])
-    if strategy == "multi_capture" and len(grays) > 1:
-        others = [_align_to_ref(ref, g) for g in grays if g is not ref]
+    ref_bgr = max(captures, key=lambda c: c.shape[0] * c.shape[1])
+    ref = cv2.cvtColor(ref_bgr, cv2.COLOR_BGR2GRAY)
+    grays = [cv2.cvtColor(c, cv2.COLOR_BGR2GRAY)
+             for c in captures if c is not ref_bgr]
+    if strategy == "multi_capture" and len(captures) > 1:
+        others = [_align_to_ref(ref, g) for g in grays]
         mask = _multi_mask(ref, [o for o in others if o is not None])
     elif strategy in ("multi_capture", "single"):
         mask = _single_mask(ref)
     else:
         raise ValueError(f"unknown mask_strategy: {strategy!r}")
-    return Artifacts(ref_gray=ref, mask=mask)
+    return Artifacts(ref_bgr=ref_bgr, ref_gray=ref, mask=mask)
 
 
 # --- persistence ------------------------------------------------------------
@@ -143,18 +147,20 @@ def _load_artifacts(reg_dir: Path, meta: dict) -> Artifacts | None:
         stored = json.loads((reg_dir / "meta.json").read_text(encoding="utf-8"))
         if stored != meta:
             return None
-        ref = imread(reg_dir / "ref.png", cv2.IMREAD_GRAYSCALE)
+        ref_bgr = imread(reg_dir / "ref.png", cv2.IMREAD_COLOR)
+        ref = cv2.cvtColor(ref_bgr, cv2.COLOR_BGR2GRAY)
         mask = imread(reg_dir / "mask.png", cv2.IMREAD_GRAYSCALE)
         if mask.shape != ref.shape:
             return None
-        return Artifacts(ref_gray=ref, mask=mask.astype(np.float32) / 255.0)
+        return Artifacts(ref_bgr=ref_bgr, ref_gray=ref,
+                         mask=mask.astype(np.float32) / 255.0)
     except Exception:
         return None  # missing/corrupt artifacts are rebuilt, never fatal
 
 
 def _store_artifacts(reg_dir: Path, art: Artifacts, meta: dict) -> None:
     reg_dir.mkdir(parents=True, exist_ok=True)
-    imwrite(reg_dir / "ref.png", art.ref_gray)
+    imwrite(reg_dir / "ref.png", art.ref_bgr)
     mask = art.mask if art.mask is not None \
         else np.ones_like(art.ref_gray, dtype=np.float32)
     imwrite(reg_dir / "mask.png", (np.clip(mask, 0, 1) * 255).astype(np.uint8))
@@ -163,13 +169,26 @@ def _store_artifacts(reg_dir: Path, art: Artifacts, meta: dict) -> None:
 
 
 def load_or_register(profile_root: Path, name: str,
-                     capture_paths: list[Path], config: dict) -> Artifacts:
+                     capture_paths: list[Path], config: dict,
+                     embed_fn=None) -> Artifacts:
+    """embed_fn(Artifacts) -> np.ndarray computes the subject embedding when
+    the engine has a verifier; the embedding is persisted next to the other
+    artifacts and reloaded with them."""
     reg_dir = profile_root / "registered" / name
     meta = expected_meta(capture_paths, config)
     art = _load_artifacts(reg_dir, meta)
-    if art is not None:
-        return art
-    art = compute_artifacts([imread(p) for p in capture_paths],
-                            str(config.get("mask_strategy", "multi_capture")))
-    _store_artifacts(reg_dir, art, meta)
+    rebuilt = art is None
+    if rebuilt:
+        art = compute_artifacts([imread(p) for p in capture_paths],
+                                str(config.get("mask_strategy", "multi_capture")))
+        _store_artifacts(reg_dir, art, meta)
+    emb_path = reg_dir / "embedding.npy"
+    if not rebuilt and emb_path.is_file():
+        try:
+            art.embedding = np.load(emb_path)
+        except Exception:
+            art.embedding = None
+    if art.embedding is None and embed_fn is not None:
+        art.embedding = embed_fn(art)
+        np.save(emb_path, art.embedding)
     return art

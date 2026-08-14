@@ -6,6 +6,7 @@ embedding verification stage is layered on top in a later ticket).
 """
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -26,16 +27,28 @@ class QueryResult:
 
 
 class Engine:
-    """Game-agnostic detection engine. Construct once; query many times."""
+    """Game-agnostic detection engine. Construct once (the verification
+    model loads here and stays resident); query many times."""
 
     def __init__(self) -> None:
-        pass
+        try:
+            from .verification import Verifier
+            self._verifier = Verifier()
+        except Exception as exc:  # no torch / no weights: coarse-only mode
+            warnings.warn(f"verification unavailable, running coarse-only: {exc}")
+            self._verifier = None
+
+    def _embed_template(self, art) -> np.ndarray:
+        from .verification import masked_fill
+        return self._verifier.embed([masked_fill(art.ref_bgr, art.mask)])[0]
 
     def load_profile(self, profile_dir: str | Path) -> Profile:
         profile = load_profile_dir(profile_dir)
+        embed_fn = self._embed_template if self._verifier is not None else None
         for t in profile.templates.values():
             t.artifacts = load_or_register(profile.root, t.name,
-                                           t.capture_paths, profile.config)
+                                           t.capture_paths, profile.config,
+                                           embed_fn=embed_fn)
         return profile
 
     def query(self, profile: Profile, template_name: str,
@@ -64,9 +77,35 @@ class Engine:
             debug["match_score"] = 0.0
             return QueryResult(found=False, box=None, score=0.0, debug=debug)
 
-        best = candidates[0]
-        score = best.score
-        debug["match_score"] = round(score, 4)
-        found = score >= float(cfg["match_threshold"])
-        box = best.box if found else None
-        return QueryResult(found=found, box=box, score=score, debug=debug)
+        debug["match_score"] = round(candidates[0].score, 4)
+        passing = [c for c in candidates
+                   if c.score >= float(cfg["match_threshold"])]
+        if not passing:
+            return QueryResult(found=False, box=None,
+                               score=candidates[0].score, debug=debug)
+
+        if self._verifier is None or template.artifacts.embedding is None:
+            best = passing[0]
+            return QueryResult(found=True, box=best.box, score=best.score,
+                               debug=debug)
+
+        # verification: embed every passing candidate crop (masked) in one
+        # batch and compare with the registered subject embedding
+        from .verification import masked_fill
+        sh, sw = scene_gray.shape
+        crops = []
+        for c in passing:
+            x, y, w, h = c.box
+            x0, y0 = max(0, x), max(0, y)
+            x1, y1 = min(sw, x + w), min(sh, y + h)
+            crops.append(masked_fill(search_region[y0:y1, x0:x1],
+                                     template.artifacts.mask))
+        embs = self._verifier.embed(crops)
+        sims = embs @ template.artifacts.embedding
+        order = int(np.argmax(sims))
+        best, verify_score = passing[order], float(sims[order])
+        debug["verify_scores"] = [round(float(s), 4) for s in sims]
+        debug["verify_score"] = round(verify_score, 4)
+        found = verify_score >= float(cfg["verify_threshold"])
+        return QueryResult(found=found, box=best.box if found else None,
+                           score=verify_score, debug=debug)
