@@ -12,9 +12,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .imio import imread
 from .matching import find_candidates
 from .profile import Profile, load_profile_dir
+from .registration import load_or_register
 
 
 @dataclass
@@ -29,26 +29,31 @@ class Engine:
     """Game-agnostic detection engine. Construct once; query many times."""
 
     def __init__(self) -> None:
-        self._capture_cache: dict[Path, np.ndarray] = {}
+        pass
 
     def load_profile(self, profile_dir: str | Path) -> Profile:
-        return load_profile_dir(profile_dir)
+        profile = load_profile_dir(profile_dir)
+        for t in profile.templates.values():
+            t.artifacts = load_or_register(profile.root, t.name,
+                                           t.capture_paths, profile.config)
+        return profile
 
     def query(self, profile: Profile, template_name: str,
               search_region: np.ndarray) -> QueryResult:
         if template_name not in profile.templates:
             raise KeyError(f"unknown template: {template_name!r}")
         template = profile.templates[template_name]
-        tpl_img = self._load_capture(template.capture_paths[0])
+        art = template.artifacts
 
         scene_gray = cv2.cvtColor(search_region, cv2.COLOR_BGR2GRAY)
-        tpl_gray = cv2.cvtColor(tpl_img, cv2.COLOR_BGR2GRAY)
+        tpl_gray = art.ref_gray
 
         cfg = profile.config
         candidates = find_candidates(
             scene_gray, tpl_gray,
             scale_range=tuple(cfg["scale_range"]),
-            aspect_jitter=float(cfg["aspect_jitter"]))
+            aspect_jitter=float(cfg["aspect_jitter"]),
+            mask=art.mask)
         debug = {
             "candidates": [{"box": c.box, "score": round(c.score, 4),
                             "scale": round(c.scale, 3),
@@ -65,8 +70,3 @@ class Engine:
         found = score >= float(cfg["match_threshold"])
         box = best.box if found else None
         return QueryResult(found=found, box=box, score=score, debug=debug)
-
-    def _load_capture(self, path: Path) -> np.ndarray:
-        if path not in self._capture_cache:
-            self._capture_cache[path] = imread(path)
-        return self._capture_cache[path]

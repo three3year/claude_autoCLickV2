@@ -1,6 +1,6 @@
 # 明日方舟 game profile — overlays the engine's default_config.yaml.
 scale_range: [0.6, 1.5]   # measured across cn / zh / 翻新 template sets
 aspect_jitter: 0.1
-match_threshold: 0.65
+match_threshold: 0.6
 verify_threshold: 0.6
 mask_strategy: multi_capture

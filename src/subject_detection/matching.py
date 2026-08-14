@@ -36,16 +36,31 @@ def gradient_map(gray: np.ndarray) -> np.ndarray:
 
 
 def _window_variance(img: np.ndarray, w: int, h: int,
-                     out_shape: tuple[int, int]) -> np.ndarray:
-    """Variance of img over each (w, h) sliding window, aligned with the
-    matchTemplate result grid."""
-    kernel = (w, h)
-    mean = cv2.boxFilter(img, cv2.CV_32F, kernel, anchor=(0, 0),
-                         normalize=True, borderType=cv2.BORDER_CONSTANT)
-    sq = cv2.boxFilter(img * img, cv2.CV_32F, kernel, anchor=(0, 0),
-                       normalize=True, borderType=cv2.BORDER_CONSTANT)
+                     out_shape: tuple[int, int],
+                     mask: np.ndarray | None) -> np.ndarray:
+    """Variance of img over each (w, h) sliding window — under the mask when
+    given — aligned with the matchTemplate result grid."""
+    if mask is None:
+        mean = cv2.boxFilter(img, cv2.CV_32F, (w, h), anchor=(0, 0),
+                             normalize=True, borderType=cv2.BORDER_CONSTANT)
+        sq = cv2.boxFilter(img * img, cv2.CV_32F, (w, h), anchor=(0, 0),
+                           normalize=True, borderType=cv2.BORDER_CONSTANT)
+    else:
+        k = mask / max(float(mask.sum()), 1e-6)
+        mean = cv2.filter2D(img, cv2.CV_32F, k, anchor=(0, 0),
+                            borderType=cv2.BORDER_CONSTANT)
+        sq = cv2.filter2D(img * img, cv2.CV_32F, k, anchor=(0, 0),
+                          borderType=cv2.BORDER_CONSTANT)
     var = sq - mean * mean
     return var[:out_shape[0], :out_shape[1]]
+
+
+def _masked_variance(img: np.ndarray, mask: np.ndarray | None) -> float:
+    if mask is None:
+        return float(img.var())
+    wsum = max(float(mask.sum()), 1e-6)
+    mean = float((img * mask).sum()) / wsum
+    return float((((img - mean) ** 2) * mask).sum()) / wsum
 
 
 def _match(scene_grad: np.ndarray, tpl_grad: np.ndarray,
@@ -59,12 +74,14 @@ def _match(scene_grad: np.ndarray, tpl_grad: np.ndarray,
     else:
         res = cv2.matchTemplate(scene_grad, tpl_grad, cv2.TM_CCOEFF_NORMED)
     res = np.nan_to_num(res, nan=0.0, posinf=0.0, neginf=0.0)
-    # OpenCV reports 1.0 for zero-variance windows (flat UI panels have
-    # exactly-zero gradients) — a degenerate value, not a match. Kill any
-    # window whose local gradient variance is essentially zero.
+    # Windows with (near-)zero gradient variance under the mask are flat UI
+    # panels or empty background; OpenCV's normalization degenerates there
+    # (reporting up to 1.0), so kill any window whose masked variance is far
+    # below the template's own — a real match needs comparable structure.
     th, tw = tpl_grad.shape
-    var = _window_variance(scene_grad, tw, th, res.shape)
-    res[var < 1e-4] = 0.0
+    var = _window_variance(scene_grad, tw, th, res.shape, mask)
+    floor = max(1e-4, 0.0025 * _masked_variance(tpl_grad, mask))
+    res[var < floor] = 0.0
     res[np.abs(res) > 1.001] = 0.0
     return np.clip(res, 0.0, 1.0)
 
@@ -114,6 +131,8 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
     scene_grad_small = gradient_map(ds)
     scene_grad_full = gradient_map(scene_gray)
 
+    # the coarse sweep runs unmasked (fast FFT path); the mask weighs in at
+    # refinement, where the final score is computed
     raw: list[Candidate] = []
     for s in _scale_grid(lo, hi):
         w = round(tw * s * down)
@@ -123,8 +142,7 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
         if w >= ds.shape[1] or h >= ds.shape[0]:
             continue
         tpl_s = _resize(tpl_gray, w, h)
-        m = _resize(mask, w, h) if mask is not None else None
-        res = _match(scene_grad_small, gradient_map(tpl_s), m)
+        res = _match(scene_grad_small, gradient_map(tpl_s), None)
         _, val, _, loc = cv2.minMaxLoc(res)
         raw.append(Candidate(
             box=(round(loc[0] / down), round(loc[1] / down),
