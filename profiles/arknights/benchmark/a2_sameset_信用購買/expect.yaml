@@ -1,0 +1,6 @@
+center:
+- 286
+- 202
+expected: present
+template: cn/信用購買
+tolerance: 15

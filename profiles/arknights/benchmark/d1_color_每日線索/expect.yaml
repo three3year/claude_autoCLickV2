@@ -1,0 +1,6 @@
+center:
+- 438
+- 214
+expected: present
+template: cn/每日線索
+tolerance: 15

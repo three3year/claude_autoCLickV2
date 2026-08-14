@@ -1,0 +1,6 @@
+center:
+- 314
+- 167
+expected: present
+template: cn/返回
+tolerance: 15

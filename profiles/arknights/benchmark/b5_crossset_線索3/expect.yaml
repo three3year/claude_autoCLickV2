@@ -1,0 +1,6 @@
+center:
+- 511
+- 390
+expected: present
+template: cn/線索3
+tolerance: 25

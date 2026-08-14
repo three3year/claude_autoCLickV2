@@ -1,0 +1,3 @@
+expected: absent
+template: cn/基建鈴鐺
+tolerance: 15

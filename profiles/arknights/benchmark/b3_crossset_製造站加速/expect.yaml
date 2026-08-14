@@ -1,0 +1,6 @@
+center:
+- 313
+- 214
+expected: present
+template: cn/製造站加速
+tolerance: 15

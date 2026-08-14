@@ -1,0 +1,6 @@
+center:
+- 580
+- 376
+expected: present
+template: cn/採購信用領取
+tolerance: 15

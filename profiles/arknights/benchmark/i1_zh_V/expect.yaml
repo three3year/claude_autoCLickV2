@@ -1,0 +1,6 @@
+center:
+- 590
+- 402
+expected: present
+template: zh/V
+tolerance: 15

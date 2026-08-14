@@ -1,0 +1,3 @@
+expected: absent
+template: cn/線索2
+tolerance: 15

@@ -1,0 +1,6 @@
+center:
+- 185
+- 138
+expected: present
+template: cn/基建鈴鐺
+tolerance: 15
