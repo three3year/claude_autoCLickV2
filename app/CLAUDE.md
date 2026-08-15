@@ -35,6 +35,11 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 
 ## 建置與部署
 
+- **每次改完 app/ 或引擎的程式碼，收尾都要重新打包**（跑 `app\build.bat`）——
+  使用者平常用的是打包版，dist 沒跟上原始碼＝修正等於沒送達。
+  注意 PyInstaller `--noconfirm` 會整個重建 `dist\AutoClick\`（含裡面的
+  profiles），build.bat 之後會重新放入 arknights profile；不要把測試資料
+  留在 dist 裡指望它活過重建
 - 打包：`app\build.bat`（PyInstaller onedir，spec 在 `app\AutoClick.spec`），
   交付物＝整個 `app\dist\AutoClick\` 資料夾（目標機免 Python、免網路）。
   打包必須用 **onedir**，不要 onefile（onefile 啟動 4.6s，onedir 1.4s）
