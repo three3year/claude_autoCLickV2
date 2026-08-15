@@ -255,17 +255,18 @@ def edit_step(app, step):
     def add_row(label):
         """建立一列, 回傳可放置元件的 frame (元件須以此 frame 為父)."""
         ttk.Label(body, text=label, style="Muted.TLabel").grid(
-            row=row_i[0], column=0, sticky="w", pady=5, padx=(0, 12))
+            row=row_i[0], column=0, sticky="w", pady=3, padx=(0, 12))
         fr = ttk.Frame(body, style="Panel.TFrame")
-        fr.grid(row=row_i[0], column=1, sticky="w", pady=5)
+        fr.grid(row=row_i[0], column=1, sticky="w", pady=3)
         row_i[0] += 1
         return fr
 
     def add_note(text):
+        # wraplength 放寬讓說明少換行——找圖對話框列數多, 高度要壓在工作區內
         w = ttk.Label(body, text=text, style="Muted.TLabel",
-                      font=("Microsoft JhengHei UI", 9), wraplength=340,
+                      font=("Microsoft JhengHei UI", 9), wraplength=470,
                       justify="left")
-        w.grid(row=row_i[0], column=1, sticky="w", pady=(0, 6))
+        w.grid(row=row_i[0], column=1, sticky="w", pady=(0, 4))
         row_i[0] += 1
         return w
 
@@ -554,6 +555,7 @@ def edit_step(app, step):
         pv_lbl = tk.Label(fr, bg=C["bg"], bd=0, highlightthickness=1,
                           highlightbackground=C["border"])
         pv_lbl.pack(side="left")
+        PV_W, PV_H = 150, 84  # 比主視窗縮圖小: 這個對話框列數多, 高度優先
 
         def cur_tmpl_img():
             """目前選擇的範本影像 (暫存截圖或已登錄範本), 無則 None."""
@@ -565,7 +567,7 @@ def edit_step(app, step):
             return None
 
         def update_preview(*_):
-            ph = _thumb_photo(dlg, cur_tmpl_img())
+            ph = _thumb_photo(dlg, cur_tmpl_img(), bw=PV_W, bh=PV_H)
             pv_lbl.configure(image=ph)
             pv_lbl._photo = ph
 
@@ -696,8 +698,6 @@ def edit_step(app, step):
 
         ttk.Button(fr, text="立即比對測試", style="Accent.TButton",
                    command=test_now).pack(side="left")
-        add_note("測試新截圖會先存為範本並自動登錄（門檻在 profile config，"
-                 "不在步驟上）")
 
     # ---- 確定 / 取消 ----
     foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
