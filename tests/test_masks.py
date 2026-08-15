@@ -9,7 +9,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from conftest import make_scene, paste, write_profile
+from synth import make_scene, paste, write_profile
 
 rng = np.random.default_rng(4)
 

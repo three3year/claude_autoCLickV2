@@ -12,4 +12,5 @@ Issues 與規格以本地 markdown 存於 `.scratch/<feature>/`。See `docs/agen
 
 ### Domain docs
 
-單一 context:根目錄 `CONTEXT.md` + `docs/adr/`。See `docs/agents/domain.md`.
+兩個 context(引擎/自動化應用),入口為根目錄 `CONTEXT-MAP.md`;引擎詞彙在根目錄
+`CONTEXT.md`、應用詞彙在 `app/CONTEXT.md`,ADR 共用 `docs/adr/`。See `docs/agents/domain.md`.

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from conftest import make_scene, make_template, paste, write_profile
+from synth import make_scene, make_template, paste, write_profile
 
 
 def test_positive_still_found_with_verification(engine, tmp_path):

@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 profiles/*/registered/
+# app 從原始碼執行時的沙盒資料 (部署後的使用者資料在 exe 旁, 不在 repo)
+app/templates/
+app/flows/
 .scratch/**/tmp/
 *.egg-info/
 build/

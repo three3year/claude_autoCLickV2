@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import yaml
 
-from conftest import imwrite, make_scene, make_template, paste, write_profile
+from synth import imwrite, make_scene, make_template, paste, write_profile
 
 
 def _mtimes(reg_dir):

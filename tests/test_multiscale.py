@@ -6,7 +6,7 @@ import time
 import cv2
 import numpy as np
 
-from conftest import make_scene, make_template, paste, write_profile
+from synth import make_scene, make_template, paste, write_profile
 
 
 def _scaled_paste(scene, tpl, x, y, scale, fx_extra=1.0):

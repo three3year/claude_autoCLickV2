@@ -16,6 +16,8 @@ dependencies = [
 [project.optional-dependencies]
 verify = ["torch"]
 dev = ["pytest"]
+# 自動化應用層 (app/) 的執行依賴; Windows 專用
+app = ["mss", "pynput"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -24,4 +26,4 @@ where = ["src"]
 subject_detection = ["default_config.yaml"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "app/tests"]

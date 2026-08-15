@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from conftest import make_scene, paste
+from synth import make_scene, paste
 
 from subject_detection.imio import imread
 
