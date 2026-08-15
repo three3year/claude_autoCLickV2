@@ -241,7 +241,16 @@ def move(x, y):
         time.sleep(0.005)
 
 
-def click(x, y, button="left", clicks=1, interval=0.06, settle=0.15, post=0.2):
+# 滑鼠按鍵「放開後」的預設保險停留秒數: 點擊事件送出後若立刻移動游標
+# (下一個座標點擊的 move、找圖前的移開游標等), 目標程式或輸入防護層
+# 可能還沒消化完點擊就看到位移, 把點擊當成滑動或直接丟棄。
+# 所有點擊/拖曳功能結束前一律預設停留這段時間;
+# 要調整點擊時序改這裡或傳 post 參數覆寫, 不要在 runner 加 sleep。
+POST_CLICK_DELAY = 0.4
+
+
+def click(x, y, button="left", clicks=1, interval=0.06, settle=0.15,
+          post=POST_CLICK_DELAY):
     """settle: 到位後的保險停留秒數, 讓目標程式先消化游標移動再按下.
     post: 放開後的保險停留秒數, 避免下一動作 (找圖移開游標等)
     來得太快, 目標程式還沒收到完整點擊."""
@@ -258,11 +267,13 @@ def click(x, y, button="left", clicks=1, interval=0.06, settle=0.15, post=0.2):
     time.sleep(max(0.0, post))
 
 
-def drag(x1, y1, x2, y2, button="left", duration_ms=300, hold_ms=0):
+def drag(x1, y1, x2, y2, button="left", duration_ms=300, hold_ms=0,
+         post=POST_CLICK_DELAY):
     """按住拖曳: 起點按下 → 平滑插值移動 → 終點放開.
 
     hold_ms: 到達終點後按住停頓再放開的毫秒數;
     捲動類介面直接放開會觸發慣性滾過頭, 停頓到滾動靜止再放開可避免.
+    post: 放開後的保險停留秒數 (同 click), 避免下一動作立刻移動游標.
     """
     down, up = _BUTTON_FLAGS.get(button, _BUTTON_FLAGS["left"])
     move(x1, y1)
@@ -276,6 +287,7 @@ def drag(x1, y1, x2, y2, button="left", duration_ms=300, hold_ms=0):
         time.sleep(duration_ms / 1000.0 / n)
     time.sleep(0.05 + max(0, hold_ms) / 1000.0)
     _send_button(up)
+    time.sleep(max(0.0, post))
 
 
 def press_keys(combo):
