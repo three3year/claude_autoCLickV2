@@ -45,10 +45,9 @@ def _matching_branch_end(steps, i):
 
 
 class Runner:
-    def __init__(self, templates_dir, stage=None, log_sink=None):
+    def __init__(self, templates_dir, stage=None):
         self.templates_dir = templates_dir
         self.stage = stage  # 並行執行時注入; None = 單流程, 完全走原本的路徑
-        self.log_sink = log_sink  # 並行執行時把紀錄同時送進合併紀錄
         self.ended = None   # 結束原因: done / error / stopped
         self._thread = None
         self._stop = threading.Event()
@@ -78,8 +77,6 @@ class Runner:
             })
             if len(self._logs) > 500:
                 self._logs = self._logs[-400:]
-        if self.log_sink is not None:
-            self.log_sink(msg, level)
 
     def logs_since(self, since):
         with self._lock:
