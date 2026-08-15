@@ -12,6 +12,7 @@ import cv2
 import ui_overlay
 import ui_theme
 from automation import capture, win
+from automation.runner import confirm_next_connected
 from ui_theme import C, FONT
 
 BTN_NAMES = [("left", "左鍵"), ("right", "右鍵"), ("middle", "中鍵")]
@@ -613,7 +614,8 @@ def edit_step(app, step):
         # 點擊後確認生效: 對付「圖找到也點了, 但畫面轉場中吃不到點擊」(只有點擊時才有意義)
         CFM_ZH = {"none": "不確認（點一次）",
                   "gone": "點到目標圖消失為止",
-                  "appear": "點到確認圖出現為止"}
+                  "appear": "點到確認圖出現為止",
+                  "next": "點到下一步的圖出現"}
         CFM_KEY = {n: k for k, n in CFM_ZH.items()}
         v["confirm"] = tk.StringVar(
             value=CFM_ZH.get(step.get("confirm", "none"), CFM_ZH["none"]))
@@ -630,7 +632,8 @@ def edit_step(app, step):
         cfm_cb.pack(side="left")
         cfm_main_note = add_note(
             "沒生效（目標圖還在）就自動再點，直到生效或逾時（用上面的逾時/重試秒數）；"
-            "仍未生效則依「找不到時」處置")
+            "仍未生效則依「找不到時」處置。「點到下一步的圖出現」以緊接的下一個"
+            "找圖步驟要找的圖為生效條件（依清單位置跟隨，不必另選確認圖）")
 
         # 確認圖 (僅「點到確認圖出現」需要): 自建 label 方便整列顯示/隱藏
         cfm_lbl = ttk.Label(body, text="確認圖", style="Muted.TLabel")
@@ -748,6 +751,18 @@ def edit_step(app, step):
                 confirm = CFM_KEY[v["confirm"].get()] if action == "click" else "none"
                 if confirm == "appear" and not v["confirmTemplate"].get():
                     raise ValueError("「點到確認圖出現」需選擇確認圖")
+                if confirm == "next":
+                    # `找圖相連`檢查: 編輯時下一步= _index+1; 新增時步驟尚未
+                    # 入清單、將插在 _index → 以模擬入列後的清單檢查
+                    at = step.get("_index", len(app.steps))
+                    after = list(app.steps)
+                    if not step.get("_edit"):
+                        after.insert(at, s)
+                    if not confirm_next_connected(after, at):
+                        raise ValueError(
+                            "「點到下一步的圖出現」需要下一個步驟是找圖步驟。\n"
+                            "請先把此步驟與下一個找圖步驟排相連，"
+                            "或改用其他確認方式")
                 s.update(
                     template=v["template"].get(),
                     timeout=v["timeout"].get(),

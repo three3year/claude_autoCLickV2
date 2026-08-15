@@ -31,7 +31,8 @@ import ui_dialogs
 import ui_overlay
 import ui_theme
 from automation import flowfmt, hotkey, imgio, win
-from automation.runner import Runner, branch_layout
+from automation.runner import (Runner, branch_layout, confirm_next_connected,
+                               uses_confirm_next)
 from subject_detection.engine import Engine
 from ui_theme import C, FONT, FONT_MONO
 
@@ -94,7 +95,8 @@ def step_desc(s):
         act = {"click": "點擊", "none": "僅等待出現",
                "wait_gone": "等待消失"}.get(s.get("action", "click"), "點擊")
         nf = {"stop": "停止", "break": "跳出"}.get(s.get("onNotFound"), "跳過")
-        cfm = {"gone": "，點到消失", "appear": "，點到確認圖出現"}.get(s.get("confirm"), "")
+        cfm = {"gone": "，點到消失", "appear": "，點到確認圖出現",
+               "next": "，點到下一步的圖出現"}.get(s.get("confirm"), "")
         ox, oy = int(s.get("offsetX", 0)), int(s.get("offsetY", 0))
         off = f"，偏移({ox:+d}, {oy:+d})" if ox or oy else ""
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
@@ -898,6 +900,10 @@ class App:
             if tail:
                 segs.append((tail, row_color))
             segs.append((f"［{STEP_LABELS[t]}］", LABEL_COLORS.get(t, row_color)))
+            if uses_confirm_next(s) and not confirm_next_connected(self.steps, i):
+                # 「點到下一步的圖出現」但目前不相連 (存檔後被移動/刪除/改掉
+                # 下一步): 執行前會被擋下, 平時只在列上提示、不彈窗
+                segs.append(("⚠ ", C["warn"]))
             segs.append((body, row_color))
             rows.append(segs)
             self._view.append(i)
@@ -1773,6 +1779,16 @@ class App:
         if err:
             messagebox.showwarning("執行", err, parent=self.root)
             return
+        # `找圖相連`檢查 (測試選取片段在 test_selected_steps 先以絕對編號擋下)
+        bad = [i + 1 for i in self._confirm_next_bad(steps)]
+        if bad:
+            messagebox.showwarning(
+                "執行",
+                "「點到下一步的圖出現」需要下一個步驟是找圖步驟：\n"
+                f"步驟 {', '.join(map(str, bad))} 的下一步不是找圖"
+                "（或已是最後一步）。\n請把下一個找圖步驟排在其後",
+                parent=self.root)
+            return
         abs_no = [n for n, _ in flowfmt.abs_steps(steps)]
         if abs_no and not self.scan_region:
             messagebox.showwarning(
@@ -1800,6 +1816,14 @@ class App:
     def stop_all(self):
         """F12 急停與停止鈕."""
         self.runner.stop()
+
+    def _confirm_next_bad(self, steps):
+        """`找圖相連`不成立的「點到下一步的圖出現」步驟索引 (0-based).
+
+        片段恰結束在該步驟時, 片段清單就在此打住 → 自然判為不相連。
+        """
+        return [i for i, s in enumerate(steps)
+                if uses_confirm_next(s) and not confirm_next_connected(steps, i)]
 
     def _fragment_origin_error(self, steps, base):
         """片段內「執行到時必然沒有原點」的相對座標步驟編號 (完整清單編號).
@@ -1836,6 +1860,17 @@ class App:
                 "以下相對座標步驟的原點不在選取範圍內，執行時會沒有基準：\n"
                 f"步驟 {', '.join(map(str, bad))}\n"
                 "請把作為原點的步驟（前面的點擊／拖曳／找圖）一起選進來",
+                parent=self.root)
+            return
+        # `找圖相連`檢查以絕對編號提示 (與原點檢查同慣例); 片段結尾恰是
+        # 「點到下一步的圖出現」步驟＝不相連, 要把下一步一起選進來
+        bad = [lo + i + 1 for i in self._confirm_next_bad(self.steps[lo:hi + 1])]
+        if bad:
+            messagebox.showwarning(
+                "測試選取",
+                "「點到下一步的圖出現」需要下一個步驟是找圖步驟：\n"
+                f"步驟 {', '.join(map(str, bad))} 的下一步不是找圖，"
+                "或不在選取範圍內。\n請把緊接的下一個找圖步驟一起選進來",
                 parent=self.root)
             return
         self.log_ui(f"測試執行步驟 {lo + 1}～{hi + 1}", "info")

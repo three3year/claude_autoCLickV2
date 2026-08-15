@@ -37,6 +37,23 @@ def branch_layout(steps, start):
     return None
 
 
+def confirm_next_connected(steps, idx):
+    """`找圖相連`檢查: steps[idx] 的緊接下一步是否為找圖步驟 (三態皆可).
+
+    「點到下一步的圖出現」(confirm: "next") 的前提。最後一步、下一步是
+    區段標記或其他步驟類型＝不相連; 測試選取片段恰結束在該步驟時,
+    傳入的清單就是片段本身, 自然判為不相連。
+    """
+    return idx + 1 < len(steps) and steps[idx + 1].get("type") == "find_click"
+
+
+def uses_confirm_next(step):
+    """步驟是否用了「點到下一步的圖出現」(只有動作為點擊的找圖有意義)."""
+    return (step.get("type") == "find_click"
+            and step.get("action", "click") == "click"
+            and step.get("confirm") == "next")
+
+
 def _matching_branch_end(steps, i):
     """從 branch_or 位置往後找所屬的 branch_end 索引 (深度感知)."""
     depth = 0
@@ -212,7 +229,7 @@ class Runner:
                         idx += 1
                         continue
                     self._step = (idx + 1, len(steps))
-                    sig = self._exec_step(idx + 1, step)
+                    sig = self._exec_step(steps, idx)
                     if sig == "break":
                         idx = self._break_out(idx, steps)
                         continue
@@ -244,7 +261,10 @@ class Runner:
             raise RuntimeError("絕對座標需要「搜尋範圍」當基準，請先框選搜尋範圍")
         return int(self.scan_region[0]), int(self.scan_region[1])
 
-    def _exec_step(self, no, step):
+    def _exec_step(self, steps, idx):
+        """執行 steps[idx]; 帶入清單與索引讓找圖步驟能現算「下一步」."""
+        step = steps[idx]
+        no = idx + 1  # 執行紀錄用的 1-based 步驟序號
         t = step.get("type")
         prev, self._prev_type = self._prev_type, t
         if t == "click":
@@ -301,7 +321,7 @@ class Runner:
             self._wait_yielding(ms / 1000.0)
 
         elif t == "find_click":
-            return self._exec_find(no, step)
+            return self._exec_find(steps, idx)
 
         elif t == "key":
             keys = step.get("keys", "")
@@ -436,7 +456,9 @@ class Runner:
         self.log(msg + " → 跳過", "warn")
         return None
 
-    def _exec_find(self, no, step):
+    def _exec_find(self, steps, idx):
+        step = steps[idx]
+        no = idx + 1
         name = step.get("template", "")
         timeout = float(step.get("timeout", 10))
         interval = float(step.get("interval", 0.5))
@@ -514,23 +536,45 @@ class Runner:
         if step.get("updateOrigin", True):
             self._last_click = (sx, sy)
         confirm = step.get("confirm", "none")
+        if confirm == "next" and not confirm_next_connected(steps, idx):
+            # 執行期防禦線: 理論上已被存檔與執行前檢查擋下, 退化成「不確認」
+            self.log(f"[{no}] 「點到下一步的圖出現」但下一步不是找圖步驟"
+                     "→ 以「不確認」執行（點一次就走）", "warn")
+            confirm = "none"
         if confirm == "none":
             self.log(f"[{no}] 找到「{name}」(相似度 {score:.3f}) → 點擊 ({sx}, {sy})", "ok")
             return
         # ---- 點擊後確認生效階段 ----
-        return self._confirm_click(no, step, name, region,
+        return self._confirm_click(steps, idx, confirm, name, region,
                                    off, button, clicks, timeout, interval, on_nf)
 
-    def _confirm_click(self, no, step, name, region,
+    def _confirm_click(self, steps, idx, mode, name, region,
                        off, button, clicks, timeout, interval, on_nf):
-        """點擊後重試直到「確認生效」: 目標圖消失(gone) 或 確認圖出現(appear).
+        """點擊後重試直到「確認生效」: 目標圖消失(gone)、確認圖出現(appear)
+        或下一步的圖出現(next)。
 
         沒生效 (目標圖還在) 就再點一次; 逾時仍未生效 → 依 onNotFound 處置。
         專治「圖找到也點了, 但畫面還在轉場/載入而吃不到點擊」的失效。
+        next 的確認對象依執行清單位置現算 (下一步的範本圖, 不記名)。
         """
-        mode = step.get("confirm")
-        cname = step.get("confirmTemplate", "")
-        label = "「{}」消失".format(name) if mode == "gone" else f"確認圖「{cname}」出現"
+        step = steps[idx]
+        no = idx + 1
+        # 各模式的措辭一次算齊 (等待中/已生效/逾時); 不用字串替換組完成語,
+        # 範本名本身含「出現」等字時會被改壞
+        fail = f"[{no}] 點擊「{name}」後 {timeout}s 內未確認生效"
+        if mode == "next":
+            cname = steps[idx + 1].get("template", "")
+            label = f"下一步的圖「{cname}」出現"
+            done = f"下一步的圖「{cname}」已出現"
+            kind = "下一步的"
+            fail = f"[{no}] 點擊「{name}」後 {timeout}s 內未見下一步的圖「{cname}」"
+        elif mode == "gone":
+            cname, kind = "", "範本"
+            label, done = f"「{name}」消失", f"「{name}」已消失"
+        else:  # appear
+            cname = step.get("confirmTemplate", "")
+            kind = "確認"
+            label, done = f"確認圖「{cname}」出現", f"確認圖「{cname}」已出現"
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")
         deadline = time.monotonic() + timeout
         while True:
@@ -542,12 +586,11 @@ class Runner:
             rt = self._query(no, name, screen)
             if mode == "gone":
                 if not rt.found:
-                    self.log(f"[{no}] 點擊已生效（「{name}」已消失）", "ok")
+                    self.log(f"[{no}] 點擊已生效（{done}）", "ok")
                     return
-            else:  # appear
-                if self._query(no, cname, screen, kind="確認").found:
-                    self.log(f"[{no}] 點擊已生效（確認圖「{cname}」已出現）", "ok")
-                    return
+            elif self._query(no, cname, screen, kind=kind).found:  # appear / next
+                self.log(f"[{no}] 點擊已生效（{done}）", "ok")
+                return
             # 尚未生效 → 目標圖還在就補點一次 (位置以最新一次查詢為準)
             if rt.found:
                 cx, cy = self._box_center(rt)
@@ -558,8 +601,7 @@ class Runner:
                     self._last_click = (sx, sy)
             if time.monotonic() >= deadline:
                 break
-        msg = f"[{no}] 點擊「{name}」後 {timeout}s 內未確認生效"
-        return self._on_not_found(no, msg, on_nf)
+        return self._on_not_found(no, fail, on_nf)
 
 
 def _btn_name(b):
