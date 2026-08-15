@@ -4,6 +4,24 @@
 遊戲無關:引擎只實作「怎麼找」,所有遊戲知識(模板庫、尺度、閾值)住在
 遊戲設定檔資料夾。詞彙表見 [CONTEXT.md](CONTEXT.md)。
 
+本 repo 另含自動化應用層 **AutoClick**(`app/`,Tkinter 桌面工具:流程編輯、
+截圖建範本、找圖點擊、F12 急停),辨識全面走本引擎(ADR 0002)。
+兩個 context 的對照見 [CONTEXT-MAP.md](CONTEXT-MAP.md)。
+
+## AutoClick 應用
+
+```bash
+.venv/Scripts/pip install -e .[app]        # 另需 mss / pynput
+.venv/Scripts/python app/app.py            # 從原始碼啟動 (用 repo 的 profiles/)
+```
+
+- 遊戲設定檔在 `profiles/<game>/`(範本庫 + flows + config);UI 可切換與建立。
+- 舊 autoClick 的 flow JSON 與 `.autoclickpack` 可由「讀檔」單向匯入;
+  「匯出」產生自包自足的新格式 pack(flow + 引用範本)。
+- 打包可攜版:`app\build.bat`(PyInstaller onedir,torch CPU 與 DINOv2 權重
+  隨包,目標機免 Python 免網路;交付物 = `app\dist\AutoClick\` 整個資料夾,
+  以系統管理員權限執行)。細節見 `app/CLAUDE.md`「建置與部署」。
+
 ## 安裝
 
 ```bash

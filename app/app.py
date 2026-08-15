@@ -18,7 +18,11 @@ from tkinter import filedialog, messagebox, ttk
 
 import profile_store
 
-if not getattr(sys, "frozen", False):
+if getattr(sys, "frozen", False):
+    # 打包版: DINOv2 hub 程式碼與權重隨包 (_internal/torch_home), 目標機
+    # 免網路免下載; 須在引擎載入驗證模型之前設定
+    os.environ.setdefault("TORCH_HOME", os.path.join(sys._MEIPASS, "torch_home"))
+else:
     # 原始碼執行時引擎在 repo 的 src/ 下 (未安裝進環境也能啟動)
     sys.path.insert(0, os.path.join(profile_store.data_root(), "src"))
 

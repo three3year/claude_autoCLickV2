@@ -35,9 +35,16 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 
 ## 建置與部署
 
-- 打包必須用 **onedir**，不要 onefile（onefile 啟動 4.6s，onedir 1.4s）
+- 打包：`app\build.bat`（PyInstaller onedir，spec 在 `app\AutoClick.spec`），
+  交付物＝整個 `app\dist\AutoClick\` 資料夾（目標機免 Python、免網路）。
+  打包必須用 **onedir**，不要 onefile（onefile 啟動 4.6s，onedir 1.4s）
+- torch CPU 與 DINOv2 隨包：spec 把本機 torch hub 快取（repo 程式碼＋權重）塞進
+  `_internal\torch_home\hub`，frozen 時 app.py 以 `TORCH_HOME` 指過去。
+  **打包前先從原始碼跑過一次 app**（讓 hub 快取存在，spec 會 assert）
 - exe 以系統管理員執行（`--uac-admin`，開啟時跳 UAC）——UIPI 限制：不以管理員執行時，
-  對較高權限視窗注入的滑鼠事件會被系統無聲丟棄；部署後的自動啟動測試會被 UAC 擋住，需使用者手動確認
+  對較高權限視窗注入的滑鼠事件會被系統無聲丟棄；部署後的自動啟動測試會被 UAC 擋住——
+  自動化冒煙改用同包的 `AutoClick-noUAC.exe`（共用 `_internal`；點擊會被高權限視窗
+  丟棄，不作正式使用）
 - 使用者資料＝`profiles/`（每個 profile 自帶 templates/flows/config），位置依 `sys.frozen`：
   exe 用 exe 旁的 `profiles/`＝使用者正式資料；從原始碼跑用 repo 根目錄的 `profiles/`
   （arknights 範本庫進版控；`flows/`、`registered/`、`_meta.json`、`app_state.json` 已 gitignore）
