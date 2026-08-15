@@ -461,7 +461,7 @@ class App:
         self.detector.profile = self.profile
 
     def switch_profile(self, name):
-        """切換 game profile: 流程清單、範本瀏覽器、引擎查詢對象一致跟隨."""
+        """切換 profile: 流程清單、範本瀏覽器、引擎查詢對象一致跟隨."""
         if name == self.profile_name:
             return
         if self.runner.status()["running"]:
@@ -470,13 +470,22 @@ class App:
             self.profile_cb.set(self.profile_name)
             return
         self._autosave()  # 先把目前流程存回原 profile
+        prev = (self.profile_name, self.profile_dir, self.profile)
         self.profile_name = name
         self.profile_dir = os.path.join(PROFILES_DIR, name)
-        profile_store.save_state(PROFILES_DIR, {"profile": name})
         try:
             self.reload_profile()
         except Exception as e:
-            messagebox.showerror("切換 profile", f"載入失敗: {e}", parent=self.root)
+            # 載入失敗就整組還原, 也不記錄狀態——否則瀏覽器/查詢對象指向
+            # 新 profile 的殘破狀態, 下次啟動還會直接踩同一個雷
+            self.profile_name, self.profile_dir, self.profile = prev
+            self.detector.profile = self.profile
+            self.profile_cb.set(self.profile_name)
+            messagebox.showerror("切換 profile",
+                                 f"載入失敗，維持原 profile：{e}",
+                                 parent=self.root)
+            return
+        profile_store.save_state(PROFILES_DIR, {"profile": name})
         self.profile_cb.set(name)
         self._tmpl_open.clear()
         self._collapsed.clear()
@@ -486,6 +495,19 @@ class App:
         self.render_steps()
         self.log_ui(f"已切換 profile →「{name}」"
                     f"（{len(self.profile.templates)} 個範本）", "ok")
+
+    def refresh_profile_ui(self):
+        """手動重新登錄範本庫: 使用者直接在檔案總管動過 templates/
+        (如把多張截圖整理成同名目錄變多截圖範本) 之後按這顆, 不必重啟."""
+        try:
+            self.reload_profile()
+        except Exception as e:
+            messagebox.showerror("重新整理", f"重新登錄失敗: {e}", parent=self.root)
+            return
+        self.refresh_templates()
+        self.render_steps()
+        self.log_ui(f"已重新登錄範本庫（{len(self.profile.templates)} 個範本）",
+                    "ok")
 
     def create_profile_ui(self):
         name = ui_dialogs.ask_string(self.root, "建立新 profile",
@@ -811,7 +833,8 @@ class App:
         tops = HScrollStrip(tp)
         tops.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(8, 0))
         for text, cmd in (("比對測試", self.test_template), ("複製", self.copy_template),
-                          ("＋資料夾", self.new_template_folder)):
+                          ("＋資料夾", self.new_template_folder),
+                          ("重新整理", self.refresh_profile_ui)):
             ttk.Button(tops.inner, text=text, style="Small.TButton",
                        command=cmd, takefocus=False).pack(side="left", padx=(0, 4))
 
@@ -1337,9 +1360,10 @@ class App:
         """範本截圖時的中心螢幕座標 [x, y]; 舊版建立的範本可能沒有, 回傳 None."""
         return self._load_meta()["pos"].get(name)
 
-    def _next_template_name(self):
+    def _next_template_name(self, taken=()):
+        """下一個未使用的自動命名; taken 補上本批次剛建立、尚未重載的名稱."""
         used = set()
-        for fn in self.list_template_names():
+        for fn in [*self.list_template_names(), *taken]:
             m = re.fullmatch(r"tmpl_(\d+)", fn.rsplit("/", 1)[-1])
             if m:
                 used.add(int(m.group(1)))
@@ -1394,24 +1418,20 @@ class App:
             parent=self.root, title="上傳圖片範本",
             filetypes=[("圖片檔", "*.png *.webp *.jpg *.jpeg *.bmp *.gif *.tif *.tiff"),
                        ("所有檔案", "*.*")])
-        added, seen = [], set(self.list_template_names())
+        added = []
         folder = self.current_folder()
         for p in paths:
             img = imgio.imread(p)  # IMREAD_UNCHANGED → 有 alpha 即 BGRA (imgio 已正規化)
             if img is None:
                 self.log_ui(f"讀不到圖片：{os.path.basename(p)}", "warn")
                 continue
-            # 迴圈內即時唯一 (profile 尚未重載, 以 seen 補計新加入的)
-            n = 1
-            while f"tmpl_{n:03d}" in {s.rsplit("/", 1)[-1] for s in seen}:
-                n += 1
-            name = f"{folder}/tmpl_{n:03d}" if folder else f"tmpl_{n:03d}"
+            leaf = self._next_template_name(taken=added)  # profile 尚未重載
+            name = f"{folder}/{leaf}" if folder else leaf
             dest = os.path.join(self.templates_dir, *name.split("/"),
-                                f"tmpl_{n:03d}.png")  # 目錄形式 (同 save_captured)
+                                leaf + ".png")  # 目錄形式 (同 save_captured)
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             imgio.imwrite(dest, img)
             added.append(name)
-            seen.add(name)
         if not added:
             return
         self.reload_profile()
@@ -1559,10 +1579,14 @@ class App:
             flowfmt.COORD_SPACE: flowfmt.REGION,
         }
 
+    def _log_notes(self, notes):
+        """把遷移提示寫進執行紀錄 (換算失敗的提示以警告等級顯示)."""
+        for note in notes:
+            self.log_ui(note, "warn" if "無法" in note else "info")
+
     def _apply_flow(self, data):
         # 舊存檔一律先遷移: 座標空間換算、範本名去副檔名、每步 threshold 丟棄
-        for note in flowpack.migrate_flow(data):
-            self.log_ui(note, "warn" if "無法" in note else "info")
+        self._log_notes(flowpack.migrate_flow(data))
         self.steps = data.get("steps", [])
         self.run_mode.set("直到停止" if data.get("runMode") == "infinite" else "執行次數")
         self.run_count.set(data.get("runCount", 1))
@@ -1617,8 +1641,7 @@ class App:
                 self.reload_profile()  # pack 補進的範本立即登錄
                 self.refresh_templates()
                 data = r["data"]
-                for note in r["notes"]:
-                    self.log_ui(note, "warn" if "無法" in note else "info")
+                self._log_notes(r["notes"])
                 msg = (f"已匯入流程包 {os.path.basename(path)} → "
                        f"{os.path.basename(r['flow_path'])}")
                 if r["added"]:
@@ -1635,8 +1658,7 @@ class App:
                     stem = os.path.splitext(os.path.basename(path))[0]
                     saved, data, notes = flowpack.import_flow_json(
                         path, self.profile_dir)
-                    for note in notes:
-                        self.log_ui(note, "warn" if "無法" in note else "info")
+                    self._log_notes(notes)
                     self.log_ui(f"已匯入流程 {stem} → "
                                 f"{os.path.basename(saved)}", "ok")
                 else:

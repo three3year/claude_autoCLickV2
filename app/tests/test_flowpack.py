@@ -190,6 +190,23 @@ def test_匯出只帶被引用的範本_多截圖目錄整包(tmp_path):
     assert pos == {"single": [1, 2]}, "meta 只帶被引用範本的位置"
 
 
+def test_匯出時舊平面格式meta的pos也帶得走(tmp_path):
+    a = make_profile(tmp_path, "a")
+    d = a / "templates" / "single"
+    d.mkdir()
+    (d / "single.png").write_bytes(b"S")
+    # 舊 autoClick 平面格式: 整份 meta 就是 name→[x,y]
+    (a / "templates" / "_meta.json").write_text(
+        json.dumps({"single": [3, 4]}), encoding="utf-8")
+    data = {"steps": [{"type": "find_click", "template": "single"}],
+            "coordSpace": "region"}
+    pack = tmp_path / "o.autoclickpack"
+    flowpack.export_pack(str(pack), str(a), data)
+    with zipfile.ZipFile(pack) as z:
+        pos = json.loads(z.read("templates/_meta.json"))["pos"]
+    assert pos == {"single": [3, 4]}
+
+
 def test_匯出缺範本時列出缺少者(tmp_path):
     a = make_profile(tmp_path, "a")
     data = {"steps": [{"type": "find_click", "template": "ghost"}],

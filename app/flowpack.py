@@ -95,23 +95,29 @@ def _has_template(templates_dir, name):
             or any(os.path.isfile(base + e) for e in _IMG_EXTS))
 
 
-def _merge_meta_pos(templates_dir, pos):
-    """把匯入範本的截圖位置補進 profile 的 _meta.json (不覆蓋既有記錄)."""
-    if not pos:
-        return
-    meta_path = os.path.join(templates_dir, "_meta.json")
+def _load_meta_pos(templates_dir):
+    """讀 profile _meta.json 的 pos 表 (舊平面格式 name→[x,y] 一併遷移)."""
     try:
-        with open(meta_path, encoding="utf-8") as f:
+        with open(os.path.join(templates_dir, "_meta.json"),
+                  encoding="utf-8") as f:
             meta = json.load(f)
     except (OSError, ValueError):
         meta = {}
     if meta and "pos" not in meta and "rot" not in meta:
         meta = {"pos": meta}  # 舊格式 (name→[x,y]) 遷移
-    cur = meta.get("pos", {})
+    return meta.get("pos", {})
+
+
+def _merge_meta_pos(templates_dir, pos):
+    """把匯入範本的截圖位置補進 profile 的 _meta.json (不覆蓋既有記錄)."""
+    if not pos:
+        return
+    cur = _load_meta_pos(templates_dir)
     for name, p in pos.items():
         cur.setdefault(name, p)
     os.makedirs(templates_dir, exist_ok=True)
-    with open(meta_path, "w", encoding="utf-8") as f:
+    with open(os.path.join(templates_dir, "_meta.json"), "w",
+              encoding="utf-8") as f:
         json.dump({"pos": cur}, f, ensure_ascii=False)  # rot (旋轉沿革) 即丟
 
 
@@ -188,11 +194,7 @@ def export_pack(path, profile_dir, data):
     if missing:
         raise ValueError("找不到範本：" + "、".join(missing))
 
-    meta_path = templates_root / "_meta.json"
-    try:
-        pos = json.loads(meta_path.read_text(encoding="utf-8")).get("pos", {})
-    except (OSError, ValueError):
-        pos = {}
+    pos = _load_meta_pos(str(templates_root))
     pos_out = {n: pos[n] for n in used if n in pos}
 
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:

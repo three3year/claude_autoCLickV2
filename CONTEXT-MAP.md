@@ -23,6 +23,11 @@
 
 ## 依賴方向
 
-自動化應用 → 主體偵測引擎（單向）。引擎不知道 app 存在；
-辨識接縫（runner 建構時注入的偵測器，`query(範本名, 搜尋區域) → QueryResult`）
-是唯一的整合點（見 ADR 0002；app 端實作為 `app.py` 的 `EngineDetector`）。
+自動化應用 → 主體偵測引擎（單向）。引擎不知道 app 存在。
+**辨識**只有一條路：runner 建構時注入的偵測器
+（`query(範本名, 搜尋區域) → QueryResult`，app 端實作為 `app.py` 的
+`EngineDetector`；見 ADR 0002），不允許第二條比對路徑。
+此外 app 也使用引擎的公開 API 做範本管理與顯示：`load_profile`（登錄）、
+`Profile.templates`／`Artifacts.ref_bgr`（瀏覽器清單與預覽）、
+`discover_templates`（匯入/匯出時列舉）、`QueryResult.debug`（比對測試的
+除錯分數，格式不承諾穩定）。
