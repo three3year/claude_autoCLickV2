@@ -116,12 +116,16 @@ def _snap_rect(tops, sx, sy):
     return None
 
 
-def _regrab(wnd, tries=15):
+def _regrab(wnd, tries=15, takeover=()):
     """把 grab 還給 wnd, 並守護一段時間.
 
     還原後的 Map / 視窗事件會重建預覽框等 Toplevel, 這會把剛設好的
     grab 打掉 (變 None), 所以要持續確認並補設, 不能只設一次.
     若其他 modal 視窗已合法接手 grab 則停止守護.
+
+    takeover: 允許從這些視窗手上接走 grab——疊在既有 modal 之上的新視窗
+    (如編輯對話框開的比對測試結果) 用它, 否則底下那層的守護迴圈先把 grab
+    搶回去時, 新視窗會誤判「別的 modal 已接手」而放棄, 使用者就點不到它.
     """
     try:
         if not wnd.winfo_exists():
@@ -130,10 +134,10 @@ def _regrab(wnd, tries=15):
             # 隱藏中 (截圖流程) 絕不能搶 grab: 隱形視窗握 grab 會讓整個
             # App 看起來卡死 (所有點擊被導向看不見的視窗). 稍後再試.
             if tries > 0:
-                wnd.after(100, lambda: _regrab(wnd, tries - 1))
+                wnd.after(100, lambda: _regrab(wnd, tries - 1, takeover))
             return
         cur = ui_theme.safe_grab_current(wnd)
-        if cur is None:
+        if cur is None or any(cur is t for t in takeover):
             try:
                 wnd.grab_set()
             except tk.TclError:
@@ -141,7 +145,7 @@ def _regrab(wnd, tries=15):
         elif cur is not wnd:
             return  # 別的 modal 已接手
         if tries > 0:
-            wnd.after(100, lambda: _regrab(wnd, tries - 1))
+            wnd.after(100, lambda: _regrab(wnd, tries - 1, takeover))
     except tk.TclError:
         pass
 

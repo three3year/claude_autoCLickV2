@@ -60,9 +60,11 @@ def _flash(dlg, times=2):
 def make_modal(dlg, prev=None):
     """讓 dlg 獨占互動; 點擊應用程式其他視窗時閃爍 dlg 提示.
 
-    prev: 上一層 modal 視窗, dlg 關閉後把 grab 還給它.
+    prev: 上一層 modal 視窗——dlg 疊在它上面 (可從它手上接走 grab,
+    否則 prev 的 grab 守護會先搶回、dlg 誤判讓位), 關閉後把 grab 還給它.
     """
-    ui_overlay._regrab(dlg)  # 視窗可能尚未 viewable, 需重試
+    # 視窗可能尚未 viewable, 需重試
+    ui_overlay._regrab(dlg, takeover=(prev,) if prev is not None else ())
 
     def on_press(e):
         # grab 生效時, 點在其他視窗的事件會轉送到本視窗, 座標會落在視窗範圍外
@@ -77,7 +79,9 @@ def make_modal(dlg, prev=None):
     if prev is not None:
         def restore(e):
             if e.widget is dlg and prev.winfo_exists():
-                ui_overlay._regrab(prev)
+                # Destroy 當下 dlg 可能還握著 grab, 要允許 prev 從它手上接走
+                # (否則 _regrab 誤判「別的 modal 已接手」放棄, grab 落空)
+                ui_overlay._regrab(prev, takeover=(dlg,))
         dlg.bind("<Destroy>", restore, add=True)
 
 
