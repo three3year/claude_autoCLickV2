@@ -1,5 +1,8 @@
-"""步驟編輯對話框與比對測試預覽視窗."""
-import os
+"""步驟編輯對話框與比對測試預覽視窗.
+
+辨識一律走 app 的引擎接縫 (app.detector.query); 匹配門檻屬 profile config,
+對話框不再有每步門檻欄位 (ADR 0002)。
+"""
 import time
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -8,8 +11,8 @@ import cv2
 
 import ui_overlay
 import ui_theme
-from automation import capture, imgio, matcher, win
-from ui_theme import C, FONT, FONT_MONO
+from automation import capture, win
+from ui_theme import C, FONT
 
 BTN_NAMES = [("left", "左鍵"), ("right", "右鍵"), ("middle", "中鍵")]
 BTN_ZH2KEY = {n: k for k, n in BTN_NAMES}
@@ -108,18 +111,6 @@ def _thumb_photo(master, img, bw=THUMB_W, bh=THUMB_H):
                          data=f"P6 {bw} {bh} 255 ".encode() + rgb.tobytes())
 
 
-def _scale_click_jump(scale):
-    """讓 ttk.Scale 點哪跳哪、按住拖曳即時跟隨 (預設點擊只逐步移動)."""
-    def jump(e):
-        w = e.widget
-        frm, to = float(w.cget("from")), float(w.cget("to"))
-        frac = min(1.0, max(0.0, e.x / max(1, w.winfo_width())))
-        w.set(frm + (to - frm) * frac)
-        return "break"
-    scale.bind("<ButtonPress-1>", jump)
-    scale.bind("<B1-Motion>", jump)
-
-
 def _check(parent, text, var, bg=None):
     """深色主題勾選框 (Label ☑/☐ 實作): ttk clam 的勾選記號長得像叉叉."""
     lbl = tk.Label(parent, bg=bg or C["panel"], fg=C["text"], font=FONT,
@@ -188,17 +179,18 @@ def _region_origin(app, parent):
 
 
 def _find_template_now(app, dlg, prev):
-    """隱藏視窗後在框選範圍內即時找一次 prev 的範本, 回傳中心座標或 None."""
-    tmpl = imgio.imread(os.path.join(app.templates_dir, prev.get("template", "")))
-    if tmpl is None:
+    """隱藏視窗後在框選範圍內即時查一次 prev 的範本, 回傳中心座標或 None."""
+    name = prev.get("template", "")
+    if name not in app.profile.templates:
         return None
     with ui_overlay.screen_clear(app.root, extra=(dlg,)):
         app.root.update()
         time.sleep(0.12)
         screen, org = capture.grab(getattr(app, "scan_region", None))
-    r = matcher.find_template(screen, tmpl, float(prev.get("threshold", 0.85)))
-    if r["found"]:
-        return org[0] + r["cx"], org[1] + r["cy"]
+    r = app.detector.query(name, screen)
+    if r.found:
+        x, y, w, h = r.box
+        return org[0] + x + w // 2, org[1] + y + h // 2
     return None
 
 
@@ -532,7 +524,6 @@ def edit_step(app, step):
 
     elif t == "find_click":
         v["template"] = tk.StringVar(value=step.get("template", ""))
-        v["threshold"] = tk.DoubleVar(value=step.get("threshold", 0.85))
         v["timeout"] = tk.DoubleVar(value=step.get("timeout", 10))
         v["interval"] = tk.DoubleVar(value=step.get("interval", 0.5))
         ACT_ZH = {"click": "點擊該圖片",
@@ -565,12 +556,12 @@ def edit_step(app, step):
         pv_lbl.pack(side="left")
 
         def cur_tmpl_img():
-            """目前選擇的範本影像 (暫存截圖或既有檔案), 無則 None."""
+            """目前選擇的範本影像 (暫存截圖或已登錄範本), 無則 None."""
             if v["template"].get() == PENDING:
                 return pending[0]["img"] if pending[0] else None
             nm = v["template"].get()
             if nm:
-                return imgio.imread(os.path.join(app.templates_dir, nm))
+                return app.template_image(nm)
             return None
 
         def update_preview(*_):
@@ -591,16 +582,6 @@ def edit_step(app, step):
         # 回到範本圖片列補上按鈕 (排版在 combobox 之後)
         ttk.Button(tmpl_cb.master, text="截圖新增", style="Accent.TButton",
                    command=new_tmpl).pack(side="left")
-
-        fr = add_row("相似門檻")
-        th_lbl = ttk.Label(fr, text=f"{v['threshold'].get():.2f}",
-                           style="Panel.TLabel", font=FONT_MONO, width=5)
-        th_sc = ttk.Scale(fr, variable=v["threshold"], from_=0.5, to=0.99, length=190,
-                          command=lambda _=None: th_lbl.configure(
-                              text=f"{v['threshold'].get():.2f}"))
-        th_sc.pack(side="left", padx=(0, 6))
-        _scale_click_jump(th_sc)  # 點哪跳哪
-        th_lbl.pack(side="left")
 
         fr = add_row("等待逾時")
         ttk.Spinbox(fr, textvariable=v["timeout"], from_=0, to=3600,
@@ -701,13 +682,22 @@ def edit_step(app, step):
             if not name:
                 messagebox.showwarning("測試", "請先選擇範本圖片", parent=dlg)
                 return
-            # 暫存截圖尚未存檔 → 直接以影像測試
-            img = pending[0]["img"] if (name == PENDING and pending[0]) else None
-            show_match_test(app, name, v["threshold"].get(), hide=(dlg,),
-                            tmpl_img=img)
+            if name == PENDING:
+                if pending[0] is None:
+                    messagebox.showwarning("測試", "請先選擇範本圖片", parent=dlg)
+                    return
+                # 引擎只查得到已登錄的範本 → 先存檔登錄再測
+                # (與確認圖同慣例: 即時存檔, 之後取消對話框範本仍會留下)
+                name = app.save_captured(pending[0])
+                pending[0] = None
+                v["template"].set(name)
+                tmpl_cb.configure(values=app.list_template_names())
+            show_match_test(app, name, hide=(dlg,))
 
         ttk.Button(fr, text="立即比對測試", style="Accent.TButton",
                    command=test_now).pack(side="left")
+        add_note("測試新截圖會先存為範本並自動登錄（門檻在 profile config，"
+                 "不在步驟上）")
 
     # ---- 確定 / 取消 ----
     foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
@@ -756,7 +746,6 @@ def edit_step(app, step):
                     raise ValueError("「點到確認圖出現」需選擇確認圖")
                 s.update(
                     template=v["template"].get(),
-                    threshold=round(v["threshold"].get(), 2),
                     timeout=v["timeout"].get(),
                     interval=max(0.1, v["interval"].get()),
                     action=action,
@@ -789,18 +778,28 @@ def edit_step(app, step):
     return result[0]
 
 
-def show_match_test(app, template_name, threshold, region=None, hide=(), delay=0.0,
-                    tmpl_img=None):
-    """隱藏視窗 → 截圖比對 → 顯示標註預覽.
+def _annotate_query(screen_bgr, box, score, ok):
+    """在畫面上框出引擎查詢的位置 (綠=通過, 紅=未達門檻), 回傳新影像."""
+    img = screen_bgr.copy()
+    if box is None:
+        return img
+    color = (0, 200, 60) if ok else (40, 40, 230)
+    x, y, w, h = box
+    cv2.rectangle(img, (x, y), (x + w, y + h), color, 3)
+    cv2.putText(img, f"{score:.3f}", (x, max(20, y - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2, cv2.LINE_AA)
+    return img
+
+
+def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
+    """隱藏視窗 → 截取搜尋範圍 → 引擎查詢 → 顯示 box 與分數的標註預覽.
 
     region: 限定搜尋範圍 [x,y,w,h]; None 則用 app.scan_region, 再無則全螢幕.
-    tmpl_img: 直接以影像測試 (對話框的暫存截圖尚未存檔時).
+    達標綠框 / 未達標紅框 (紅框為最接近的粗篩候選位置)。
     """
     root = app.root
-    tmpl = tmpl_img if tmpl_img is not None else imgio.imread(
-        os.path.join(app.templates_dir, template_name))
-    if tmpl is None:
-        messagebox.showerror("測試", f"讀不到範本圖片: {template_name}")
+    if template_name not in app.profile.templates:
+        messagebox.showerror("測試", f"範本不存在: {template_name}")
         return
 
     scan = region or getattr(app, "scan_region", None)
@@ -810,31 +809,46 @@ def show_match_test(app, template_name, threshold, region=None, hide=(), delay=0
         time.sleep(0.12 + delay)
         screen, origin = capture.grab(scan)
 
-    r = matcher.find_template(screen, tmpl, threshold)
-    annotated = matcher.annotate(screen, r, threshold)
+    r = app.detector.query(template_name, screen)
+    box = r.box
+    if box is None:  # 未達門檻: 用最接近的粗篩候選當紅框 (除錯線索)
+        cands = r.debug.get("candidates") or []
+        box = tuple(cands[0]["box"]) if cands else None
+    annotated = _annotate_query(screen, box, r.score, r.found)
 
     win_ = tk.Toplevel(root)
     win_.title("比對測試結果")
     win_.configure(bg=C["panel"])
     win_.transient(root)
 
-    if r["found"]:
-        cx, cy = origin[0] + r["cx"], origin[1] + r["cy"]
-        info = f"✔ 找到　相似度 {r['score']:.3f}　位置 ({cx}, {cy})"
+    cfg = app.profile.config
+    if r.found:
+        x, y, w, h = r.box
+        cx, cy = origin[0] + x + w // 2, origin[1] + y + h // 2
+        info = f"✔ 找到　分數 {r.score:.3f}　位置 ({cx}, {cy})"
         fg = C["accent"]
         # 上傳的範本原本沒有 pos → 用這次測到的位置補上, 供相對座標當備援原點
-        if (tmpl_img is None and template_name
-                and app.template_pos(template_name) is None):
+        if app.template_pos(template_name) is None:
             meta = app._load_meta()
             meta["pos"][template_name] = [cx, cy]
             app._save_meta(meta)
             app.log_ui(f"已記錄「{template_name}」位置 ({cx}, {cy})，可作相對座標原點", "ok")
-    else:
-        info = f"✘ 未達門檻 {threshold:.2f}　最高相似度 {r['score']:.3f}（紅框為最接近位置）"
+    elif box is not None:
+        info = f"✘ 未達門檻　分數 {r.score:.3f}（紅框為最接近的候選）"
         fg = C["danger"]
+    else:
+        info = f"✘ 沒有任何候選　分數 {r.score:.3f}"
+        fg = C["danger"]
+    # 兩階段各自的分數與門檻 (coarse-only 時沒有驗證分數)
+    d = r.debug
+    stages = f"　粗篩 {d.get('match_score', 0):.3f}/{cfg['match_threshold']}"
+    if "verify_score" in d:
+        stages += f"　驗證 {d['verify_score']:.3f}/{cfg['verify_threshold']}"
+    elif app.engine.coarse_only:
+        stages += "（coarse-only：驗證未啟用）"
     scope = f"　搜尋範圍：{tuple(scan)}" if scan else "　搜尋範圍：全螢幕"
-    tk.Label(win_, text=info + scope, bg=C["panel"], fg=fg, font=FONT).pack(
-        padx=12, pady=(12, 6))
+    tk.Label(win_, text=info + stages + scope, bg=C["panel"], fg=fg,
+             font=FONT).pack(padx=12, pady=(12, 6))
 
     h, w = annotated.shape[:2]
     scale = min(1.0, 1240.0 / w, 700.0 / h)

@@ -9,8 +9,10 @@
 
 設計要點:
 
-- 所有作業系統邊界 (螢幕擷取、範本比對、滑鼠鍵盤) 都以模組屬性替換,
-  沿用專案既有手法 (見 app/CLAUDE.md「測 runner 點擊邏輯時 monkeypatch
+- 偵測查詢走 runner 的偵測接縫 (建構時注入的 detector), 假件形狀＝引擎的
+  query(範本名, 搜尋區域) → QueryResult——這是全 repo 唯一的假件點。
+- 其餘作業系統邊界 (螢幕擷取、滑鼠鍵盤) 以模組屬性替換, 沿用專案既有手法
+  (見 app/CLAUDE.md「測 runner 點擊邏輯時 monkeypatch
   automation.runner.win.click」)。
 - 時間用虛擬時鐘, `等待` 不真的睡, 整份測試在數秒內跑完。
 - 斷言對象是「事件序列」——誰在什麼順序做了什麼——不是內部欄位。
@@ -21,10 +23,10 @@ import threading
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from subject_detection.engine import QueryResult  # noqa: E402
+
 from automation import runner as runner_mod  # noqa: E402
 from automation import stage as stage_mod  # noqa: E402
-
-TEMPLATES_DIR = os.path.join("C:", os.sep, "fake-templates")
 
 
 # ---------- 步驟建構器 ----------
@@ -90,24 +92,17 @@ class Clock:
         return "00:00:00"
 
 
-class Template:
-    """假範本: 只帶著正式名稱 (相對路徑), 供假的比對器查腳本."""
-
-    def __init__(self, name):
-        self.name = name
-
-
 class Screen:
-    """假畫面: 只帶著這次擷取的原點, 供假的比對器換算絕對座標."""
+    """假畫面: 只帶著這次擷取的原點, 供假的偵測器換算絕對座標."""
 
     def __init__(self, origin):
         self.origin = origin
 
 
 class Vision:
-    """假的螢幕擷取與範本比對.
+    """假的螢幕擷取與偵測查詢 (形狀＝引擎的 query, 回 QueryResult).
 
-    每個`範本`名稱可安排一串逐次結果, 一次比對消耗一項, 最後一項無限重複:
+    每個`範本`名稱可安排一串逐次結果, 一次查詢消耗一項, 最後一項無限重複:
 
         plan("a.png", [None, None, (500, 400)])  # 前兩次沒找到, 第三次起找到
 
@@ -123,43 +118,37 @@ class Vision:
         self._missing = set()
         self._lock = threading.Lock()
         self.grabs = []      # 每次擷取用的搜尋範圍
-        self.lookups = []    # 每次比對的範本名稱
+        self.lookups = []    # 每次查詢的範本名稱
 
     def plan(self, name, results):
         self._plans[name] = list(results)
         self._calls[name] = 0
 
     def missing(self, name):
-        """讓這個`範本`讀不到檔案 (模擬範本遺失)."""
+        """讓這個`範本`不存在於 profile (查詢丟 KeyError, 同引擎)."""
         self._missing.add(name)
 
-    # ---- 被替換進 automation.runner 的三個函式 ----
-    def imread(self, path):
-        name = _rel_name(path)
-        if name in self._missing:
-            return None
-        return Template(name)
-
+    # ---- 被替換進 automation.runner 的擷取函式 ----
     def grab(self, region=None):
         with self._lock:
             self.grabs.append(tuple(region) if region else None)
         origin = (int(region[0]), int(region[1])) if region else (0, 0)
         return Screen(origin), origin
 
-    def find_template(self, screen, tmpl, threshold=0.85):
-        name = tmpl.name
+    # ---- runner 的偵測查詢接縫 (同 Engine.query 的形狀) ----
+    def query(self, name, search_region):
+        if name in self._missing:
+            raise KeyError(f"unknown template: {name!r}")
         with self._lock:
             self.lookups.append(name)
             hit = self._next(name)
         w, h = self.size
         if hit is None:
-            return {"found": False, "score": 0.0, "x": 0, "y": 0,
-                    "w": w, "h": h, "cx": 0, "cy": 0}
-        ox, oy = screen.origin
-        return {"found": True, "score": 0.99,
-                "x": hit[0] - ox - w // 2, "y": hit[1] - oy - h // 2,
-                "w": w, "h": h,
-                "cx": hit[0] - ox, "cy": hit[1] - oy}
+            return QueryResult(found=False, box=None, score=0.0)
+        ox, oy = search_region.origin
+        return QueryResult(found=True, score=0.99,
+                           box=(hit[0] - ox - w // 2, hit[1] - oy - h // 2,
+                                w, h))
 
     def _next(self, name):
         if name not in self._plans:
@@ -250,9 +239,6 @@ class Harness:
         self.input = Input(self.events, self.lock)
         monkeypatch.setattr(runner_mod, "time", self.clock)
         monkeypatch.setattr(runner_mod.capture, "grab", self.vision.grab)
-        monkeypatch.setattr(runner_mod.matcher, "find_template",
-                            self.vision.find_template)
-        monkeypatch.setattr(runner_mod.imgio, "imread", self.vision.imread)
         for name in ("click", "drag", "press_keys", "move", "cursor_pos",
                      "virtual_screen"):
             monkeypatch.setattr(runner_mod.win, name, getattr(self.input, name))
@@ -262,7 +248,7 @@ class Harness:
         return self.stage
 
     def make_runner(self, stage=None):
-        return runner_mod.Runner(TEMPLATES_DIR, stage=stage)
+        return runner_mod.Runner(self.vision, stage=stage)
 
     def run(self, steps, timeout=10.0, stage=None, **kw):
         """跑完一份流程並回傳執行器 (已結束).
@@ -292,9 +278,3 @@ class Harness:
 
     def log_text(self, runner=None):
         return "\n".join(self.logs(runner))
-
-
-def _rel_name(path):
-    """從假的完整路徑取回`範本`的正式名稱 (相對路徑)."""
-    rel = os.path.relpath(path, TEMPLATES_DIR)
-    return rel.replace(os.sep, "/")

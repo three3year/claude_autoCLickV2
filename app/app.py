@@ -1,6 +1,8 @@
 """AutoClick — 按鍵精靈 (本機桌面版)
 
 核心: 找圖點擊 + 步驟序列自動執行, F12 急停.
+辨識走主體偵測引擎 (兩階段: 粗篩＋深度驗證); 匹配門檻由 profile config
+統一管理 (match_threshold / verify_threshold), 步驟層級沒有門檻 (ADR 0002)。
 """
 import json
 import os
@@ -8,31 +10,29 @@ import re
 import shutil
 import sys
 import time
+import warnings
 import zipfile
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
 
+import profile_store
+
+if not getattr(sys, "frozen", False):
+    # 原始碼執行時引擎在 repo 的 src/ 下 (未安裝進環境也能啟動)
+    sys.path.insert(0, os.path.join(profile_store.data_root(), "src"))
+
+import flowpack
 import ui_dialogs
 import ui_overlay
 import ui_theme
 from automation import flowfmt, hotkey, imgio, win
 from automation.runner import Runner, branch_layout
+from subject_detection.engine import Engine
 from ui_theme import C, FONT, FONT_MONO
 
-
-def base_dir():
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
-
-
-BASE = base_dir()
-TEMPLATES_DIR = os.path.join(BASE, "templates")
-FLOWS_DIR = os.path.join(BASE, "flows")
-AUTOSAVE = os.path.join(FLOWS_DIR, "_autosave.json")
-os.makedirs(TEMPLATES_DIR, exist_ok=True)
-os.makedirs(FLOWS_DIR, exist_ok=True)
+PROFILES_DIR = profile_store.profiles_root()
+DEFAULT_PROFILE = "arknights"
 
 STEP_LABELS = {
     "find_click": "找圖點擊",
@@ -94,7 +94,7 @@ def step_desc(s):
         ox, oy = int(s.get("offsetX", 0)), int(s.get("offsetY", 0))
         off = f"，偏移({ox:+d}, {oy:+d})" if ox or oy else ""
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
-        return (f"{s.get('template', '?')} ≥{s.get('threshold', 0.85)} → {act}{off}{cfm}{uo}"
+        return (f"{s.get('template', '?')} → {act}{off}{cfm}{uo}"
                 f"（逾時{s.get('timeout', 10)}s→{nf}）")
     if t == "drag":
         if s.get("mode", "abs") == "prev":
@@ -346,11 +346,24 @@ class SegListbox(tk.Text):
             self._apply_sel()
 
 
+class EngineDetector:
+    """runner 偵測查詢接縫的引擎實作: 綁定當前 profile.
+
+    切換/重載 profile 時只換 `profile` 屬性, runner 拿著同一個 detector
+    就永遠查到當前 profile。
+    """
+
+    def __init__(self, engine):
+        self.engine = engine
+        self.profile = None  # reload_profile 填入
+
+    def query(self, name, search_region):
+        return self.engine.query(self.profile, name, search_region)
+
+
 class App:
     def __init__(self, root):
         self.root = root
-        self.templates_dir = TEMPLATES_DIR
-        self.flows_dir = FLOWS_DIR
         self.steps = []
         self.last_seq = 0
         self.scan_region = None  # 全域搜尋範圍 [x,y,w,h]; None = 全螢幕
@@ -359,8 +372,32 @@ class App:
         self._root_shown = False  # 主視窗是否已首次顯示 (Map 過)
         self._collapsed = set()  # 已收合的區段起點 (以 step dict 的 id 記錄)
         self._view = []  # 清單列 → steps 索引的映射 (收合時兩者不一致)
-        self.runner = Runner(TEMPLATES_DIR)
+
+        # ---- 引擎: 啟動時建立一次, 驗證模型常駐 (失敗降級 coarse-only) ----
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            self.engine = Engine()
+        # 只留引擎自己發的警告 (torch 載入時的雜音不進執行紀錄)
+        self._engine_warns = [str(w.message) for w in caught
+                              if "subject_detection" in (w.filename or "")]
+        self.detector = EngineDetector(self.engine)
+        self.runner = Runner(self.detector)
         hotkey.start_stop_hotkey(self.stop_all)  # F12 = 全部停止
+
+        # ---- profile: 上次選用的 (無記錄用 arknights, 再無則建立) ----
+        state = profile_store.load_state(PROFILES_DIR)
+        names = profile_store.list_profiles(PROFILES_DIR)
+        name = state.get("profile")
+        if name not in names:
+            name = DEFAULT_PROFILE if DEFAULT_PROFILE in names else (
+                names[0] if names else None)
+        if name is None:
+            profile_store.create_profile(PROFILES_DIR, DEFAULT_PROFILE)
+            name = DEFAULT_PROFILE
+        self.profile_name = name
+        self.profile_dir = os.path.join(PROFILES_DIR, name)
+        self.profile = None
+        self.reload_profile()  # 自動登錄 (含首次啟動)
 
         root.title("AutoClick — 按鍵精靈")
         root.geometry("1120x700")
@@ -370,6 +407,18 @@ class App:
         self._build_menu()
         self._build_toolbar()
         self._build_main()
+
+        for msg in self._engine_warns:
+            self.log_ui(f"引擎警告: {msg}", "warn")
+        if self.engine.coarse_only:
+            self.log_ui("驗證模型未載入 → 降級為 coarse-only（僅粗篩，精度較低）",
+                        "warn")
+            root.after(400, lambda: messagebox.showwarning(
+                "引擎降級", "驗證模型載入失敗，找圖只跑粗篩（coarse-only），"
+                "精度較低。\n請檢查 torch 與模型權重是否完整。",
+                parent=root))
+        self.log_ui(f"引擎就緒　profile: {self.profile_name}"
+                    f"（{len(self.profile.templates)} 個範本）", "ok")
 
         self._load_autosave()
         self.refresh_templates()
@@ -388,6 +437,67 @@ class App:
         self._win_hook = win.watch_window_changes(self._schedule_cover_check)
         self._poll()
 
+    # ================= profile =================
+
+    @property
+    def templates_dir(self):
+        return os.path.join(self.profile_dir, "templates")
+
+    @property
+    def flows_dir(self):
+        return os.path.join(self.profile_dir, "flows")
+
+    @property
+    def autosave_path(self):
+        return os.path.join(self.flows_dir, "_autosave.json")
+
+    def reload_profile(self):
+        """載入 (或重新登錄) 當前 profile: 新增/修改範本後呼叫即自動重登錄."""
+        self.profile = self.engine.load_profile(self.profile_dir)
+        self.detector.profile = self.profile
+
+    def switch_profile(self, name):
+        """切換 game profile: 流程清單、範本瀏覽器、引擎查詢對象一致跟隨."""
+        if name == self.profile_name:
+            return
+        if self.runner.status()["running"]:
+            messagebox.showwarning("切換 profile", "流程執行中，請先停止再切換",
+                                   parent=self.root)
+            self.profile_cb.set(self.profile_name)
+            return
+        self._autosave()  # 先把目前流程存回原 profile
+        self.profile_name = name
+        self.profile_dir = os.path.join(PROFILES_DIR, name)
+        profile_store.save_state(PROFILES_DIR, {"profile": name})
+        try:
+            self.reload_profile()
+        except Exception as e:
+            messagebox.showerror("切換 profile", f"載入失敗: {e}", parent=self.root)
+        self.profile_cb.set(name)
+        self._tmpl_open.clear()
+        self._collapsed.clear()
+        self._apply_flow({"steps": [], flowfmt.COORD_SPACE: flowfmt.REGION})
+        self._load_autosave()  # 該 profile 的流程草稿隨 profile 走
+        self.refresh_templates()
+        self.render_steps()
+        self.log_ui(f"已切換 profile →「{name}」"
+                    f"（{len(self.profile.templates)} 個範本）", "ok")
+
+    def create_profile_ui(self):
+        name = ui_dialogs.ask_string(self.root, "建立新 profile",
+                                     "輸入新 profile 名稱（一個遊戲一個）：")
+        if name is None:
+            return
+        try:
+            profile_store.create_profile(PROFILES_DIR, name.strip())
+        except ValueError as e:
+            messagebox.showwarning("建立 profile", str(e), parent=self.root)
+            return
+        self.profile_cb.configure(
+            values=profile_store.list_profiles(PROFILES_DIR))
+        self.switch_profile(name.strip())
+        self.log_ui(f"已建立 profile「{name.strip()}」（預設 config 已帶入）", "ok")
+
     # ================= UI 建構 =================
 
     def _build_menu(self):
@@ -396,10 +506,10 @@ class App:
         # 工作列直接放指令 (不用下拉選單); 存檔/讀檔走步驟面板按鈕
         menubar = tk.Menu(self.root, **kw)
         menubar.add_command(label="開啟資料夾",
-                            command=lambda: os.startfile(BASE))
+                            command=lambda: os.startfile(self.profile_dir))
         self.root.configure(menu=menubar)
-        self.root.bind("<Control-s>", lambda e: self.export_pack())
-        self.root.bind("<Control-o>", lambda e: self.import_pack())
+        self.root.bind("<Control-s>", lambda e: self.save_flow())
+        self.root.bind("<Control-o>", lambda e: self.open_flow())
 
     def _build_toolbar(self):
         bar = ttk.Frame(self.root, padding=(12, 8))
@@ -436,7 +546,7 @@ class App:
 
         ttk.Label(bar, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
 
-        # 第二列: 全域搜尋範圍
+        # 第二列: 全域搜尋範圍 + game profile 切換
         bar2 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         bar2.pack(fill="x")
         ttk.Label(bar2, text="搜尋範圍").pack(side="left")
@@ -447,6 +557,17 @@ class App:
         ttk.Button(bar2, text="清除", command=self.clear_scan_region).pack(side="left")
         ttk.Label(bar2, text="（所有找圖步驟與比對測試都只在此範圍內找圖）",
                   foreground=C["muted"]).pack(side="left", padx=(12, 0))
+
+        ttk.Button(bar2, text="＋建立", style="Small.TButton", takefocus=False,
+                   command=self.create_profile_ui).pack(side="right")
+        self.profile_cb = ttk.Combobox(
+            bar2, width=14, state="readonly",
+            values=profile_store.list_profiles(PROFILES_DIR))
+        self.profile_cb.set(self.profile_name)
+        self.profile_cb.bind("<<ComboboxSelected>>",
+                             lambda e: self.switch_profile(self.profile_cb.get()))
+        self.profile_cb.pack(side="right", padx=(6, 6))
+        ttk.Label(bar2, text="Profile").pack(side="right")
 
     def _mode_ui(self):
         state = "normal" if self.run_mode.get() == "執行次數" else "disabled"
@@ -581,7 +702,8 @@ class App:
         # 存檔/讀檔/清除: 小按鈕放進橫向捲動列, 窄視窗時縮小、滾輪捲動找到
         strip = HScrollStrip(head)
         strip.pack(side="left", fill="x", expand=True, padx=(8, 6))
-        for text, cmd in (("存檔", self.export_pack), ("讀檔", self.import_pack),
+        for text, cmd in (("存檔", self.save_flow), ("讀檔", self.open_flow),
+                          ("匯出", self.export_pack),
                           ("清除", self.clear_steps),
                           ("測試選取", self.test_selected_steps)):
             ttk.Button(strip.inner, text=text, style="Small.TButton",
@@ -815,7 +937,7 @@ class App:
             "click": {"type": "click", "x": 500, "y": 400, "button": "left", "clicks": 1},
             "drag": {"type": "drag", "x1": 400, "y1": 300, "x2": 600, "y2": 400,
                      "button": "left", "ms": 500, "holdMs": 500},
-            "find_click": {"type": "find_click", "template": "", "threshold": 0.85,
+            "find_click": {"type": "find_click", "template": "",
                            "timeout": 10, "interval": 0.5, "action": "click",
                            "button": "left", "clicks": 1, "offsetX": 0, "offsetY": 0,
                            "onNotFound": "skip"},
@@ -1028,25 +1150,39 @@ class App:
         self.render_steps(keep=j)
 
     # ================= 範本操作 =================
+    # 範本正式名稱＝引擎範本名: 相對路徑、不含副檔名 (如 cn/V)。
+    # 單檔範本 = <name>.png 檔; 多截圖範本 = <name>/ 目錄 (內含多張截圖,
+    # 手動整理進目錄後 reload_profile 會自動重新登錄成多截圖範本)。
 
     def list_template_names(self):
-        """所有範本的相對名稱 (含子資料夾, 如 zh/X.png)."""
-        out = []
-        for base, dirs, files in os.walk(TEMPLATES_DIR):
-            rel = os.path.relpath(base, TEMPLATES_DIR)
-            for fn in files:
-                if fn.lower().endswith(".png"):
-                    out.append(fn if rel == "." else
-                               f"{rel}/{fn}".replace(os.sep, "/"))
-        return sorted(out)
+        """所有範本名 (引擎已發現的, 含單檔與多截圖目錄)."""
+        return sorted(self.profile.templates)
+
+    def template_image(self, name):
+        """範本的參考影像 (多截圖取登錄基準張); 不存在回傳 None."""
+        t = self.profile.templates.get(name)
+        if t is None:
+            return None
+        if t.artifacts is not None:
+            return t.artifacts.ref_bgr
+        return imgio.imread(str(t.capture_paths[0]))
+
+    def _is_multi(self, name):
+        """此範本是否為多截圖範本目錄."""
+        return os.path.isdir(os.path.join(self.templates_dir,
+                                          *name.split("/")))
 
     def template_folders(self):
-        """templates 下的子資料夾相對路徑."""
+        """templates 下的「命名空間資料夾」(多截圖範本目錄本身不算資料夾)."""
         out = []
-        for base, dirs, _files in os.walk(TEMPLATES_DIR):
-            for d in dirs:
-                p = os.path.relpath(os.path.join(base, d), TEMPLATES_DIR)
-                out.append(p.replace(os.sep, "/"))
+        for base, dirs, _files in os.walk(self.templates_dir):
+            for d in list(dirs):
+                p = os.path.relpath(os.path.join(base, d),
+                                    self.templates_dir).replace(os.sep, "/")
+                if p in self.profile.templates:
+                    dirs.remove(d)  # 多截圖範本目錄: 是範本, 不往下走
+                else:
+                    out.append(p)
         return sorted(out)
 
     def current_folder(self):
@@ -1067,7 +1203,7 @@ class App:
         if not name:
             return
         path = f"{parent}/{name}" if parent else name
-        os.makedirs(os.path.join(TEMPLATES_DIR, path), exist_ok=True)
+        os.makedirs(os.path.join(self.templates_dir, path), exist_ok=True)
         self._open_ancestors(path + "/x")  # 展開父層鏈 (借用檔案路徑形式)
         self.refresh_templates()
         self._select_tmpl_row(("dir", path))
@@ -1116,7 +1252,9 @@ class App:
                 if d in self._tmpl_open:
                     emit(d, depth + 1)
             for n in files:
-                lines.append(f" {ind}　🖼 {n.rsplit('/', 1)[-1]}")
+                caps = len(self.profile.templates[n].capture_paths)
+                tail = f"（{caps} 張）" if caps > 1 else ""
+                lines.append(f" {ind}　🖼 {n.rsplit('/', 1)[-1]}{tail}")
                 rows.append(("file", n))
 
         emit("", 0)
@@ -1154,21 +1292,25 @@ class App:
 
     def _show_thumb(self):
         name = self._sel_template()
-        img = imgio.imread(os.path.join(TEMPLATES_DIR, name)) if name else None
+        img = self.template_image(name) if name else None
         # 固定尺寸底圖: 預覽框不隨範本大小忽大忽小
         photo = ui_dialogs._thumb_photo(self.root, img)
         self.thumb_lbl.configure(image=photo, text="")
         self.thumb_lbl._photo = photo
         if img is not None:
-            self.thumb_info.configure(text=f"{name}　{img.shape[1]}×{img.shape[0]}px")
+            caps = len(self.profile.templates[name].capture_paths)
+            tail = f"　{caps} 張截圖" if caps > 1 else ""
+            self.thumb_info.configure(
+                text=f"{name}　{img.shape[1]}×{img.shape[0]}px{tail}")
         else:
             self.thumb_info.configure(text=name if name else "")
 
     # ---- 範本中繼資料 ----
     # pos: 截圖當下的中心螢幕座標 (相對座標預設原點備援)
+    # 鍵＝範本名 (不含副檔名); 呼叫端知識, 引擎不讀 (見 ADR 0002)
 
     def _meta_path(self):
-        return os.path.join(TEMPLATES_DIR, "_meta.json")
+        return os.path.join(self.templates_dir, "_meta.json")
 
     def _load_meta(self):
         try:
@@ -1194,13 +1336,13 @@ class App:
     def _next_template_name(self):
         used = set()
         for fn in self.list_template_names():
-            m = re.fullmatch(r"tmpl_(\d+)\.png", fn.rsplit("/", 1)[-1])
+            m = re.fullmatch(r"tmpl_(\d+)", fn.rsplit("/", 1)[-1])
             if m:
                 used.add(int(m.group(1)))
         n = 1
         while n in used:
             n += 1
-        return f"tmpl_{n:03d}.png"
+        return f"tmpl_{n:03d}"
 
     def pick_region_raw(self, hide=()):
         """框選一個區域, 回傳原始截圖資料「不存檔」(供對話框確定後才儲存)."""
@@ -1208,17 +1350,24 @@ class App:
                                hide=hide)
 
     def save_captured(self, r):
-        """把 pick_region_raw 的結果存成新範本 (存進目前資料夾), 回傳檔名."""
+        """把 pick_region_raw 的結果存成新單截圖範本並自動登錄, 回傳範本名.
+
+        以目錄形式落地 (<name>/<name>.png): 資料夾內只有影像檔會被引擎當成
+        「一個」多截圖範本, 目錄形式避開歧義, 之後把更多截圖丟進同一目錄
+        即自動重登錄成多截圖範本。
+        """
         folder = self.current_folder()
         name = self._next_template_name()
         if folder:
             name = f"{folder}/{name}"
-        dest = os.path.join(TEMPLATES_DIR, name)
+        leaf = name.rsplit("/", 1)[-1]
+        dest = os.path.join(self.templates_dir, *name.split("/"), leaf + ".png")
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         imgio.imwrite(dest, r["img"])
         meta = self._load_meta()
         meta["pos"][name] = [r["screenX"] + r["w"] // 2, r["screenY"] + r["h"] // 2]
         self._save_meta(meta)
+        self.reload_profile()  # 新範本立即登錄, 不需手動步驟
         self.refresh_templates()
         self.log_ui(f"已新增範本「{name}」({r['w']}×{r['h']})", "ok")
         return name
@@ -1231,39 +1380,56 @@ class App:
         return self.save_captured(r)
 
     def upload_template(self):
-        """從硬碟上傳圖片存為範本 (可多選); 有透明度 (alpha) 一律保留.
+        """從硬碟上傳圖片存為範本 (可多選).
 
-        一律重新編碼成 tmpl_NNN.png (PNG 保留 alpha); 上傳的範本沒有螢幕座標,
-        不寫入 meta['pos'] (相對座標原點只能靠即時找圖或往前推). 帶 alpha 的
-        範本比對時只算不透明區 (matcher 用 alpha 當遮罩)。
+        一律重新編碼成 tmpl_NNN.png; 上傳的範本沒有螢幕座標, 不寫入
+        meta['pos'] (相對座標原點只能靠即時找圖或往前推)。引擎登錄時
+        以遮罩決定有效區域, 不看 alpha (透明區照存, 只影響預覽)。
         """
         paths = filedialog.askopenfilenames(
             parent=self.root, title="上傳圖片範本",
             filetypes=[("圖片檔", "*.png *.webp *.jpg *.jpeg *.bmp *.gif *.tif *.tiff"),
                        ("所有檔案", "*.*")])
-        added, alpha_cnt = [], 0
+        added, seen = [], set(self.list_template_names())
+        folder = self.current_folder()
         for p in paths:
             img = imgio.imread(p)  # IMREAD_UNCHANGED → 有 alpha 即 BGRA (imgio 已正規化)
             if img is None:
                 self.log_ui(f"讀不到圖片：{os.path.basename(p)}", "warn")
                 continue
-            name = self._next_template_name()  # 讀磁碟計算, 迴圈內即時唯一
-            folder = self.current_folder()
-            if folder:
-                name = f"{folder}/{name}"
-            dest = os.path.join(TEMPLATES_DIR, name)
+            # 迴圈內即時唯一 (profile 尚未重載, 以 seen 補計新加入的)
+            n = 1
+            while f"tmpl_{n:03d}" in {s.rsplit("/", 1)[-1] for s in seen}:
+                n += 1
+            name = f"{folder}/tmpl_{n:03d}" if folder else f"tmpl_{n:03d}"
+            dest = os.path.join(self.templates_dir, *name.split("/"),
+                                f"tmpl_{n:03d}.png")  # 目錄形式 (同 save_captured)
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             imgio.imwrite(dest, img)
             added.append(name)
-            if img.ndim == 3 and img.shape[2] == 4:
-                alpha_cnt += 1
+            seen.add(name)
         if not added:
             return
+        self.reload_profile()
         self._open_ancestors(added[-1])
         self.refresh_templates()
         self._select_tmpl_row(("file", added[-1]))  # 選取最後上傳的一張
-        tail = f"（{alpha_cnt} 張含透明度）" if alpha_cnt else ""
-        self.log_ui(f"已上傳 {len(added)} 張範本{tail}：{', '.join(added)}", "ok")
+        self.log_ui(f"已上傳 {len(added)} 張範本：{', '.join(added)}", "ok")
+
+    def _template_disk_path(self, name):
+        """範本在磁碟上的實體路徑: 多截圖範本目錄或單檔 (依實際副檔名)."""
+        base = os.path.join(self.templates_dir, *name.split("/"))
+        if os.path.isdir(base):
+            return base
+        t = self.profile.templates.get(name)
+        if t is not None and t.capture_paths:
+            return str(t.capture_paths[0])
+        return base + ".png"
+
+    def _drop_registered(self, name):
+        """丟棄改名/刪除範本的登錄產物 (留著只是佔空間, 重建很便宜)."""
+        shutil.rmtree(os.path.join(self.profile_dir, "registered",
+                                   *name.split("/")), ignore_errors=True)
 
     def rename_template(self):
         old = self._sel_template()
@@ -1272,23 +1438,21 @@ class App:
             return
         new = ui_dialogs.ask_string(
             self.root, "重新命名", "輸入新名稱（可含資料夾，如 zh/按鈕）：",
-            initialvalue=os.path.splitext(old)[0])
+            initialvalue=old)
         if new is None:
             return
         new = clean_rel_name(new)
-        if not new:
+        if not new or new == old:
             return
-        if not new.lower().endswith(".png"):
-            new += ".png"
-        if new == old:
-            return
-        if os.path.exists(os.path.join(TEMPLATES_DIR, new)):
+        if new in self.profile.templates:
             messagebox.showwarning("重新命名", f"「{new}」已存在", parent=self.root)
             return
-        os.makedirs(os.path.dirname(os.path.join(TEMPLATES_DIR, new)),
-                    exist_ok=True)
-        os.rename(os.path.join(TEMPLATES_DIR, old),
-                  os.path.join(TEMPLATES_DIR, new))
+        src = self._template_disk_path(old)
+        ext = "" if os.path.isdir(src) else os.path.splitext(src)[1]
+        dst = os.path.join(self.templates_dir, *new.split("/")) + ext
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        os.rename(src, dst)
+        self._drop_registered(old)
         meta = self._load_meta()
         if old in meta["pos"]:
             meta["pos"][new] = meta["pos"].pop(old)
@@ -1302,6 +1466,7 @@ class App:
             if s.get("confirmTemplate") == old:
                 s["confirmTemplate"] = new
                 changed += 1
+        self.reload_profile()
         self.refresh_templates()
         self.render_steps()
         msg = f"已將「{old}」重新命名為「{new}」"
@@ -1321,10 +1486,16 @@ class App:
                 f"刪除範本「{name}」？\n（步驟 {', '.join(map(str, used))} 正在使用它）",
                 parent=self.root):
             return
-        os.remove(os.path.join(TEMPLATES_DIR, name))
+        path = self._template_disk_path(name)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+        self._drop_registered(name)
         meta = self._load_meta()
         meta["pos"].pop(name, None)
         self._save_meta(meta)
+        self.reload_profile()
         self.refresh_templates()
 
     def test_template(self):
@@ -1332,37 +1503,45 @@ class App:
         if not name:
             messagebox.showinfo("比對測試", "請先在清單選擇一個範本", parent=self.root)
             return
-        ui_dialogs.show_match_test(self, name, 0.85)
+        ui_dialogs.show_match_test(self, name)
 
     def copy_template(self):
-        """複製選取的範本為新範本 (連同截圖位置記錄), 命名為原檔名_N."""
+        """複製選取的範本為新範本 (連同截圖位置記錄), 命名為原名_N."""
         name = self._sel_template()
         if not name:
             messagebox.showinfo("複製", "請先在清單選擇一個範本", parent=self.root)
             return
         new = self._free_name(name)
-        shutil.copyfile(os.path.join(TEMPLATES_DIR, name),
-                        os.path.join(TEMPLATES_DIR, new))
+        src = self._template_disk_path(name)
+        if os.path.isdir(src):
+            shutil.copytree(src, os.path.join(self.templates_dir,
+                                              *new.split("/")))
+        else:  # 單檔 → 目錄形式落地 (同 save_captured, 避開資料夾歧義)
+            leaf = new.rsplit("/", 1)[-1]
+            dst = os.path.join(self.templates_dir, *new.split("/"),
+                               leaf + os.path.splitext(src)[1])
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copyfile(src, dst)
         meta = self._load_meta()
         if name in meta["pos"]:
             meta["pos"][new] = list(meta["pos"][name])
         self._save_meta(meta)
+        self.reload_profile()
         self._open_ancestors(new)
         self.refresh_templates()
         self._select_tmpl_row(("file", new))  # 選取新複製的範本
         self.log_ui(f"已複製「{name}」→「{new}」", "ok")
 
     def _free_name(self, name):
-        """以 name 為基底找未使用的檔名: 末端已是 _數字則遞增 (保留補零位數)."""
-        base = os.path.splitext(name)[0]
-        m = re.fullmatch(r"(.*)_(\d+)", base)
+        """以 name 為基底找未使用的範本名: 末端已是 _數字則遞增 (保留補零位數)."""
+        m = re.fullmatch(r"(.*)_(\d+)", name)
         if m:
             stem, width, n = m.group(1), len(m.group(2)), int(m.group(2)) + 1
         else:
-            stem, width, n = base, 1, 1
-        while os.path.exists(os.path.join(TEMPLATES_DIR, f"{stem}_{n:0{width}d}.png")):
+            stem, width, n = name, 1, 1
+        while f"{stem}_{n:0{width}d}" in self.profile.templates:
             n += 1
-        return f"{stem}_{n:0{width}d}.png"
+        return f"{stem}_{n:0{width}d}"
 
     # ================= 流程存檔 =================
 
@@ -1377,9 +1556,8 @@ class App:
         }
 
     def _apply_flow(self, data):
-        # 舊存檔的絕對座標是螢幕座標, 讀進來要換算成範圍座標 (見 automation/flowfmt)
-        note = flowfmt.to_region_space(data)
-        if note:
+        # 舊存檔一律先遷移: 座標空間換算、範本名去副檔名、每步 threshold 丟棄
+        for note in flowpack.migrate_flow(data):
             self.log_ui(note, "warn" if "無法" in note else "info")
         self.steps = data.get("steps", [])
         self.run_mode.set("直到停止" if data.get("runMode") == "infinite" else "執行次數")
@@ -1395,121 +1573,106 @@ class App:
         self.render_steps()
         self._update_region_preview()
 
-    # ---- 流程包: 流程 + 用到的範本 (含中繼資料) 打包成單一檔, 供跨電腦搬遷 ----
+    # ---- 流程存檔在所屬 profile 的 flows/ 之下; pack 供跨機器/跨 profile 搬遷 ----
 
-    def _used_templates(self):
-        """步驟引用的所有範本 (含「點擊後確認」的確認圖)."""
-        used = set()
-        for s in self.steps:
-            if s.get("type") == "find_click" and s.get("template"):
-                used.add(s["template"])
-            if s.get("confirm") == "appear" and s.get("confirmTemplate"):
-                used.add(s["confirmTemplate"])
-        return sorted(used)
-
-    def export_pack(self):
-        """儲存流程 (唯一格式: 流程包 zip, 含引用的範本圖與中繼資料)."""
+    def save_flow(self):
+        """把目前流程以新格式 JSON 存進當前 profile 的 flows/."""
         if not self.steps:
             messagebox.showinfo("儲存流程", "沒有步驟可儲存", parent=self.root)
             return
-        used = self._used_templates()
-        missing = [n for n in used
-                   if not os.path.exists(os.path.join(TEMPLATES_DIR, n))]
-        if missing:
-            messagebox.showwarning("儲存流程",
-                                   "以下範本不存在，無法儲存：\n" + "\n".join(missing),
-                                   parent=self.root)
+        os.makedirs(self.flows_dir, exist_ok=True)
+        path = filedialog.asksaveasfilename(
+            parent=self.root, title="儲存流程", initialdir=self.flows_dir,
+            defaultextension=".json",
+            filetypes=[("AutoClick 流程", "*.json")])
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self._flow_data(), f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            messagebox.showerror("儲存流程", f"儲存失敗: {e}", parent=self.root)
+            return
+        self.log_ui(f"已儲存流程 {os.path.basename(path)}", "ok")
+
+    def open_flow(self):
+        """載入流程: 本 profile 的流程 JSON、舊版 flow JSON、或流程包 (zip).
+
+        pack 與 flows/ 之外的 JSON 走匯入 (存副本進當前 profile 的 flows/,
+        pack 另補缺少的範本圖); flows/ 內的 JSON 直接載入。
+        """
+        path = filedialog.askopenfilename(
+            parent=self.root, title="載入流程", initialdir=self.flows_dir,
+            filetypes=[("AutoClick 流程", "*.json *.autoclickpack *.autoclick"),
+                       ("所有檔案", "*.*")])
+        if not path:
+            return
+        try:
+            if zipfile.is_zipfile(path):
+                r = flowpack.import_pack(path, self.profile_dir)
+                self.reload_profile()  # pack 補進的範本立即登錄
+                self.refresh_templates()
+                data = r["data"]
+                for note in r["notes"]:
+                    self.log_ui(note, "warn" if "無法" in note else "info")
+                msg = (f"已匯入流程包 {os.path.basename(path)} → "
+                       f"{os.path.basename(r['flow_path'])}")
+                if r["added"]:
+                    msg += f"；補進 {len(r['added'])} 個範本"
+                if r["skipped"]:
+                    msg += f"；{len(r['skipped'])} 個範本已存在（未覆蓋）"
+                self.log_ui(msg, "ok")
+            else:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                inside = (os.path.normcase(os.path.dirname(os.path.abspath(path)))
+                          == os.path.normcase(os.path.abspath(self.flows_dir)))
+                if not inside:  # 外來 JSON = 匯入: 遷移後存副本進 flows/
+                    stem = os.path.splitext(os.path.basename(path))[0]
+                    saved, data, notes = flowpack.import_flow_json(
+                        path, self.profile_dir)
+                    for note in notes:
+                        self.log_ui(note, "warn" if "無法" in note else "info")
+                    self.log_ui(f"已匯入流程 {stem} → "
+                                f"{os.path.basename(saved)}", "ok")
+                else:
+                    self.log_ui(f"已載入流程 {os.path.basename(path)}", "ok")
+            self._apply_flow(data)
+        except Exception as e:
+            messagebox.showerror("載入流程", f"載入失敗: {e}", parent=self.root)
+
+    def export_pack(self):
+        """匯出流程包: flow + 引用的範本 (含多截圖範本目錄), 自包自足."""
+        if not self.steps:
+            messagebox.showinfo("匯出流程包", "沒有步驟可匯出", parent=self.root)
             return
         path = filedialog.asksaveasfilename(
-            parent=self.root, title="儲存流程（含範本）", initialdir=FLOWS_DIR,
+            parent=self.root, title="匯出流程包（含範本）",
+            initialdir=self.flows_dir,
             defaultextension=".autoclickpack",
             filetypes=[("AutoClick 流程包", "*.autoclickpack")])
         if not path:
             return
-        meta = self._load_meta()
-        pmeta = {"pos": {n: meta["pos"][n] for n in used if n in meta["pos"]}}
-        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
-            z.writestr("flow.json",
-                       json.dumps(self._flow_data(), ensure_ascii=False, indent=2))
-            z.writestr("templates/_meta.json",
-                       json.dumps(pmeta, ensure_ascii=False))
-            for n in used:
-                z.write(os.path.join(TEMPLATES_DIR, n), f"templates/{n}")
-        self.log_ui(f"已儲存流程 {os.path.basename(path)}（含 {len(used)} 個範本）", "ok")
-
-    def import_pack(self):
-        """載入流程: 流程包 (zip) 或舊版純 JSON 流程 (.autoclick/.json)."""
-        path = filedialog.askopenfilename(
-            parent=self.root, title="載入流程", initialdir=FLOWS_DIR,
-            filetypes=[("AutoClick 流程", "*.autoclickpack *.autoclick *.json"),
-                       ("所有檔案", "*.*")])
-        if not path:
-            return
-        if not zipfile.is_zipfile(path):
-            try:  # 舊版純 JSON 流程 (不含範本)
-                with open(path, encoding="utf-8") as f:
-                    data = json.load(f)
-                self._apply_flow(data)
-                self.log_ui(f"已載入流程 {os.path.basename(path)}", "ok")
-            except Exception as e:
-                messagebox.showerror("載入流程", f"載入失敗: {e}", parent=self.root)
-            return
         try:
-            with zipfile.ZipFile(path) as z:
-                data = json.loads(z.read("flow.json").decode("utf-8"))
-                try:
-                    pmeta = json.loads(z.read("templates/_meta.json").decode("utf-8"))
-                except KeyError:
-                    pmeta = {"pos": {}}
-                names = [i.filename[len("templates/"):] for i in z.infolist()
-                         if i.filename.startswith("templates/")
-                         and not i.filename.startswith("templates/_orig/")
-                         and i.filename.lower().endswith(".png")]
-                rename = {}
-                meta = self._load_meta()
-                for n in names:
-                    content = z.read(f"templates/{n}")
-                    dest = os.path.join(TEMPLATES_DIR, n)
-                    final = n
-                    if os.path.exists(dest):
-                        with open(dest, "rb") as f:
-                            if f.read() == content:
-                                final = n  # 內容相同 → 直接沿用既有範本
-                            else:
-                                final = self._free_name(n)  # 同名不同圖 → 改名匯入
-                                rename[n] = final
-                    if final != n or not os.path.exists(dest):
-                        fp = os.path.join(TEMPLATES_DIR, final)
-                        os.makedirs(os.path.dirname(fp), exist_ok=True)
-                        with open(fp, "wb") as f:
-                            f.write(content)
-                    if n in pmeta.get("pos", {}):
-                        meta["pos"][final] = pmeta["pos"][n]
-                self._save_meta(meta)
-                for s in data.get("steps", []):
-                    for k in ("template", "confirmTemplate"):
-                        if s.get(k) in rename:
-                            s[k] = rename[s[k]]
-            self._apply_flow(data)
-            self.refresh_templates()
-            msg = f"已載入流程 {os.path.basename(path)}（{len(names)} 個範本）"
-            if rename:
-                msg += "；同名改為：" + "、".join(
-                    f"{k}→{v2}" for k, v2 in rename.items())
-            self.log_ui(msg, "ok")
-        except Exception as e:
-            messagebox.showerror("載入流程", f"載入失敗: {e}", parent=self.root)
+            used = flowpack.export_pack(path, self.profile_dir,
+                                        self._flow_data())
+        except ValueError as e:
+            messagebox.showwarning("匯出流程包", str(e), parent=self.root)
+            return
+        self.log_ui(f"已匯出流程包 {os.path.basename(path)}"
+                    f"（含 {len(used)} 個範本）", "ok")
 
     def _autosave(self):
         try:
-            with open(AUTOSAVE, "w", encoding="utf-8") as f:
+            os.makedirs(self.flows_dir, exist_ok=True)
+            with open(self.autosave_path, "w", encoding="utf-8") as f:
                 json.dump(self._flow_data(), f, ensure_ascii=False)
         except OSError:
             pass
 
     def _load_autosave(self):
         try:
-            with open(AUTOSAVE, encoding="utf-8") as f:
+            with open(self.autosave_path, encoding="utf-8") as f:
                 self._apply_flow(json.load(f))
         except (OSError, ValueError):
             pass

@@ -4,9 +4,15 @@
 
 **Blocked by:** 04 — profile 結構與切換/建立
 
-**Status:** ready-for-agent
+**Status:** done (2026-08-15)
 
-- [ ] 舊 flow JSON 與 .autoclickpack 都能匯入,存檔落在當前 profile
-- [ ] 範本名對應(去副檔名)與缺圖補檔行為有測試覆蓋
-- [ ] legacy 座標空間與 threshold 丟棄行為有測試覆蓋
-- [ ] 4 個實戰 pack(arknightMorning/Night × cn/zh)匯入成功,步驟數與範本引用完整
+- [x] 舊 flow JSON 與 .autoclickpack 都能匯入,存檔落在當前 profile
+      (`flowpack.import_flow_json` / `import_pack`;UI 走「讀檔」按鈕,
+      flows/ 之外的檔案自動視為匯入、存副本進 flows/)
+- [x] 範本名對應(去副檔名)與缺圖補檔行為有測試覆蓋(`test_flowpack.py`;
+      已存在的不覆蓋、多截圖目錄視為已存在、pack 的 pos 補進 _meta.json)
+- [x] legacy 座標空間與 threshold 丟棄行為有測試覆蓋
+- [x] 4 個實戰 pack(arknightMorning/Night × cn/zh)匯入成功:
+      步驟數 174/175/59/61,範本引用 43/42/15/15 全數對應到現有多截圖範本庫
+      (0 缺圖、0 補檔——與規格「模板遷移其實已完成」一致),threshold 全數丟棄,
+      流程已落在 profiles/arknights/flows/(gitignore 的使用者資料)

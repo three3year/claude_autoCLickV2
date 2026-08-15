@@ -6,30 +6,42 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 
 ## 架構
 
-- `app.py` 主視窗；`ui_theme.py` 深色主題；`ui_overlay.py` 全螢幕截圖選取層；`ui_dialogs.py` 步驟編輯對話框
+- `app.py` 主視窗（含 `EngineDetector`——runner 偵測接縫的引擎實作）；
+  `ui_theme.py` 深色主題；`ui_overlay.py` 全螢幕截圖選取層；`ui_dialogs.py` 步驟編輯對話框；
+  `profile_store.py`(profile 列舉/建立/應用狀態)；`flowpack.py`(舊 flow/pack 匯入、新 pack 匯出)
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：
-  `capture.py`(mss 截圖)、`matcher.py`(OpenCV 模板比對，過渡模組，辨識接縫將改走引擎)、
-  `win.py`(ctypes 滑鼠/DPI/視窗資訊)、`runner.py`(步驟執行緒)、`hotkey.py`(F12 急停)、
-  `imgio.py`(中文路徑圖片讀寫)、`stage.py`(舞台介面，並行執行未移植、接縫保留)、
-  `flowfmt.py`(存檔格式版本與遷移)
+  `capture.py`(mss 截圖)、`win.py`(ctypes 滑鼠/DPI/視窗資訊)、`runner.py`(步驟執行緒)、
+  `hotkey.py`(F12 急停)、`imgio.py`(中文路徑圖片讀寫)、
+  `stage.py`(舞台介面，並行執行未移植、接縫保留)、`flowfmt.py`(存檔格式版本與遷移)
+- **辨識單一路徑走主體偵測引擎**（ADR 0002）：runner 建構時注入偵測器
+  （`query(範本名, 搜尋區域影像) → QueryResult`，範本不存在丟 KeyError）。
+  app 啟動建立一次 `Engine`（驗證模型常駐；載入失敗降級 coarse-only 並在 UI 警告）、
+  `load_profile` 自動登錄；範本增刪改後呼叫 `App.reload_profile()` 重登錄。
+  舊 matcher 已移除，**不要再加備援比對路徑**
+- **匹配門檻在 profile `config.yaml`**（match/verify 兩關），步驟層級沒有 threshold；
+  讀舊檔時 `flowpack.migrate_flow()` 會把每步 threshold 安靜丟棄、範本引用去 .png
+- **範本名＝相對路徑不含副檔名**（如 `zh/X`），與引擎範本名一致。app 建立的範本
+  一律目錄形式（`<name>/<name>.png`）——資料夾內「只有影像檔」會被引擎當成
+  一個多截圖範本，目錄形式避開歧義；使用者把更多截圖丟進同一目錄＝自動重登錄成多截圖範本
 - 流程存檔有 `coordSpace` 標記：**沒有這個鍵＝舊格式**（絕對座標是螢幕座標），載入時由
-  `flowfmt.to_region_space()` 換算成範圍座標。任何讀存檔的新路徑都要記得先過這一關，
-  否則舊檔的座標會被當成新格式而整批偏掉
+  `flowpack.migrate_flow()`（內含 `flowfmt.to_region_space()`）換算成範圍座標。
+  任何讀存檔的新路徑都要記得先過這一關，否則舊檔的座標會被當成新格式而整批偏掉
 - `Runner` 可注入舞台；**不注入時完全走原本的單流程路徑**，改 runner 時務必保住這條回歸線
-- `templates/_meta.json` 只有 `pos` 鍵：各範本截圖當下的中心螢幕座標
-  （相對座標預設原點的備援；上傳的範本沒有記錄）。舊專案的 `rot` 鍵與 `_orig/`
-  旋轉原圖機制已隨旋轉功能移除，讀舊 meta 時安靜丟棄
+- profile `templates/_meta.json` 只有 `pos` 鍵：各範本截圖當下的中心螢幕座標
+  （相對座標預設原點的備援；上傳的範本沒有記錄；鍵＝範本名不含副檔名）。
+  舊專案的 `rot` 鍵與 `_orig/` 旋轉原圖機制已隨旋轉功能移除，讀舊 meta 時安靜丟棄
 - 本輪已移除（不要加回去）：並行執行 UI 與 ParallelRun、旋轉比對與旋轉範本工具、
-  flood-fill 去背工具、翻新解析度工具、`_orig` 範本鏡像
+  flood-fill 去背工具、翻新解析度工具、`_orig` 範本鏡像、舊 matcher、每步 threshold
 
 ## 建置與部署
 
 - 打包必須用 **onedir**，不要 onefile（onefile 啟動 4.6s，onedir 1.4s）
 - exe 以系統管理員執行（`--uac-admin`，開啟時跳 UAC）——UIPI 限制：不以管理員執行時，
   對較高權限視窗注入的滑鼠事件會被系統無聲丟棄；部署後的自動啟動測試會被 UAC 擋住，需使用者手動確認
-- templates/flows 有兩套（app.py 依 `sys.frozen` 判斷）：exe 用 exe 旁的＝使用者正式資料；
-  從原始碼跑用 `app/` 內的＝agent 測試沙盒（已 gitignore），可放測試資料
-- 部署 = 只覆蓋 exe 與 `_internal/`；**絕不能動使用者的 templates/ 和 flows/**
+- 使用者資料＝`profiles/`（每個 profile 自帶 templates/flows/config），位置依 `sys.frozen`：
+  exe 用 exe 旁的 `profiles/`＝使用者正式資料；從原始碼跑用 repo 根目錄的 `profiles/`
+  （arknights 範本庫進版控；`flows/`、`registered/`、`_meta.json`、`app_state.json` 已 gitignore）
+- 部署 = 只覆蓋 exe 與 `_internal/`；**絕不能動使用者的 profiles/**
 - 使用者回報 UI 問題時，先確認截圖是部署的 exe 還是原始碼版——原始碼修正後要重新打包部署
 
 ## 座標系統（重要）
@@ -87,9 +99,12 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 ## 測試手法（無頭環境驗證 GUI）
 
 - 執行器邏輯有 pytest 回歸網（`app/tests/`，隨根目錄 `pytest` 一起跑）。
-  假畫面／假輸入／虛擬時鐘都在 `tests/harness.py`：`vision.plan(範本名, [None, (x,y)])` 安排
-  「第幾次比對才找到」，`win` 的點擊/拖曳/按鍵全被換成只記事件，`等待` 走虛擬時鐘不真的睡。
+  假畫面／假輸入／虛擬時鐘都在 `tests/harness.py`：假件形狀＝引擎的
+  `query`（回 `QueryResult`）——這是全 repo 唯一假件點；`vision.plan(範本名, [None, (x,y)])`
+  安排「第幾次查詢才找到」，`win` 的點擊/拖曳/按鍵全被換成只記事件，`等待` 走虛擬時鐘不真的睡。
   要驗執行器行為先加測試，不要再寫一次性腳本
+- profile 管理與匯入/匯出是純檔案邏輯，用暫存目錄真測不 mock
+  （`test_profile_store.py`、`test_flowpack.py`）
 - 測試要靠子程序開靶視窗時，**不能用 pid 找它的視窗**——venv 的 `python.exe` 啟動子程序時
   pid 會轉手，`Popen.pid` 跟實際擁有視窗的程序不同 → 用視窗標題辨識
 - GUI 畫面驗證：用 PrintWindow 擷取視窗，不能只做語法檢查
@@ -120,8 +135,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   巢狀視窗與 overlay 結束後須把 grab 還給上一層）
 - 常駐螢幕的覆蓋框（如搜尋範圍預覽）：框線畫在範圍外側（避免拍進截圖）、
   用 `win.make_click_through()` 點擊穿透、綁 root 的 `<Map>/<Unmap>` 自動顯隱
-- 範本正式名稱＝相對路徑（可含子資料夾如 `zh/X.png`，meta 鍵與流程引用一律用它）；
-  截圖自動命名 `tmpl_NNN.png`、存進清單目前選取的資料夾（清單是檔案總管式：點資料夾列展開/收合）；
+- 範本正式名稱＝相對路徑不含副檔名（可含子資料夾如 `zh/X`，meta 鍵與流程引用一律用它）；
+  截圖自動命名 `tmpl_NNN`、以目錄形式存進清單目前選取的資料夾
+  （清單是檔案總管式：點資料夾列展開/收合；多截圖範本顯示張數）；
   改名靠範本面板的重新命名（同步更新引用步驟，輸入含 `/` 即搬移；`clean_rel_name` 防穿越）
 - 找圖搜尋範圍只有主視窗的全域設定，步驟不各自設範圍
 - 座標點擊基準只有兩種：絕對座標（基準＝搜尋範圍左上角，沒設範圍就不能拾取也不能執行）、

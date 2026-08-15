@@ -38,6 +38,12 @@ class Engine:
             warnings.warn(f"verification unavailable, running coarse-only: {exc}")
             self._verifier = None
 
+    @property
+    def coarse_only(self) -> bool:
+        """True when the verification model failed to load (a warning was
+        emitted at construction): queries run the coarse stage only."""
+        return self._verifier is None
+
     def _embed_template(self, art: Artifacts) -> np.ndarray:
         from .verification import masked_fill
         return self._verifier.embed([masked_fill(art.ref_bgr, art.mask)])[0]

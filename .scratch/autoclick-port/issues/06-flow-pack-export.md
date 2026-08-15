@@ -4,8 +4,10 @@
 
 **Blocked by:** 04 — profile 結構與切換/建立
 
-**Status:** ready-for-agent
+**Status:** done (2026-08-15)
 
-- [ ] 匯出 pack 內含 flow 與所有被引用範本(單檔與多截圖目錄皆支援)
-- [ ] 匯出→匯入 round-trip 測試綠(暫存目錄真測):步驟、範本引用、範本圖一致
-- [ ] 未被引用的範本不進 pack
+- [x] 匯出 pack 內含 flow 與所有被引用範本(單檔與多截圖目錄皆支援;
+      磁碟相對路徑即 pack 內佈局;引用缺範本時擋下並逐一列出)
+- [x] 匯出→匯入 round-trip 測試綠(暫存目錄真測):步驟一字不差、
+      範本引用與範本圖一致、_meta pos 隨行(`test_flowpack.py`)
+- [x] 未被引用的範本不進 pack(meta pos 也只帶被引用者)

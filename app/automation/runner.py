@@ -1,8 +1,15 @@
-"""流程執行器: 在背景執行緒依序執行步驟, 支援停止、回圈、即時紀錄."""
+"""流程執行器: 在背景執行緒依序執行步驟, 支援停止、回圈、即時紀錄.
+
+找圖相關步驟 (find_click / wait_gone / confirm / branch) 的辨識走建構時注入
+的偵測器 (detector): `query(範本名, 搜尋區域影像) → QueryResult`——與主體
+偵測引擎的 `Engine.query` 同形狀 (found / box / score; box 為搜尋區域內
+座標), 範本不存在時丟 KeyError。門檻由引擎的 profile config 決定,
+步驟層級沒有 threshold (見 ADR 0002)。
+"""
 import threading
 import time
 
-from . import capture, imgio, matcher, win
+from . import capture, win
 
 
 class StopRequested(Exception):
@@ -45,8 +52,8 @@ def _matching_branch_end(steps, i):
 
 
 class Runner:
-    def __init__(self, templates_dir, stage=None):
-        self.templates_dir = templates_dir
+    def __init__(self, detector, stage=None):
+        self.detector = detector  # 偵測查詢接縫 (見模組 docstring)
         self.stage = stage  # 並行執行時注入; None = 單流程, 完全走原本的路徑
         self.ended = None   # 結束原因: done / error / stopped
         self._thread = None
@@ -361,12 +368,24 @@ class Runner:
         win.move(x, y)
         self._sleep(0.08)  # 等 hover 反白消退與重繪
 
+    def _query(self, no, name, screen, kind="範本"):
+        """經偵測接縫查詢一次; 範本不存在 (KeyError) 轉成可讀的執行錯誤."""
+        try:
+            return self.detector.query(name, screen)
+        except KeyError:
+            raise RuntimeError(f"[{no}] 找不到{kind}圖片: {name}") from None
+
+    @staticmethod
+    def _box_center(result):
+        """QueryResult.box (搜尋區域內座標) 的中心點."""
+        x, y, w, h = result.box
+        return x + w // 2, y + h // 2
+
     def _exec_branch(self, idx, steps):
         """分岔: 輪詢各分支開頭找圖步驟的條件圖, 先找到誰就走誰.
 
         回傳下一個要執行的步驟索引 (選中分支的開頭, 或分岔結束之後).
         """
-        import os
         lay = branch_layout(steps, idx)
         if lay is None:
             self.log(f"[{idx + 1}] 分岔標記不成對 → 跳過", "warn")
@@ -378,12 +397,6 @@ class Runner:
                 self.log(f"[{idx + 1}] 分岔的每個分支開頭必須是找圖步驟 → 跳過分岔", "warn")
                 return end + 1
             conds.append(steps[s])
-        tmpls = []
-        for c in conds:
-            tm = imgio.imread(os.path.join(self.templates_dir, c.get("template", "")))
-            if tm is None:
-                raise RuntimeError(f"[{idx + 1}] 找不到範本圖片: {c.get('template')}")
-            tmpls.append(tm)
 
         timeout = max(float(c.get("timeout", 10)) for c in conds)
         interval = min(float(c.get("interval", 0.5)) for c in conds)
@@ -396,9 +409,9 @@ class Runner:
             if self.avoid_hover:
                 self._avoid_cursor(region)
             screen, _ = capture.grab(region)
-            for k, (c, tm) in enumerate(zip(conds, tmpls)):
-                r = matcher.find_template(screen, tm, float(c.get("threshold", 0.85)))
-                if r["found"]:
+            for k, c in enumerate(conds):
+                r = self._query(idx + 1, c.get("template", ""), screen)
+                if r.found:
                     self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{c.get('template')}）", "ok")
                     return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
             if time.monotonic() >= deadline:
@@ -424,13 +437,7 @@ class Runner:
         return None
 
     def _exec_find(self, no, step):
-        import os
         name = step.get("template", "")
-        tmpl = imgio.imread(os.path.join(self.templates_dir, name))
-        if tmpl is None:
-            raise RuntimeError(f"[{no}] 找不到範本圖片: {name}")
-
-        threshold = float(step.get("threshold", 0.85))
         timeout = float(step.get("timeout", 10))
         interval = float(step.get("interval", 0.5))
         region = getattr(self, "scan_region", None)  # 全域搜尋範圍 [x,y,w,h] 或 None
@@ -451,13 +458,14 @@ class Runner:
                 if self.avoid_hover:
                     self._avoid_cursor(region)
                 screen, org = capture.grab(region)
-                r = matcher.find_template(screen, tmpl, threshold)
-                if r["found"]:
+                r = self._query(no, name, screen)
+                if r.found:
                     seen = True
                     if step.get("updateOrigin", True):
                         # 記錄最後看到的位置 (不點擊也算相對座標原點)
-                        self._last_click = (org[0] + r["cx"] + off[0],
-                                            org[1] + r["cy"] + off[1])
+                        cx, cy = self._box_center(r)
+                        self._last_click = (org[0] + cx + off[0],
+                                            org[1] + cy + off[1])
                 elif seen:
                     self.log(f"[{no}] 「{name}」已消失", "ok")
                     return
@@ -479,11 +487,12 @@ class Runner:
             if self.avoid_hover:
                 self._avoid_cursor(region)
             screen, origin = capture.grab(region)
-            r = matcher.find_template(screen, tmpl, threshold)
-            best = max(best, r["score"])
-            if r["found"]:
-                pos = (origin[0] + r["cx"] + off[0], origin[1] + r["cy"] + off[1])
-                score = r["score"]
+            r = self._query(no, name, screen)
+            best = max(best, r.score)
+            if r.found:
+                cx, cy = self._box_center(r)
+                pos = (origin[0] + cx + off[0], origin[1] + cy + off[1])
+                score = r.score
                 break
             if time.monotonic() >= deadline:
                 break
@@ -509,24 +518,18 @@ class Runner:
             self.log(f"[{no}] 找到「{name}」(相似度 {score:.3f}) → 點擊 ({sx}, {sy})", "ok")
             return
         # ---- 點擊後確認生效階段 ----
-        return self._confirm_click(no, step, name, tmpl, threshold, region,
+        return self._confirm_click(no, step, name, region,
                                    off, button, clicks, timeout, interval, on_nf)
 
-    def _confirm_click(self, no, step, name, tmpl, threshold, region,
+    def _confirm_click(self, no, step, name, region,
                        off, button, clicks, timeout, interval, on_nf):
         """點擊後重試直到「確認生效」: 目標圖消失(gone) 或 確認圖出現(appear).
 
         沒生效 (目標圖還在) 就再點一次; 逾時仍未生效 → 依 onNotFound 處置。
         專治「圖找到也點了, 但畫面還在轉場/載入而吃不到點擊」的失效。
         """
-        import os
         mode = step.get("confirm")
         cname = step.get("confirmTemplate", "")
-        ctmpl = None
-        if mode == "appear":
-            ctmpl = imgio.imread(os.path.join(self.templates_dir, cname))
-            if ctmpl is None:
-                raise RuntimeError(f"[{no}] 找不到確認圖片: {cname}")
         label = "「{}」消失".format(name) if mode == "gone" else f"確認圖「{cname}」出現"
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")
         deadline = time.monotonic() + timeout
@@ -536,19 +539,20 @@ class Runner:
             if self.avoid_hover:
                 self._avoid_cursor(region)
             screen, origin = capture.grab(region)
-            rt = matcher.find_template(screen, tmpl, threshold)
+            rt = self._query(no, name, screen)
             if mode == "gone":
-                if not rt["found"]:
+                if not rt.found:
                     self.log(f"[{no}] 點擊已生效（「{name}」已消失）", "ok")
                     return
             else:  # appear
-                if matcher.find_template(screen, ctmpl, threshold)["found"]:
+                if self._query(no, cname, screen, kind="確認").found:
                     self.log(f"[{no}] 點擊已生效（確認圖「{cname}」已出現）", "ok")
                     return
-            # 尚未生效 → 目標圖還在就補點一次 (位置以最新一次比對為準)
-            if rt["found"]:
-                sx = origin[0] + rt["cx"] + off[0]
-                sy = origin[1] + rt["cy"] + off[1]
+            # 尚未生效 → 目標圖還在就補點一次 (位置以最新一次查詢為準)
+            if rt.found:
+                cx, cy = self._box_center(rt)
+                sx = origin[0] + cx + off[0]
+                sy = origin[1] + cy + off[1]
                 win.click(sx, sy, button, clicks)
                 if step.get("updateOrigin", True):
                     self._last_click = (sx, sy)

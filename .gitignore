@@ -2,10 +2,11 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+# profile 的使用者資料/衍生資料 (範本庫與 config 進版控; 其餘留在使用者機器)
 profiles/*/registered/
-# app 從原始碼執行時的沙盒資料 (部署後的使用者資料在 exe 旁, 不在 repo)
-app/templates/
-app/flows/
+profiles/*/flows/
+profiles/*/templates/_meta.json
+profiles/app_state.json
 .scratch/**/tmp/
 *.egg-info/
 build/

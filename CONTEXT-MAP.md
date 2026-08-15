@@ -13,7 +13,8 @@
   app 的自動化子套件舊名 engine，已改名 `automation`，不要再叫它引擎。
 - **引擎「模板（Template）」 vs app「範本（template）」**：
   引擎的模板是登錄進模板庫、經預處理的比對單位；app 的範本是使用者截圖存進
-  `templates/` 的圖檔（正式名稱＝相對路徑）。整合後 app 的範本會登錄成引擎的模板，
+  profile `templates/` 的圖檔或多截圖目錄（正式名稱＝相對路徑不含副檔名，
+  與引擎範本名一致）。app 的範本由引擎登錄成模板（load_profile 自動進行），
   但兩詞分屬兩個 context，文件與 UI 不混用。
 - **引擎「搜尋區域（Search Region）」 vs app「搜尋範圍（scan_region）」**：
   搜尋區域＝單次查詢輸入的裁切影像；搜尋範圍＝使用者設定的螢幕矩形
@@ -23,4 +24,5 @@
 ## 依賴方向
 
 自動化應用 → 主體偵測引擎（單向）。引擎不知道 app 存在；
-辨識接縫（runner 的查詢呼叫）是唯一的整合點（見 ADR 0002，接縫替換於 ticket 02 進行）。
+辨識接縫（runner 建構時注入的偵測器，`query(範本名, 搜尋區域) → QueryResult`）
+是唯一的整合點（見 ADR 0002；app 端實作為 `app.py` 的 `EngineDetector`）。
