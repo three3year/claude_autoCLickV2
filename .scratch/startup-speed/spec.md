@@ -1,6 +1,7 @@
 # Spec: 啟動提速——視窗先開、引擎背景載入、範本執行前預載
 
-Status: ready-for-agent (2026-08-16；ADR 0004)
+Status: implemented (2026-08-16；ADR 0004；打包版實測熱啟動開窗 1.4–1.6s、
+冷 3.3s——目標 <3s 達成，詳見 issues/07 Comments)
 
 ## Problem Statement
 

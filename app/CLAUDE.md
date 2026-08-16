@@ -6,7 +6,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 
 ## 架構
 
-- `app.py` 主視窗（含 `EngineDetector`——runner 偵測接縫的引擎實作）；
+- `app.py` 主視窗；`enginehub.py`（引擎生命週期：載入中/就緒/失敗＋profile
+  綁定＋query/預載/單張登錄的單一接縫，也是 runner 的偵測接縫實作）；
   `ui_theme.py` 深色主題；`ui_overlay.py` 全螢幕截圖選取層；`ui_dialogs.py` 步驟編輯對話框；
   `window_coord.py`(modal 堆疊＋清場還原清單的純狀態機)；`ui_grab.py`(堆疊的 Tk 執行層)；
   `applog.py`(檔案日誌)；
@@ -17,9 +18,20 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   `stage.py`(舞台介面，並行執行未移植、接縫保留)、`flowfmt.py`(存檔格式版本與遷移)
 - **辨識單一路徑走主體偵測引擎**（ADR 0002）：runner 建構時注入偵測器
   （`query(範本名, 搜尋區域影像) → QueryResult`，範本不存在丟 KeyError）。
-  app 啟動建立一次 `Engine`（驗證模型常駐；載入失敗降級 coarse-only 並在 UI 警告）、
-  `load_profile` 自動登錄；範本增刪改後呼叫 `App.reload_profile()` 重登錄。
   舊 matcher 已移除，**不要再加備援比對路徑**
+- **啟動契約（ADR 0004，取代舊的「啟動建 Engine＋整庫登錄」）**：視窗先開、
+  引擎於背景執行緒 `hub.load()` 載入（驗證模型常駐；載入失敗降級
+  coarse-only 並 modal 警告），「視窗可操作」≠「`引擎就緒`」。就緒前
+  所有辨識類操作必須過 `App.engine_gate()`（modal 提示並拒絕，含 F12）；
+  **新增任何辨識入口都要先過這道 gate**。範本登錄不在啟動時做：執行流程
+  前由 runner `_preload`（`範本預載`）一次載齊該流程引用的範本，比對測試/
+  即時找圖用 `hub.ensure_template()` 單張隨用；範本增刪改後呼叫
+  `App.reload_profile()`＝`hub.refresh()` 輕量重探索（毫秒級、不需引擎），
+  登錄產物於下次使用時重載。引擎載入起訖寫檔案日誌（engine.load.*）
+- **開窗關鍵路徑不得 import 重量級套件**（cv2/mss/numpy/torch）：capture/
+  imgio/ui_dialogs/ui_overlay 都是函式內延後 import，`subject_detection`
+  套件頂層是 PEP 562 惰性再匯出——新程式碼別把這些改回頂層 import
+  （`app/tests/test_import_slim.py` 的子程序探針會擋下）
 - **匹配門檻在 profile `config.yaml`**（match/verify 兩關），步驟層級沒有 threshold；
   讀舊檔時 `flowpack.migrate_flow()` 會把每步 threshold 安靜丟棄、範本引用去 .png
 - **範本名＝相對路徑不含副檔名**（如 `zh/X`），與引擎範本名一致。app 建立的範本
@@ -44,7 +56,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   留在 dist 裡指望它活過重建
 - 打包：`app\build.bat`（PyInstaller onedir，spec 在 `app\AutoClick.spec`），
   交付物＝整個 `app\dist\AutoClick\` 資料夾（目標機免 Python、免網路）。
-  打包必須用 **onedir**，不要 onefile（onefile 啟動 4.6s，onedir 1.4s）
+  打包必須用 **onedir**，不要 onefile（onefile 啟動 4.6s，onedir 1.4s）；
+  UPX 明確關閉（`upx=False`，ADR 0004——本機其實從未裝過 upx.exe，
+  `upx=True` 一直是靜默 no-op，別因為看到設定就去裝 upx「補上」它）
 - torch CPU 與 DINOv2 隨包：spec 把本機 torch hub 快取（repo 程式碼＋權重）塞進
   `_internal\torch_home\hub`，frozen 時 app.py 以 `TORCH_HOME` 指過去。
   **打包前先從原始碼跑過一次 app**（讓 hub 快取存在，spec 會 assert）
@@ -106,8 +120,11 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - 清場/還原/grab 轉移/保險絲/未攔截例外都會寫進檔案日誌 `applog`（exe／repo 旁
   `autoclick.log`，超過 1MB 輪替一份 .1）——偶發 UI 問題先看日誌再推測；
   「保險絲觸發」紀錄＝機制有洞的證據，要修洞而不是靠保險絲。
-  存圖後的整庫重登錄延後到視窗還原後才跑（`App._schedule_reregister`），任何引擎查詢
-  （比對測試、執行流程、即時找圖）前必須先 `App.ensure_registered()`，否則新範本 KeyError
+  引擎載入起訖（engine.load.start/done/failed 含耗時）也在日誌，啟動變慢先看這行。
+  存圖後的重新探索延後到視窗還原後才跑（`App._schedule_reregister`），任何引擎查詢
+  （比對測試、執行流程、即時找圖）前必須先 `App.ensure_registered()`——它只做輕量
+  重探索讓新範本進清單，登錄產物由`範本預載`/`hub.ensure_template()` 於使用當下載入
+  （ADR 0004），少了這步新範本仍會 KeyError
 - 覆蓋層生命週期：point／預設原點 line 拾取必須在「放開」才完成（按下就結束會把 release 事件
   漏給底下的應用程式）；完成時不能立刻銷毀覆蓋層（等待用 `wait_variable` 非 `wait_window`）——
   它是本程序的前景視窗，先銷毀會把前景讓給剛被自動點擊的遊戲，`focus_force` 被 Windows 拒絕、
@@ -123,8 +140,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 ## 測試手法（無頭環境驗證 GUI）
 
 - 執行器邏輯有 pytest 回歸網（`app/tests/`，隨根目錄 `pytest` 一起跑）。
-  假畫面／假輸入／虛擬時鐘都在 `tests/harness.py`：假件形狀＝引擎的
-  `query`（回 `QueryResult`）——這是全 repo 唯一假件點；`vision.plan(範本名, [None, (x,y)])`
+  假畫面／假輸入／虛擬時鐘都在 `tests/harness.py`：假件形狀＝`enginehub`
+  生命週期介面（`query` 回 `QueryResult`＋state/preload/ensure_template）——
+  這是全 repo 唯一假件點；`vision.plan(範本名, [None, (x,y)])`
   安排「第幾次查詢才找到」，`win` 的點擊/拖曳/按鍵全被換成只記事件，`等待` 走虛擬時鐘不真的睡。
   要驗執行器行為先加測試，不要再寫一次性腳本
 - profile 管理與匯入/匯出是純檔案邏輯，用暫存目錄真測不 mock

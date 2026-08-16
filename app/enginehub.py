@@ -74,16 +74,27 @@ class EngineHub:
         中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有 profile」。
 
         不做整庫登錄: 登錄產物由`範本預載`/單張載入在使用當下載入
-        (ADR 0004), 引擎就緒時間只含模型載入。
+        (ADR 0004), 引擎就緒時間只含模型載入。起訖與耗時落地檔案日誌,
+        供啟動驗收與日後回歸對照 (票 07)。
         """
+        import time
+
+        import applog
+        t0 = time.perf_counter()
+        applog.log("engine.load.start")
         try:
             self._build_engine()
             self.profile = self.discover(profile_dir)
         except Exception as exc:
             self.error = exc
             self.state = FAILED
+            applog.log("engine.load.failed", error=repr(exc),
+                       secs=round(time.perf_counter() - t0, 2))
             return
         self.state = READY
+        applog.log("engine.load.done",
+                   secs=round(time.perf_counter() - t0, 2),
+                   coarse_only=self.coarse_only)
 
     # ---------- profile ----------
 

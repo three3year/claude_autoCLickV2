@@ -154,6 +154,28 @@ def test_discover不需引擎_輕量探索範本清單(tmp_path):
     assert hub.profile is None             # 也不搶佔背景載入的 profile
 
 
+def test_load寫入引擎載入起訖日誌(tmp_path, monkeypatch):
+    import applog
+    log = tmp_path / "log.log"
+    monkeypatch.setattr(applog, "_path", str(log))
+    hub = enginehub.EngineHub(engine_factory=FakeEngine)
+    hub.load(_make_profile_dir(tmp_path))
+    text = log.read_text(encoding="utf-8")
+    assert "engine.load.start" in text
+    assert "engine.load.done" in text
+    assert "secs=" in text
+
+
+def test_load失敗也寫日誌(tmp_path, monkeypatch):
+    import applog
+    log = tmp_path / "log.log"
+    monkeypatch.setattr(applog, "_path", str(log))
+    hub = enginehub.EngineHub(engine_factory=FakeEngine)
+    hub.load(tmp_path / "not-a-profile")
+    text = log.read_text(encoding="utf-8")
+    assert "engine.load.failed" in text
+
+
 def test_引擎警告只留subject_detection來源():
     def factory():
         warnings.warn("outside noise")  # filename 是本測試檔 → 應被濾掉
