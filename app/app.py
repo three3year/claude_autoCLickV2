@@ -26,8 +26,10 @@ else:
     # 原始碼執行時引擎在 repo 的 src/ 下 (未安裝進環境也能啟動)
     sys.path.insert(0, os.path.join(profile_store.data_root(), "src"))
 
+import applog
 import flowpack
 import ui_dialogs
+import ui_grab
 import ui_overlay
 import ui_theme
 from automation import flowfmt, hotkey, imgio, win
@@ -69,6 +71,11 @@ LABEL_COLORS = {
 # 執行紀錄各等級的文字色 (執行紀錄面板與迷你狀態視窗共用)
 LOG_COLORS = {"info": "#CBD5E1", "ok": C["accent"],
               "warn": C["warn"], "error": C["danger"]}
+
+# 全域保險絲: 每 FUSE_INTERVAL_MS 檢查一次, 連續 FUSE_TRIP 次
+# 「grab 持有者不可見」(且不在清場中) 即自動救回
+FUSE_INTERVAL_MS = 1000
+FUSE_TRIP = 3
 
 
 def clean_rel_name(name):
@@ -403,6 +410,8 @@ class App:
         self.profile_name = name
         self.profile_dir = os.path.join(PROFILES_DIR, name)
         self.profile = None
+        self._pending_templates = set()  # 已存檔、重登錄延後中的新範本名
+        self._rereg_after = None         # 延後重登錄的 after id
         self.reload_profile()  # 自動登錄 (含首次啟動)
 
         root.title("AutoClick — 按鍵精靈")
@@ -442,6 +451,9 @@ class App:
         self._cover_pending = False
         self._win_hook = win.watch_window_changes(self._schedule_cover_check)
         self._poll()
+        # 全域保險絲: 低頻監控「grab 持有者不可見」, 超過門檻自動救回
+        self._fuse_miss = 0
+        self.root.after(FUSE_INTERVAL_MS, self._fuse_check)
 
     # ================= profile =================
 
@@ -472,6 +484,14 @@ class App:
             self.profile_cb.set(self.profile_name)
             return
         self._autosave()  # 先把目前流程存回原 profile
+        # 舊 profile 延後中的重登錄作廢: 檔案已落地, 下次載入該 profile 會登錄
+        if self._rereg_after is not None:
+            try:
+                self.root.after_cancel(self._rereg_after)
+            except tk.TclError:
+                pass
+            self._rereg_after = None
+        self._pending_templates.clear()
         prev = (self.profile_name, self.profile_dir, self.profile)
         self.profile_name = name
         self.profile_dir = os.path.join(PROFILES_DIR, name)
@@ -659,8 +679,7 @@ class App:
         if (self._region_prev is not None
                 and getattr(self._region_prev, "_region", None) == self.scan_region):
             return  # 範圍沒變就不重建, 避免 Map 事件重複觸發造成閃爍
-        # 建立新 Toplevel 會把 modal 對話框既有的 grab 打掉, 建完要還回去
-        grab_owner = ui_theme.safe_grab_current(self.root)
+        # 建立新 Toplevel 會把 modal 對話框既有的 grab 打掉, 建完交還堆頂
         self._hide_region_preview()
         x, y, w, h = self.scan_region
         b = 3  # 框線畫在範圍外側, 才不會被拍進搜尋範圍的截圖
@@ -677,11 +696,7 @@ class App:
         win.make_click_through(p.winfo_id())  # 不擋滑鼠操作
         p._region = list(self.scan_region)
         self._region_prev = p
-        if grab_owner is not None:
-            try:
-                grab_owner.grab_set()
-            except tk.TclError:
-                pass
+        ui_grab.apply_grab("region-preview")
 
     def _hide_region_preview(self):
         if self._region_prev is not None:
@@ -1188,14 +1203,17 @@ class App:
     # 手動整理進目錄後 reload_profile 會自動重新登錄成多截圖範本)。
 
     def list_template_names(self):
-        """所有範本名 (引擎已發現的, 含單檔與多截圖目錄)."""
-        return sorted(self.profile.templates)
+        """所有範本名 (引擎已發現的 + 延後重登錄中的新範本)."""
+        return sorted(set(self.profile.templates) | self._pending_templates)
 
     def template_image(self, name):
         """範本的參考影像 (多截圖取登錄基準張); 不存在回傳 None."""
         t = self.profile.templates.get(name)
         if t is None:
-            return None
+            # 延後重登錄中的新範本: 直接讀 save_captured 落地的目錄形式
+            leaf = name.rsplit("/", 1)[-1]
+            p = os.path.join(self.templates_dir, *name.split("/"), leaf + ".png")
+            return imgio.imread(p) if os.path.exists(p) else None
         if t.artifacts is not None:
             return t.artifacts.ref_bgr
         return imgio.imread(str(t.capture_paths[0]))
@@ -1212,7 +1230,7 @@ class App:
             for d in list(dirs):
                 p = os.path.relpath(os.path.join(base, d),
                                     self.templates_dir).replace(os.sep, "/")
-                if p in self.profile.templates:
+                if p in self.profile.templates or p in self._pending_templates:
                     dirs.remove(d)  # 多截圖範本目錄: 是範本, 不往下走
                 else:
                     out.append(p)
@@ -1285,7 +1303,8 @@ class App:
                 if d in self._tmpl_open:
                     emit(d, depth + 1)
             for n in files:
-                caps = len(self.profile.templates[n].capture_paths)
+                t = self.profile.templates.get(n)  # 延後重登錄中的先當單張
+                caps = len(t.capture_paths) if t is not None else 1
                 tail = f"（{caps} 張）" if caps > 1 else ""
                 lines.append(f" {ind}　🖼 {n.rsplit('/', 1)[-1]}{tail}")
                 rows.append(("file", n))
@@ -1401,10 +1420,37 @@ class App:
         meta = self._load_meta()
         meta["pos"][name] = [r["screenX"] + r["w"] // 2, r["screenY"] + r["h"] // 2]
         self._save_meta(meta)
-        self.reload_profile()  # 新範本立即登錄, 不需手動步驟
+        # 整庫重登錄卡主執行緒數秒 → 延後到視窗還原、畫面喘口氣之後,
+        # 「視窗消失」與「程式短暫卡住」兩種感受分開 (票 05)
+        self._pending_templates.add(name)
+        self._schedule_reregister()
         self.refresh_templates()
         self.log_ui(f"已新增範本「{name}」({r['w']}×{r['h']})", "ok")
         return name
+
+    def _schedule_reregister(self):
+        """把整庫重登錄排入 after 佇列 (合併連續多次存圖, 只跑一次)."""
+        if self._rereg_after is None:
+            self._rereg_after = self.root.after(80, self._run_reregister)
+
+    def _run_reregister(self):
+        self._rereg_after = None
+        self.ensure_registered()
+
+    def ensure_registered(self):
+        """延後的重登錄立即補跑; 引擎查詢 (比對測試/執行流程) 前必須呼叫,
+        否則延後期間的新範本尚未登錄, 查詢會 KeyError."""
+        if not self._pending_templates:
+            return
+        if self._rereg_after is not None:
+            try:
+                self.root.after_cancel(self._rereg_after)
+            except tk.TclError:
+                pass
+            self._rereg_after = None
+        self.reload_profile()
+        self._pending_templates.clear()
+        self.refresh_templates()
 
     def capture_template(self, hide=()):
         """截圖框選 → 自動命名存入範本. 回傳檔名或 None."""
@@ -1757,6 +1803,7 @@ class App:
 
     def start_run(self, steps=None, test=False):
         """執行流程; steps 給定時只跑該片段 (測試選取), 一律單次."""
+        self.ensure_registered()  # 剛存的範本先登錄, runner 查詢才查得到
         steps = self.steps if steps is None else steps
         if not steps:
             messagebox.showinfo("執行", "請先新增步驟", parent=self.root)
@@ -2017,9 +2064,40 @@ class App:
 
         self.root.after(300, self._poll)
 
+    def _fuse_check(self):
+        """全域保險絲: 「握有 grab 的視窗不可見」連續超過門檻 → 自動救回.
+
+        正常運作時永不觸發——觸發紀錄即機制有洞的證據, 日誌是修洞的線索。
+        清場 (拾取) 進行中不觸發; 秒級輪詢, 負載可忽略。
+        """
+        try:
+            holder = ui_theme.safe_grab_current(self.root)
+            if (holder is None or ui_grab.coord.clearing
+                    or not holder.winfo_exists() or holder.winfo_viewable()):
+                self._fuse_miss = 0
+            else:
+                self._fuse_miss += 1
+                if self._fuse_miss >= FUSE_TRIP:
+                    applog.log("fuse.trigger", win=ui_grab.wname(holder),
+                               seconds=self._fuse_miss)
+                    self.log_ui("偵測到隱形視窗持有輸入焦點，已自動救回"
+                                "（詳見日誌檔）", "warn")
+                    self._fuse_miss = 0
+                    try:
+                        holder.deiconify()
+                        holder.lift()
+                        holder.focus_force()
+                    except tk.TclError:
+                        pass
+        except tk.TclError:
+            self._fuse_miss = 0
+        self.root.after(FUSE_INTERVAL_MS, self._fuse_check)
+
     def _on_callback_error(self, etype, value, tb):
         import traceback
         traceback.print_exception(etype, value, tb)  # 原始碼執行時仍印到主控台
+        # 主視窗隱藏時紀錄面板看不到 → 一併落地到日誌檔, 事後可查
+        applog.exception("callback.error", etype, value, tb)
         try:
             frame = traceback.extract_tb(tb)[-1]
             where = f"{os.path.basename(frame.filename)}:{frame.lineno}"

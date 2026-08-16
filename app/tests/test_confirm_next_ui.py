@@ -35,8 +35,8 @@ class _MiniApp(app_mod.App):
         self._autosave = lambda: None  # 不寫使用者的自動存檔
 
 
-def test_不相連的步驟列顯示警告標記():
-    root = tk.Tk()
+def test_不相連的步驟列顯示警告標記(tkroot):
+    root = tkroot  # session 共用 Tk (反覆建立 Tk 會偶發初始化失敗)
     root.withdraw()
     try:
         a = _MiniApp(root, [
@@ -62,4 +62,4 @@ def test_不相連的步驟列顯示警告標記():
         lines = a.step_list.get("1.0", "end").splitlines()
         assert "⚠" not in lines[0]
     finally:
-        root.destroy()
+        a.step_list.destroy()  # root 是 session 共用的, 只清自己的元件

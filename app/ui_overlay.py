@@ -13,6 +13,8 @@ from ctypes import wintypes
 
 import cv2
 
+import applog
+import ui_grab
 import ui_theme
 from automation import capture, win
 
@@ -116,40 +118,6 @@ def _snap_rect(tops, sx, sy):
     return None
 
 
-def _regrab(wnd, tries=15, takeover=()):
-    """把 grab 還給 wnd, 並守護一段時間.
-
-    還原後的 Map / 視窗事件會重建預覽框等 Toplevel, 這會把剛設好的
-    grab 打掉 (變 None), 所以要持續確認並補設, 不能只設一次.
-    若其他 modal 視窗已合法接手 grab 則停止守護.
-
-    takeover: 允許從這些視窗手上接走 grab——疊在既有 modal 之上的新視窗
-    (如編輯對話框開的比對測試結果) 用它, 否則底下那層的守護迴圈先把 grab
-    搶回去時, 新視窗會誤判「別的 modal 已接手」而放棄, 使用者就點不到它.
-    """
-    try:
-        if not wnd.winfo_exists():
-            return
-        if not wnd.winfo_viewable():
-            # 隱藏中 (截圖流程) 絕不能搶 grab: 隱形視窗握 grab 會讓整個
-            # App 看起來卡死 (所有點擊被導向看不見的視窗). 稍後再試.
-            if tries > 0:
-                wnd.after(100, lambda: _regrab(wnd, tries - 1, takeover))
-            return
-        cur = ui_theme.safe_grab_current(wnd)
-        if cur is None or any(cur is t for t in takeover):
-            try:
-                wnd.grab_set()
-            except tk.TclError:
-                pass
-        elif cur is not wnd:
-            return  # 別的 modal 已接手
-        if tries > 0:
-            wnd.after(100, lambda: _regrab(wnd, tries - 1, takeover))
-    except tk.TclError:
-        pass
-
-
 def _walk_toplevels(wnd, out):
     for c in wnd.winfo_children():
         if isinstance(c, tk.Toplevel):
@@ -157,21 +125,100 @@ def _walk_toplevels(wnd, out):
         _walk_toplevels(c, out)
 
 
-_hide_state = {"depth": 0, "saved": [], "grab": None}
+_hide_state = {"depth": 0, "saved": [], "stale_tops": []}
+
+_MAP_TIMEOUT_MS = 500  # 每次 deiconify 後等 map 確認的逾時
+
+
+def _unbind(w, seq, funcid):
+    """只移除指定 funcid 的綁定: tkinter 的 unbind(seq, funcid) 會把同
+    事件的「所有」綁定整段清掉 (CPython gh-75666), root 的 <Map> 還掛著
+    預覽框顯隱等綁定, 不能整段清."""
+    try:
+        scripts = w.bind(seq).split("\n")
+        w.tk.call("bind", w._w, seq,
+                  "\n".join(s for s in scripts if funcid not in s))
+        w.deletecommand(funcid)
+    except tk.TclError:
+        pass
+
+
+def _wait_mapped(w, timeout_ms=_MAP_TIMEOUT_MS):
+    """等待 w 真的畫出來 (map): <Map> 事件驅動 + 逾時, 回傳是否可見.
+
+    deiconify 只是把 map 請求排進佇列, 不等於視窗已畫出來——
+    這裡跑事件迴圈直到收到 <Map> 或逾時, 與進場的 update+等待對稱。
+    """
+    try:
+        if w.winfo_viewable():
+            return True
+        var = tk.IntVar(master=w, value=0)
+        funcid = w.bind("<Map>", lambda e: var.set(1), add=True)
+        after_id = w.after(timeout_ms, lambda: var.set(2))
+        w.wait_variable(var)
+        try:
+            w.after_cancel(after_id)
+        except tk.TclError:
+            pass
+        _unbind(w, "<Map>", funcid)
+        return bool(w.winfo_viewable())
+    except tk.TclError:
+        return False
+
+
+def _restore_verified(w, zoomed):
+    """驗證式還原單一視窗: deiconify → 等 map 確認, 逾時依狀態機重試.
+
+    回傳是否確認可見; 重試與放棄都寫入日誌 (偶發問題事後可查證)。
+    """
+    coord = ui_grab.coord
+    name = ui_grab.wname(w)
+    while True:
+        try:
+            if zoomed:
+                w.state("zoomed")  # 直接以最大化映射, 免二次重繪
+            else:
+                w.deiconify()
+        except tk.TclError:
+            coord.window_destroyed(w)
+            applog.log("clear.restore_gone", win=name)
+            return False
+        if _wait_mapped(w):
+            coord.confirm_restored(w)
+            return True
+        if not coord.restore_timed_out(w):
+            applog.log("clear.restore_fail", win=name,
+                       retries=coord.max_retries)
+            return False
+        applog.log("clear.restore_retry", win=name)
+
+
+def _destroy_stale_tops():
+    """銷毀先前拾取段留下的覆蓋層 (截新圖前必須移除, 否則拍到舊畫面)."""
+    tops, _hide_state["stale_tops"] = _hide_state["stale_tops"], []
+    for t in tops:
+        try:
+            if t.winfo_exists():
+                t.destroy()
+        except tk.TclError:
+            pass
 
 
 @contextlib.contextmanager
 def screen_clear(root, extra=()):
-    """讓出整個螢幕: 隱藏本 App 的視窗, 離開時一次還原. 可巢狀.
+    """讓出整個螢幕: 隱藏本 App 的視窗, 離開時驗證式還原. 可巢狀.
 
     歷來卡死競態的根源都是「還原 → 立刻再隱藏」: 視窗映射是非同步的,
     兩段讓出之間的 viewable 狀態不可靠, 漏記的視窗結束後不會被還原,
     隱形視窗握著焦點/grab 就是整個 App 卡死. 因此讓出螢幕一律走本機制:
     - 巢狀時只有最外層真正隱藏/還原, 中間沒有還原再隱藏的空窗
     - 視窗自動列舉 (root + 所有 Toplevel 子孫 + extra), 呼叫端不會漏傳
-    - 以 wm state (視窗管理「意圖」) 判斷該不該還原, 不用非同步的 viewable
-    - 還原時補回最大化 (withdraw→deiconify 會遺失 zoomed)
-    - 進入前記錄 grab 持有者, 還原後用 _regrab 守護還回去
+    - 進場記錄「本次 withdraw 的清單」(含 zoomed 快照), 離場照清單全數
+      還原——不再以 wm state 猜測, 一次失手不會讓之後每次清場都跳過它;
+      不在清單上的視窗一律不碰 (執行流程迷你視窗的刻意顯隱自然隔離)
+    - 離場逐窗 deiconify 並以 <Map> 事件確認真的畫出來 (逾時重試),
+      全部確認可見、grab 交還堆頂之後, 才輪到 pick() 銷毀覆蓋層
+    - grab 歸屬由 modal 堆疊決定 (ui_grab); 清場期間堆疊暫停奪 grab
     """
     st = _hide_state
     if st["depth"] == 0:
@@ -179,7 +226,6 @@ def screen_clear(root, extra=()):
             root.update()
         except tk.TclError:
             pass
-        st["grab"] = ui_theme.safe_grab_current(root)
         wnds = [root]
         _walk_toplevels(root, wnds)
         for w in extra:
@@ -196,6 +242,9 @@ def screen_clear(root, extra=()):
                 st["saved"].append((w, state == "zoomed"))
             except tk.TclError:
                 pass
+        ui_grab.coord.clear_entered(st["saved"])
+        applog.log("clear.enter",
+                   windows=";".join(ui_grab.wname(w) for w, _z in st["saved"]))
         for w, _z in st["saved"]:
             try:
                 w.withdraw()
@@ -212,34 +261,33 @@ def screen_clear(root, extra=()):
             # 還原全程發生在覆蓋層後面 (pick 的覆蓋層延後銷毀), 使用者只會
             # 看到「覆蓋層消失 → 完整畫面」一次揭示; 不做 topmost 脈衝
             # (會把視窗瞬間抬到覆蓋層上, 看起來閃來閃去)
-            for w, z in st["saved"]:
-                try:
-                    if w.winfo_exists():
-                        if z:
-                            w.state("zoomed")  # 直接以最大化映射, 免二次重繪
-                        else:
-                            w.deiconify()
-                except tk.TclError:
-                    pass
-            grab, st["grab"] = st["grab"], None
             st["saved"] = []
-            if grab is not None:
+            plan = ui_grab.coord.restore_plan()
+            for w, z in plan:
+                _restore_verified(w, z)
+            # 依清單順序 lift (root 先、對話框後), 維持 Z 序
+            for w, _z in plan:
                 try:
-                    if grab.winfo_exists():
-                        _regrab(grab)
+                    if w.winfo_exists() and w.winfo_viewable():
+                        w.lift()
                 except tk.TclError:
                     pass
+            ui_grab.coord.clear_finished()
+            applog.log("clear.exit", windows=len(plan))
+            ui_grab.apply_grab("clear-exit")
             # 前景交接: 此時覆蓋層仍是本程序的前景視窗, focus_force
             # (SetForegroundWindow) 必被允許, 且會把整個擁有鏈 (對話框+主視窗)
             # 一起帶到其他應用程式 (如遊戲) 之上
             try:
                 root.lift()
-                target = root
-                if grab is not None and grab.winfo_exists():
-                    target = grab
+                target = ui_grab.top_window()
+                if target is None or not target.winfo_exists():
+                    target = root
                 target.focus_force()
             except tk.TclError:
                 pass
+            # 交接完成後才銷毀巢狀拾取暫存的覆蓋層 (一次揭示)
+            _destroy_stale_tops()
 
 
 def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None):
@@ -259,6 +307,8 @@ def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None):
     """
     try:
         with screen_clear(root, extra=hide):
+            # 前一段拾取暫存的覆蓋層顯示著舊截圖, 截新圖前必須先移除
+            _destroy_stale_tops()
             try:
                 return _pick_impl(root, mode, hint, delay, base, mark)
             finally:
@@ -274,16 +324,22 @@ def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None):
                         pass
     finally:
         # 視窗還原、前景/grab 交接完成後才銷毀覆蓋層.
-        # 無論成功或出錯都必須銷毀: 殘留的全螢幕覆蓋層蓋住一切,
+        # 無論成功或出錯最終都必須銷毀: 殘留的全螢幕覆蓋層蓋住一切,
         # 看起來就是整台電腦卡死且無法關閉程式
         top = getattr(root, "_pick_top", None)
         root._pick_top = None
         if top is not None:
-            try:
-                if top.winfo_exists():
-                    top.destroy()
-            except tk.TclError:
-                pass
+            if _hide_state["depth"] > 0:
+                # 巢狀 (對話框把多段拾取包在同一次清場裡): 覆蓋層留給
+                # 最外層離場「還原完成、前景交接後」銷毀——還原全程在
+                # 覆蓋層後面完成, 一次揭示, 且覆蓋層保住本程序的前景權
+                _hide_state["stale_tops"].append(top)
+            else:
+                try:
+                    if top.winfo_exists():
+                        top.destroy()
+                except tk.TclError:
+                    pass
 
 
 def _pick_impl(root, mode, hint, delay, base, mark=None):
@@ -574,9 +630,10 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
     def _guard_grab():
         """整個 overlay 存活期間強制持有 grab.
 
-        對話框的 _regrab 守護、預覽框重建等都可能把 grab 搶走/打掉;
-        沒有 grab 時真實點擊會被導向看不見的視窗, 全螢幕覆蓋層又蓋住
-        一切 → 整個 App 看起來卡死. 所以被搶走就奪回, 直到 overlay 關閉.
+        預覽框重建等 Toplevel 事件可能把 grab 打掉; 沒有 grab 時真實點擊
+        會被導向看不見的視窗, 全螢幕覆蓋層又蓋住一切 → 整個 App 看起來
+        卡死. 所以被搶走就奪回, 直到 overlay 關閉. (modal 堆疊在清場期間
+        暫停奪 grab, 不會與本守護互搶——overlay 持有 grab 是拾取的必要條件)
         """
         try:
             if not top.winfo_exists() or getattr(top, "_closing", False):

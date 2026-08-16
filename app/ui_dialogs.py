@@ -9,6 +9,7 @@ from tkinter import messagebox, ttk
 
 import cv2
 
+import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, win
@@ -57,14 +58,14 @@ def _flash(dlg, times=2):
     pulse(0)
 
 
-def make_modal(dlg, prev=None):
+def make_modal(dlg):
     """讓 dlg 獨占互動; 點擊應用程式其他視窗時閃爍 dlg 提示.
 
-    prev: 上一層 modal 視窗——dlg 疊在它上面 (可從它手上接走 grab,
-    否則 prev 的 grab 守護會先搶回、dlg 誤判讓位), 關閉後把 grab 還給它.
+    入堆/出堆與 grab 歸屬由 ui_grab 的 modal 堆疊統一管理: grab 永遠在
+    堆頂, 關閉 (含中途關閉非堆頂) 後自動回到下一層——疊開的巢狀視窗
+    不再需要 prev 交接參數, 也沒有輪詢逾時放棄。
     """
-    # 視窗可能尚未 viewable, 需重試
-    ui_overlay._regrab(dlg, takeover=(prev,) if prev is not None else ())
+    ui_grab.register_modal(dlg)
 
     def on_press(e):
         # grab 生效時, 點在其他視窗的事件會轉送到本視窗, 座標會落在視窗範圍外
@@ -75,14 +76,6 @@ def make_modal(dlg, prev=None):
             _flash(dlg)
 
     dlg.bind("<ButtonPress>", on_press, add=True)
-
-    if prev is not None:
-        def restore(e):
-            if e.widget is dlg and prev.winfo_exists():
-                # Destroy 當下 dlg 可能還握著 grab, 要允許 prev 從它手上接走
-                # (否則 _regrab 誤判「別的 modal 已接手」放棄, grab 落空)
-                ui_overlay._regrab(prev, takeover=(dlg,))
-        dlg.bind("<Destroy>", restore, add=True)
 
 
 THUMB_W, THUMB_H = 176, 120
@@ -170,6 +163,8 @@ def _region_origin(app, parent):
     """`絕對座標`的基準＝`搜尋範圍`左上角; 沒設範圍就擋下並說明.
 
     座標存的是相對範圍的偏移, 沒有範圍就沒有基準可言。
+    必須在進入清場「之前」呼叫: 清場期間 parent 已被隱藏, 以它為 parent
+    彈 messagebox 會整個看不見卻在等確認, 體感就是卡死。
     """
     region = getattr(app, "scan_region", None)
     if not region:
@@ -185,6 +180,7 @@ def _region_origin(app, parent):
 def _find_template_now(app, dlg, prev):
     """隱藏視窗後在框選範圍內即時查一次 prev 的範本, 回傳中心座標或 None."""
     name = prev.get("template", "")
+    app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中
     if name not in app.profile.templates:
         return None
     with ui_overlay.screen_clear(app.root, extra=(dlg,)):
@@ -337,6 +333,11 @@ def edit_step(app, step):
             # 整段包進同一個 screen_clear: 找圖預查與拾取之間視窗保持隱藏,
             # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
             mode = MODE_KEY[v["mode"].get()]
+            if mode != "prev":
+                # 基準檢查在清場「前」做: 清場中彈 messagebox 會隱形 (票 07)
+                org = _region_origin(app, dlg)
+                if org is None:
+                    return
             with ui_overlay.screen_clear(root, extra=(dlg,)):
                 if mode == "prev":
                     base = _resolve_prev_origin(app, step, dlg) if v["use_base"].get() else None
@@ -352,9 +353,6 @@ def edit_step(app, step):
                         v["x"].set(r["dx"])
                         v["y"].set(r["dy"])
                 else:
-                    org = _region_origin(app, dlg)
-                    if org is None:
-                        return
                     r = ui_overlay.pick(root, "point", "在畫面上點一下，選取要點擊的位置",
                                         hide=(dlg,))
                     if r:
@@ -421,6 +419,11 @@ def edit_step(app, step):
         def pick_drag():
             # 整段包進同一個 screen_clear: 預查/兩段拾取之間視窗保持隱藏,
             # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
+            if MODE_KEY[v["mode"].get()] != "prev":
+                # 基準檢查在清場「前」做: 清場中彈 messagebox 會隱形 (票 07)
+                org = _region_origin(app, dlg)
+                if org is None:
+                    return
             with ui_overlay.screen_clear(root, extra=(dlg,)):
                 if MODE_KEY[v["mode"].get()] == "prev":
                     base = _resolve_prev_origin(app, step, dlg) if v["use_base"].get() else None
@@ -441,9 +444,6 @@ def edit_step(app, step):
                         v["x2"].set(r["endX"] - base[0])
                         v["y2"].set(r["endY"] - base[1])
                 else:
-                    org = _region_origin(app, dlg)
-                    if org is None:
-                        return
                     r = ui_overlay.pick(root, "line",
                                         "拖曳一條線：起點＝按下位置，終點＝放開位置",
                                         hide=(dlg,))
@@ -808,6 +808,7 @@ def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
     達標綠框 / 未達標紅框 (紅框為最接近的粗篩候選位置)。
     """
     root = app.root
+    app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中 (票 05)
     if template_name not in app.profile.templates:
         messagebox.showerror("測試", f"範本不存在: {template_name}")
         return
@@ -873,6 +874,6 @@ def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
 
     win_.bind("<Escape>", lambda e: win_.destroy())
     _center(win_, root)
-    # 從編輯對話框開啟時 (hide 內含它), 關閉後把 grab 還給該對話框
-    make_modal(win_, prev=next((x for x in hide if x.winfo_exists()), None))
+    # 從編輯對話框開啟時自然疊在它上面; 關閉後 grab 由堆疊交回下一層
+    make_modal(win_)
     win_.focus_force()

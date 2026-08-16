@@ -7,6 +7,9 @@ profiles/*/registered/
 profiles/*/flows/
 profiles/*/templates/_meta.json
 profiles/app_state.json
+# 檔案日誌 (applog): 原始碼執行時寫在 repo 根目錄
+autoclick.log
+autoclick.log.1
 .scratch/**/tmp/
 *.egg-info/
 build/

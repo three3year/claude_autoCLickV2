@@ -8,6 +8,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 
 - `app.py` 主視窗（含 `EngineDetector`——runner 偵測接縫的引擎實作）；
   `ui_theme.py` 深色主題；`ui_overlay.py` 全螢幕截圖選取層；`ui_dialogs.py` 步驟編輯對話框；
+  `window_coord.py`(modal 堆疊＋清場還原清單的純狀態機)；`ui_grab.py`(堆疊的 Tk 執行層)；
+  `applog.py`(檔案日誌)；
   `profile_store.py`(profile 列舉/建立/應用狀態)；`flowpack.py`(舊 flow/pack 匯入、新 pack 匯出)
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：
   `capture.py`(mss 截圖)、`win.py`(ctypes 滑鼠/DPI/視窗資訊)、`runner.py`(步驟執行緒)、
@@ -92,10 +94,20 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   拖曳排序中 `render_steps` 會跳過 `_autosave` 與圖示列定位（`RowIcons.refresh` 依 `drag_guard` 早退），
   放開時補一次——拖曳效能問題先查「每次 motion 做了什麼重活」（磁碟寫入/強制版面同步），不是先改演算法
 - 讓出螢幕截圖一律用 `ui_overlay.screen_clear`（可巢狀：只有最外層真正隱藏/還原、自動列舉視窗、
-  以 wm state 判斷、還原時補回 zoomed 並把 grab 交還原持有者）——絕不要自行 withdraw/deiconify 做截圖；
-  多段拾取流程（預查＋拾取、兩段拖曳拾取）要整段包在同一個 session 裡，避免「還原→再隱藏」空窗的
-  映射競態（歷來卡死的根源）。grab 還原後仍會被後續 Toplevel 建立（如預覽框）打掉，
-  `ui_overlay._regrab` 守護模式仍然必要
+  進場記錄「本次隱藏的清單＋zoomed 快照」、離場照清單逐窗驗證式還原——deiconify 後等 `<Map>`
+  確認真的畫出來、逾時重試，全部可見後 grab 交還 modal 堆疊堆頂，見 ADR 0003）——
+  絕不要自行 withdraw/deiconify 做截圖；多段拾取流程（預查＋拾取、兩段拖曳拾取）要整段包在
+  同一個 session 裡，避免「還原→再隱藏」空窗的映射競態（歷來卡死的根源）。
+  grab 歸屬由 `window_coord`（純狀態機）＋`ui_grab`（Tk 執行層）的 modal 堆疊統一管理：
+  堆頂變更或堆頂 `<Map>` 時事件驅動奪回，舊 `_regrab` 輪詢守護與 takeover 白名單已廢除；
+  建立會打掉 grab 的 Toplevel（如預覽框）後呼叫 `ui_grab.apply_grab()` 交還堆頂即可。
+  清場期間不得以已隱藏的視窗為 parent 彈 messagebox（會隱形卡死等確認）——檢查類提示
+  一律在進入清場前做（見 `_region_origin`）
+- 清場/還原/grab 轉移/保險絲/未攔截例外都會寫進檔案日誌 `applog`（exe／repo 旁
+  `autoclick.log`，超過 1MB 輪替一份 .1）——偶發 UI 問題先看日誌再推測；
+  「保險絲觸發」紀錄＝機制有洞的證據，要修洞而不是靠保險絲。
+  存圖後的整庫重登錄延後到視窗還原後才跑（`App._schedule_reregister`），任何引擎查詢
+  （比對測試、執行流程、即時找圖）前必須先 `App.ensure_registered()`，否則新範本 KeyError
 - 覆蓋層生命週期：point／預設原點 line 拾取必須在「放開」才完成（按下就結束會把 release 事件
   漏給底下的應用程式）；完成時不能立刻銷毀覆蓋層（等待用 `wait_variable` 非 `wait_window`）——
   它是本程序的前景視窗，先銷毀會把前景讓給剛被自動點擊的遊戲，`focus_force` 被 Windows 拒絕、
@@ -143,8 +155,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - 截圖選取層：游標吸附視窗/元件框（依 z-order、被遮蓋部分不吸附）、高亮區外壓黑
   （暗版底圖＋原亮度裁切圖蓋回）、有放大鏡、無十字準星；粗藍框只在 region 模式，
   point/line 拾取只有壓黑高亮
-- 子視窗一律用 `ui_dialogs.make_modal()` 而非直接 `grab_set`（含點外閃爍提示；
-  巢狀視窗與 overlay 結束後須把 grab 還給上一層）
+- 子視窗一律用 `ui_dialogs.make_modal()` 而非直接 `grab_set`（含點外閃爍提示）：
+  它把視窗登進 modal 堆疊，grab 永遠在堆頂、關閉後自動回到下一層——
+  巢狀視窗（編輯對話框＋比對測試結果）不需要也不要再手動交接 grab
 - 常駐螢幕的覆蓋框（如搜尋範圍預覽）：框線畫在範圍外側（避免拍進截圖）、
   用 `win.make_click_through()` 點擊穿透、綁 root 的 `<Map>/<Unmap>` 自動顯隱
 - 範本正式名稱＝相對路徑不含副檔名（可含子資料夾如 `zh/X`，meta 鍵與流程引用一律用它）；
