@@ -1,6 +1,6 @@
 # 畫面倍率校準(scale calibration)
 
-Status: ready-for-agent
+Status: done（2026-08-16 實作完成，詳見 issues/ 各票與 ADR 0005）
 
 ## Problem Statement
 

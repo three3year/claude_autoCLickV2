@@ -4,10 +4,14 @@
 
 **Blocked by:** 02 — 指定校準對與首次校準。
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 匯出:pack 內含校準對範本與基準距離;沒有校準對的 profile 匯出的 pack 與現狀相同
-- [ ] 匯入(目標無校準資料):採用 pack 校準對與基準,倍率留空=未校準;流程座標原樣落地
-- [ ] 匯入(同一對):流程座標依基準比值換算落地,換算為校準模組純函式、以檔案測試驗各類步驟欄位
-- [ ] 匯入無校準資料的舊 pack:行為與現狀相同(回歸)
-- [ ] 測試照 flow pack 既有手法:暫存目錄真檔案、匯出→匯入 roundtrip
+- [x] 匯出:pack 內含校準對範本與基準距離;沒有校準對的 profile 匯出的 pack 與現狀相同
+- [x] 匯入(目標無校準資料):採用 pack 校準對與基準,倍率留空=未校準;流程座標原樣落地
+- [x] 匯入(同一對):流程座標依基準比值換算落地,換算為校準模組純函式、以檔案測試驗各類步驟欄位
+- [x] 匯入無校準資料的舊 pack:行為與現狀相同(回歸)
+- [x] 測試照 flow pack 既有手法:暫存目錄真檔案、匯出→匯入 roundtrip
+
+## Comments
+
+- 2026-08-16 已實作完成: export_pack 附 calibration.json 與校準對範本; import_pack 三分支 (adopted/converted/foreign), 校準對範本列入 refs 正確落地。tests: test_flowpack.py。

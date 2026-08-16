@@ -6,10 +6,14 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 校準模組定義校準資料的存取:能在 profile 內寫入/讀回校準對範本名、基準距離、倍率、機器指紋;缺檔=沒有校準對
-- [ ] runner 落點換算:三類偏移(含拖曳兩端點)×倍率、四捨五入為整數;搜尋範圍與原點等執行期螢幕座標不換算
-- [ ] 無校準資料、或倍率=1 時為恆等換算:既有 runner 測試全數不改仍綠(最重要的回歸線)
-- [ ] harness 測試:安排倍率後斷言假 win.click/win.drag 收到的落點=中心+偏移×倍率(找圖偏移、prev、abs、drag 各至少一條)
-- [ ] 檔案測試(暫存目錄真檔案,照 profile 檔案邏輯測試慣例):校準資料 roundtrip
+- [x] 校準模組定義校準資料的存取:能在 profile 內寫入/讀回校準對範本名、基準距離、倍率、機器指紋;缺檔=沒有校準對
+- [x] runner 落點換算:三類偏移(含拖曳兩端點)×倍率、四捨五入為整數;搜尋範圍與原點等執行期螢幕座標不換算
+- [x] 無校準資料、或倍率=1 時為恆等換算:既有 runner 測試全數不改仍綠(最重要的回歸線)
+- [x] harness 測試:安排倍率後斷言假 win.click/win.drag 收到的落點=中心+偏移×倍率(找圖偏移、prev、abs、drag 各至少一條)
+- [x] 檔案測試(暫存目錄真檔案,照 profile 檔案邏輯測試慣例):校準資料 roundtrip
+
+## Comments
+
+- 2026-08-16 已實作完成: 校準模組 app/calibration.py + runner.start(scale=…) 三類偏移換算; 進位共用 flowfmt.scale_px。tests: test_calibration.py, test_runner_scale.py。commit 0036c0f。
