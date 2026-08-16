@@ -162,6 +162,71 @@ def ask_string(root, title, prompt, initialvalue=""):
     return result[0]
 
 
+def pick_cal_pair(app):
+    """選擇`校準對`: 從範本庫挑兩個既有範本 (票 02). 取消回傳 None.
+
+    兩張圖必須會同時出現在同一畫面 (作為畫面縮放的比例尺);
+    指定的當下由呼叫端立刻校準一次。
+    """
+    root = app.root
+    names = app.list_template_names()
+    if len(names) < 2:
+        messagebox.showinfo("指定校準對",
+                            "至少需要兩個範本才能作為比例尺，"
+                            "請先用「截圖框選」建立範本", parent=root)
+        return None
+
+    dlg = tk.Toplevel(root)
+    dlg.title("指定校準對")
+    dlg.configure(bg=C["panel"])
+    dlg.resizable(False, False)
+    dlg.transient(root)
+
+    body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
+    body.pack(fill="both", expand=True)
+    ttk.Label(body, text="從範本庫選兩個「會同時出現在同一畫面」的範本作為比例尺；\n"
+                         "按確定後立刻校準一次（量基準距離、本機倍率記 1）。",
+              style="Muted.TLabel", justify="left").pack(anchor="w", pady=(0, 10))
+    vars_ = []
+    for label in ("範本一", "範本二"):
+        fr = ttk.Frame(body, style="Panel.TFrame")
+        fr.pack(anchor="w", pady=3)
+        ttk.Label(fr, text=label, style="Muted.TLabel").pack(
+            side="left", padx=(0, 10))
+        var = tk.StringVar()
+        ttk.Combobox(fr, textvariable=var, values=names, width=28,
+                     state="readonly").pack(side="left")
+        vars_.append(var)
+
+    result = [None]
+
+    def on_ok():
+        a, b = vars_[0].get(), vars_[1].get()
+        if not a or not b:
+            messagebox.showwarning("指定校準對", "請選滿兩個範本", parent=dlg)
+            return
+        if a == b:
+            messagebox.showwarning("指定校準對", "兩個範本不能相同", parent=dlg)
+            return
+        result[0] = (a, b)
+        dlg.destroy()
+
+    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
+    foot.pack(fill="x")
+    ttk.Button(foot, text="取消", command=dlg.destroy).pack(side="right",
+                                                           padx=(8, 0))
+    ttk.Button(foot, text="確定並校準", style="Run.TButton",
+               command=on_ok).pack(side="right")
+    dlg.bind("<Return>", lambda e: on_ok())
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+    _center(dlg, root)
+    make_modal(dlg)
+    dlg.focus_force()
+    root.wait_window(dlg)
+    return result[0]
+
+
 def _region_origin(app, parent):
     """`絕對座標`的基準＝`搜尋範圍`左上角; 沒設範圍就擋下並說明.
 

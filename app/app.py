@@ -27,13 +27,14 @@ else:
     sys.path.insert(0, os.path.join(profile_store.data_root(), "src"))
 
 import applog
+import calibration
 import enginehub
 import flowpack
 import ui_dialogs
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import flowfmt, hotkey, imgio, win
+from automation import capture, flowfmt, hotkey, imgio, win
 from automation.runner import (Runner, branch_layout, confirm_next_connected,
                                uses_confirm_next)
 from ui_theme import C, FONT, FONT_MONO
@@ -414,6 +415,7 @@ class App:
         self._load_autosave()
         self.refresh_templates()
         self.render_steps()
+        self._update_cal_ui()
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         # windowed exe 沒有 stderr, callback 例外預設完全無聲 →
         # 顯示在執行紀錄面板, 出問題時才有線索
@@ -536,6 +538,7 @@ class App:
         self._load_autosave()  # 該 profile 的流程草稿隨 profile 走
         self.refresh_templates()
         self.render_steps()
+        self._update_cal_ui()  # 校準資料隨 profile 走, 按鈕顯示跟著切換
         self.log_ui(f"已切換 profile →「{name}」"
                     f"（{len(self.profile.templates)} 個範本）", "ok")
 
@@ -566,6 +569,101 @@ class App:
             values=profile_store.list_profiles(PROFILES_DIR))
         self.switch_profile(name.strip())
         self.log_ui(f"已建立 profile「{name.strip()}」（預設 config 已帶入）", "ok")
+
+    # ================= 校準 (`校準對` / `畫面倍率`) =================
+    # 該擋/該警告/該換算的判斷都在 calibration 模組的純函式, 這裡只是薄殼
+
+    def _update_cal_ui(self):
+        """校準按鈕常駐顯示當前`畫面倍率`或「未校準」; 無校準對只可指定."""
+        cal = calibration.load(self.profile_dir)
+        if cal is None:
+            self.cal_btn.configure(text="校準", state="disabled")
+        elif calibration.is_uncalibrated(cal, calibration.current_fingerprint()):
+            self.cal_btn.configure(text="校準（未校準）", state="normal")
+        else:
+            self.cal_btn.configure(text=f"校準　×{cal['scale']:.2f}",
+                                   state="normal")
+
+    def _measure_pair(self, pair, title):
+        """清場截圖後量`校準對`中心距離; 失敗彈窗指明缺哪一張並回傳 None.
+
+        找圖語意與一般找圖一致: 有`搜尋範圍`就在範圍內找, 否則全螢幕;
+        截圖前照常清場。量測前先確保登錄完成 (單張隨用載入)。
+        """
+        self.ensure_registered()
+        for name in pair:
+            if name not in self.profile.templates:
+                messagebox.showwarning(title, f"範本不存在：{name}",
+                                       parent=self.root)
+                return None
+            try:
+                self.hub.ensure_template(name)
+            except Exception as e:
+                messagebox.showwarning(title, f"範本載入失敗：{name}（{e}）",
+                                       parent=self.root)
+                return None
+        with ui_overlay.screen_clear(self.root):
+            self.root.update()
+            time.sleep(0.12)
+            screen, _ = capture.grab(self.scan_region)
+        dist, missing = calibration.measure(self.detector.query, screen, pair)
+        if missing:
+            messagebox.showwarning(
+                title,
+                "畫面上找不到：" + "、".join(missing) +
+                "\n請切換到兩張圖同時出現的畫面後重試（舊倍率維持不動）",
+                parent=self.root)
+            return None
+        if dist < 1.0:
+            messagebox.showwarning(
+                title, "兩張圖的位置重疊，無法作為比例尺，"
+                "請改用一對距離較遠的範本", parent=self.root)
+            return None
+        return dist
+
+    def designate_pair(self):
+        """指定`校準對`並立刻完成第一次`校準` (票 02).
+
+        量得`基準距離`、本機倍率記 1、附`機器指紋`; 任一張找不到＝指定
+        失敗, 不留下部分寫入的校準資料。
+        """
+        if not self.engine_gate():
+            return
+        pair = ui_dialogs.pick_cal_pair(self)
+        if not pair:
+            return
+        dist = self._measure_pair(pair, "指定校準對")
+        if dist is None:
+            return
+        calibration.save(self.profile_dir, {
+            "pair": list(pair), "baseline": dist, "scale": 1.0,
+            "fingerprint": calibration.current_fingerprint()})
+        self._update_cal_ui()
+        self.log_ui(f"已指定校準對「{pair[0]}」×「{pair[1]}」，"
+                    f"基準距離 {dist:.1f}px，本機倍率 ×1.00", "ok")
+
+    def calibrate_now(self):
+        """`校準`: 量當前距離 ÷ `基準距離`, 更新本機倍率與指紋 (票 03).
+
+        失敗時舊倍率與指紋維持不動 (切到正確畫面重試即可)。
+        """
+        cal = calibration.load(self.profile_dir)
+        if cal is None:
+            messagebox.showinfo("校準", "尚未指定校準對，請先按「指定校準對」",
+                                parent=self.root)
+            return
+        if not self.engine_gate():
+            return
+        dist = self._measure_pair(cal["pair"], "校準")
+        if dist is None:
+            return
+        cal["scale"] = dist / float(cal["baseline"])
+        cal["fingerprint"] = calibration.current_fingerprint()
+        calibration.save(self.profile_dir, cal)
+        self._update_cal_ui()
+        self.log_ui(f"校準完成：本機畫面倍率 ×{cal['scale']:.3f}"
+                    f"（當前距離 {dist:.1f}px ÷ 基準 {cal['baseline']:.1f}px）",
+                    "ok")
 
     # ================= UI 建構 =================
 
@@ -637,6 +735,15 @@ class App:
                              lambda e: self.switch_profile(self.profile_cb.get()))
         self.profile_cb.pack(side="right", padx=(6, 6))
         ttk.Label(bar2, text="Profile").pack(side="right")
+
+        # `校準`常駐按鈕區 (票 02/03): 校準按鈕顯示當前`畫面倍率`或「未校準」,
+        # 沒有校準對時只能指定 (行為不受任何影響)
+        self.cal_btn = ttk.Button(bar2, text="校準", style="Small.TButton",
+                                  takefocus=False, command=self.calibrate_now)
+        self.cal_btn.pack(side="right", padx=(0, 14))
+        ttk.Button(bar2, text="指定校準對", style="Small.TButton",
+                   takefocus=False,
+                   command=self.designate_pair).pack(side="right", padx=(0, 6))
 
     def _mode_ui(self):
         state = "normal" if self.run_mode.get() == "執行次數" else "disabled"
@@ -1879,6 +1986,13 @@ class App:
                 f"用到絕對座標的步驟：{', '.join(map(str, abs_no))}",
                 parent=self.root)
             return
+        # `未校準`警告 (票 03): 警告一次後照跑、以倍率 1 代入;
+        # 沒有校準對的 profile 完全無警告、無換算
+        cal = calibration.load(self.profile_dir)
+        fp = calibration.current_fingerprint()
+        warn = calibration.run_warning(cal, fp)
+        if warn:
+            messagebox.showwarning("執行", warn, parent=self.root)
         delay = {"無": 0, "3 秒": 3, "5 秒": 5, "10 秒": 10}[self.start_delay.get()]
         if test:
             mode, count = "count", 1
@@ -1888,7 +2002,8 @@ class App:
         try:
             self.runner.start(steps, mode, count, delay,
                               scan_region=self.scan_region,
-                              avoid_hover=self.avoid_hover.get())
+                              avoid_hover=self.avoid_hover.get(),
+                              scale=calibration.effective_scale(cal, fp))
         except RuntimeError as e:
             messagebox.showwarning("執行", str(e), parent=self.root)
             return
