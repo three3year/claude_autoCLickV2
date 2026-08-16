@@ -471,7 +471,7 @@ class App:
                         f"（{len(self.profile.templates)} 個範本）", "ok")
             self.refresh_templates()  # 多截圖張數等就緒後補上
         elif state == enginehub.FAILED:
-            applog.log("engine.load.failed", error=repr(self.hub.error))
+            # 檔案日誌由 hub.load() 落 (engine.load.failed), 這裡只做 UI
             self.log_ui(f"引擎載入失敗: {self.hub.error}", "error")
             messagebox.showerror(
                 "引擎載入失敗",
@@ -1723,7 +1723,7 @@ class App:
         try:
             if zipfile.is_zipfile(path):
                 r = flowpack.import_pack(path, self.profile_dir)
-                self.reload_profile()  # pack 補進的範本立即登錄
+                self.reload_profile()  # pack 補進的範本進清單 (登錄於使用時)
                 self.refresh_templates()
                 data = r["data"]
                 self._log_notes(r["notes"])

@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from subject_detection.engine import QueryResult  # noqa: E402
 
+import enginehub  # noqa: E402
 from automation import runner as runner_mod  # noqa: E402
 from automation import stage as stage_mod  # noqa: E402
 
@@ -120,14 +121,14 @@ class Vision:
         self.grabs = []      # 每次擷取用的搜尋範圍
         self.lookups = []    # 每次查詢的範本名稱
         # ---- 生命週期假件 (enginehub.EngineHub 的形狀, 票 01) ----
-        self.state = "ready"       # 測試可直接撥成 loading / failed
+        self.state = enginehub.READY   # 測試可撥成 LOADING / FAILED
         self.preloads = []         # 每次`範本預載`收到的名單
         self.ensured = []          # 單張載入 (ensure_template) 的範本名
         self.preload_error = None  # 預載時要拋的例外 (模擬缺圖/損壞)
 
     @property
     def ready(self):
-        return self.state == "ready"
+        return self.state == enginehub.READY
 
     def preload(self, names):
         """`範本預載`假件: 記錄名單; 名單中有 missing 的範本丟

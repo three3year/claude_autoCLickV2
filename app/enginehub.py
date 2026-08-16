@@ -58,17 +58,6 @@ class EngineHub:
                          if "subject_detection" in (w.filename or "")]
         self._engine = engine
 
-    def load_engine(self):
-        """同步載入引擎。呼叫端決定在哪條執行緒跑;
-        結束後 state 轉 READY / FAILED, 絕不拋出."""
-        try:
-            self._build_engine()
-        except Exception as exc:
-            self.error = exc
-            self.state = FAILED
-            return
-        self.state = READY
-
     def load(self, profile_dir):
         """引擎＋profile 探索一氣呵成 (背景執行緒用): 全部成功才轉 READY,
         中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有 profile」。
@@ -84,7 +73,11 @@ class EngineHub:
         applog.log("engine.load.start")
         try:
             self._build_engine()
-            self.profile = self.discover(profile_dir)
+            profile = self.discover(profile_dir)
+            if self.profile is None:
+                # 背景載入期間 refresh() 可能已放入更新的快照 (切換
+                # profile/增刪範本), 不能拿這份較舊的探索結果覆蓋
+                self.profile = profile
         except Exception as exc:
             self.error = exc
             self.state = FAILED

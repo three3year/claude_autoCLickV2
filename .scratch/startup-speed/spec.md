@@ -115,6 +115,18 @@ Status: implemented (2026-08-16；ADR 0004；打包版實測熱啟動開窗 1.4�
 
 ## Further Notes
 
+**實作期拍板的偏差(code-review 後回寫,原委見 issues/03 Comments):**
+
+- 「範本登錄」不做就緒 gating:登錄本就延後到使用時,截圖存檔不需要
+  引擎——新增範本在引擎載入中照常可用,體驗優於擋下(user story 7 的
+  「範本登錄」以此語意收斂)。
+- 即時找圖在**清場進行中**不彈 modal(清場中彈 modal 會隱形卡死,
+  見 app/CLAUDE.md 踩坑),改 silent 回 None 走「截圖當下位置」備援;
+  非清場時照「提示並拒絕」。
+- 新增 FAILED 永久拒絕態:引擎本體載入炸掉(非驗證模型降級)時
+  modal 錯誤、辨識類操作永久拒絕——規格原文只涵蓋降級粗篩,此為
+  防禦性補全。
+
 - 架構決策與取捨記錄在 ADR 0004(`docs/adr/0004-background-engine-load-and-flow-preload.md`);
   「引擎就緒」「範本預載」詞彙已入 app/CONTEXT.md「啟動與就緒」。
 - 本 spec 推翻 app/CLAUDE.md 記載的「app 啟動建立一次 Engine、load_profile

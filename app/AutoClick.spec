@@ -44,7 +44,8 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False,  # 啟動速度優先: UPX 解壓成本吃掉冷啟動 (ADR 0004, 票 02)
+    upx=False,  # 明確關閉 (ADR 0004): 本機無 upx.exe, 過去的 upx=True 是
+                # 靜默 no-op; 寫死避免日後環境裝了 upx 讓打包「意外變慢」
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,

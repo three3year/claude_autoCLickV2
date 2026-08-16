@@ -48,14 +48,10 @@ class Engine:
         from .verification import masked_fill
         return self._verifier.embed([masked_fill(art.ref_bgr, art.mask)])[0]
 
-    def load_profile(self, profile_dir: str | Path,
-                     register: bool = True) -> Profile:
-        """register=False 只做探索 (輕量, 不讀登錄產物): 呼叫端在使用前
-        以 register() 逐範本載入 (`範本預載`, ADR 0004)。"""
+    def load_profile(self, profile_dir: str | Path) -> Profile:
         profile = load_profile_dir(profile_dir)
-        if register:
-            for name in profile.templates:
-                self.register(profile, name)
+        for name in profile.templates:
+            self.register(profile, name)
         return profile
 
     def register(self, profile: Profile, name: str) -> None:

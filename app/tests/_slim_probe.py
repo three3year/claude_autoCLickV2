@@ -33,7 +33,7 @@ root.update()  # 主視窗完成首次映射
 heavy = [m for m in ("cv2", "mss", "torch", "numpy") if m in sys.modules]
 print("HEAVY=" + (",".join(heavy) or "none"), flush=True)
 deadline = time.monotonic() + 5
-while a.hub.state == "loading" and time.monotonic() < deadline:
+while a.hub.state == enginehub.LOADING and time.monotonic() < deadline:
     root.update()
     time.sleep(0.02)
 root.destroy()
