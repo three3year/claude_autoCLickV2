@@ -11,7 +11,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   `ui_theme.py` 深色主題；`ui_overlay.py` 全螢幕截圖選取層；`ui_dialogs.py` 步驟編輯對話框；
   `window_coord.py`(modal 堆疊＋清場還原清單的純狀態機)；`ui_grab.py`(堆疊的 Tk 執行層)；
   `applog.py`(檔案日誌)；
-  `profile_store.py`(profile 列舉/建立/應用狀態)；`flowpack.py`(舊 flow/pack 匯入、新 pack 匯出)
+  `profile_store.py`(profile 列舉/建立/應用狀態)；`flowpack.py`(舊 flow/pack 匯入、新 pack 匯出)；
+  `calibration.py`(校準與畫面倍率的全部純邏輯，見下)
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：
   `capture.py`(mss 截圖)、`win.py`(ctypes 滑鼠/DPI/視窗資訊)、`runner.py`(步驟執行緒)、
   `hotkey.py`(F12 急停)、`imgio.py`(中文路徑圖片讀寫)、
@@ -40,6 +41,22 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - 流程存檔有 `coordSpace` 標記：**沒有這個鍵＝舊格式**（絕對座標是螢幕座標），載入時由
   `flowpack.migrate_flow()`（內含 `flowfmt.to_region_space()`）換算成範圍座標。
   任何讀存檔的新路徑都要記得先過這一關，否則舊檔的座標會被當成新格式而整批偏掉
+- **校準與畫面倍率（ADR 0005，詞彙見 app/CONTEXT.md）**：純邏輯全部在
+  `calibration.py`（資料存取、未校準判定、量測、重定改寫、pack 匯入換算），
+  UI 與 runner 只呼叫它。慣例與坑：
+  - 流程檔座標永遠是「當前基準機器」的尺度；倍率≠1 存檔會自動重定基準
+    （`App._maybe_rebase`：全部流程檔含 `_autosave.json` ×倍率改寫，漏一份＝混尺度）。
+    新增「寫流程檔」的路徑時要想清楚是否該先重定
+  - 執行期倍率經 `runner.start(scale=…)` 傳入，runner 不讀檔；只換算三類步驟
+    **偏移**（找圖偏移、相對/絕對座標、拖曳兩端點），搜尋範圍與原點等螢幕座標不換算。
+    進位統一走 `flowfmt.scale_px`（執行期與檔案改寫共用，別各寫一份捨入）
+  - 未校準（有校準對但 scale 為 null 或機器指紋不符）＝執行警告後以 1 代入、
+    **拾取擋下**（`ui_dialogs._cal_state`，新增拾取入口要沿用這道門＋`_unscale` 反除歸一）、
+    存檔不重定。沒有校準對的 profile 一切照舊（最重要的回歸線）
+  - 帶 `sourceBaseline` 標記（不同對 pack 匯入）的流程：可執行、存檔被
+    `_resolve_source_baseline` 守門，且**不隨 profile 重定基準**
+  - 校準量測走辨識單一路徑（query 接縫）＋清場截圖；量測入口一樣要過
+    engine_gate 與 ensure_registered
 - `Runner` 可注入舞台；**不注入時完全走原本的單流程路徑**，改 runner 時務必保住這條回歸線
 - profile `templates/_meta.json` 只有 `pos` 鍵：各範本截圖當下的中心螢幕座標
   （相對座標預設原點的備援；上傳的範本沒有記錄；鍵＝範本名不含副檔名）。
@@ -80,6 +97,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - **步驟裡的座標一律是「偏移量」，沒有一個是螢幕座標**：`相對座標`相對原點、`絕對座標`相對搜尋範圍左上角。
   螢幕座標只出現在三個地方：搜尋範圍本身、`templates/_meta.json` 的 `pos`、
   以及執行期換算後送進 `win.click` 的最終落點。改動座標相關程式碼前先確認自己在哪一個座標系
+- 步驟偏移量存的是「當前基準機器」的尺度（ADR 0005）：偏移量 → 螢幕像素要
+  ×`畫面倍率`（runner `_sc`、預設原點推算）；螢幕像素 → 偏移量要反除倍率
+  （拾取 `_unscale`）。倍率 1（含無校準對）時兩者都是恆等，與舊行為完全一致
 
 ## 踩過的坑（不要再犯）
 
