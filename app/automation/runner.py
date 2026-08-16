@@ -54,6 +54,27 @@ def uses_confirm_next(step):
             and step.get("confirm") == "next")
 
 
+def flow_templates(steps):
+    """`範本預載`名單: 流程引用的全部範本名, 依出現順序去重.
+
+    找圖步驟的範本 + 確認圖 (confirm: "appear", 只有動作為點擊時有意義)。
+    「點到下一步的圖出現」引用的是下一步 (必為找圖) 的範本、分岔條件是
+    分支開頭的找圖步驟——都已涵蓋在「所有找圖步驟」之中。
+    """
+    seen = []
+    for s in steps:
+        if s.get("type") != "find_click":
+            continue
+        names = [s.get("template", "")]
+        if (s.get("action", "click") == "click"
+                and s.get("confirm") == "appear"):
+            names.append(s.get("confirmTemplate", ""))
+        for n in names:
+            if n and n not in seen:
+                seen.append(n)
+    return seen
+
+
 def _matching_branch_end(steps, i):
     """從 branch_or 位置往後找所屬的 branch_end 索引 (深度感知)."""
     depth = 0
@@ -85,6 +106,7 @@ class Runner:
         self.avoid_hover = False
         self._last_click = None
         self._step = (0, 0)  # (目前步驟序號, 總步驟數); 0 = 尚未進入步驟
+        self._preparing = False  # `範本預載`進行中 (UI 顯示「準備範本中…」)
         self._prev_type = None  # 上一個執行過的步驟型別 (供拖曳後讓出的標註)
         self._loops = []     # 進行中重複區段的 (目前次數, 總次數), 由外到內
         self._loop_stack = []  # 進行中重複區段: [起始索引, 剩餘次數, 總次數]
@@ -109,6 +131,7 @@ class Runner:
     def status(self):
         return {
             "running": self.running,
+            "preparing": self._preparing,  # `範本預載`中 (round 仍為 0)
             "round": self.round,
             "totalRounds": self.total_rounds,
             "step": self._step[0],
@@ -129,6 +152,7 @@ class Runner:
         self.avoid_hover = avoid_hover  # 找圖截圖前先把滑鼠移開, 避免 hover 反白干擾
         self._last_click = None  # 上一次點擊的螢幕座標, 供相對座標步驟使用
         self._step = (0, 0)
+        self._preparing = False
         self._prev_type = None
         self._loops = []
         self._thread = threading.Thread(
@@ -178,6 +202,7 @@ class Runner:
     # ---------- 主迴圈 ----------
     def _run(self, steps, start_delay):
         try:
+            self._preload(steps)  # `範本預載`: 開跑前一次載齊, 失敗不開跑
             if start_delay > 0:
                 self.log(f"{start_delay} 秒後開始執行 (按 F12 可隨時停止)")
                 self._sleep(start_delay)
@@ -249,6 +274,29 @@ class Runner:
             if self.stage is not None:
                 self.stage.leave()
             self.running = False
+
+    # ---------- `範本預載` ----------
+    def _preload(self, steps):
+        """執行前一次載入流程引用的全部範本 (ADR 0004).
+
+        缺圖/登錄產物損壞在這裡就報明錯誤、流程不開跑——不讓問題拖到
+        跑到一半才炸。每次執行都重掃 (登錄快取有效性由引擎那層把關)。
+        """
+        names = flow_templates(steps)
+        if not names:
+            return
+        self._preparing = True
+        self.log(f"準備範本中…（{len(names)} 張）")
+        try:
+            self.detector.preload(names)
+        except KeyError as e:
+            raise RuntimeError(f"範本預載失敗: 找不到範本圖片: {e.args[0]}"
+                               " → 停止執行") from None
+        except Exception as e:
+            raise RuntimeError(f"範本預載失敗: {e} → 停止執行") from e
+        finally:
+            self._preparing = False
+        self.log("範本就緒", "ok")
 
     # ---------- 步驟 ----------
     def _abs_origin(self):

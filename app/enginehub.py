@@ -70,11 +70,15 @@ class EngineHub:
         self.state = READY
 
     def load(self, profile_dir):
-        """引擎＋profile 一氣呵成 (背景執行緒用): 全部成功才轉 READY,
-        中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有 profile」."""
+        """引擎＋profile 探索一氣呵成 (背景執行緒用): 全部成功才轉 READY,
+        中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有 profile」。
+
+        不做整庫登錄: 登錄產物由`範本預載`/單張載入在使用當下載入
+        (ADR 0004), 引擎就緒時間只含模型載入。
+        """
         try:
             self._build_engine()
-            self.profile = self._engine.load_profile(profile_dir)
+            self.profile = self.discover(profile_dir)
         except Exception as exc:
             self.error = exc
             self.state = FAILED
@@ -90,9 +94,11 @@ class EngineHub:
         from subject_detection.profile import load_profile_dir
         return load_profile_dir(profile_dir)
 
-    def load_profile(self, profile_dir):
-        """載入並整庫登錄 profile (需`引擎就緒`)."""
-        self.profile = self._engine.load_profile(profile_dir)
+    def refresh(self, profile_dir):
+        """重新探索並綁定 profile (失效標記的落實): 範本增刪改後呼叫,
+        清單立即反映、所有登錄產物失效 (artifacts 歸零), 下次
+        `範本預載`/單張載入時重載。不需引擎, 任何狀態都可呼叫。"""
+        self.profile = self.discover(profile_dir)
         return self.profile
 
     # ---------- 查詢 / 載入 (runner 偵測接縫的超集) ----------
@@ -106,7 +112,17 @@ class EngineHub:
             self.ensure_template(name)
 
     def ensure_template(self, name):
-        """單一範本的登錄產物就位 (已載入的直接沿用)."""
+        """單一範本的登錄產物就位 (已載入的直接沿用).
+
+        缺名丟 KeyError(範本名)——args[0] 是乾淨的範本名, 呼叫端組錯誤
+        訊息用 (引擎 query 的 KeyError 是給人看的字串, 兩者用途不同)。
+        """
         if name not in self.profile.templates:
-            raise KeyError(f"unknown template: {name!r}")
+            raise KeyError(name)
         self._engine.register(self.profile, name)
+
+    def register_all(self):
+        """整庫登錄 (票 04 過渡: 比對測試等其他辨識入口查詢前補載;
+        票 05 收斂成單張隨用後移除)."""
+        for name in self.profile.templates:
+            self.ensure_template(name)

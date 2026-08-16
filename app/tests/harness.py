@@ -130,18 +130,19 @@ class Vision:
         return self.state == "ready"
 
     def preload(self, names):
-        """`範本預載`假件: 記錄名單; 名單中有 missing 的範本丟 KeyError."""
+        """`範本預載`假件: 記錄名單; 名單中有 missing 的範本丟
+        KeyError(範本名) (同 enginehub.ensure_template)."""
         names = list(names)
         self.preloads.append(names)
         if self.preload_error is not None:
             raise self.preload_error
         for n in names:
             if n in self._missing:
-                raise KeyError(f"unknown template: {n!r}")
+                raise KeyError(n)
 
     def ensure_template(self, name):
         if name in self._missing:
-            raise KeyError(f"unknown template: {name!r}")
+            raise KeyError(name)
         self.ensured.append(name)
 
     def plan(self, name, results):

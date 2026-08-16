@@ -64,11 +64,10 @@ def test_引擎建構失敗_狀態failed且保留錯誤():
     assert hub.error is boom
 
 
-def test_load_profile_query_委派引擎與當前profile():
+def test_query委派引擎與當前profile():
     hub, engine = _ready_hub()
-    p = hub.load_profile("some/dir")
-    assert engine.loaded == ("some/dir", True)
-    assert hub.profile is p
+    p = FakeProfile()
+    hub.profile = p
     r = hub.query("a", "SCREEN")
     assert r == "RESULT"
     assert engine.queries == [(p, "a", "SCREEN")]
@@ -76,14 +75,14 @@ def test_load_profile_query_委派引擎與當前profile():
 
 def test_preload逐一登錄():
     hub, engine = _ready_hub()
-    hub.load_profile("d")
+    hub.profile = FakeProfile()
     hub.preload(["a", "b"])
     assert engine.registered == ["a", "b"]
 
 
 def test_preload未知範本丟KeyError():
     hub, engine = _ready_hub()
-    hub.load_profile("d")
+    hub.profile = FakeProfile()
     with pytest.raises(KeyError):
         hub.preload(["a", "nope"])
     assert engine.registered == ["a"]  # 錯在哪張就停在哪張
@@ -91,9 +90,16 @@ def test_preload未知範本丟KeyError():
 
 def test_ensure_template單張登錄():
     hub, engine = _ready_hub()
-    hub.load_profile("d")
+    hub.profile = FakeProfile()
     hub.ensure_template("b")
     assert engine.registered == ["b"]
+
+
+def test_register_all整庫登錄():
+    hub, engine = _ready_hub()
+    hub.profile = FakeProfile()
+    hub.register_all()
+    assert sorted(engine.registered) == ["a", "b"]
 
 
 def test_coarse_only跟隨引擎():
@@ -109,25 +115,36 @@ def test_gating決策矩陣():
     assert "失敗" in enginehub.gating_message(enginehub.FAILED)
 
 
-def test_load一氣呵成_引擎加profile全成功才就緒():
+def _make_profile_dir(tmp_path):
+    (tmp_path / "templates" / "zh" / "X").mkdir(parents=True)
+    (tmp_path / "templates" / "zh" / "X" / "X.png").write_bytes(b"png")
+    return tmp_path
+
+
+def test_load一氣呵成_引擎加探索全成功才就緒(tmp_path):
     engine = FakeEngine()
     hub = enginehub.EngineHub(engine_factory=lambda: engine)
-    hub.load("p/dir")
+    hub.load(_make_profile_dir(tmp_path))
     assert hub.state == enginehub.READY
-    assert hub.profile is not None
-    assert engine.loaded == ("p/dir", True)
+    assert "zh/X" in hub.profile.templates
+    # 不整庫登錄: 登錄產物由`範本預載`/單張載入在使用當下載入 (ADR 0004)
+    assert engine.loaded is None
+    assert engine.registered == []
 
 
-def test_load時profile載入失敗_整體視為failed():
-    engine = FakeEngine()
-    boom = RuntimeError("profile broken")
-    def bad_load(profile_dir, register=True):
-        raise boom
-    engine.load_profile = bad_load
-    hub = enginehub.EngineHub(engine_factory=lambda: engine)
-    hub.load("p/dir")
+def test_load時profile探索失敗_整體視為failed(tmp_path):
+    hub = enginehub.EngineHub(engine_factory=FakeEngine)
+    hub.load(tmp_path / "not-a-profile")  # 沒有 templates/ 目錄
     assert hub.state == enginehub.FAILED
-    assert hub.error is boom
+    assert isinstance(hub.error, FileNotFoundError)
+
+
+def test_refresh重新探索並綁定profile(tmp_path):
+    hub = enginehub.EngineHub(engine_factory=FakeEngine)
+    p = hub.refresh(_make_profile_dir(tmp_path))
+    assert hub.profile is p
+    assert "zh/X" in p.templates
+    assert hub.state == enginehub.LOADING  # 不觸碰生命週期狀態
 
 
 def test_discover不需引擎_輕量探索範本清單(tmp_path):

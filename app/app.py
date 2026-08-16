@@ -455,7 +455,9 @@ class App:
     def _on_engine_state(self, state):
         """背景載入結束 (由 _poll 在 UI 執行緒觀察到狀態轉變時呼叫)."""
         if state == enginehub.READY:
-            self.profile = self.hub.profile
+            # 以「當下的 profile_dir」重新探索: 背景載入期間使用者可能已
+            # 切換 profile 或增刪範本, 不能拿背景那份舊快照直接覆蓋
+            self.profile = self.hub.refresh(self.profile_dir)
             for msg in self.hub.warnings:
                 self.log_ui(f"引擎警告: {msg}", "warn")
             if self.hub.coarse_only:
@@ -491,22 +493,16 @@ class App:
         return os.path.join(self.flows_dir, "_autosave.json")
 
     def reload_profile(self):
-        """載入 (或重新登錄) 當前 profile: 新增/修改範本後呼叫即自動重登錄.
+        """重新探索當前 profile (輕量, 不讀登錄產物): 新增/修改範本後呼叫.
 
-        `引擎就緒`前只重新探索 (背景載入完成時自會整庫登錄當前
-        profile_dir, 期間落地的檔案屆時一併登錄)。
+        清單立即反映、既有登錄產物失效; 產物由`範本預載`/單張載入在
+        使用當下重載 (ADR 0004), 這裡不做任何登錄、不需引擎。
         """
-        if not self.hub.ready:
-            self.profile = self.hub.discover(self.profile_dir)
-            return
-        self.profile = self.hub.load_profile(self.profile_dir)
+        self.profile = self.hub.refresh(self.profile_dir)
 
     def switch_profile(self, name):
         """切換 profile: 流程清單、範本瀏覽器、引擎查詢對象一致跟隨."""
         if name == self.profile_name:
-            return
-        if not self.engine_gate():  # 整庫登錄需要引擎 (票 04 改 lazy 後可解禁)
-            self.profile_cb.set(self.profile_name)
             return
         if self.runner.status()["running"]:
             messagebox.showwarning("切換 profile", "流程執行中，請先停止再切換",
@@ -546,8 +542,6 @@ class App:
     def refresh_profile_ui(self):
         """手動重新登錄範本庫: 使用者直接在檔案總管動過 templates/
         (如把多張截圖整理成同名目錄變多截圖範本) 之後按這顆, 不必重啟."""
-        if not self.engine_gate():  # 整庫登錄需要引擎 (票 04 改 lazy 後可解禁)
-            return
         try:
             self.reload_profile()
         except Exception as e:
@@ -555,8 +549,8 @@ class App:
             return
         self.refresh_templates()
         self.render_steps()
-        self.log_ui(f"已重新登錄範本庫（{len(self.profile.templates)} 個範本）",
-                    "ok")
+        self.log_ui(f"已重新整理範本庫（{len(self.profile.templates)} 個範本；"
+                    "登錄產物將於使用時載入）", "ok")
 
     def create_profile_ui(self):
         name = ui_dialogs.ask_string(self.root, "建立新 profile",
@@ -1481,8 +1475,9 @@ class App:
         self.ensure_registered()
 
     def ensure_registered(self):
-        """延後的重登錄立即補跑; 引擎查詢 (比對測試/執行流程) 前必須呼叫,
-        否則延後期間的新範本尚未登錄, 查詢會 KeyError."""
+        """延後的重新探索立即補跑; 引擎查詢 (比對測試/執行流程) 前必須呼叫,
+        否則延後期間的新範本還不在 profile 清單裡, 查詢會 KeyError。
+        登錄產物本身由`範本預載`/單張載入在使用當下載入 (ADR 0004)."""
         if not self._pending_templates:
             return
         self._cancel_reregister()
@@ -2081,7 +2076,8 @@ class App:
         if running:
             total = st["totalRounds"]
             if st["round"] == 0:
-                text = "倒數啟動中…"
+                text = ("準備範本中…" if st.get("preparing")
+                        else "倒數啟動中…")
             elif total:
                 text = f"執行中　第 {st['round']}/{total} 輪"
             else:

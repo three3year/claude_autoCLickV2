@@ -189,6 +189,7 @@ def _find_template_now(app, dlg, prev):
     app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中
     if name not in app.profile.templates:
         return None
+    app.hub.register_all()  # 票 04 過渡: 查詢前整庫補載 (票 05 收斂單張)
     with ui_overlay.screen_clear(app.root, extra=(dlg,)):
         app.root.update()
         time.sleep(0.12)
@@ -820,6 +821,7 @@ def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
     if template_name not in app.profile.templates:
         messagebox.showerror("測試", f"範本不存在: {template_name}")
         return
+    app.hub.register_all()  # 票 04 過渡: 查詢前整庫補載 (票 05 收斂單張)
 
     scan = region or getattr(app, "scan_region", None)
 
