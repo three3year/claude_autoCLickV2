@@ -44,7 +44,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,  # 啟動速度優先: UPX 解壓成本吃掉冷啟動 (ADR 0004, 票 02)
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -62,7 +62,7 @@ exe_nouac = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,  # 同上 (兩個 exe 共用取捨)
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -77,7 +77,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,  # 同上: DLL 群不壓縮, 免除每次載入的解壓成本
     upx_exclude=[],
     name='AutoClick',
 )
