@@ -485,12 +485,7 @@ class App:
             return
         self._autosave()  # 先把目前流程存回原 profile
         # 舊 profile 延後中的重登錄作廢: 檔案已落地, 下次載入該 profile 會登錄
-        if self._rereg_after is not None:
-            try:
-                self.root.after_cancel(self._rereg_after)
-            except tk.TclError:
-                pass
-            self._rereg_after = None
+        self._cancel_reregister()
         self._pending_templates.clear()
         prev = (self.profile_name, self.profile_dir, self.profile)
         self.profile_name = name
@@ -1350,7 +1345,8 @@ class App:
         self.thumb_lbl.configure(image=photo, text="")
         self.thumb_lbl._photo = photo
         if img is not None:
-            caps = len(self.profile.templates[name].capture_paths)
+            t = self.profile.templates.get(name)  # 延後重登錄中的先當單張
+            caps = len(t.capture_paths) if t is not None else 1
             tail = f"　{caps} 張截圖" if caps > 1 else ""
             self.thumb_info.configure(
                 text=f"{name}　{img.shape[1]}×{img.shape[0]}px{tail}")
@@ -1433,8 +1429,21 @@ class App:
         if self._rereg_after is None:
             self._rereg_after = self.root.after(80, self._run_reregister)
 
+    def _cancel_reregister(self):
+        if self._rereg_after is not None:
+            try:
+                self.root.after_cancel(self._rereg_after)
+            except tk.TclError:
+                pass
+            self._rereg_after = None
+
     def _run_reregister(self):
         self._rereg_after = None
+        if ui_grab.coord.clearing:
+            # 排程落在下一次清場的事件迴圈裡: 重登錄會在畫面隱藏時卡數秒,
+            # 等清場結束再跑 (需要引擎的查詢路徑自會 ensure_registered)
+            self._rereg_after = self.root.after(500, self._run_reregister)
+            return
         self.ensure_registered()
 
     def ensure_registered(self):
@@ -1442,12 +1451,7 @@ class App:
         否則延後期間的新範本尚未登錄, 查詢會 KeyError."""
         if not self._pending_templates:
             return
-        if self._rereg_after is not None:
-            try:
-                self.root.after_cancel(self._rereg_after)
-            except tk.TclError:
-                pass
-            self._rereg_after = None
+        self._cancel_reregister()
         self.reload_profile()
         self._pending_templates.clear()
         self.refresh_templates()

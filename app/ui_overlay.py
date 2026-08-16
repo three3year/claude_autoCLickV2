@@ -143,21 +143,23 @@ def _unbind(w, seq, funcid):
         pass
 
 
-def _wait_mapped(w, timeout_ms=_MAP_TIMEOUT_MS):
+def _wait_mapped(root, w, timeout_ms=_MAP_TIMEOUT_MS):
     """等待 w 真的畫出來 (map): <Map> 事件驅動 + 逾時, 回傳是否可見.
 
     deiconify 只是把 map 請求排進佇列, 不等於視窗已畫出來——
     這裡跑事件迴圈直到收到 <Map> 或逾時, 與進場的 update+等待對稱。
+    逾時計時與等待變數掛在 root 上: w 中途被銷毀時逾時仍會喚醒等待,
+    任何情況都不懸住。
     """
     try:
         if w.winfo_viewable():
             return True
-        var = tk.IntVar(master=w, value=0)
+        var = tk.IntVar(master=root, value=0)
         funcid = w.bind("<Map>", lambda e: var.set(1), add=True)
-        after_id = w.after(timeout_ms, lambda: var.set(2))
-        w.wait_variable(var)
+        after_id = root.after(timeout_ms, lambda: var.set(2))
+        root.wait_variable(var)
         try:
-            w.after_cancel(after_id)
+            root.after_cancel(after_id)
         except tk.TclError:
             pass
         _unbind(w, "<Map>", funcid)
@@ -166,13 +168,15 @@ def _wait_mapped(w, timeout_ms=_MAP_TIMEOUT_MS):
         return False
 
 
-def _restore_verified(w, zoomed):
+def _restore_verified(root, w, zoomed):
     """驗證式還原單一視窗: deiconify → 等 map 確認, 逾時依狀態機重試.
 
-    回傳是否確認可見; 重試與放棄都寫入日誌 (偶發問題事後可查證)。
+    回傳是否確認可見; 每窗驗證結果、重試次數與間隔都寫入日誌
+    (偶發問題事後可查證)。
     """
     coord = ui_grab.coord
     name = ui_grab.wname(w)
+    attempt = 0
     while True:
         try:
             if zoomed:
@@ -183,14 +187,17 @@ def _restore_verified(w, zoomed):
             coord.window_destroyed(w)
             applog.log("clear.restore_gone", win=name)
             return False
-        if _wait_mapped(w):
+        if _wait_mapped(root, w):
             coord.confirm_restored(w)
+            applog.log("clear.restored", win=name, retries=attempt)
             return True
         if not coord.restore_timed_out(w):
             applog.log("clear.restore_fail", win=name,
                        retries=coord.max_retries)
             return False
-        applog.log("clear.restore_retry", win=name)
+        attempt += 1
+        applog.log("clear.restore_retry", win=name, attempt=attempt,
+                   timeout_ms=_MAP_TIMEOUT_MS)
 
 
 def _destroy_stale_tops():
@@ -264,7 +271,7 @@ def screen_clear(root, extra=()):
             st["saved"] = []
             plan = ui_grab.coord.restore_plan()
             for w, z in plan:
-                _restore_verified(w, z)
+                _restore_verified(root, w, z)
             # 依清單順序 lift (root 先、對話框後), 維持 Z 序
             for w, _z in plan:
                 try:
@@ -273,7 +280,7 @@ def screen_clear(root, extra=()):
                 except tk.TclError:
                     pass
             ui_grab.coord.clear_finished()
-            applog.log("clear.exit", windows=len(plan))
+            applog.log("clear.exit", count=len(plan))
             ui_grab.apply_grab("clear-exit")
             # 前景交接: 此時覆蓋層仍是本程序的前景視窗, focus_force
             # (SetForegroundWindow) 必被允許, 且會把整個擁有鏈 (對話框+主視窗)

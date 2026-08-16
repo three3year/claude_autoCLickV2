@@ -14,7 +14,7 @@ def _applog_to_tmp(tmp_path_factory):
     個別測試的 monkeypatch 還原後, 殘留視窗的 <Destroy> 事件仍可能觸發
     applog——沒有這層兜底就會把測試雜訊寫進 repo 根目錄的 autoclick.log。
     """
-    applog._path = str(tmp_path_factory.mktemp("applog") / "autoclick.log")
+    applog.set_path(str(tmp_path_factory.mktemp("applog") / "autoclick.log"))
 
 
 @pytest.fixture
