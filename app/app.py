@@ -714,6 +714,16 @@ class App:
 
         ttk.Label(bar, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
 
+        # `校準`常駐按鈕區 (票 02/03): 校準按鈕顯示當前`畫面倍率`或「未校準」,
+        # 沒有校準對時只能指定 (行為不受任何影響)。放第一列右側:
+        # 第二列在預設視窗寬度下已無空間, 塞進去會被裁掉
+        self.cal_btn = ttk.Button(bar, text="校準", style="Small.TButton",
+                                  takefocus=False, command=self.calibrate_now)
+        self.cal_btn.pack(side="right", padx=(0, 14))
+        ttk.Button(bar, text="指定校準對", style="Small.TButton",
+                   takefocus=False,
+                   command=self.designate_pair).pack(side="right", padx=(0, 6))
+
         # 第二列: 全域搜尋範圍 + game profile 切換
         bar2 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         bar2.pack(fill="x")
@@ -736,15 +746,6 @@ class App:
                              lambda e: self.switch_profile(self.profile_cb.get()))
         self.profile_cb.pack(side="right", padx=(6, 6))
         ttk.Label(bar2, text="Profile").pack(side="right")
-
-        # `校準`常駐按鈕區 (票 02/03): 校準按鈕顯示當前`畫面倍率`或「未校準」,
-        # 沒有校準對時只能指定 (行為不受任何影響)
-        self.cal_btn = ttk.Button(bar2, text="校準", style="Small.TButton",
-                                  takefocus=False, command=self.calibrate_now)
-        self.cal_btn.pack(side="right", padx=(0, 14))
-        ttk.Button(bar2, text="指定校準對", style="Small.TButton",
-                   takefocus=False,
-                   command=self.designate_pair).pack(side="right", padx=(0, 6))
 
     def _mode_ui(self):
         state = "normal" if self.run_mode.get() == "執行次數" else "disabled"
