@@ -119,6 +119,30 @@ class Vision:
         self._lock = threading.Lock()
         self.grabs = []      # 每次擷取用的搜尋範圍
         self.lookups = []    # 每次查詢的範本名稱
+        # ---- 生命週期假件 (enginehub.EngineHub 的形狀, 票 01) ----
+        self.state = "ready"       # 測試可直接撥成 loading / failed
+        self.preloads = []         # 每次`範本預載`收到的名單
+        self.ensured = []          # 單張載入 (ensure_template) 的範本名
+        self.preload_error = None  # 預載時要拋的例外 (模擬缺圖/損壞)
+
+    @property
+    def ready(self):
+        return self.state == "ready"
+
+    def preload(self, names):
+        """`範本預載`假件: 記錄名單; 名單中有 missing 的範本丟 KeyError."""
+        names = list(names)
+        self.preloads.append(names)
+        if self.preload_error is not None:
+            raise self.preload_error
+        for n in names:
+            if n in self._missing:
+                raise KeyError(f"unknown template: {n!r}")
+
+    def ensure_template(self, name):
+        if name in self._missing:
+            raise KeyError(f"unknown template: {name!r}")
+        self.ensured.append(name)
 
     def plan(self, name, results):
         self._plans[name] = list(results)

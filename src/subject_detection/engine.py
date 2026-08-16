@@ -48,14 +48,25 @@ class Engine:
         from .verification import masked_fill
         return self._verifier.embed([masked_fill(art.ref_bgr, art.mask)])[0]
 
-    def load_profile(self, profile_dir: str | Path) -> Profile:
+    def load_profile(self, profile_dir: str | Path,
+                     register: bool = True) -> Profile:
+        """register=False 只做探索 (輕量, 不讀登錄產物): 呼叫端在使用前
+        以 register() 逐範本載入 (`範本預載`, ADR 0004)。"""
         profile = load_profile_dir(profile_dir)
-        embed_fn = self._embed_template if self._verifier is not None else None
-        for t in profile.templates.values():
+        if register:
+            for name in profile.templates:
+                self.register(profile, name)
+        return profile
+
+    def register(self, profile: Profile, name: str) -> None:
+        """單一範本的登錄產物載入/重建; 已載入 (artifacts 在) 的直接沿用."""
+        t = profile.templates[name]
+        if t.artifacts is None:
+            embed_fn = (self._embed_template
+                        if self._verifier is not None else None)
             t.artifacts = load_or_register(profile.root, t.name,
                                            t.capture_paths, profile.config,
                                            embed_fn=embed_fn)
-        return profile
 
     def query(self, profile: Profile, template_name: str,
               search_region: np.ndarray) -> QueryResult:

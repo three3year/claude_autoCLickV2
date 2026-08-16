@@ -27,6 +27,7 @@ else:
     sys.path.insert(0, os.path.join(profile_store.data_root(), "src"))
 
 import applog
+import enginehub
 import flowpack
 import ui_dialogs
 import ui_grab
@@ -35,7 +36,6 @@ import ui_theme
 from automation import flowfmt, hotkey, imgio, win
 from automation.runner import (Runner, branch_layout, confirm_next_connected,
                                uses_confirm_next)
-from subject_detection.engine import Engine
 from ui_theme import C, FONT, FONT_MONO
 
 PROFILES_DIR = profile_store.profiles_root()
@@ -359,21 +359,6 @@ class SegListbox(tk.Text):
             self._apply_sel()
 
 
-class EngineDetector:
-    """runner 偵測查詢接縫的引擎實作: 綁定當前 profile.
-
-    切換/重載 profile 時只換 `profile` 屬性, runner 拿著同一個 detector
-    就永遠查到當前 profile。
-    """
-
-    def __init__(self, engine):
-        self.engine = engine
-        self.profile = None  # reload_profile 填入
-
-    def query(self, name, search_region):
-        return self.engine.query(self.profile, name, search_region)
-
-
 class App:
     def __init__(self, root):
         self.root = root
@@ -386,14 +371,13 @@ class App:
         self._collapsed = set()  # 已收合的區段起點 (以 step dict 的 id 記錄)
         self._view = []  # 清單列 → steps 索引的映射 (收合時兩者不一致)
 
-        # ---- 引擎: 啟動時建立一次, 驗證模型常駐 (失敗降級 coarse-only) ----
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            self.engine = Engine()
-        # 只留引擎自己發的警告 (torch 載入時的雜音不進執行紀錄)
-        self._engine_warns = [str(w.message) for w in caught
-                              if "subject_detection" in (w.filename or "")]
-        self.detector = EngineDetector(self.engine)
+        # ---- 引擎: 生命週期收在 enginehub (詞彙見 CONTEXT.md「啟動與就緒」;
+        # 目前仍為啟動同步載入, 驗證模型常駐, 失敗降級 coarse-only) ----
+        self.hub = enginehub.EngineHub()
+        self.hub.load_engine()
+        if self.hub.state == enginehub.FAILED:
+            raise self.hub.error  # 與先前直接建構 Engine 的行為一致
+        self.detector = self.hub  # runner 偵測查詢接縫 (query) ＝ hub
         self.runner = Runner(self.detector)
         hotkey.start_stop_hotkey(self.stop_all)  # F12 = 全部停止
 
@@ -423,9 +407,9 @@ class App:
         self._build_toolbar()
         self._build_main()
 
-        for msg in self._engine_warns:
+        for msg in self.hub.warnings:
             self.log_ui(f"引擎警告: {msg}", "warn")
-        if self.engine.coarse_only:
+        if self.hub.coarse_only:
             self.log_ui("驗證模型未載入 → 降級為 coarse-only（僅粗篩，精度較低）",
                         "warn")
             root.after(400, lambda: messagebox.showwarning(
@@ -471,8 +455,7 @@ class App:
 
     def reload_profile(self):
         """載入 (或重新登錄) 當前 profile: 新增/修改範本後呼叫即自動重登錄."""
-        self.profile = self.engine.load_profile(self.profile_dir)
-        self.detector.profile = self.profile
+        self.profile = self.hub.load_profile(self.profile_dir)
 
     def switch_profile(self, name):
         """切換 profile: 流程清單、範本瀏覽器、引擎查詢對象一致跟隨."""
@@ -496,7 +479,7 @@ class App:
             # 載入失敗就整組還原, 也不記錄狀態——否則瀏覽器/查詢對象指向
             # 新 profile 的殘破狀態, 下次啟動還會直接踩同一個雷
             self.profile_name, self.profile_dir, self.profile = prev
-            self.detector.profile = self.profile
+            self.hub.profile = self.profile
             self.profile_cb.set(self.profile_name)
             messagebox.showerror("切換 profile",
                                  f"載入失敗，維持原 profile：{e}",

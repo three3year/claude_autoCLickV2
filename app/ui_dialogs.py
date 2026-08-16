@@ -855,7 +855,7 @@ def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
     stages = f"　粗篩 {d.get('match_score', 0):.3f}/{cfg['match_threshold']}"
     if "verify_score" in d:
         stages += f"　驗證 {d['verify_score']:.3f}/{cfg['verify_threshold']}"
-    elif app.engine.coarse_only:
+    elif app.hub.coarse_only:
         stages += "（coarse-only：驗證未啟用）"
     scope = f"　搜尋範圍：{tuple(scan)}" if scan else "　搜尋範圍：全螢幕"
     tk.Label(win_, text=info + stages + scope, bg=C["panel"], fg=fg,
