@@ -95,13 +95,6 @@ def test_ensure_template單張登錄():
     assert engine.registered == ["b"]
 
 
-def test_register_all整庫登錄():
-    hub, engine = _ready_hub()
-    hub.profile = FakeProfile()
-    hub.register_all()
-    assert sorted(engine.registered) == ["a", "b"]
-
-
 def test_coarse_only跟隨引擎():
     hub, _ = _ready_hub(FakeEngine(coarse_only=True))
     assert hub.coarse_only

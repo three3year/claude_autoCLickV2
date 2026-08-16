@@ -120,9 +120,3 @@ class EngineHub:
         if name not in self.profile.templates:
             raise KeyError(name)
         self._engine.register(self.profile, name)
-
-    def register_all(self):
-        """整庫登錄 (票 04 過渡: 比對測試等其他辨識入口查詢前補載;
-        票 05 收斂成單張隨用後移除)."""
-        for name in self.profile.templates:
-            self.ensure_template(name)
