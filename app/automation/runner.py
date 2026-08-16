@@ -9,7 +9,7 @@
 import threading
 import time
 
-from . import capture, win
+from . import capture, flowfmt, win
 
 
 class StopRequested(Exception):
@@ -104,6 +104,7 @@ class Runner:
         self.total_rounds = 0    # 0 = 無限
         self.scan_region = None
         self.avoid_hover = False
+        self.scale = 1.0
         self._last_click = None
         self._step = (0, 0)  # (目前步驟序號, 總步驟數); 0 = 尚未進入步驟
         self._preparing = False  # `範本預載`進行中 (UI 顯示「準備範本中…」)
@@ -141,7 +142,7 @@ class Runner:
 
     # ---------- 控制 ----------
     def start(self, steps, run_mode="count", run_count=1, start_delay=3,
-              scan_region=None, avoid_hover=False):
+              scan_region=None, avoid_hover=False, scale=1.0):
         if self.running:
             raise RuntimeError("已在執行中")
         self._stop.clear()
@@ -150,6 +151,9 @@ class Runner:
         self.total_rounds = 0 if run_mode == "infinite" else max(1, int(run_count))
         self.scan_region = scan_region  # 全域搜尋範圍 [x,y,w,h]; 步驟未自設範圍時套用
         self.avoid_hover = avoid_hover  # 找圖截圖前先把滑鼠移開, 避免 hover 反白干擾
+        # `畫面倍率`: 步驟偏移換算落點時乘上它 (由校準模組算出, runner 不讀檔);
+        # 1 (含未校準代入值) = 恆等換算, 與原路徑等價
+        self.scale = float(scale)
         self._last_click = None  # 上一次點擊的螢幕座標, 供相對座標步驟使用
         self._step = (0, 0)
         self._preparing = False
@@ -309,6 +313,14 @@ class Runner:
             raise RuntimeError("絕對座標需要「搜尋範圍」當基準，請先框選搜尋範圍")
         return int(self.scan_region[0]), int(self.scan_region[1])
 
+    def _sc(self, v):
+        """步驟偏移 ×`畫面倍率`四捨五入為整數像素 (倍率 1 = 恆等).
+
+        只換算偏移量 (找圖偏移、相對/絕對座標、拖曳兩端點); 搜尋範圍與
+        原點等執行期螢幕座標本來就是本機量測值, 不換算。
+        """
+        return flowfmt.scale_px(v, self.scale)
+
     def _exec_step(self, steps, idx):
         """執行 steps[idx]; 帶入清單與索引讓找圖步驟能現算「下一步」."""
         step = steps[idx]
@@ -317,7 +329,7 @@ class Runner:
         prev, self._prev_type = self._prev_type, t
         if t == "click":
             mode = step.get("mode", "abs")
-            x, y = int(step["x"]), int(step["y"])
+            x, y = self._sc(step["x"]), self._sc(step["y"])
             desc = ""
             if mode == "prev":
                 if self._last_click is None:
@@ -337,8 +349,8 @@ class Runner:
             self.log(f"[{no}] 點擊 ({x}, {y}){desc} {_btn_name(button)}×{clicks}")
 
         elif t == "drag":
-            x1, y1 = int(step["x1"]), int(step["y1"])
-            x2, y2 = int(step["x2"]), int(step["y2"])
+            x1, y1 = self._sc(step["x1"]), self._sc(step["y1"])
+            x2, y2 = self._sc(step["x2"]), self._sc(step["y2"])
             desc = ""
             if step.get("mode", "abs") == "prev":
                 if self._last_click is None:
@@ -514,7 +526,7 @@ class Runner:
         action = step.get("action", "click")
         do_click = action == "click"
         on_nf = step.get("onNotFound", "skip")
-        off = (int(step.get("offsetX", 0)), int(step.get("offsetY", 0)))
+        off = (self._sc(step.get("offsetX", 0)), self._sc(step.get("offsetY", 0)))
         button = step.get("button", "left")
         clicks = int(step.get("clicks", 1))
 

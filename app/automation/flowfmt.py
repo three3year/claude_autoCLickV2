@@ -3,12 +3,24 @@
 `絕對座標`的基準從「螢幕左上角」改成「`搜尋範圍`左上角」之後, 同一組數字在
 新舊格式下意思不同, 所以存檔要帶標記, 讀檔時把舊格式換算過來——不能靠猜。
 """
+import math
 
 COORD_SPACE = "coordSpace"
 REGION = "region"   # 絕對座標＝相對`搜尋範圍`左上角的偏移 (現行)
 SCREEN = "screen"   # 絕對座標＝螢幕座標 (舊格式, 沒有標記時視為此)
 
 _ABS_KEYS = {"click": (("x", "y"),), "drag": (("x1", "y1"), ("x2", "y2"))}
+
+
+def scale_px(v, k):
+    """偏移量 ×`畫面倍率`後四捨五入為整數像素 (負值對稱進位); k=1 恆等.
+
+    runner 執行期換算與校準模組的檔案改寫共用這一個進位規則,
+    兩邊才不會因捨入方向不同而各差 1px。
+    """
+    x = float(v) * k
+    r = int(math.floor(abs(x) + 0.5))
+    return r if x >= 0 else -r
 
 
 def abs_steps(steps):
