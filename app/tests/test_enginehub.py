@@ -103,6 +103,47 @@ def test_coarse_only跟隨引擎():
     assert not hub2.coarse_only  # 尚未載入 = 尚未降級
 
 
+def test_gating決策矩陣():
+    assert enginehub.gating_message(enginehub.READY) is None
+    assert "載入中" in enginehub.gating_message(enginehub.LOADING)
+    assert "失敗" in enginehub.gating_message(enginehub.FAILED)
+
+
+def test_load一氣呵成_引擎加profile全成功才就緒():
+    engine = FakeEngine()
+    hub = enginehub.EngineHub(engine_factory=lambda: engine)
+    hub.load("p/dir")
+    assert hub.state == enginehub.READY
+    assert hub.profile is not None
+    assert engine.loaded == ("p/dir", True)
+
+
+def test_load時profile載入失敗_整體視為failed():
+    engine = FakeEngine()
+    boom = RuntimeError("profile broken")
+    def bad_load(profile_dir, register=True):
+        raise boom
+    engine.load_profile = bad_load
+    hub = enginehub.EngineHub(engine_factory=lambda: engine)
+    hub.load("p/dir")
+    assert hub.state == enginehub.FAILED
+    assert hub.error is boom
+
+
+def test_discover不需引擎_輕量探索範本清單(tmp_path):
+    # 目錄形式範本 (app 落地慣例): zh/ 是命名空間, X/ 是一個範本
+    (tmp_path / "templates" / "zh" / "X").mkdir(parents=True)
+    (tmp_path / "templates" / "zh" / "X" / "X.png").write_bytes(b"png")
+
+    def never():
+        raise AssertionError("discover 不應建構引擎")
+    hub = enginehub.EngineHub(engine_factory=never)
+    p = hub.discover(tmp_path)
+    assert "zh/X" in p.templates
+    assert hub.state == enginehub.LOADING  # 探索不改變生命週期狀態
+    assert hub.profile is None             # 也不搶佔背景載入的 profile
+
+
 def test_引擎警告只留subject_detection來源():
     def factory():
         warnings.warn("outside noise")  # filename 是本測試檔 → 應被濾掉

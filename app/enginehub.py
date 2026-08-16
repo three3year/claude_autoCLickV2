@@ -47,25 +47,48 @@ class EngineHub:
         """驗證模型未載入 (引擎降級粗篩)。尚未載入完成時視為未降級."""
         return self._engine is not None and self._engine.coarse_only
 
-    def load_engine(self):
-        """同步載入引擎 (torch/DINOv2)。呼叫端決定在哪條執行緒跑;
-        結束後 state 轉 READY / FAILED, 絕不拋出."""
+    def _build_engine(self):
+        """建構引擎 (torch/DINOv2); 收集引擎自己發的警告, 失敗直接拋."""
         import warnings as _warnings
-        try:
-            with _warnings.catch_warnings(record=True) as caught:
-                _warnings.simplefilter("always")
-                engine = self._factory()
-        except Exception as exc:
-            self.error = exc
-            self.state = FAILED
-            return
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            engine = self._factory()
         # 只留引擎自己發的警告 (torch 載入時的雜音不進執行紀錄)
         self.warnings = [str(w.message) for w in caught
                          if "subject_detection" in (w.filename or "")]
         self._engine = engine
+
+    def load_engine(self):
+        """同步載入引擎。呼叫端決定在哪條執行緒跑;
+        結束後 state 轉 READY / FAILED, 絕不拋出."""
+        try:
+            self._build_engine()
+        except Exception as exc:
+            self.error = exc
+            self.state = FAILED
+            return
+        self.state = READY
+
+    def load(self, profile_dir):
+        """引擎＋profile 一氣呵成 (背景執行緒用): 全部成功才轉 READY,
+        中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有 profile」."""
+        try:
+            self._build_engine()
+            self.profile = self._engine.load_profile(profile_dir)
+        except Exception as exc:
+            self.error = exc
+            self.state = FAILED
+            return
         self.state = READY
 
     # ---------- profile ----------
+
+    def discover(self, profile_dir):
+        """輕量探索 profile (不需引擎、不讀登錄產物, 只掃目錄與設定):
+        回傳 Profile 供 UI 立即使用, 不觸碰生命週期狀態與 hub.profile
+        (背景載入中的 load() 才擁有它們)."""
+        from subject_detection.profile import load_profile_dir
+        return load_profile_dir(profile_dir)
 
     def load_profile(self, profile_dir):
         """載入並整庫登錄 profile (需`引擎就緒`)."""

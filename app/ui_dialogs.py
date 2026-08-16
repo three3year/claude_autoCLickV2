@@ -180,6 +180,12 @@ def _region_origin(app, parent):
 def _find_template_now(app, dlg, prev):
     """隱藏視窗後在框選範圍內即時查一次 prev 的範本, 回傳中心座標或 None."""
     name = prev.get("template", "")
+    if not app.hub.ready:
+        # `引擎就緒`前提示並拒絕 (清場中不得彈 modal——會隱形卡死);
+        # 回 None 走「截圖當下位置」備援, 拾取流程不中斷
+        if not ui_grab.coord.clearing:
+            app.engine_gate(parent=dlg)
+        return None
     app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中
     if name not in app.profile.templates:
         return None
@@ -808,6 +814,8 @@ def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
     達標綠框 / 未達標紅框 (紅框為最接近的粗篩候選位置)。
     """
     root = app.root
+    if not app.engine_gate():  # `引擎就緒`前提示並拒絕 (ADR 0004)
+        return
     app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中 (票 05)
     if template_name not in app.profile.templates:
         messagebox.showerror("測試", f"範本不存在: {template_name}")

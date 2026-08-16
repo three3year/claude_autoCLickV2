@@ -9,8 +9,8 @@ import os
 import re
 import shutil
 import sys
+import threading
 import time
-import warnings
 import zipfile
 import tkinter as tk
 import tkinter.font as tkfont
@@ -371,15 +371,13 @@ class App:
         self._collapsed = set()  # 已收合的區段起點 (以 step dict 的 id 記錄)
         self._view = []  # 清單列 → steps 索引的映射 (收合時兩者不一致)
 
-        # ---- 引擎: 生命週期收在 enginehub (詞彙見 CONTEXT.md「啟動與就緒」;
-        # 目前仍為啟動同步載入, 驗證模型常駐, 失敗降級 coarse-only) ----
+        # ---- 引擎: 視窗先開, 引擎於背景執行緒載入 (ADR 0004) ----
+        # 「視窗可操作」與「`引擎就緒`」是兩個時間點; 就緒前辨識類操作由
+        # engine_gate 提示並拒絕, 狀態轉變由 _poll 在 UI 執行緒觀察處理
         self.hub = enginehub.EngineHub()
-        self.hub.load_engine()
-        if self.hub.state == enginehub.FAILED:
-            raise self.hub.error  # 與先前直接建構 Engine 的行為一致
         self.detector = self.hub  # runner 偵測查詢接縫 (query) ＝ hub
         self.runner = Runner(self.detector)
-        hotkey.start_stop_hotkey(self.stop_all)  # F12 = 全部停止
+        hotkey.start_stop_hotkey(self._on_hotkey)  # F12 (pynput 執行緒)
 
         # ---- profile: 上次選用的 (無記錄用 arknights, 再無則建立) ----
         state = profile_store.load_state(PROFILES_DIR)
@@ -393,10 +391,14 @@ class App:
             name = DEFAULT_PROFILE
         self.profile_name = name
         self.profile_dir = os.path.join(PROFILES_DIR, name)
-        self.profile = None
         self._pending_templates = set()  # 已存檔、重登錄延後中的新範本名
         self._rereg_after = None         # 延後重登錄的 after id
-        self.reload_profile()  # 自動登錄 (含首次啟動)
+        # 輕量探索先行 (不需引擎): 範本瀏覽器/清單立即可用;
+        # 引擎＋整庫登錄在背景載入, 完成/失敗由 _poll 觀察 hub 狀態
+        self.profile = self.hub.discover(self.profile_dir)
+        self._engine_state_seen = enginehub.LOADING
+        threading.Thread(target=lambda: self.hub.load(self.profile_dir),
+                         daemon=True).start()
 
         root.title("AutoClick — 按鍵精靈")
         root.geometry("1120x700")
@@ -407,17 +409,7 @@ class App:
         self._build_toolbar()
         self._build_main()
 
-        for msg in self.hub.warnings:
-            self.log_ui(f"引擎警告: {msg}", "warn")
-        if self.hub.coarse_only:
-            self.log_ui("驗證模型未載入 → 降級為 coarse-only（僅粗篩，精度較低）",
-                        "warn")
-            root.after(400, lambda: messagebox.showwarning(
-                "引擎降級", "驗證模型載入失敗，找圖只跑粗篩（coarse-only），"
-                "精度較低。\n請檢查 torch 與模型權重是否完整。",
-                parent=root))
-        self.log_ui(f"引擎就緒　profile: {self.profile_name}"
-                    f"（{len(self.profile.templates)} 個範本）", "ok")
+        self.log_ui("引擎載入中…（就緒前，執行／比對測試等辨識功能暫不可用）")
 
         self._load_autosave()
         self.refresh_templates()
@@ -439,6 +431,51 @@ class App:
         self._fuse_miss = 0
         self.root.after(FUSE_INTERVAL_MS, self._fuse_check)
 
+    # ================= 引擎生命週期 =================
+
+    def engine_gate(self, parent=None):
+        """辨識類操作的就緒 gating: 未`引擎就緒`→ modal 提示並拒絕 (ADR 0004).
+
+        回傳 True = 放行。拍板: 一律 modal 對話框, 不排隊、不置灰。
+        """
+        msg = enginehub.gating_message(self.hub.state)
+        if msg is None:
+            return True
+        messagebox.showwarning("引擎尚未就緒", msg, parent=parent or self.root)
+        return False
+
+    def _on_hotkey(self):
+        """F12 (pynput 執行緒). 急停不經 UI 執行緒 (UI 卡住也停得下);
+        只有就緒前的「提示並拒絕」才轉回 UI 執行緒跳 modal."""
+        if self.runner.status()["running"] or self.hub.ready:
+            self.stop_all()
+        else:
+            self.root.after(0, self.engine_gate)
+
+    def _on_engine_state(self, state):
+        """背景載入結束 (由 _poll 在 UI 執行緒觀察到狀態轉變時呼叫)."""
+        if state == enginehub.READY:
+            self.profile = self.hub.profile
+            for msg in self.hub.warnings:
+                self.log_ui(f"引擎警告: {msg}", "warn")
+            if self.hub.coarse_only:
+                self.log_ui("驗證模型未載入 → 降級為 coarse-only"
+                            "（僅粗篩，精度較低）", "warn")
+                messagebox.showwarning(
+                    "引擎降級", "驗證模型載入失敗，找圖只跑粗篩（coarse-only），"
+                    "精度較低。\n請檢查 torch 與模型權重是否完整。",
+                    parent=self.root)
+            self.log_ui(f"引擎就緒　profile: {self.profile_name}"
+                        f"（{len(self.profile.templates)} 個範本）", "ok")
+            self.refresh_templates()  # 多截圖張數等就緒後補上
+        elif state == enginehub.FAILED:
+            applog.log("engine.load.failed", error=repr(self.hub.error))
+            self.log_ui(f"引擎載入失敗: {self.hub.error}", "error")
+            messagebox.showerror(
+                "引擎載入失敗",
+                f"引擎載入失敗，辨識功能無法使用：\n{self.hub.error}",
+                parent=self.root)
+
     # ================= profile =================
 
     @property
@@ -454,12 +491,22 @@ class App:
         return os.path.join(self.flows_dir, "_autosave.json")
 
     def reload_profile(self):
-        """載入 (或重新登錄) 當前 profile: 新增/修改範本後呼叫即自動重登錄."""
+        """載入 (或重新登錄) 當前 profile: 新增/修改範本後呼叫即自動重登錄.
+
+        `引擎就緒`前只重新探索 (背景載入完成時自會整庫登錄當前
+        profile_dir, 期間落地的檔案屆時一併登錄)。
+        """
+        if not self.hub.ready:
+            self.profile = self.hub.discover(self.profile_dir)
+            return
         self.profile = self.hub.load_profile(self.profile_dir)
 
     def switch_profile(self, name):
         """切換 profile: 流程清單、範本瀏覽器、引擎查詢對象一致跟隨."""
         if name == self.profile_name:
+            return
+        if not self.engine_gate():  # 整庫登錄需要引擎 (票 04 改 lazy 後可解禁)
+            self.profile_cb.set(self.profile_name)
             return
         if self.runner.status()["running"]:
             messagebox.showwarning("切換 profile", "流程執行中，請先停止再切換",
@@ -499,6 +546,8 @@ class App:
     def refresh_profile_ui(self):
         """手動重新登錄範本庫: 使用者直接在檔案總管動過 templates/
         (如把多張截圖整理成同名目錄變多截圖範本) 之後按這顆, 不必重啟."""
+        if not self.engine_gate():  # 整庫登錄需要引擎 (票 04 改 lazy 後可解禁)
+            return
         try:
             self.reload_profile()
         except Exception as e:
@@ -1281,7 +1330,8 @@ class App:
                 if d in self._tmpl_open:
                     emit(d, depth + 1)
             for n in files:
-                t = self.profile.templates.get(n)  # 延後重登錄中的先當單張
+                # 延後重登錄中／引擎載入中的先當單張
+                t = self.profile.templates.get(n) if self.profile else None
                 caps = len(t.capture_paths) if t is not None else 1
                 tail = f"（{caps} 張）" if caps > 1 else ""
                 lines.append(f" {ind}　🖼 {n.rsplit('/', 1)[-1]}{tail}")
@@ -1328,7 +1378,8 @@ class App:
         self.thumb_lbl.configure(image=photo, text="")
         self.thumb_lbl._photo = photo
         if img is not None:
-            t = self.profile.templates.get(name)  # 延後重登錄中的先當單張
+            # 延後重登錄中／引擎載入中的先當單張
+            t = self.profile.templates.get(name) if self.profile else None
             caps = len(t.capture_paths) if t is not None else 1
             tail = f"　{caps} 張截圖" if caps > 1 else ""
             self.thumb_info.configure(
@@ -1790,6 +1841,8 @@ class App:
 
     def start_run(self, steps=None, test=False):
         """執行流程; steps 給定時只跑該片段 (測試選取), 一律單次."""
+        if not self.engine_gate():  # `引擎就緒`前提示並拒絕 (ADR 0004)
+            return
         self.ensure_registered()  # 剛存的範本先登錄, runner 查詢才查得到
         steps = self.steps if steps is None else steps
         if not steps:
@@ -2017,6 +2070,10 @@ class App:
         self.log_text.configure(state="disabled")
 
     def _poll(self):
+        # 背景引擎載入的狀態轉變在這裡 (UI 執行緒) 觀察與處理
+        if self.hub.state != self._engine_state_seen:
+            self._engine_state_seen = self.hub.state
+            self._on_engine_state(self.hub.state)
         st = self.runner.status()
         running = st["running"]
         self.btn_run.configure(state="disabled" if running else "normal")
@@ -2035,7 +2092,14 @@ class App:
                 self._mini_step.configure(text=self._step_text(st))
         else:
             self._close_mini()
-            self.status_lbl.configure(text="待機", foreground=C["muted"])
+            if self.hub.state == enginehub.LOADING:
+                self.status_lbl.configure(text="引擎載入中…",
+                                          foreground=C["warn"])
+            elif self.hub.state == enginehub.FAILED:
+                self.status_lbl.configure(text="引擎載入失敗",
+                                          foreground=C["danger"])
+            else:
+                self.status_lbl.configure(text="待機", foreground=C["muted"])
 
         latest = None
         for e in self.runner.logs_since(self.last_seq):
