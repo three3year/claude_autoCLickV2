@@ -37,3 +37,11 @@
   「框選新增範本」確認。
 - 部署提醒:交付物=整個 `app\dist\AutoClick\`;部署到既有機器只覆蓋
   AutoClick*.exe 與 `_internal\`,不動使用者的 `profiles\`。
+- pytest 附註:「全部綠」的完整跑 (193) 於機器閒置時通過;之後使用者
+  開著明日方舟時重跑,引擎效能測試
+  `tests/test_multiscale.py::test_near_fullscreen_coarse_stays_fast`
+  (wall-clock <500ms 門檻,本輪未動該程式碼) 因負載 728ms 未達標——
+  屬環境負載,非本次變更;app/tests 156 項在負載下仍全綠。
+- code-review 兩軸審查後補修 (commit c389656):縮圖對延後登錄範本
+  KeyError、清場中不跑重登錄、還原日誌補每窗結果/重試次數/間隔、
+  `_wait_mapped` 逾時掛 root 防懸住;修畢重新打包。
