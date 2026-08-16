@@ -714,16 +714,6 @@ class App:
 
         ttk.Label(bar, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
 
-        # `校準`常駐按鈕區 (票 02/03): 校準按鈕顯示當前`畫面倍率`或「未校準」,
-        # 沒有校準對時只能指定 (行為不受任何影響)。放第一列右側:
-        # 第二列在預設視窗寬度下已無空間, 塞進去會被裁掉
-        self.cal_btn = ttk.Button(bar, text="校準", style="Small.TButton",
-                                  takefocus=False, command=self.calibrate_now)
-        self.cal_btn.pack(side="right", padx=(0, 14))
-        ttk.Button(bar, text="指定校準對", style="Small.TButton",
-                   takefocus=False,
-                   command=self.designate_pair).pack(side="right", padx=(0, 6))
-
         # 第二列: 全域搜尋範圍 + game profile 切換
         bar2 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         bar2.pack(fill="x")
@@ -734,6 +724,22 @@ class App:
                    command=self.pick_scan_region).pack(side="left", padx=(0, 6))
         ttk.Button(bar2, text="清除", command=self.clear_scan_region).pack(side="left")
         ttk.Label(bar2, text="（所有找圖步驟與比對測試都只在此範圍內找圖）",
+                  foreground=C["muted"]).pack(side="left", padx=(12, 0))
+
+        # 第三列: `校準`常駐按鈕區 (票 02/03)。前兩列在預設視窗寬度下已無
+        # 剩餘空間 (塞進去會被裁掉), 校準自成一列才保得住「常駐顯示」
+        bar3 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
+        bar3.pack(fill="x")
+        ttk.Label(bar3, text="畫面校準").pack(side="left")
+        ttk.Button(bar3, text="指定校準對", style="Small.TButton",
+                   takefocus=False,
+                   command=self.designate_pair).pack(side="left", padx=(8, 6))
+        # 校準按鈕顯示當前`畫面倍率`或「未校準」; 沒有校準對時停用
+        self.cal_btn = ttk.Button(bar3, text="校準", style="Small.TButton",
+                                  takefocus=False, command=self.calibrate_now)
+        self.cal_btn.pack(side="left")
+        ttk.Label(bar3, text="（換電腦或螢幕後按「校準」量出本機倍率，"
+                            "執行時落點自動換算）",
                   foreground=C["muted"]).pack(side="left", padx=(12, 0))
 
         ttk.Button(bar2, text="＋建立", style="Small.TButton", takefocus=False,
