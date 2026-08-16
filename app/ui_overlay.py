@@ -11,8 +11,6 @@ import time
 import tkinter as tk
 from ctypes import wintypes
 
-import cv2
-
 import applog
 import ui_grab
 import ui_theme
@@ -350,6 +348,7 @@ def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None):
 
 
 def _pick_impl(root, mode, hint, delay, base, mark=None):
+    import cv2  # 拾取時才需要; 開窗關鍵路徑不載重量級套件 (票 06)
     root.update()
     if delay > 0:
         time.sleep(delay)

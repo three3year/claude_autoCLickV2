@@ -7,8 +7,6 @@ import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-import cv2
-
 import ui_grab
 import ui_overlay
 import ui_theme
@@ -87,22 +85,27 @@ def _thumb_photo(master, img, bw=THUMB_W, bh=THUMB_H):
     固定尺寸讓預覽框不會隨範本大小忽大忽小; 透明區以洋紅色顯示;
     img=None 回傳純底色佔位圖.
     """
+    if img is None:
+        # 純底色佔位圖不動用 cv2/numpy——啟動時就會走到這裡, 重量級
+        # 套件必須留在開窗關鍵路徑之外 (ADR 0004, 票 06)
+        data = f"P6 {bw} {bh} 255 ".encode() + bytes((15, 23, 42)) * (bw * bh)
+        return tk.PhotoImage(master=master, data=data)
+    import cv2
     import numpy as np
     bg = np.zeros((bh, bw, 3), np.uint8)
     bg[:] = (42, 23, 15)  # C["bg"] #0F172A 的 BGR
-    if img is not None:
-        if img.ndim == 3 and img.shape[2] == 4:
-            alpha = img[:, :, 3:4].astype(np.float32) / 255.0
-            mag = np.zeros_like(img[:, :, :3])
-            mag[:] = (255, 0, 255)
-            img = (img[:, :, :3].astype(np.float32) * alpha
-                   + mag.astype(np.float32) * (1 - alpha)).astype(np.uint8)
-        h, w = img.shape[:2]
-        s = min(bw / w, bh / h, 1.0)
-        nw, nh = max(1, int(w * s)), max(1, int(h * s))
-        img2 = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_AREA)
-        y0, x0 = (bh - nh) // 2, (bw - nw) // 2
-        bg[y0:y0 + nh, x0:x0 + nw] = img2
+    if img.ndim == 3 and img.shape[2] == 4:
+        alpha = img[:, :, 3:4].astype(np.float32) / 255.0
+        mag = np.zeros_like(img[:, :, :3])
+        mag[:] = (255, 0, 255)
+        img = (img[:, :, :3].astype(np.float32) * alpha
+               + mag.astype(np.float32) * (1 - alpha)).astype(np.uint8)
+    h, w = img.shape[:2]
+    s = min(bw / w, bh / h, 1.0)
+    nw, nh = max(1, int(w * s)), max(1, int(h * s))
+    img2 = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_AREA)
+    y0, x0 = (bh - nh) // 2, (bw - nw) // 2
+    bg[y0:y0 + nh, x0:x0 + nw] = img2
     rgb = cv2.cvtColor(bg, cv2.COLOR_BGR2RGB)
     return tk.PhotoImage(master=master,
                          data=f"P6 {bw} {bh} 255 ".encode() + rgb.tobytes())
@@ -800,6 +803,7 @@ def edit_step(app, step):
 
 def _annotate_query(screen_bgr, box, score, ok):
     """在畫面上框出引擎查詢的位置 (綠=通過, 紅=未達門檻), 回傳新影像."""
+    import cv2
     img = screen_bgr.copy()
     if box is None:
         return img
@@ -817,6 +821,7 @@ def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
     region: 限定搜尋範圍 [x,y,w,h]; None 則用 app.scan_region, 再無則全螢幕.
     達標綠框 / 未達標紅框 (紅框為最接近的粗篩候選位置)。
     """
+    import cv2
     root = app.root
     if not app.engine_gate():  # `引擎就緒`前提示並拒絕 (ADR 0004)
         return

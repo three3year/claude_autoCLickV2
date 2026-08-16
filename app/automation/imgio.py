@@ -1,12 +1,15 @@
-"""圖片讀寫 (支援中文/非 ASCII 路徑; cv2.imread 在 Windows 對此會失敗)."""
-import os
+"""圖片讀寫 (支援中文/非 ASCII 路徑; cv2.imread 在 Windows 對此會失敗).
 
-import cv2
-import numpy as np
+cv2/numpy 延後到首次讀寫才 import: 本模組在開窗關鍵路徑上被載入,
+重量級套件不得跟著進來 (ADR 0004, 票 06)。
+"""
+import os
 
 
 def imread(path):
     """讀取圖片為 BGR 或 BGRA (保留去背 alpha), 失敗回傳 None."""
+    import cv2
+    import numpy as np
     try:
         data = np.fromfile(path, dtype=np.uint8)
     except OSError:
@@ -25,6 +28,7 @@ def imread(path):
 
 
 def imwrite(path, img):
+    import cv2
     ext = os.path.splitext(path)[1] or ".png"
     ok, buf = cv2.imencode(ext, img)
     if not ok:
