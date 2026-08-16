@@ -11,6 +11,12 @@ flow 與範本圖) → 當前 profile。規則:
 
 匯出: 自包自足的新格式 pack (flow + 引用的範本; 多截圖範本目錄整包帶走),
 可在另一個 profile 或另一台機器的同版 app 匯入還原。
+
+校準 (票 05/06): profile 有校準資料時, 匯出的 pack 一併攜帶`校準對`範本
+與`基準距離` (zip 內 calibration.json)。匯入時依目標 profile 的校準狀態
+三分支處理: 無校準資料＝採用 pack 的 (倍率留空＝未校準)、同一對＝流程
+座標依基準距離比值換算落地、不同對＝照 pack 尺度落地並附`來源基準`標記
+(存檔守門見 app.save_flow)。沒有校準資料的 pack (含舊 pack) 照舊匯入。
 """
 import json
 import os
@@ -19,6 +25,7 @@ from pathlib import Path
 
 from subject_detection.profile import discover_templates
 
+import calibration
 from automation import flowfmt
 
 _TMPL_KEYS = ("template", "confirmTemplate")
@@ -121,18 +128,57 @@ def _merge_meta_pos(templates_dir, pos):
         json.dump({"pos": cur}, f, ensure_ascii=False)  # rot (旋轉沿革) 即丟
 
 
+def _apply_pack_calibration(data, pack_cal, profile_dir):
+    """匯入時的校準三分支 (票 05/06); 回傳說明 dict 或 None (pack 無校準資料).
+
+    - 目標 profile 無校準資料 → 採用 pack 的 (倍率留空＝未校準) → adopted
+    - 同一對校準圖 (以範本名判定, 不論順序) → 流程座標 ×(目標基準 ÷ pack
+      基準) 換算落地 → converted
+    - 不同對 → 流程照 pack 尺度落地、附`來源基準`標記 → foreign
+      (帶標記的流程存檔前必須先歸位, 守門在 app.save_flow)
+    """
+    if pack_cal is None:
+        return None
+    target = calibration.load(profile_dir)
+    if target is None:
+        calibration.save(profile_dir, {
+            "pair": list(pack_cal["pair"]),
+            "baseline": float(pack_cal["baseline"]),
+            "scale": None, "fingerprint": None})
+        return {"kind": "adopted", "pair": list(pack_cal["pair"])}
+    if set(target["pair"]) == set(pack_cal["pair"]):
+        ratio = float(target["baseline"]) / float(pack_cal["baseline"])
+        calibration.scale_steps(data.get("steps") or [], ratio)
+        return {"kind": "converted", "ratio": ratio}
+    data[calibration.SOURCE_BASELINE] = {
+        "pair": list(pack_cal["pair"]),
+        "baseline": float(pack_cal["baseline"])}
+    return {"kind": "foreign", "pair": list(pack_cal["pair"])}
+
+
 def import_pack(path, profile_dir):
     """匯入 .autoclickpack (舊 autoClick 格式或本 app 匯出的新格式).
 
     回傳 dict: flow_path, data, notes, added (補進的範本名), skipped
-    (profile 已有、未覆蓋的範本名)。
+    (profile 已有、未覆蓋的範本名), calibration (校準三分支結果或 None,
+    見 _apply_pack_calibration)。
     """
     templates_dir = os.path.join(profile_dir, "templates")
     existing = set(discover_templates(Path(templates_dir)))
     with zipfile.ZipFile(path) as z:
         data = json.loads(z.read("flow.json").decode("utf-8"))
         notes = migrate_flow(data)
+        try:  # pack 的校準資料 (舊 pack 沒有); 不成形視同沒有
+            pack_cal = json.loads(z.read("calibration.json").decode("utf-8"))
+        except (KeyError, ValueError):
+            pack_cal = None
+        if pack_cal is not None and not calibration.valid(pack_cal):
+            pack_cal = None
         refs = set(used_templates(data.get("steps") or []))
+        if pack_cal:
+            # 校準對範本也要正確落地 (目錄形式對應規則靠 refs 判定)
+            refs |= set(pack_cal["pair"])
+        cal_result = _apply_pack_calibration(data, pack_cal, profile_dir)
         try:
             pmeta = json.loads(z.read("templates/_meta.json").decode("utf-8"))
         except (KeyError, ValueError):
@@ -178,32 +224,43 @@ def import_pack(path, profile_dir):
         stem = os.path.splitext(os.path.basename(path))[0]
         flow_path = save_flow(profile_dir, stem, data)
     return {"flow_path": flow_path, "data": data, "notes": notes,
-            "added": sorted(added), "skipped": sorted(skipped)}
+            "added": sorted(added), "skipped": sorted(skipped),
+            "calibration": cal_result}
 
 
 def export_pack(path, profile_dir, data):
     """匯出自包自足的新格式 flow pack (flow + 引用的範本).
 
-    多截圖範本目錄整包帶走; 未被引用的範本不進 pack。引用的範本在
-    profile 中不存在時丟 ValueError (逐一列出)。
+    多截圖範本目錄整包帶走; 未被引用的範本不進 pack。profile 有校準資料時
+    附帶`校準對`範本與`基準距離` (收到 pack 的人開箱就能校準); 沒有校準對
+    的 profile 匯出的 pack 與現狀相同。帶走的範本在 profile 中不存在時丟
+    ValueError (逐一列出)。回傳帶進 pack 的範本名 list。
     """
     templates_root = Path(profile_dir) / "templates"
     templates = discover_templates(templates_root)
     used = used_templates(data.get("steps") or [])
-    missing = [n for n in used if n not in templates]
+    cal = calibration.load(profile_dir)
+    carry = list(used)
+    if cal:
+        carry += [n for n in cal["pair"] if n not in carry]
+    missing = [n for n in carry if n not in templates]
     if missing:
         raise ValueError("找不到範本：" + "、".join(missing))
 
     pos = _load_meta_pos(str(templates_root))
-    pos_out = {n: pos[n] for n in used if n in pos}
+    pos_out = {n: pos[n] for n in carry if n in pos}
 
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("flow.json", json.dumps(data, ensure_ascii=False, indent=2))
+        if cal:
+            z.writestr("calibration.json", json.dumps(
+                {"pair": cal["pair"], "baseline": cal["baseline"]},
+                ensure_ascii=False))
         z.writestr("templates/_meta.json",
                    json.dumps({"pos": pos_out}, ensure_ascii=False))
-        for n in used:
+        for n in carry:
             for cap in templates[n].capture_paths:
                 # 磁碟上的相對路徑就是 pack 內的佈局 (單檔與多截圖目錄通用)
                 arc = "templates/" + cap.relative_to(templates_root).as_posix()
                 z.write(cap, arc)
-    return used
+    return carry

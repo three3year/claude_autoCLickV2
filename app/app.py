@@ -368,6 +368,7 @@ class App:
         self.scan_region = None  # 全域搜尋範圍 [x,y,w,h]; None = 全螢幕
         self._mini = None  # 執行中的迷你狀態視窗
         self._region_prev = None  # 搜尋範圍預覽框
+        self._source_baseline = None  # 目前流程的`來源基準`標記 (票 06)
         self._root_shown = False  # 主視窗是否已首次顯示 (Map 過)
         self._collapsed = set()  # 已收合的區段起點 (以 step dict 的 id 記錄)
         self._view = []  # 清單列 → steps 索引的映射 (收合時兩者不一致)
@@ -1762,7 +1763,7 @@ class App:
     # ================= 流程存檔 =================
 
     def _flow_data(self):
-        return {
+        data = {
             "steps": self.steps,
             "runMode": "count" if self.run_mode.get() == "執行次數" else "infinite",
             "runCount": self._run_count(),
@@ -1770,6 +1771,10 @@ class App:
             "avoidHover": self.avoid_hover.get(),
             flowfmt.COORD_SPACE: flowfmt.REGION,
         }
+        if self._source_baseline:
+            # `來源基準`標記跟著流程走 (含自動存檔), 存檔守門才擋得住
+            data[calibration.SOURCE_BASELINE] = self._source_baseline
+        return data
 
     def _log_notes(self, notes):
         """把遷移提示寫進執行紀錄 (換算失敗的提示以警告等級顯示)."""
@@ -1779,6 +1784,10 @@ class App:
     def _apply_flow(self, data):
         # 舊存檔一律先遷移: 座標空間換算、範本名去副檔名、每步 threshold 丟棄
         self._log_notes(flowpack.migrate_flow(data))
+        self._source_baseline = calibration.source_baseline(data)
+        if self._source_baseline:
+            self.log_ui("此流程帶有來源基準標記（不同校準對的 pack 匯入、"
+                        "尚未歸位），存檔前需先量測換算或明確確認", "warn")
         self.steps = data.get("steps", [])
         self.run_mode.set("直到停止" if data.get("runMode") == "infinite" else "執行次數")
         self.run_count.set(data.get("runCount", 1))
@@ -1822,10 +1831,57 @@ class App:
             f"座標 ×{k:.3f} 改寫、基準距離更新、倍率歸 1。\n"
             "流程檔因此永遠維持單一尺度，不會雙重縮放。", parent=self.root)
 
+    def _resolve_source_baseline(self):
+        """`來源基準`標記的存檔守門 (票 06); 回傳 False = 中止存檔.
+
+        兩條出路: 對來源校準對量測一次、依比值換算座標 (歸位, 建議);
+        或使用者明確確認以匯入的基準存檔 (座標不換算)。兩者都移除標記。
+        """
+        marker = self._source_baseline
+        if not marker:
+            return True
+        ans = messagebox.askyesnocancel(
+            "儲存流程",
+            "此流程由「不同校準對」的 flow pack 匯入，座標仍是來源機器的"
+            "尺度，尚未歸位。\n\n"
+            "是＝現在量測來源校準對，把座標換算成本 profile 的尺度（建議）\n"
+            "否＝維持原座標、以匯入的基準存檔\n"
+            "取消＝先不存檔",
+            parent=self.root)
+        if ans is None:
+            return False
+        if not ans:  # 明確確認以匯入基準存檔
+            self._source_baseline = None
+            self.log_ui("已確認以匯入的基準存檔（標記移除，座標未換算）", "warn")
+            self._autosave()
+            return True
+        # 量測換算: 需要引擎與有效倍率 (未校準時換算結果無法歸一)
+        if not self.engine_gate():
+            return False
+        cal = calibration.load(self.profile_dir)
+        fp = calibration.current_fingerprint()
+        if cal is not None and calibration.is_uncalibrated(cal, fp):
+            messagebox.showwarning(
+                "儲存流程", "本機尚未校準，請先按「校準」按鈕再進行換算",
+                parent=self.root)
+            return False
+        dist = self._measure_pair(marker["pair"], "量測來源校準對")
+        if dist is None:
+            return False
+        ratio = calibration.foreign_ratio(
+            dist, marker["baseline"], calibration.effective_scale(cal, fp))
+        calibration.scale_steps(self.steps, ratio)
+        self._source_baseline = None
+        self.render_steps()  # 內含 _autosave: 標記移除與換算一起落地
+        self.log_ui(f"已依來源基準完成換算（×{ratio:.3f}），標記移除", "ok")
+        return True
+
     def save_flow(self):
         """把目前流程以新格式 JSON 存進當前 profile 的 flows/."""
         if not self.steps:
             messagebox.showinfo("儲存流程", "沒有步驟可儲存", parent=self.root)
+            return
+        if not self._resolve_source_baseline():  # `來源基準`守門 (票 06)
             return
         os.makedirs(self.flows_dir, exist_ok=True)
         path = filedialog.asksaveasfilename(
@@ -1869,6 +1925,7 @@ class App:
                 if r["skipped"]:
                     msg += f"；{len(r['skipped'])} 個範本已存在（未覆蓋）"
                 self.log_ui(msg, "ok")
+                self._log_pack_calibration(r.get("calibration"))
             else:
                 with open(path, encoding="utf-8") as f:
                     data = json.load(f)
@@ -1907,6 +1964,22 @@ class App:
             return
         self.log_ui(f"已匯出流程包 {os.path.basename(path)}"
                     f"（含 {len(used)} 個範本）", "ok")
+
+    def _log_pack_calibration(self, calr):
+        """pack 匯入的校準三分支結果進執行紀錄 (票 05/06)."""
+        if not calr:
+            return  # pack 沒有校準資料 (含舊 pack): 行為與現狀相同
+        if calr["kind"] == "adopted":
+            self._update_cal_ui()
+            self.log_ui("已採用 pack 的校準對與基準距離（本機尚未校準，"
+                        "請按「校準」量測本機倍率）", "warn")
+        elif calr["kind"] == "converted":
+            self.log_ui("流程座標已依基準距離比值換算落地"
+                        f"（×{calr['ratio']:.3f}）", "ok")
+        else:  # foreign
+            self.log_ui("pack 的校準對與本 profile 不同（無共同比例尺），"
+                        "流程照 pack 尺度落地並標記來源基準——"
+                        "存檔前需先量測換算或明確確認", "warn")
 
     def _autosave(self):
         try:

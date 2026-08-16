@@ -243,3 +243,103 @@ def test_未校準時存檔不觸發重定(tkroot, monkeypatch, tmp_path):
     assert _read_steps(tmp_path, "other.json")[0]["x"] == 100
     assert calibration.load(str(tmp_path))["scale"] == 1.25
     assert infos == []
+
+
+# ---------- 來源基準標記的存檔守門 (票 06) ----------
+
+MARKER = {"pair": ["srcA", "srcB"], "baseline": 60.0}
+
+
+class _SaveApp(app_mod.App):
+    """只建 _resolve_source_baseline 需要的欄位; 量測以樁取代."""
+
+    def __init__(self, root, profile_dir, steps, marker, dist=None):
+        self.root = root
+        self.profile_dir = str(profile_dir)
+        self.steps = steps
+        self._source_baseline = marker
+        self.hub = enginehub.EngineHub()
+        self.hub.state = enginehub.READY
+        self._dist = dist
+        self.measured = []
+        self.autosaved = 0
+
+    def _measure_pair(self, pair, title):
+        self.measured.append(list(pair))
+        return self._dist
+
+    def render_steps(self, keep=None):
+        pass
+
+    def _autosave(self):
+        self.autosaved += 1
+
+    def log_ui(self, msg, level="info"):
+        pass
+
+
+def test_無標記流程的存檔路徑不受影響(tkroot, tmp_path):
+    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}], None)
+    assert a._resolve_source_baseline() is True
+    assert a.measured == []
+
+
+def test_守門路徑一_量測成功依比值換算並移除標記(tkroot, monkeypatch, tmp_path):
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
+                        lambda *a, **kw: True)
+    # 本機已校準 (倍率 1): 量得 120 ÷ 來源基準 60 → 比值 2
+    calibration.save(str(tmp_path), {
+        "pair": ["x", "y"], "baseline": 100.0, "scale": 1.0,
+        "fingerprint": calibration.current_fingerprint()})
+    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
+                 dict(MARKER), dist=120.0)
+    assert a._resolve_source_baseline() is True
+    assert a.measured == [["srcA", "srcB"]], "量測對象是 pack 的校準對"
+    assert (a.steps[0]["x"], a.steps[0]["y"]) == (60, 80)
+    assert a._source_baseline is None
+
+
+def test_守門路徑一_量測失敗中止存檔且標記保留(tkroot, monkeypatch, tmp_path):
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
+                        lambda *a, **kw: True)
+    calibration.save(str(tmp_path), {
+        "pair": ["x", "y"], "baseline": 100.0, "scale": 1.0,
+        "fingerprint": calibration.current_fingerprint()})
+    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
+                 dict(MARKER), dist=None)  # 量測失敗 (缺圖)
+    assert a._resolve_source_baseline() is False
+    assert a._source_baseline == MARKER
+    assert a.steps[0]["x"] == 30
+
+
+def test_守門路徑一_本機未校準時擋下(tkroot, monkeypatch, tmp_path):
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
+                        lambda *a, **kw: True)
+    rec = _warnings(monkeypatch)
+    calibration.save(str(tmp_path), {"pair": ["x", "y"], "baseline": 100.0,
+                                     "scale": None, "fingerprint": None})
+    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
+                 dict(MARKER), dist=120.0)
+    assert a._resolve_source_baseline() is False
+    assert any("校準" in m for m in rec)
+    assert a._source_baseline == MARKER and a.measured == []
+
+
+def test_守門路徑二_明確確認以匯入基準存檔(tkroot, monkeypatch, tmp_path):
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
+                        lambda *a, **kw: False)
+    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
+                 dict(MARKER))
+    assert a._resolve_source_baseline() is True
+    assert a._source_baseline is None, "確認後移除標記"
+    assert a.steps[0]["x"] == 30, "座標不換算"
+    assert a.autosaved == 1, "標記移除要落地"
+
+
+def test_守門取消則不存檔(tkroot, monkeypatch, tmp_path):
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
+                        lambda *a, **kw: None)
+    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
+                 dict(MARKER))
+    assert a._resolve_source_baseline() is False
+    assert a._source_baseline == MARKER

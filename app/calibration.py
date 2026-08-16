@@ -38,7 +38,7 @@ def path(profile_dir):
     return os.path.join(profile_dir, FILE_NAME)
 
 
-def _valid(cal):
+def valid(cal):
     """校準資料是否成形: 兩個範本名的校準對 + 正的基準距離."""
     if not isinstance(cal, dict):
         return False
@@ -59,7 +59,7 @@ def load(profile_dir):
             cal = json.load(f)
     except (OSError, ValueError):
         return None
-    return cal if _valid(cal) else None
+    return cal if valid(cal) else None
 
 
 def save(profile_dir, cal):
@@ -153,7 +153,7 @@ def scale_steps(steps, k):
 def source_baseline(data):
     """flow 資料上的`來源基準`標記; 無標記回傳 None."""
     marker = data.get(SOURCE_BASELINE)
-    return marker if _valid(marker) else None
+    return marker if valid(marker) else None
 
 
 def foreign_ratio(measured_distance, source_baseline_px, current_scale):

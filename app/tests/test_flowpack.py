@@ -13,6 +13,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import calibration  # noqa: E402
 import flowpack  # noqa: E402
 
 
@@ -103,10 +104,12 @@ def test_同名流程檔不覆蓋(tmp_path):
 
 # ---------- pack 匯入 ----------
 
-def make_pack(path, flow, images, pos=None):
-    """images: {zip 內 templates/ 下的相對路徑: bytes}."""
+def make_pack(path, flow, images, pos=None, cal=None):
+    """images: {zip 內 templates/ 下的相對路徑: bytes}; cal: 校準資料 dict."""
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("flow.json", json.dumps(flow, ensure_ascii=False))
+        if cal is not None:
+            z.writestr("calibration.json", json.dumps(cal, ensure_ascii=False))
         z.writestr("templates/_meta.json",
                    json.dumps({"pos": pos or {}}, ensure_ascii=False))
         for rel, content in images.items():
@@ -214,6 +217,123 @@ def test_匯出缺範本時列出缺少者(tmp_path):
     with pytest.raises(ValueError) as e:
         flowpack.export_pack(str(tmp_path / "o.autoclickpack"), str(a), data)
     assert "ghost" in str(e.value)
+
+
+# ---------- pack 攜帶校準對與匯入換算 (票 05/06) ----------
+
+def _steps_with_offsets():
+    return [{"type": "find_click", "template": "a", "offsetX": 10, "offsetY": -8},
+            {"type": "click", "x": 30, "y": 40},
+            {"type": "drag", "x1": 4, "y1": 4, "x2": 40, "y2": 80,
+             "mode": "prev"}]
+
+
+def test_匯出攜帶校準對範本與基準距離(tmp_path):
+    a = make_profile(tmp_path, "a")
+    (a / "templates" / "single.png").write_bytes(b"S")
+    (a / "templates" / "calA.png").write_bytes(b"A")  # 校準對: 未被流程引用
+    (a / "templates" / "calB.png").write_bytes(b"B")
+    calibration.save(str(a), {"pair": ["calA", "calB"], "baseline": 123.5,
+                              "scale": 1.0, "fingerprint": None})
+    data = {"steps": [{"type": "find_click", "template": "single"}],
+            "coordSpace": "region"}
+    pack = tmp_path / "c.autoclickpack"
+    carried = flowpack.export_pack(str(pack), str(a), data)
+    assert set(carried) == {"single", "calA", "calB"}
+    with zipfile.ZipFile(pack) as z:
+        assert json.loads(z.read("calibration.json")) == {
+            "pair": ["calA", "calB"], "baseline": 123.5}
+        names = set(z.namelist())
+    assert {"templates/calA.png", "templates/calB.png"} <= names
+
+
+def test_無校準對的profile匯出不帶校準資料(tmp_path):
+    a = make_profile(tmp_path, "a")
+    (a / "templates" / "single.png").write_bytes(b"S")
+    data = {"steps": [{"type": "find_click", "template": "single"}],
+            "coordSpace": "region"}
+    pack = tmp_path / "c.autoclickpack"
+    flowpack.export_pack(str(pack), str(a), data)
+    with zipfile.ZipFile(pack) as z:
+        assert "calibration.json" not in z.namelist()
+
+
+def test_匯入_目標無校準資料_採用pack的且倍率留空(tmp_path):
+    profile = make_profile(tmp_path)
+    pack = tmp_path / "m.autoclickpack"
+    make_pack(pack, dict(legacy_flow(steps=_steps_with_offsets()),
+                         coordSpace="region"),
+              {"calA/calA.png": b"A", "calB/calB.png": b"B"},
+              cal={"pair": ["calA", "calB"], "baseline": 200.0})
+    r = flowpack.import_pack(str(pack), str(profile))
+    assert r["calibration"] == {"kind": "adopted", "pair": ["calA", "calB"]}
+    cal = calibration.load(str(profile))
+    assert cal["pair"] == ["calA", "calB"]
+    assert cal["baseline"] == 200.0
+    assert cal["scale"] is None, "倍率留空＝未校準 (校準按鈕立即可用)"
+    # 校準對範本以目錄形式正確落地 (不因未被流程引用而錯樹)
+    assert (profile / "templates" / "calA" / "calA.png").read_bytes() == b"A"
+    # 流程座標原樣落地
+    with open(r["flow_path"], encoding="utf-8") as f:
+        steps = json.load(f)["steps"]
+    assert (steps[1]["x"], steps[1]["y"]) == (30, 40)
+
+
+def test_匯入_同一對_座標依基準比值換算落地(tmp_path):
+    profile = make_profile(tmp_path)
+    calibration.save(str(profile), {"pair": ["calB", "calA"],  # 順序無關
+                                    "baseline": 200.0, "scale": 1.0,
+                                    "fingerprint": None})
+    pack = tmp_path / "m.autoclickpack"
+    make_pack(pack, dict(legacy_flow(steps=_steps_with_offsets()),
+                         coordSpace="region"),
+              {"calA/calA.png": b"A", "calB/calB.png": b"B"},
+              cal={"pair": ["calA", "calB"], "baseline": 100.0})
+    r = flowpack.import_pack(str(pack), str(profile))
+    assert r["calibration"]["kind"] == "converted"
+    assert r["calibration"]["ratio"] == 2.0, "目標基準 200 ÷ pack 基準 100"
+    with open(r["flow_path"], encoding="utf-8") as f:
+        data = json.load(f)
+    s = data["steps"]
+    assert (s[0]["offsetX"], s[0]["offsetY"]) == (20, -16)
+    assert (s[1]["x"], s[1]["y"]) == (60, 80)
+    assert (s[2]["x1"], s[2]["x2"], s[2]["y2"]) == (8, 80, 160)
+    assert "sourceBaseline" not in data
+    cal = calibration.load(str(profile))
+    assert cal["baseline"] == 200.0, "目標校準資料不因匯入而變動"
+
+
+def test_匯入_不同對_照pack尺度落地並附來源基準標記(tmp_path):
+    profile = make_profile(tmp_path)
+    calibration.save(str(profile), {"pair": ["x", "y"], "baseline": 300.0,
+                                    "scale": 1.0, "fingerprint": None})
+    pack = tmp_path / "m.autoclickpack"
+    make_pack(pack, dict(legacy_flow(steps=_steps_with_offsets()),
+                         coordSpace="region"),
+              {"calA/calA.png": b"A", "calB/calB.png": b"B"},
+              cal={"pair": ["calA", "calB"], "baseline": 100.0})
+    r = flowpack.import_pack(str(pack), str(profile))
+    assert r["calibration"] == {"kind": "foreign", "pair": ["calA", "calB"]}
+    with open(r["flow_path"], encoding="utf-8") as f:
+        data = json.load(f)
+    assert (data["steps"][1]["x"], data["steps"][1]["y"]) == (30, 40), \
+        "無共同比例尺, 座標原樣落地"
+    assert data["sourceBaseline"] == {"pair": ["calA", "calB"],
+                                      "baseline": 100.0}
+    assert calibration.load(str(profile))["pair"] == ["x", "y"], \
+        "目標校準資料不被覆蓋"
+    # 來源校準對範本仍補進 profile (歸位量測要用)
+    assert (profile / "templates" / "calA" / "calA.png").exists()
+
+
+def test_匯入無校準資料的舊pack行為與現狀相同(tmp_path):
+    profile = make_profile(tmp_path)
+    pack = tmp_path / "m.autoclickpack"
+    make_pack(pack, legacy_flow(steps=[
+        {"type": "find_click", "template": "a.png"}]), {"a.png": b"A"})
+    r = flowpack.import_pack(str(pack), str(profile))
+    assert r["calibration"] is None
+    assert calibration.load(str(profile)) is None, "不產生校準資料"
 
 
 def test_round_trip_匯出再匯入還原流程與範本(tmp_path):
