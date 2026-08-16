@@ -1,4 +1,4 @@
-# claude_yoloImageMatch
+# claude_autoClickV2
 
 ## Agent skills
 
