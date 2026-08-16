@@ -7,10 +7,11 @@ import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+import calibration
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import capture, win
+from automation import capture, flowfmt, win
 from ui_theme import C, FONT
 
 BTN_NAMES = [("left", "左鍵"), ("right", "右鍵"), ("middle", "中鍵")]
@@ -227,6 +228,30 @@ def pick_cal_pair(app):
     return result[0]
 
 
+def _cal_state(app, parent):
+    """拾取座標前的校準判定 (票 04): 回傳 (放行與否, 現行`畫面倍率`).
+
+    `未校準`(有校準對但無有效倍率) 時擋下並要求先校準——未知倍率下拾取
+    的本機像素事後無法歸一到基準尺度。沒有校準對的 profile 不擋、倍率 1。
+    必須在進入清場「之前」呼叫 (清場中彈 messagebox 會隱形卡死)。
+    """
+    cal = calibration.load(app.profile_dir)
+    fp = calibration.current_fingerprint()
+    msg = calibration.pick_gate_message(cal, fp)
+    if msg:
+        messagebox.showwarning("拾取座標", msg, parent=parent)
+        return False, 1.0
+    return True, calibration.effective_scale(cal, fp)
+
+
+def _unscale(v, k):
+    """拾取到的本機像素反除現行`畫面倍率`, 歸一到現行基準尺度暫存 (票 04).
+
+    存檔時再整體`重定基準`; 檔內與記憶體中任一時刻都只有單一尺度。
+    """
+    return flowfmt.scale_px(v, 1.0 / k)
+
+
 def _region_origin(app, parent):
     """`絕對座標`的基準＝`搜尋範圍`左上角; 沒設範圍就擋下並說明.
 
@@ -272,39 +297,50 @@ def _find_template_now(app, dlg, prev):
     return None
 
 
-def _resolve_prev_origin(app, step, dlg):
+def _resolve_prev_origin(app, step, dlg, k=1.0):
     """推算相對座標拾取的預設原點 (螢幕座標), 無法推算回傳 None.
 
+    步驟裡存的都是基準尺度的偏移量, 換算成螢幕座標時一律乘上現行
+    `畫面倍率` k (與 runner 執行期同一套換算, 票 04)。
+
     從本步驟往上找「有座標的動作」(跳過等待/按鍵):
-    - 絕對座標點擊 → 其點擊位置
-    - 相對座標點擊 → 累積偏移, 繼續往上找基準
-    - 滑鼠拖曳 → 其終點位置 (相對拖曳 → 累積終點偏移, 繼續往上找)
+    - 絕對座標點擊 → `搜尋範圍`左上角 + 偏移×k (沒有範圍時無從推算)
+    - 相對座標點擊 → 累積偏移×k, 繼續往上找基準
+    - 滑鼠拖曳 → 其終點位置 (相對拖曳 → 累積終點偏移×k, 繼續往上找)
     - 找圖點擊 → 只有它就是「直接前一個原點步驟」(途中沒經過相對步驟)
       才在畫面上即時找一次 (找不到用截圖當下位置備援); 途中隔了相對
       點擊/拖曳時, 畫面通常已被那次點擊切換, 即時找到的殘留同圖不可信,
       一律用「截圖當下位置」重現使用者剛剛拾取的位置
     """
     idx = step.get("_index", 0)
-    dx = dy = 0  # 途中經過的相對點擊累積偏移
+    dx = dy = 0  # 途中經過的相對點擊累積偏移 (已乘倍率的螢幕像素)
     via_rel = False  # 途中是否經過相對步驟 (影響找圖的推算方式, 見 docstring)
+    region = getattr(app, "scan_region", None)
     i = min(idx, len(app.steps)) - 1
     while i >= 0:
         prev = app.steps[i]
         t = prev["type"]
         if t == "click" and prev.get("updateOrigin", True):
             if prev.get("mode", "abs") == "abs":
-                return int(prev["x"]) + dx, int(prev["y"]) + dy
-            dx += int(prev["x"])
-            dy += int(prev["y"])
+                if not region:
+                    return None  # 絕對座標沒有基準, 無從換算成螢幕座標
+                return (int(region[0]) + flowfmt.scale_px(prev["x"], k) + dx,
+                        int(region[1]) + flowfmt.scale_px(prev["y"], k) + dy)
+            dx += flowfmt.scale_px(prev["x"], k)
+            dy += flowfmt.scale_px(prev["y"], k)
             via_rel = True
         elif t == "drag":
             if prev.get("mode", "abs") == "abs":
-                return int(prev["x2"]) + dx, int(prev["y2"]) + dy
-            dx += int(prev["x2"])
-            dy += int(prev["y2"])
+                if not region:
+                    return None
+                return (int(region[0]) + flowfmt.scale_px(prev["x2"], k) + dx,
+                        int(region[1]) + flowfmt.scale_px(prev["y2"], k) + dy)
+            dx += flowfmt.scale_px(prev["x2"], k)
+            dy += flowfmt.scale_px(prev["y2"], k)
             via_rel = True
         elif t == "find_click" and prev.get("updateOrigin", True):
-            off = (int(prev.get("offsetX", 0)), int(prev.get("offsetY", 0)))
+            off = (flowfmt.scale_px(prev.get("offsetX", 0), k),
+                   flowfmt.scale_px(prev.get("offsetY", 0), k))
             if via_rel:
                 pos = app.template_pos(prev.get("template", ""))
             else:
@@ -411,6 +447,11 @@ def edit_step(app, step):
             # 整段包進同一個 screen_clear: 找圖預查與拾取之間視窗保持隱藏,
             # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
             mode = MODE_KEY[v["mode"].get()]
+            # 校準守門與倍率取得在清場「前」做 (清場中彈 messagebox 會隱形);
+            # 拾取值一律反除倍率歸一到基準尺度 (票 04)
+            ok, k = _cal_state(app, dlg)
+            if not ok:
+                return
             if mode != "prev":
                 # 基準檢查在清場「前」做: 清場中彈 messagebox 會隱形 (票 07)
                 org = _region_origin(app, dlg)
@@ -418,7 +459,7 @@ def edit_step(app, step):
                     return
             with ui_overlay.screen_clear(root, extra=(dlg,)):
                 if mode == "prev":
-                    base = _resolve_prev_origin(app, step, dlg) if v["use_base"].get() else None
+                    base = _resolve_prev_origin(app, step, dlg, k) if v["use_base"].get() else None
                     if base is not None:
                         r = ui_overlay.pick(root, "line", "點一下要點擊的位置（原點＝上一步位置）",
                                             hide=(dlg,), base=base)
@@ -428,14 +469,14 @@ def edit_step(app, step):
                             "拖曳一條線：起點＝上一步點擊位置（基準），終點＝要點擊的位置",
                             hide=(dlg,))
                     if r:
-                        v["x"].set(r["dx"])
-                        v["y"].set(r["dy"])
+                        v["x"].set(_unscale(r["dx"], k))
+                        v["y"].set(_unscale(r["dy"], k))
                 else:
                     r = ui_overlay.pick(root, "point", "在畫面上點一下，選取要點擊的位置",
                                         hide=(dlg,))
                     if r:
-                        v["x"].set(r["screenX"] - org[0])
-                        v["y"].set(r["screenY"] - org[1])
+                        v["x"].set(_unscale(r["screenX"] - org[0], k))
+                        v["y"].set(_unscale(r["screenY"] - org[1], k))
 
         ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
                    command=pick_pos).pack(side="left")
@@ -497,6 +538,10 @@ def edit_step(app, step):
         def pick_drag():
             # 整段包進同一個 screen_clear: 預查/兩段拾取之間視窗保持隱藏,
             # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
+            # 校準守門與倍率取得在清場「前」做; 拾取值反除倍率歸一 (票 04)
+            ok, k = _cal_state(app, dlg)
+            if not ok:
+                return
             if MODE_KEY[v["mode"].get()] != "prev":
                 # 基準檢查在清場「前」做: 清場中彈 messagebox 會隱形 (票 07)
                 org = _region_origin(app, dlg)
@@ -504,7 +549,7 @@ def edit_step(app, step):
                     return
             with ui_overlay.screen_clear(root, extra=(dlg,)):
                 if MODE_KEY[v["mode"].get()] == "prev":
-                    base = _resolve_prev_origin(app, step, dlg) if v["use_base"].get() else None
+                    base = _resolve_prev_origin(app, step, dlg, k) if v["use_base"].get() else None
                     if base is None:
                         p = ui_overlay.pick(
                             root, "point",
@@ -517,19 +562,19 @@ def edit_step(app, step):
                                         "拖曳一條線：起點＝按下位置，終點＝放開位置",
                                         hide=(dlg,), mark=base)
                     if r:
-                        v["x1"].set(r["startX"] - base[0])
-                        v["y1"].set(r["startY"] - base[1])
-                        v["x2"].set(r["endX"] - base[0])
-                        v["y2"].set(r["endY"] - base[1])
+                        v["x1"].set(_unscale(r["startX"] - base[0], k))
+                        v["y1"].set(_unscale(r["startY"] - base[1], k))
+                        v["x2"].set(_unscale(r["endX"] - base[0], k))
+                        v["y2"].set(_unscale(r["endY"] - base[1], k))
                 else:
                     r = ui_overlay.pick(root, "line",
                                         "拖曳一條線：起點＝按下位置，終點＝放開位置",
                                         hide=(dlg,))
                     if r:
-                        v["x1"].set(r["startX"] - org[0])
-                        v["y1"].set(r["startY"] - org[1])
-                        v["x2"].set(r["endX"] - org[0])
-                        v["y2"].set(r["endY"] - org[1])
+                        v["x1"].set(_unscale(r["startX"] - org[0], k))
+                        v["y1"].set(_unscale(r["startY"] - org[1], k))
+                        v["x2"].set(_unscale(r["endX"] - org[0], k))
+                        v["y2"].set(_unscale(r["endY"] - org[1], k))
 
         ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
                    command=pick_drag).pack(side="left")

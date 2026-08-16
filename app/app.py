@@ -1795,6 +1795,33 @@ class App:
 
     # ---- 流程存檔在所屬 profile 的 flows/ 之下; pack 供跨機器/跨 profile 搬遷 ----
 
+    def _maybe_rebase(self):
+        """存檔時倍率≠1 → 自動`重定基準`並告知 (票 04).
+
+        profile 內全部流程檔 (含自動存檔) 座標 ×現行倍率改寫、基準距離改為
+        本機量值、倍率歸 1、指紋更新; 記憶體中的步驟同步跟上新基準。
+        未校準 (倍率未知) 或倍率＝1 時不觸發、不改寫任何檔案。
+        """
+        cal = calibration.load(self.profile_dir)
+        fp = calibration.current_fingerprint()
+        if cal is None or calibration.is_uncalibrated(cal, fp):
+            return
+        k = float(cal["scale"])
+        if k == 1.0:
+            return
+        files = calibration.rebase(self.profile_dir, fp)
+        calibration.scale_steps(self.steps, k)  # 記憶體同步跟上新基準
+        self._update_cal_ui()
+        self.render_steps()  # 內含 _autosave: 以新基準覆寫自動存檔
+        self.log_ui(f"已重定基準：{len(files)} 份流程檔座標 ×{k:.3f} 改寫，"
+                    "基準距離更新、倍率歸 1", "ok")
+        messagebox.showinfo(
+            "重定基準",
+            f"本機畫面倍率為 ×{k:.3f}，存檔時已自動把 profile 內全部流程檔"
+            f"（{len(files)} 份）重定為本機尺度：\n"
+            f"座標 ×{k:.3f} 改寫、基準距離更新、倍率歸 1。\n"
+            "流程檔因此永遠維持單一尺度，不會雙重縮放。", parent=self.root)
+
     def save_flow(self):
         """把目前流程以新格式 JSON 存進當前 profile 的 flows/."""
         if not self.steps:
@@ -1807,6 +1834,7 @@ class App:
             filetypes=[("AutoClick 流程", "*.json")])
         if not path:
             return
+        self._maybe_rebase()  # 倍率≠1 的機器上存檔 → 先重定基準 (票 04)
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self._flow_data(), f, ensure_ascii=False, indent=2)
