@@ -658,7 +658,8 @@ class App:
         dist = self._measure_pair(cal["pair"], "校準")
         if dist is None:
             return
-        cal["scale"] = dist / float(cal["baseline"])
+        # 抖動容差內貼齊 1: 同機重校不因 1px 量測差觸發存檔時的重定基準
+        cal["scale"] = calibration.snap_identity(dist / float(cal["baseline"]))
         cal["fingerprint"] = calibration.current_fingerprint()
         calibration.save(self.profile_dir, cal)
         self._update_cal_ui()
@@ -1888,14 +1889,15 @@ class App:
         if not self.steps:
             messagebox.showinfo("儲存流程", "沒有步驟可儲存", parent=self.root)
             return
-        if not self._resolve_source_baseline():  # `來源基準`守門 (票 06)
-            return
         os.makedirs(self.flows_dir, exist_ok=True)
         path = filedialog.asksaveasfilename(
             parent=self.root, title="儲存流程", initialdir=self.flows_dir,
             defaultextension=".json",
             filetypes=[("AutoClick 流程", "*.json")])
         if not path:
+            return
+        # `來源基準`守門在檔名確定「之後」: 取消存檔就不該動到標記 (票 06)
+        if not self._resolve_source_baseline():
             return
         self._maybe_rebase()  # 倍率≠1 的機器上存檔 → 先重定基準 (票 04)
         try:

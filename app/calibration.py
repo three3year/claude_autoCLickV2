@@ -116,6 +116,17 @@ def pick_gate_message(cal, fingerprint):
             "請先按主視窗的「校準」按鈕完成校準。")
 
 
+# 同機重校的量測抖動 (匹配框 1-2px 級) 視同倍率 1 的容差;
+# 沒有它, 同一台機器重校量到 0.997 之類的值後, 每次存檔都會觸發
+# 全 profile 重定改寫+彈窗, 基準距離也會漂移
+IDENTITY_EPS = 0.005
+
+
+def snap_identity(scale):
+    """量測抖動內的`畫面倍率`貼齊為 1 (校準完成後原機器行為不變)."""
+    return 1.0 if abs(scale - 1.0) < IDENTITY_EPS else scale
+
+
 def measure(query, screen, pair):
     """量`校準對`兩張圖的匹配框中心直線距離.
 

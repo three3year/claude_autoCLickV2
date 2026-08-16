@@ -79,6 +79,14 @@ def test_拾取守門只在未校準時擋下():
     assert msg and "校準" in msg
 
 
+def test_倍率貼齊_同機量測抖動視同1():
+    """同一台機器重校量到 0.997 之類的值, 不該讓每次存檔都觸發重定基準."""
+    assert calibration.snap_identity(0.997) == 1.0
+    assert calibration.snap_identity(1.004) == 1.0
+    assert calibration.snap_identity(1.25) == 1.25
+    assert calibration.snap_identity(0.98) == 0.98
+
+
 # ---------- 量測 (票 02) ----------
 
 def _grab(vision, region=None):
