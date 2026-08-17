@@ -14,10 +14,11 @@ if not exist dist\AutoClick\AutoClick.exe (
     exit /b 1
 )
 
-echo [AutoClick] 放入 arknights profile (只在不存在時複製, 絕不覆蓋使用者資料)...
+echo [AutoClick] 放入 arknights profile (只在不存在時建立, 絕不覆蓋使用者資料)...
+rem profile 只剩引擎參數與流程存檔目錄 (ADR 0006): 範本圖住在流程存檔裡,
+rem 沒有範本庫也沒有登錄產物要複製; 流程存檔是使用者自己的資料, 不隨包出貨。
 if not exist dist\AutoClick\profiles\arknights (
-    robocopy ..\profiles\arknights\templates dist\AutoClick\profiles\arknights\templates /E /NFL /NDL /NJH /NJS >nul
-    robocopy ..\profiles\arknights\registered dist\AutoClick\profiles\arknights\registered /E /NFL /NDL /NJH /NJS >nul
+    mkdir dist\AutoClick\profiles\arknights\flows
     copy /y ..\profiles\arknights\config.yaml dist\AutoClick\profiles\arknights\ >nul
 )
 

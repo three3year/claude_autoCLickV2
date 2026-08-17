@@ -6,12 +6,13 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 
 ## 架構
 
-- `app.py` 主視窗；`enginehub.py`（引擎生命週期：載入中/就緒/失敗＋profile
+- `app.py` 主視窗；`enginehub.py`（引擎生命週期：載入中/就緒/失敗＋`範本清單`
   綁定＋query/預載/單張登錄的單一接縫，也是 runner 的偵測接縫實作）；
   `ui_theme.py` 深色主題；`ui_overlay.py` 全螢幕截圖選取層；`ui_dialogs.py` 步驟編輯對話框；
   `window_coord.py`(modal 堆疊＋清場還原清單的純狀態機)；`ui_grab.py`(堆疊的 Tk 執行層)；
   `applog.py`(檔案日誌)；
-  `profile_store.py`(profile 列舉/建立/應用狀態)；`flowpack.py`(舊 flow/pack 匯入、新 pack 匯出)；
+  `profile_store.py`(profile 列舉/建立/應用狀態)；
+  `flowfile.py`(**流程存檔格式與工作區的唯一入口**，見下)；
   `calibration.py`(校準與畫面倍率的全部純邏輯，見下)
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：
   `capture.py`(mss 截圖)、`win.py`(ctypes 滑鼠/DPI/視窗資訊)、`runner.py`(步驟執行緒)、
@@ -27,42 +28,68 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   **新增任何辨識入口都要先過這道 gate**。範本登錄不在啟動時做：執行流程
   前由 runner `_preload`（`範本預載`）一次載齊該流程引用的範本，比對測試/
   即時找圖用 `hub.ensure_template()` 單張隨用；範本增刪改後呼叫
-  `App.reload_profile()`＝`hub.refresh()` 輕量重探索（毫秒級、不需引擎），
-  登錄產物於下次使用時重載。引擎載入起訖寫檔案日誌（engine.load.*）
+  `App.reload_profile()`＝`hub.refresh()` 輕量重探索（重掃`工作區`並讓登錄
+  產物失效，毫秒級、不需引擎），登錄產物於下次使用時重載。
+  引擎載入起訖寫檔案日誌（engine.load.*）
 - **開窗關鍵路徑不得 import 重量級套件**（cv2/mss/numpy/torch）：capture/
   imgio/ui_dialogs/ui_overlay 都是函式內延後 import，`subject_detection`
   套件頂層是 PEP 562 惰性再匯出——新程式碼別把這些改回頂層 import
   （`app/tests/test_import_slim.py` 的子程序探針會擋下）
 - **匹配門檻在 profile `config.yaml`**（match/verify 兩關），步驟層級沒有 threshold；
-  讀舊檔時 `flowpack.migrate_flow()` 會把每步 threshold 安靜丟棄、範本引用去 .png
-- **範本名＝相對路徑不含副檔名**（如 `zh/X`），與引擎範本名一致。app 建立的範本
-  一律目錄形式（`<name>/<name>.png`）——資料夾內「只有影像檔」會被引擎當成
-  一個多截圖範本，目錄形式避開歧義；使用者把更多截圖丟進同一目錄＝自動重登錄成多截圖範本
+  讀舊檔時 `flowfile.migrate_flow()` 會把每步 threshold 安靜丟棄、範本引用去 .png
+- **一份流程＝一個自包自足的存檔（ADR 0006）**：`flows/<名稱>.autoclickpack` 是
+  zip，裡面同時裝著步驟、**這份流程引用到的每一張範本圖**、校準資料與範本元資料。
+  格式規則／打包範圍（只包被引用的）／撞名加序號並改寫引用／`工作區`生命週期／
+  舊格式單向匯入／一次性轉換規則**全部只在 `flowfile.py`**，UI 與 runner 只呼叫它。
+  - **本機沒有範本庫**：profile 只剩 `config.yaml`、`flows/`（含步驟草稿
+    `_autosave.json`）、`calibration.json` + `calibration/`（校準對兩張圖，
+    profile 自存、與流程解耦）、`workspace/`（可重建快取）。
+    profile 判定看的是 `config.yaml` 在不在，不是目錄
+  - **範本名是平面名稱**（沒有資料夾層級），一份流程內唯一；**一範本一張圖**
+    （多截圖範本已退場，引擎的 `multi_capture` 能力保留但 app 不再產生）
+  - **工作區是快取、存檔是真相來源**：`ws.load_flow()` 解到
+    `workspace/templates/`，登錄產物落 `workspace/registered/`；被刪或毀損時
+    自動重建（`ws.ensure()`）。**切換流程 = `ws.clear()` 整個清空**，磁碟上
+    刻意不留非當前流程的圖 → 切回去要重新登錄，這是刻意的取捨
+  - **自動存檔只寫步驟草稿**（`flowfile.write_draft`），圖留在工作區——拖曳排序
+    不能因為重寫幾十張圖而卡頓；按存檔才 `ws.put_flow()` 打包 zip
+  - **校準圖交給引擎時加 `_cal/` 前綴**（`flowfile.cal_template_name`）：辨識只有
+    一條路徑，所以校準圖也得在引擎的`範本清單`裡，但它不算本流程的範本（面板不列）。
+    前綴含 `/` 而流程範本名一律被 `clean_name` 擋掉斜線 → 永不撞名
+  - **匯出動作已移除**（存檔本身就是可搬移的檔）；開啟不在本 profile 內的存檔＝
+    `adopt_foreign_flow()` 複製副本進來再開，原始檔不動、`匯入換算`只做一次
 - 流程存檔有 `coordSpace` 標記：**沒有這個鍵＝舊格式**（絕對座標是螢幕座標），載入時由
-  `flowpack.migrate_flow()`（內含 `flowfmt.to_region_space()`）換算成範圍座標。
-  任何讀存檔的新路徑都要記得先過這一關，否則舊檔的座標會被當成新格式而整批偏掉
+  `flowfile.migrate_flow()`（內含 `flowfmt.to_region_space()`）換算成範圍座標。
+  任何讀存檔的新路徑都要記得先過這一關，否則舊檔的座標會被當成新格式而整批偏掉。
+  另有 `flowFormat` 標記分辨「自包自足存檔」與「舊流程包」（兩者都是含 flow.json
+  的 zip，沒有標記就分不出該直接開還是該走單向轉換）
 - **校準與畫面倍率（ADR 0005，詞彙見 app/CONTEXT.md）**：純邏輯全部在
-  `calibration.py`（資料存取、未校準判定、量測、重定改寫、pack 匯入換算），
-  UI 與 runner 只呼叫它。慣例與坑：
-  - 流程檔座標永遠是「當前基準機器」的尺度；倍率≠1 存檔會自動重定基準
-    （`App._maybe_rebase`：全部流程檔含 `_autosave.json` ×倍率改寫，漏一份＝混尺度）。
-    新增「寫流程檔」的路徑時要想清楚是否該先重定
+  `calibration.py`（資料存取、未校準判定、量測、重定改寫）；存檔攜帶校準資料與
+  `匯入換算`三分支在 `flowfile`（那是存檔格式的事）。UI 與 runner 只呼叫它們。
+  慣例與坑：
+  - 流程座標永遠是「當前基準機器」的尺度；倍率≠1 存檔會自動重定基準
+    （`App._maybe_rebase` → `calibration.rebase`：profile 內**每一份**
+    `.autoclickpack`（只改 zip 裡的 flow.json，圖不動）＋步驟草稿 ×倍率改寫，
+    漏一份＝混尺度）。新增「寫流程」的路徑時要想清楚是否該先重定
   - 執行期倍率經 `runner.start(scale=…)` 傳入，runner 不讀檔；只換算三類步驟
     **偏移**（找圖偏移、相對/絕對座標、拖曳兩端點），搜尋範圍與原點等螢幕座標不換算。
     進位統一走 `flowfmt.scale_px`（執行期與檔案改寫共用，別各寫一份捨入）
   - 未校準（有校準對但 scale 為 null 或機器指紋不符）＝執行警告後以 1 代入、
     **拾取擋下**（`ui_dialogs._cal_state`，新增拾取入口要沿用這道門＋`_unscale` 反除歸一）、
     存檔不重定。沒有校準對的 profile 一切照舊（最重要的回歸線）
-  - 帶 `sourceBaseline` 標記（不同對 pack 匯入）的流程：可執行、存檔被
+  - 帶 `sourceBaseline` 標記（以不同校準對的存檔開啟）的流程：可執行、存檔被
     `_resolve_source_baseline` 守門，且**不隨 profile 重定基準**
   - 校準量測走辨識單一路徑（query 接縫）＋清場截圖；量測入口一樣要過
-    engine_gate 與 ensure_registered
+    engine_gate 與 ensure_registered。範本取自 **profile 自存的校準圖**
+    （`_cal/` 前綴），不是本流程的範本——刪掉任何一份流程都不影響校準
 - `Runner` 可注入舞台；**不注入時完全走原本的單流程路徑**，改 runner 時務必保住這條回歸線
-- profile `templates/_meta.json` 只有 `pos` 鍵：各範本截圖當下的中心螢幕座標
-  （相對座標預設原點的備援；上傳的範本沒有記錄；鍵＝範本名不含副檔名）。
+- 範本元資料只有 `pos` 鍵：各範本截圖當下的中心螢幕座標（相對座標預設原點的備援）。
+  住在工作區的 `workspace/_meta.json`，存檔時寫進 zip 的 `templates/_meta.json`。
+  **只有本流程自己拍的圖有 pos**——跨流程複製進來與從磁碟上傳的沒有。
   舊專案的 `rot` 鍵與 `_orig/` 旋轉原圖機制已隨旋轉功能移除，讀舊 meta 時安靜丟棄
-- 本輪已移除（不要加回去）：並行執行 UI 與 ParallelRun、旋轉比對與旋轉範本工具、
-  flood-fill 去背工具、翻新解析度工具、`_orig` 範本鏡像、舊 matcher、每步 threshold
+- 已移除（不要加回去）：並行執行 UI 與 ParallelRun、旋轉比對與旋轉範本工具、
+  flood-fill 去背工具、翻新解析度工具、`_orig` 範本鏡像、舊 matcher、每步 threshold、
+  **profile 範本庫與登錄產物目錄、多截圖範本、匯出流程包、範本資料夾層級**
 
 ## 建置與部署
 
@@ -83,9 +110,11 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   對較高權限視窗注入的滑鼠事件會被系統無聲丟棄；部署後的自動啟動測試會被 UAC 擋住——
   自動化冒煙改用同包的 `AutoClick-noUAC.exe`（共用 `_internal`；點擊會被高權限視窗
   丟棄，不作正式使用）
-- 使用者資料＝`profiles/`（每個 profile 自帶 templates/flows/config），位置依 `sys.frozen`：
-  exe 用 exe 旁的 `profiles/`＝使用者正式資料；從原始碼跑用 repo 根目錄的 `profiles/`
-  （arknights 範本庫進版控；`flows/`、`registered/`、`_meta.json`、`app_state.json` 已 gitignore）
+- 使用者資料＝`profiles/`（每個 profile 自帶 config.yaml/flows/calibration/workspace），
+  位置依 `sys.frozen`：exe 用 exe 旁的 `profiles/`＝使用者正式資料；從原始碼跑用 repo
+  根目錄的 `profiles/`。**範本圖住在流程存檔裡**，所以 `flows/` 不進版控；
+  `workspace/`、`calibration*`、`app_state.json`、`benchmark/_registered/` 也已 gitignore。
+  進版控的只有 `config.yaml` 與 `benchmark/`（含產生器用的 `_assets/templates/`）
 - 部署 = 只覆蓋 exe 與 `_internal/`；**絕不能動使用者的 profiles/**
 - 使用者回報 UI 問題時，先確認截圖是部署的 exe 還是原始碼版——原始碼修正後要重新打包部署
 
@@ -165,8 +194,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   這是全 repo 唯一假件點；`vision.plan(範本名, [None, (x,y)])`
   安排「第幾次查詢才找到」，`win` 的點擊/拖曳/按鍵全被換成只記事件，`等待` 走虛擬時鐘不真的睡。
   要驗執行器行為先加測試，不要再寫一次性腳本
-- profile 管理與匯入/匯出是純檔案邏輯，用暫存目錄真測不 mock
-  （`test_profile_store.py`、`test_flowpack.py`）
+- profile 管理與流程存檔/工作區是純檔案邏輯，用暫存目錄真測不 mock
+  （`test_profile_store.py`、`test_flowfile.py`、`test_flow_open_save.py`）；
+  斷言的是**存檔內容與工作區的檔案狀態**，不是內部欄位
 - 測試要靠子程序開靶視窗時，**不能用 pid 找它的視窗**——venv 的 `python.exe` 啟動子程序時
   pid 會轉手，`Popen.pid` 跟實際擁有視窗的程序不同 → 用視窗標題辨識
 - GUI 畫面驗證：用 PrintWindow 擷取視窗，不能只做語法檢查
@@ -181,6 +211,12 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - `event_generate` 模擬雙擊要連發兩次 `ButtonPress`（直接發 `<Double-Button-1>` 會報錯）；
   連擊計數會累積，三、四擊也匹配 Double 綁定，各組點擊間要等超過系統雙擊時間或換座標打斷
 - 測試會呼叫 `render_steps` 時先 monkeypatch `App._autosave`，避免覆寫使用者的 `flows/_autosave.json`
+- **虛擬事件（`<<ListboxSelect>>` 等）在未映射的視窗上不會派送**：驗互動路徑的測試
+  要先 `deiconify()` + `update()`（並斷言 `winfo_viewable()`），否則 event_generate
+  靜靜沒事發生、退化成只驗靜態畫面（見 `test_template_panel.py`）
+- 驗 modal 對話框的互動：對話框會卡住呼叫端，所以把操作排進 `root.after()`，
+  用視窗標題找到那個 Toplevel、再按類別/文字找元件（見 `test_template_picker.py`
+  的 `_Driver`）；不要在生產程式碼裡留測試用的後門屬性
 - `event_generate` 合成事件**繞過 grab 路由**，驗證 grab/modal 相關行為必須用真實輸入
   （`win.click`/`win.drag` SendInput 注入）；合成事件測不出「點擊被 grab 導走」的卡死
 
@@ -198,10 +234,14 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   巢狀視窗（編輯對話框＋比對測試結果）不需要也不要再手動交接 grab
 - 常駐螢幕的覆蓋框（如搜尋範圍預覽）：框線畫在範圍外側（避免拍進截圖）、
   用 `win.make_click_through()` 點擊穿透、綁 root 的 `<Map>/<Unmap>` 自動顯隱
-- 範本正式名稱＝相對路徑不含副檔名（可含子資料夾如 `zh/X`，meta 鍵與流程引用一律用它）；
-  截圖自動命名 `tmpl_NNN`、以目錄形式存進清單目前選取的資料夾
-  （清單是檔案總管式：點資料夾列展開/收合；多截圖範本顯示張數）；
-  改名靠範本面板的重新命名（同步更新引用步驟，輸入含 `/` 即搬移；`clean_rel_name` 防穿越）
+- 範本正式名稱＝**平面名稱**（沒有資料夾層級；`flowfile.clean_name` 把斜線與非法
+  字元換成 `_`）；截圖自動命名 `tmpl_NNN`；主視窗的範本面板列的是**本流程的範本**
+  （平面清單，沒有資料夾），改名靠面板的重新命名（`flowfile.rename_refs` 同步改寫
+  所有引用含`確認圖`，撞名自動加序號）
+- **選範本一律走 `ui_dialogs.pick_template`**：左側樹狀「新加入／本流程／profile 內
+  其他流程存檔」（其他存檔只讀 zip 索引，預覽才讀那一張）、可從磁碟挑 PNG、可現場
+  截圖；**按確定才複製進本流程**，取消時檔案系統完全沒有變化。`確認圖`走同一個
+  對話框——舊的「截圖即時存檔、取消對話框圖仍留下」語意已經改掉，別再加回去
 - 找圖搜尋範圍只有主視窗的全域設定，步驟不各自設範圍
 - 座標點擊基準只有兩種：絕對座標（基準＝搜尋範圍左上角，沒設範圍就不能拾取也不能執行）、
   相對上一步（原點語意見找圖三態條目；拾取用拖線：起點=基準、終點=目標）
