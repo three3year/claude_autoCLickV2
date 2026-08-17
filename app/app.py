@@ -585,19 +585,22 @@ class App:
             self.cal_btn.configure(text=f"校準　×{cal['scale']:.2f}",
                                    state="normal")
 
-    def _measure_pair(self, pair, title):
+    def _measure_pair(self, pair, title, keys=None):
         """清場截圖後量`校準對`中心距離; 失敗彈窗指明缺哪一張並回傳 None.
 
-        範本取自 **profile 自存的校準圖** (不是本流程的範本): 刪掉任何一份
-        流程都不影響校準。找圖語意與一般找圖一致: 有`搜尋範圍`就在範圍內找,
-        否則全螢幕; 截圖前照常清場。量測前先確保登錄完成 (單張隨用載入)。
+        範本預設取自 **profile 自存的校準圖** (不是本流程的範本): 刪掉任何一份
+        流程都不影響校準。`keys` 可指定改用別的引擎範本名——指定校準對時量的是
+        本流程工作區裡的那兩張, 量成功了才複製進 profile (量測失敗不能把舊的
+        校準圖砍掉)。找圖語意與一般找圖一致: 有`搜尋範圍`就在範圍內找, 否則
+        全螢幕; 截圖前照常清場。量測前先確保登錄完成 (單張隨用載入)。
         """
         self.ensure_registered()
-        keys = [flowfile.cal_template_name(n) for n in pair]
+        if keys is None:
+            keys = [flowfile.cal_template_name(n) for n in pair]
         for name, key in zip(pair, keys):
             if key not in self.profile.templates:
                 messagebox.showwarning(
-                    title, f"profile 內找不到校準圖：{name}\n"
+                    title, f"找不到校準圖：{name}\n"
                     "請重新按「指定校準對」", parent=self.root)
                 return None
             try:
@@ -629,24 +632,27 @@ class App:
     def designate_pair(self):
         """指定`校準對`並立刻完成第一次`校準`.
 
-        選中的兩張圖**複製一份進 profile 自存** (與流程存檔解耦), 量測就從
-        那兩張自存圖取範本。量得`基準距離`、本機倍率記 1、附`機器指紋`;
-        任一張找不到＝指定失敗, 不留下部分寫入的校準資料。
+        **先用本流程工作區裡的那兩張量**, 量成功了才把圖複製一份進 profile 自存
+        (與流程存檔解耦)。順序很要緊: 先複製會清掉 profile 原本自存的那一對,
+        接著量測失敗就留下「calibration.json 指名一對圖、圖卻已被刪掉」的殘局。
+        量得`基準距離`、本機倍率記 1、附`機器指紋`; 任一張找不到＝指定失敗,
+        不留下部分寫入的校準資料。
         """
         if not self.engine_gate():
             return
         pair = ui_dialogs.pick_cal_pair(self)
         if not pair:
             return
-        flowfile.store_calibration_images(
-            self.profile_dir, {n: self.ws.path_of(n) for n in pair})
-        self.reload_profile()   # 自存的校準圖進引擎的範本清單
-        dist = self._measure_pair(pair, "指定校準對")
+        # keys=pair: 這兩張就是本流程的範本, 已經在引擎的範本清單裡
+        dist = self._measure_pair(pair, "指定校準對", keys=list(pair))
         if dist is None:
             return
+        flowfile.store_calibration_images(
+            self.profile_dir, {n: self.ws.path_of(n) for n in pair})
         calibration.save(self.profile_dir, {
             "pair": list(pair), "baseline": dist, "scale": 1.0,
             "fingerprint": calibration.current_fingerprint()})
+        self.reload_profile()   # 自存的校準圖進引擎的範本清單
         self._update_cal_ui()
         self.log_ui(f"已指定校準對「{pair[0]}」×「{pair[1]}」，"
                     f"基準距離 {dist:.1f}px，本機倍率 ×1.00", "ok")
@@ -966,7 +972,7 @@ class App:
         ttk.Button(thead, text="上傳圖片",
                    command=self.upload_template).pack(side="right", padx=(0, 6))
 
-        self._tmpl_rows = []     # 清單列 → 範本名 (平面清單, 沒有資料夾層級)
+        self._tmpl_names = []     # 清單目前列出的範本名 (平面, 無資料夾層級)
         self.tmpl_list = tk.Listbox(
             tp, bg=C["bg"], fg=C["text"], selectbackground=C["sel"],
             selectforeground=C["text"], font=FONT_MONO, bd=0,
@@ -1368,6 +1374,26 @@ class App:
         """
         return self.ws.pos_of(name)
 
+    def record_template_pos(self, name, xy):
+        """補記範本的中心螢幕座標 (比對測試找到時, 供相對座標當備援原點)."""
+        self.ws.set_pos(name, xy)
+
+    def template_bytes(self, name):
+        """本流程某個範本的圖檔位元組; 讀不到回 None."""
+        try:
+            with open(self.ws.path_of(name), "rb") as f:
+                return f.read()
+        except OSError:
+            return None
+
+    def current_flow_path(self):
+        """目前這份流程對應的存檔路徑; 還沒存過的新流程回 None."""
+        return self.ws.flow_path()
+
+    def drop_template(self, name):
+        """把範本從本流程收回去 (圖與登錄產物一起刪)."""
+        self.ws.remove(name)
+
     def add_template_image(self, name, blob, pos=None):
         """把一張圖加進本流程 (bytes 或來源圖檔路徑); 回傳最終採用的範本名.
 
@@ -1382,7 +1408,7 @@ class App:
     # ---- 清單 ----
 
     def _select_tmpl_row(self, name):
-        rows = self._tmpl_rows
+        rows = self._tmpl_names
         if name in rows:
             i = rows.index(name)
             self.tmpl_list.selection_clear(0, "end")
@@ -1394,7 +1420,7 @@ class App:
         """本流程的範本清單 (平面, 沒有資料夾層級)."""
         names = self.list_template_names()
         sel = self._sel_template()
-        self._tmpl_rows = names
+        self._tmpl_names = names
         self.tmpl_list.delete(0, "end")
         for n in names:
             self.tmpl_list.insert("end", f" 🖼 {n}")
@@ -1407,7 +1433,7 @@ class App:
 
     def _sel_template(self):
         s = self.tmpl_list.curselection()
-        rows = getattr(self, "_tmpl_rows", [])
+        rows = getattr(self, "_tmpl_names", [])
         if not s or s[0] >= len(rows):
             return None
         return rows[s[0]]
@@ -1430,8 +1456,11 @@ class App:
 
     # ---- 新增範本 ----
 
-    def _next_template_name(self, taken=()):
-        """下一個未使用的自動命名; taken 補上本批次剛建立、尚未重載的名稱."""
+    def next_template_name(self, taken=()):
+        """下一個未使用的自動命名; taken 補上本批次剛建立、尚未重載的名稱.
+
+        公開: 選範本對話框現場截圖時也要照同一套命名 (別讓它自己編一套)。
+        """
         used = set()
         for fn in [*self.list_template_names(), *taken]:
             m = re.fullmatch(r"tmpl_(\d+)", fn)
@@ -1452,7 +1481,7 @@ class App:
 
         圖落在工作區 (存檔時才進 zip); 記下`pos`＝截圖當下的中心螢幕座標。
         """
-        name = self.ws.reserve(self._next_template_name())
+        name = self.ws.reserve(self.next_template_name())
         imgio.imwrite(self.ws.path_of(name), r["img"])
         self.ws.set_pos(name, [r["screenX"] + r["w"] // 2,
                                r["screenY"] + r["h"] // 2])
@@ -1522,7 +1551,7 @@ class App:
             if img is None:
                 self.log_ui(f"讀不到圖片：{os.path.basename(p)}", "warn")
                 continue
-            name = self.ws.reserve(self._next_template_name(taken=added))
+            name = self.ws.reserve(self.next_template_name(taken=added))
             imgio.imwrite(self.ws.path_of(name), img)
             added.append(name)
         if not added:

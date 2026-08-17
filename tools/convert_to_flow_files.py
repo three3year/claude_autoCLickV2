@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import sys
 from pathlib import Path
@@ -66,7 +65,7 @@ def _load(path: Path) -> dict | None:
 def convert_profile(profile: Path, library_dir: Path, dry_run=False) -> dict:
     """轉換一個 profile; 回傳報告 dict (不寫任何報告檔)."""
     lib = flowfile.scan_templates(library_dir)
-    pos_in = flowfile._legacy_meta_pos(str(library_dir))
+    pos_in = flowfile.legacy_meta_pos(str(library_dir))
     cal = calibration.load(str(profile))
 
     report = {
@@ -95,7 +94,7 @@ def convert_profile(profile: Path, library_dir: Path, dry_run=False) -> dict:
         pos = {new: pos_in[old] for old, new in r["mapping"].items()
                if old in pos_in}
         dest = profile / "flows" / (src.stem + flowfile.EXT)
-        cal_payload, cal_images = _calibration_payload(cal, lib)
+        cal_payload, cal_images = flowfile.flat_calibration(cal, lib)
         if not dry_run:
             flowfile.write(str(dest), data, r["images"], pos,
                            cal=cal_payload, cal_images=cal_images)
@@ -123,8 +122,8 @@ def convert_profile(profile: Path, library_dir: Path, dry_run=False) -> dict:
         if not dry_run:
             ws.clear()
             for name, src_img in r["images"].items():
-                ws.add(name, src_img,
-                       pos=pos_in.get(_key_of(r["mapping"], name)))
+                old_name = {v: k for k, v in r["mapping"].items()}.get(name)
+                ws.add(name, src_img, pos=pos_in.get(old_name))
             ws.set_flow_path(str(draft_twin) if draft_twin else None)
             flowfile.write_draft(str(profile), draft)
         report["draft"] = {"steps": len(draft.get("steps") or []),
@@ -136,15 +135,13 @@ def convert_profile(profile: Path, library_dir: Path, dry_run=False) -> dict:
         ws.ensure()
 
     if cal is not None:
-        pair = _flat_pair(cal)
-        images = {n: flowfile.baseline_capture(lib[o])
-                  for o, n in zip(cal["pair"], pair) if o in lib}
+        flat, images = flowfile.flat_calibration(cal, lib)
         if not dry_run:
             flowfile.store_calibration_images(str(profile), images)
-            calibration.save(str(profile), dict(cal, pair=pair))
+            calibration.save(str(profile), flat)
         report["calibration"] = {
-            "pair": pair, "baseline": cal["baseline"], "scale": cal.get("scale"),
-            "images_found": sorted(images)}
+            "pair": flat["pair"], "baseline": cal["baseline"],
+            "scale": cal.get("scale"), "images_found": sorted(images)}
 
     report["orphans"] = sorted(set(lib) - referenced)
 
@@ -155,35 +152,6 @@ def convert_profile(profile: Path, library_dir: Path, dry_run=False) -> dict:
             if not dry_run:
                 shutil.rmtree(stale, ignore_errors=True)
     return report
-
-
-def _key_of(mapping: dict, new_name: str):
-    for old, new in mapping.items():
-        if new == new_name:
-            return old
-    return new_name
-
-
-def _flat_pair(cal) -> list[str]:
-    """`校準對`名稱拉平 (與流程引用同一條拉平規則); 兩張撞名時加序號.
-
-    校準對與流程的範本是兩套獨立的名字空間 (校準圖由 profile 自存), 所以
-    只要這一對彼此不撞名就夠。
-    """
-    pair = []
-    for old in cal["pair"]:
-        pair.append(flowfile.free_name(flowfile.flatten_name(old), pair))
-    return pair
-
-
-def _calibration_payload(cal, lib):
-    """每份存檔攜帶的校準資料與那兩張圖 (拉平後的名稱)."""
-    if cal is None:
-        return None, {}
-    pair = _flat_pair(cal)
-    images = {new: flowfile.baseline_capture(lib[old])
-              for old, new in zip(cal["pair"], pair) if old in lib}
-    return {"pair": pair, "baseline": cal["baseline"]}, images
 
 
 def format_report(reports: list[dict]) -> str:
@@ -268,7 +236,6 @@ def main(argv=None) -> int:
                for p in profiles]
     text = format_report(reports)
     if backup_note:
-        text = text.replace("", "", 1)
         text += f"\n## 備份\n\n轉換前的完整備份：`{backup_note}`\n"
     print(text)
     if args.report:

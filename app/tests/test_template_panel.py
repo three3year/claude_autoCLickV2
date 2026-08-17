@@ -48,7 +48,7 @@ class _PanelApp(app_mod.App):
                                     exportselection=False)
         self.tmpl_list.pack(side="left", fill="both", expand=True)
         self.tmpl_list.bind("<<ListboxSelect>>", self._on_tmpl_select)
-        self._tmpl_rows = []
+        self._tmpl_names = []
         self._tmpl_icons = type("_Icons", (), {"refresh": lambda self: None})()
         self.thumb_lbl = tk.Label(self.panel)
         self.thumb_lbl.pack(side="left")
@@ -90,7 +90,7 @@ def _select(app, name):
     """
     app.root.update()
     assert app.tmpl_list.winfo_viewable(), "清單要真的畫出來, 事件才派送得到"
-    i = app._tmpl_rows.index(name)
+    i = app._tmpl_names.index(name)
     app.tmpl_list.selection_clear(0, "end")
     app.tmpl_list.selection_set(i)
     app.tmpl_list.event_generate("<<ListboxSelect>>")
@@ -111,7 +111,7 @@ def test_面板只列出本流程的範本(tkroot, tmp_path):
     try:
         rows = app.tmpl_list.get(0, "end")
         assert [r.strip() for r in rows] == ["🖼 btn", "🖼 icon"]
-        assert app._tmpl_rows == ["btn", "icon"]
+        assert app._tmpl_names == ["btn", "icon"]
     finally:
         app.destroy()
 
@@ -139,7 +139,7 @@ def test_切換流程時面板跟著換(tkroot, tmp_path):
         app.ws.load_flow(other)
         app.refresh_templates()
         app.root.update()
-        assert app._tmpl_rows == ["new"], "上一份流程的範本不留在面板上"
+        assert app._tmpl_names == ["new"], "上一份流程的範本不留在面板上"
     finally:
         app.destroy()
 
@@ -169,7 +169,7 @@ def test_重新命名同步改寫所有引用_含確認圖(tkroot, tmp_path, mon
         app.rename_template()
         app.root.update()
 
-        assert app._tmpl_rows == ["b", "按鈕"]
+        assert app._tmpl_names == ["b", "按鈕"]
         assert not os.path.exists(app.ws.path_of("a"))
         assert os.path.exists(app.ws.path_of("按鈕"))
         assert steps[0]["template"] == "按鈕"
@@ -186,7 +186,7 @@ def test_重新命名撞名自動加序號(tkroot, tmp_path, monkeypatch):
         _select(app, "a")
         app.rename_template()
         app.root.update()
-        assert app._tmpl_rows == ["b", "b_2"], "原有的 b 絕對不會被蓋掉"
+        assert app._tmpl_names == ["b", "b_2"], "原有的 b 絕對不會被蓋掉"
     finally:
         app.destroy()
 
@@ -199,7 +199,7 @@ def test_重新命名輸入資料夾分隔被清成平面名稱(tkroot, tmp_path
         _select(app, "a")
         app.rename_template()
         app.root.update()
-        assert app._tmpl_rows == ["zh_按鈕"]
+        assert app._tmpl_names == ["zh_按鈕"]
     finally:
         app.destroy()
 
@@ -217,7 +217,7 @@ def test_刪除範本從本流程移除_引用它的步驟以既有方式標示(
         app.del_template()
         app.root.update()
 
-        assert app._tmpl_rows == ["b"]
+        assert app._tmpl_names == ["b"]
         assert not os.path.exists(app.ws.path_of("a"))
         assert not os.path.exists(os.path.join(app.ws.registered_dir, "a"))
         assert asked and "步驟 1" in asked[0], "有步驟在用它才提醒"
@@ -236,7 +236,7 @@ def test_刪除沒有步驟在用的範本不打擾(tkroot, tmp_path, monkeypatc
         _select(app, "a")
         app.del_template()
         app.root.update()
-        assert app._tmpl_rows == []
+        assert app._tmpl_names == []
         assert asked == []
     finally:
         app.destroy()
@@ -249,7 +249,7 @@ def test_複製範本撞名加序號並帶走pos(tkroot, tmp_path):
         _select(app, "a")
         app.copy_template()
         app.root.update()
-        assert app._tmpl_rows == ["a", "a_2"]
+        assert app._tmpl_names == ["a", "a_2"]
         assert app.ws.pos_of("a_2") == [11, 22]
     finally:
         app.destroy()

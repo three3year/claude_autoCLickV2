@@ -233,53 +233,106 @@ def pick_cal_pair(app):
 CUR_FLOW_LABEL = "本流程"
 NEW_LABEL = "新加入（按確定才複製進本流程）"
 
+TREE_THUMB = 32   # 樹狀清單每列的縮圖邊長
 
-def _tmpl_source_rows(app, opened, pending):
-    """選範本對話框左側樹狀的列: (顯示文字, 種類, 值).
 
-    種類: `group` (可展開/收合的來源) / `tmpl` (一個範本)。
-    列出其他流程存檔的範本時**只讀 zip 索引**, 不整包解壓——縮圖等到右側
-    預覽真的要顯示那一張時才讀 (一次一張)。
+class _Source:
+    """選範本對話框裡的一個來源: 有名字、列得出範本、取得出某一張的圖.
+
+    三種來源 (新加入的暫存圖 / 本流程 / profile 內另一份存檔) 只在這三件事上
+    不同, 其餘流程 (展開、預覽、按確定複製) 完全一樣——把差異收在這裡, 對話框
+    本體就不必到處分辨「這個 source 字串是哪一種」。
     """
-    import flowfile
-    rows = []
 
-    def group(key, label, names, count_note=True):
-        mark = "▾" if key in opened else "▸"
-        tail = f"（{len(names)}）" if count_note else ""
-        rows.append((f" {mark} {label}{tail}", "group", key))
-        if key in opened:
-            for n in names:
-                rows.append((f"　　🖼 {n}", "tmpl", (key, n)))
+    #: 按確定時要不要把圖複製進本流程 (本流程自己的那張不必複製)
+    copies = True
 
-    if pending:
-        group(NEW_LABEL, NEW_LABEL, sorted(pending), count_note=False)
-    group(CUR_FLOW_LABEL, CUR_FLOW_LABEL, app.list_template_names())
-    for path in flowfile.list_flows(app.profile_dir):
-        if flowfile.is_inside_profile(path, app.profile_dir) and \
-                os.path.abspath(path) == os.path.abspath(
-                    app.ws.flow_path() or ""):
-            continue   # 就是本流程那一份存檔, 已經以「本流程」列在上面
+    def __init__(self, key, label):
+        self.key = key
+        self.label = label
+
+    def names(self):
+        raise NotImplementedError
+
+    def blob(self, name):
+        """該範本的圖檔位元組; 讀不到回 None."""
+        raise NotImplementedError
+
+    def pos(self, name):
+        """截圖當下的中心螢幕座標; 沒有就 None (跨流程複製與上傳的都沒有)."""
+        return None
+
+
+class _Staged(_Source):
+    """還沒落地的新圖 (現場截圖 / 從磁碟挑的): 取消就整批丟掉."""
+
+    def __init__(self, pending):
+        super().__init__(NEW_LABEL, NEW_LABEL)
+        self._pending = pending
+
+    def names(self):
+        return sorted(self._pending)
+
+    def blob(self, name):
+        item = self._pending.get(name)
+        return item["blob"] if item else None
+
+    def pos(self, name):
+        item = self._pending.get(name)
+        return item["pos"] if item else None
+
+
+class _CurrentFlow(_Source):
+    """本流程已經有的範本 (工作區裡的圖): 選它不必複製."""
+
+    copies = False
+
+    def __init__(self, app):
+        super().__init__(CUR_FLOW_LABEL, CUR_FLOW_LABEL)
+        self._app = app
+
+    def names(self):
+        return self._app.list_template_names()
+
+    def blob(self, name):
+        return self._app.template_bytes(name)
+
+
+class _OtherFlow(_Source):
+    """profile 內另一份流程存檔: 只讀 zip 索引列名稱, 要哪張才讀哪張."""
+
+    def __init__(self, path):
+        super().__init__(path, os.path.basename(path))
+        self._path = path
+
+    def names(self):
+        import flowfile
         try:
-            names = flowfile.template_names(path)
+            return flowfile.template_names(self._path)
         except Exception:
-            continue   # 壞掉的存檔不該讓整個對話框開不起來
-        group(path, os.path.basename(path), names)
-    return rows
+            return []   # 壞掉的存檔不該讓整個對話框開不起來
 
-
-def _tmpl_blob(app, source, name, pending):
-    """某一列範本的圖檔位元組 (本流程讀工作區的檔, 其他存檔只取那一張)."""
-    import flowfile
-    if source == NEW_LABEL:
-        return pending[name]["blob"]
-    if source == CUR_FLOW_LABEL:
+    def blob(self, name):
+        import flowfile
         try:
-            with open(app.ws.path_of(name), "rb") as f:
-                return f.read()
-        except OSError:
+            return flowfile.template_bytes(self._path, name)
+        except Exception:
             return None
-    return flowfile.template_bytes(source, name)
+
+
+def _tmpl_sources(app, pending):
+    """對話框左側的所有來源 (依顯示順序)."""
+    import flowfile
+    sources = []
+    if pending:
+        sources.append(_Staged(pending))
+    sources.append(_CurrentFlow(app))
+    current = os.path.abspath(app.current_flow_path() or "")
+    for path in flowfile.list_flows(app.profile_dir):
+        if os.path.abspath(path) == current:
+            continue   # 就是本流程那一份存檔, 已經以「本流程」列在上面
+        sources.append(_OtherFlow(path))
+    return sources
 
 
 def pick_template(app, title="選擇範本", initial=None):
@@ -289,8 +342,9 @@ def pick_template(app, title="選擇範本", initial=None):
     變化 (包括在對話框裡現場拍的截圖, 取消即丟棄)。撞名自動加序號並改寫
     步驟引用, 所以複製進來永遠不會蓋掉本流程已有的圖。
 
-    回傳本流程裡最終的範本名, 取消回傳 None。引擎未就緒時照樣可以開、可以
-    挑圖 (挑圖不需要辨識)。
+    左側樹狀每一列都帶縮圖, 展開某個來源時才去讀它的圖 (一次一張, 不整包
+    解壓)。回傳本流程裡最終的範本名, 取消回傳 None。引擎未就緒時照樣可以
+    開、可以挑圖 (挑圖不需要辨識)。
     """
     import flowfile
     from automation import imgio
@@ -301,9 +355,11 @@ def pick_template(app, title="選擇範本", initial=None):
     dlg.configure(bg=C["panel"])
     dlg.transient(root)
 
-    opened = {CUR_FLOW_LABEL}   # 展開中的來源
-    pending = {}                # 尚未落地的新圖: 名稱 → {blob, pos}
-    rows = []
+    pending = {}      # 尚未落地的新圖: 名稱 → {blob, pos}
+    sources = {}      # 樹狀節點 id → _Source
+    entries = {}      # 樹狀節點 id → (來源, 範本名)
+    loaded = set()    # 已經真的把內容讀進來的來源節點 (其餘只有佔位子節點)
+    thumbs = {}       # 保住 PhotoImage 參照 (Tk 不持有, 被回收就變空白)
     result = [None]
 
     body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
@@ -313,14 +369,11 @@ def pick_template(app, title="選擇範本", initial=None):
               style="Muted.TLabel", justify="left").grid(
         row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
 
-    lb = tk.Listbox(body, bg=C["bg"], fg=C["text"], selectbackground=C["sel"],
-                    selectforeground=C["text"], font=FONT, bd=0,
-                    highlightthickness=1, highlightbackground=C["border"],
-                    highlightcolor=C["accent"], activestyle="none",
-                    width=34, height=14, exportselection=False)
-    lb.grid(row=1, column=0, sticky="nsew")
-    sb = ttk.Scrollbar(body, orient="vertical", command=lb.yview)
-    lb.configure(yscrollcommand=sb.set)
+    tree = ttk.Treeview(body, style="Flat.Treeview", show="tree",
+                        selectmode="browse", height=9)
+    tree.grid(row=1, column=0, sticky="nsew")
+    sb = ttk.Scrollbar(body, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=sb.set)
     sb.grid(row=1, column=1, sticky="ns")
 
     pv = ttk.Frame(body, style="Panel.TFrame")
@@ -333,61 +386,89 @@ def pick_template(app, title="選擇範本", initial=None):
     body.columnconfigure(0, weight=1)
     body.rowconfigure(1, weight=1)
 
-    def selected():
-        s = lb.curselection()
-        if not s or s[0] >= len(rows):
-            return None
-        _text, kind, value = rows[s[0]]
-        return (kind, value)
+    def thumb_image(src, name):
+        """該範本的小縮圖 (樹狀列用); 讀不到就給佔位圖."""
+        key = (src.key, name)
+        if key not in thumbs:
+            thumbs[key] = _thumb_photo(dlg, imgio.imdecode(src.blob(name)),
+                                       bw=TREE_THUMB, bh=TREE_THUMB)
+        return thumbs[key]
 
-    def render(keep=None):
-        rows[:] = _tmpl_source_rows(app, opened, pending)
-        lb.delete(0, "end")
-        for text, _kind, _value in rows:
-            lb.insert("end", text)
-        if keep is not None:
-            for i, (_t, kind, value) in enumerate(rows):
-                if kind == "tmpl" and value == keep:
-                    lb.selection_set(i)
-                    lb.see(i)
-                    break
+    def fill(node, src):
+        """把某個來源的範本列進樹裡 (展開時才呼叫, 才不會一開就讀所有圖)."""
+        tree.delete(*tree.get_children(node))   # 連佔位子節點一起換掉
+        loaded.add(node)
+        for name in src.names():
+            child = tree.insert(node, "end", text=" " + name,
+                                image=thumb_image(src, name))
+            entries[child] = (src, name)
+
+    def render(select=None):
+        """重建樹; `select` 是要選回來的 (來源 key, 範本名)."""
+        opened = {sources[n].key for n in tree.get_children("")
+                  if tree.item(n, "open")}
+        tree.delete(*tree.get_children(""))
+        sources.clear()
+        entries.clear()
+        loaded.clear()
+        target = None
+        for src in _tmpl_sources(app, pending):
+            node = tree.insert("", "end", text=f" {src.label}", open=False)
+            sources[node] = src
+            # 「本流程」與剛加入的預設展開; 其餘沿用使用者展開過的狀態
+            if src.key in opened or src.key in (CUR_FLOW_LABEL, NEW_LABEL):
+                tree.item(node, open=True)
+                fill(node, src)
+                if select:
+                    for child, (s, n) in entries.items():
+                        if (s.key, n) == select:
+                            target = child
+            else:
+                # 佔位子節點: 沒有子節點就不會畫出展開箭頭, 使用者也就
+                # 展不開 (真正的內容等 <<TreeviewOpen>> 才讀)
+                tree.insert(node, "end", text="…")
+        if target:
+            tree.selection_set(target)
+            tree.focus(target)     # selected() 看的是 focus, 不能只設 selection
+            tree.see(target)
         show()
+
+    def on_open(_e=None):
+        """展開某個來源時才去讀它的範本 (只有佔位子節點的才需要讀)."""
+        node = tree.focus()
+        if node in sources and node not in loaded:
+            fill(node, sources[node])
+
+    def selected():
+        node = tree.focus()
+        if node not in entries:
+            picked = tree.selection()   # 鍵盤/程式選取時 focus 可能還沒跟上
+            node = picked[0] if picked else None
+        return entries.get(node)
 
     def show():
         sel = selected()
-        img = None
-        if sel and sel[0] == "tmpl":
-            source, name = sel[1]
-            img = imgio.imdecode(_tmpl_blob(app, source, name, pending))
+        img = imgio.imdecode(sel[0].blob(sel[1])) if sel else None
         ph = _thumb_photo(dlg, img)
         thumb.configure(image=ph)
         thumb._photo = ph
-        if sel and sel[0] == "tmpl":
-            source, name = sel[1]
-            where = (source if source in (CUR_FLOW_LABEL, NEW_LABEL)
-                     else os.path.basename(source))
-            size = f"{img.shape[1]}×{img.shape[0]}px" if img is not None else "讀不到圖"
-            info.configure(text=f"名稱：{name}\n尺寸：{size}\n來源：{where}")
+        if sel:
+            size = (f"{img.shape[1]}×{img.shape[0]}px" if img is not None
+                    else "讀不到圖")
+            info.configure(text=f"名稱：{sel[1]}\n尺寸：{size}\n"
+                                f"來源：{sel[0].label}")
         else:
             info.configure(text="")
 
-    def on_select(_e=None):
-        sel = selected()
-        if sel and sel[0] == "group":   # 點來源列 = 展開/收合
-            (opened.discard if sel[1] in opened else opened.add)(sel[1])
-            render()
-            return
-        show()
-
-    lb.bind("<<ListboxSelect>>", on_select)
+    tree.bind("<<TreeviewSelect>>", lambda e: show())
+    tree.bind("<<TreeviewOpen>>", on_open)
 
     def _stage(name, blob, pos=None):
         """把一張新圖暫存起來 (還沒落地); 名稱在暫存區內不重複."""
         final = flowfile.free_name(flowfile.clean_name(name) or "template",
-                                  pending)
+                                   pending)
         pending[final] = {"blob": blob, "pos": pos}
-        opened.add(NEW_LABEL)
-        render(keep=(NEW_LABEL, final))
+        render(select=(NEW_LABEL, final))
         return final
 
     def from_disk():
@@ -408,7 +489,7 @@ def pick_template(app, title="選擇範本", initial=None):
         r = app.pick_region_raw(hide=(dlg,))
         if not r:
             return
-        _stage(app._next_template_name(taken=pending),
+        _stage(app.next_template_name(taken=pending),
                imgio.encode_png(r["img"]),
                pos=[r["screenX"] + r["w"] // 2, r["screenY"] + r["h"] // 2])
 
@@ -421,23 +502,20 @@ def pick_template(app, title="選擇範本", initial=None):
 
     def on_ok():
         sel = selected()
-        if not sel or sel[0] != "tmpl":
+        if sel is None:
             messagebox.showwarning(title, "請先選一張範本", parent=dlg)
             return
-        source, name = sel[1]
-        if source == CUR_FLOW_LABEL:
+        src, name = sel
+        if not src.copies:
             result[0] = name          # 已經是本流程的範本, 不必複製
             dlg.destroy()
             return
-        if source == NEW_LABEL:
-            blob, pos = pending[name]["blob"], pending[name]["pos"]
-        else:
-            blob, pos = flowfile.template_bytes(source, name), None
+        blob = src.blob(name)
         if blob is None:
             messagebox.showwarning(title, f"讀不到「{name}」的圖", parent=dlg)
             return
         # 確定的這一刻才複製進本流程 (獨立副本, 來源日後改圖不影響本流程)
-        final = app.add_template_image(name, blob, pos=pos)
+        final = app.add_template_image(name, blob, pos=src.pos(name))
         if final != name:
             app.log_ui(f"範本「{name}」與本流程已有的同名，"
                        f"已自動改名為「{final}」", "warn")
@@ -455,7 +533,7 @@ def pick_template(app, title="選擇範本", initial=None):
                command=on_ok).pack(side="right")
     dlg.bind("<Escape>", lambda e: dlg.destroy())
 
-    render(keep=(CUR_FLOW_LABEL, initial) if initial else None)
+    render(select=(CUR_FLOW_LABEL, initial) if initial else None)
     _center(dlg, root)
     ui_theme.disable_transitions(dlg)   # 截圖前隱藏對話框需立即生效
     make_modal(dlg)
@@ -641,6 +719,10 @@ def edit_step(app, step):
     result = [None]
     t = step["type"]
     v = {}
+    # 這次開對話框期間新加進本流程的範本: 關閉時把「最後沒被這一步引用到的」
+    # 收回去——「在找圖對話框現場截圖後按取消＝丟棄該圖」(舊的`確認圖`
+    # 「截圖即時存檔、取消對話框圖仍留下」語意已經改掉)
+    added = []
 
     if t == "click":
         MODE_ZH = {"abs": "絕對座標（搜尋範圍內）", "prev": "相對上一步點擊位置"}
@@ -929,8 +1011,11 @@ def edit_step(app, step):
 
         def choose_tmpl():
             """選範本對話框: 跨存檔瀏覽、從磁碟挑圖、現場截圖 (確定才複製)."""
+            before = set(app.list_template_names())
             name = pick_template(app, "選擇範本圖片",
                                  initial=v["template"].get() or None)
+            added.extend(n for n in app.list_template_names()
+                         if n not in before)
             if name:
                 v["template"].set(name)
                 tmpl_cb.configure(values=app.list_template_names())
@@ -1000,8 +1085,11 @@ def edit_step(app, step):
         def choose_cfm_tmpl():
             # 確認圖走與主範本**同一個**選範本對話框: 現場截圖後按取消
             # 一律丟棄 (舊的「截圖即時存檔」語意已改掉)
+            before = set(app.list_template_names())
             nm = pick_template(app, "選擇確認圖",
                                initial=v["confirmTemplate"].get() or None)
+            added.extend(n for n in app.list_template_names()
+                         if n not in before)
             if nm:
                 cfm_tmpl_cb.configure(values=app.list_template_names())
                 v["confirmTemplate"].set(nm)
@@ -1126,7 +1214,32 @@ def edit_step(app, step):
     make_modal(dlg)
     dlg.focus_force()
     root.wait_window(dlg)
+    _discard_unused(app, added, result[0])
     return result[0]
+
+
+def _discard_unused(app, added, step):
+    """把這次對話框加進來、最後卻沒被用到的範本收回去.
+
+    取消整個對話框＝這次加的圖全部丟棄; 按確定則只留這一步真的引用到的
+    (中途換過幾張的那幾張同樣不留)。已被**其他步驟**引用的絕不動。
+    """
+    import flowfile
+    if not added:
+        return
+    keep = set()
+    if step:
+        keep = {step.get("template"), step.get("confirmTemplate")} - {None, ""}
+    others = set(flowfile.used_templates(getattr(app, "steps", []) or []))
+    dropped = [n for n in dict.fromkeys(added)
+               if n not in keep and n not in others]
+    if not dropped:
+        return
+    for n in dropped:
+        app.drop_template(n)
+    app.reload_profile()
+    app.refresh_templates()
+    app.log_ui("已丟棄未使用的新範本：" + "、".join(dropped), "info")
 
 
 def _annotate_query(screen_bgr, box, score, ok):
@@ -1191,7 +1304,7 @@ def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
         # 上傳/複製進來的範本原本沒有 pos → 用這次測到的位置補上,
         # 供相對座標當備援原點
         if app.template_pos(template_name) is None:
-            app.ws.set_pos(template_name, [cx, cy])
+            app.record_template_pos(template_name, [cx, cy])
             app.log_ui(f"已記錄「{template_name}」位置 ({cx}, {cy})，可作相對座標原點", "ok")
     elif box is not None:
         info = f"✘ 未達門檻　分數 {r.score:.3f}（紅框為最接近的候選）"

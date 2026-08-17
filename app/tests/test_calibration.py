@@ -248,6 +248,25 @@ def test_重定基準跳過帶來源基準標記的流程(tmp_path):
     assert kept["sourceBaseline"] == marked["sourceBaseline"]
 
 
+def test_重定基準遇到壞檔跳過_其餘照樣全部改寫(tmp_path):
+    """壞檔本來就載入不了, 沒有尺度問題; 但它**不能**中斷迴圈——中途拋出
+    ＝前面幾份已改寫、後面幾份沒改, 那正是混尺度."""
+    calibration.save(str(tmp_path), make_cal(baseline=100.0, scale=2.0, fp=FP_A))
+    _write_flow(tmp_path, "a" + flowfile.EXT,
+                _flow([{"type": "click", "x": 10, "y": 10}]))
+    # 壞檔: 副檔名對, 內容不是 zip (zipfile.BadZipFile 不是 OSError/ValueError)
+    (tmp_path / "flows" / ("broken" + flowfile.EXT)).write_bytes(b"not a zip")
+    _write_flow(tmp_path, "z" + flowfile.EXT,
+                _flow([{"type": "click", "x": 20, "y": 20}]))
+
+    files = calibration.rebase(str(tmp_path), FP_A)
+
+    assert sorted(files) == ["a" + flowfile.EXT, "z" + flowfile.EXT]
+    assert _read_flow(tmp_path, "a" + flowfile.EXT)["steps"][0]["x"] == 20
+    assert _read_flow(tmp_path, "z" + flowfile.EXT)["steps"][0]["x"] == 40,         "壞檔之後的流程也要改寫到 (漏一份就是混尺度)"
+    assert calibration.load(str(tmp_path))["scale"] == 1.0
+
+
 # ---------- 來源基準標記 (票 06) ----------
 
 def test_來源基準標記讀取():

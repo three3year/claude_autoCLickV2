@@ -148,6 +148,24 @@ def apply(root):
               background=[("active", HOVER)],
               arrowcolor=[("active", C["text"])])
 
+    # 樹狀清單 (選範本對話框: 來源可展開、每列帶縮圖)
+    style.configure("Treeview", background=C["bg"], fieldbackground=C["bg"],
+                    foreground=C["text"], bordercolor=C["border"],
+                    rowheight=40, borderwidth=0)
+    style.map("Treeview",
+              background=[("selected", C["sel"])],
+              foreground=[("selected", C["text"])])
+    style.configure("Treeview.Heading", background=C["panel2"],
+                    foreground=C["muted"], relief="flat")
+    style.layout("Flat.Treeview",  # 不要欄位標題列
+                 [("Treeview.treearea", {"sticky": "nswe"})])
+    style.configure("Flat.Treeview", background=C["bg"],
+                    fieldbackground=C["bg"], foreground=C["text"],
+                    rowheight=40, borderwidth=0)
+    style.map("Flat.Treeview",
+              background=[("selected", C["sel"])],
+              foreground=[("selected", C["text"])])
+
     # Combobox 下拉清單顏色
     root.option_add("*TCombobox*Listbox.background", C["panel"])
     root.option_add("*TCombobox*Listbox.foreground", C["text"])

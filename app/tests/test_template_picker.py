@@ -69,18 +69,12 @@ def _png(fill=200, w=12, h=8):
 
 # ---------- 對話框的互動驅動 ----------
 
-def _find(widget, cls=None, text=None):
-    """在 widget 樹裡找元件 (依類別名稱與顯示文字), 找不到回 None."""
+def _first(widget, cls):
+    """在 widget 樹裡找第一個該類別的元件, 找不到回 None."""
     for child in widget.winfo_children():
-        if cls is None or child.winfo_class() == cls:
-            if text is None:
-                return child
-            try:
-                if child.cget("text") == text:
-                    return child
-            except tk.TclError:
-                pass
-        got = _find(child, cls, text)
+        if child.winfo_class() == cls:
+            return child
+        got = _first(child, cls)
         if got is not None:
             return got
     return None
@@ -93,7 +87,6 @@ class _Driver:
         self.root = root
         self.title = title
         self.dlg = None
-        self.rows = None
         self.error = None
 
     def run(self, *actions):
@@ -117,35 +110,50 @@ class _Driver:
 
     def _attach(self):
         for w in self.root.winfo_children():
-            if isinstance(w, tk.Toplevel) and w.winfo_exists() \
-                    and w.title() == self.title:
+            if isinstance(w, tk.Toplevel) and w.winfo_exists()                     and w.title() == self.title:
                 self.dlg = w
-                self.list = _find(w, "Listbox")
+                self.tree = _first(w, "Treeview")
                 return
         self.error = AssertionError(f"對話框沒開起來: {self.title}")
 
+    def _nodes(self, parent=""):
+        """(節點, 顯示文字); 展開中的來源才走進它的子節點."""
+        out = []
+        for node in self.tree.get_children(parent):
+            out.append((node, self.tree.item(node, "text")))
+            if self.tree.item(node, "open"):
+                out.extend(self._nodes(node))
+        return out
+
     def rows_text(self):
-        return list(self.list.get(0, "end"))
+        return [text for _node, text in self._nodes()]
+
+    def _find_node(self, needle, under=None):
+        parent = ""
+        if under is not None:
+            parent = next(n for n, tx in self._nodes() if under in tx)
+        for node, text in self._nodes(parent):
+            if needle in text:
+                return node
+        raise AssertionError(
+            f"樹裡沒有 {needle!r}（under={under!r}）: {self.rows_text()}")
 
     def select(self, needle, under=None):
-        """點選含 needle 的列 (真的發 <<ListboxSelect>>).
+        """點選含 needle 的列: 來源列＝展開它, 範本列＝選取它 (真的發事件).
 
-        `under` 指定先找到哪一個來源列, 再從它之後往下找——不同來源可以有
-        同名的範本, 不指定就會抓到第一個。
+        `under` 指定先找到哪一個來源, 再從它底下找——不同來源可以有同名的
+        範本, 不指定就會抓到第一個。
         """
         self.dlg.update()
-        rows = self.rows_text()
-        start = 0
-        if under is not None:
-            start = next(i for i, tx in enumerate(rows) if under in tx) + 1
-        for i in range(start, len(rows)):
-            if needle in rows[i]:
-                self.list.selection_clear(0, "end")
-                self.list.selection_set(i)
-                self.list.event_generate("<<ListboxSelect>>")
-                self.dlg.update()
-                return
-        raise AssertionError(f"清單裡沒有 {needle!r}（under={under!r}）: {rows}")
+        node = self._find_node(needle, under)
+        self.tree.focus(node)
+        if self.tree.parent(node) == "":     # 來源列: 展開 (內容此時才讀)
+            self.tree.item(node, open=True)
+            self.tree.event_generate("<<TreeviewOpen>>")
+        else:                                # 範本列: 選取
+            self.tree.selection_set(node)
+            self.tree.event_generate("<<TreeviewSelect>>")
+        self.dlg.update()
 
     def press(self, text):
         _btn(self.dlg, text).invoke()
@@ -465,11 +473,9 @@ def test_引擎未就緒時對話框照樣開得起來也挑得動(tkroot, tmp_p
         tkroot.withdraw()
 
 
-def test_沒選任何一列就按確定會提示(picker, monkeypatch):
+def test_沒選任何一列就按確定會提示(picker, no_real_dialogs):
     app = picker
-    warns = []
-    monkeypatch.setattr(ui_dialogs.messagebox, "showwarning",
-                        lambda title, msg, **kw: warns.append(msg))
+    warns = no_real_dialogs["warning"]
     d = _Driver(app.root, TITLE)
 
     def ok_then_cancel(dr):
@@ -478,3 +484,95 @@ def test_沒選任何一列就按確定會提示(picker, monkeypatch):
 
     assert _open(app, d, ok_then_cancel) is None
     assert warns and "選一張" in warns[0]
+
+
+# ---------- 取消找圖對話框＝這次加的圖也丟棄 (US 14) ----------
+
+def test_取消整個對話框時這次加的範本被丟棄(picker):
+    """spec:「在找圖對話框現場截圖後按取消＝丟棄該圖。現行`確認圖`
+    「截圖即時存檔、取消對話框圖仍留下」的行為一併改成丟棄。」"""
+    app = picker
+    app.ws.add("kept", b"K")
+    app.steps = [{"type": "find_click", "template": "kept"}]
+
+    ui_dialogs._discard_unused(app, ["shot_1", "shot_2"], None)
+
+    assert app.ws.names() == ["kept"], "這次加的都不留"
+    assert any("丟棄" in m for _l, m in app.logged)
+
+
+def test_按確定時只留這一步真的引用到的(picker):
+    app = picker
+    for n in ("a", "b", "c"):
+        app.ws.add(n, b"X")
+    step = {"type": "find_click", "template": "a", "confirm": "appear",
+            "confirmTemplate": "c"}
+
+    ui_dialogs._discard_unused(app, ["a", "b", "c"], step)
+
+    assert app.ws.names() == ["a", "c"], "中途換掉的那張不留"
+
+
+def test_已被其他步驟引用的絕不誤刪(picker):
+    app = picker
+    app.ws.add("shared", b"S")
+    app.steps = [{"type": "find_click", "template": "shared"}]
+
+    ui_dialogs._discard_unused(app, ["shared"], None)
+
+    assert app.ws.names() == ["shared"]
+
+
+def test_沒有新增範本時是空操作(picker):
+    app = picker
+    app.ws.add("a", b"A")
+    ui_dialogs._discard_unused(app, [], None)
+    assert app.ws.names() == ["a"]
+    assert app.logged == []
+
+
+# ---------- 左側樹狀每一列都有縮圖 (spec:「可展開看裡面的範本縮圖」) ----------
+
+def test_樹狀每一列都帶縮圖_展開時才讀(picker):
+    app = picker
+    app.ws.add("mine", _png(200, 20, 12))
+    other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
+    os.makedirs(os.path.dirname(other), exist_ok=True)
+    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+                           "coordSpace": "region"}, {"gear": _png(90)})
+    d = _Driver(app.root, TITLE)
+    seen = {}
+
+    def look(dr):
+        # 本流程預設展開 → 它的範本列一開始就有縮圖
+        node = dr._find_node("mine")
+        seen["cur"] = dr.tree.item(node, "image")
+        dr.select("src")                       # 展開另一份存檔
+        node = dr._find_node("gear", under="src")
+        seen["other"] = dr.tree.item(node, "image")
+        dr.press("取消")
+
+    _open(app, d, look)
+    assert seen["cur"], "本流程的範本列有縮圖"
+    assert seen["other"], "其他存檔的範本列也有縮圖"
+
+
+def test_未展開的來源不去讀它的圖(picker, monkeypatch):
+    """「只讀索引與縮圖,不整包解壓」——沒展開就連縮圖都不該讀."""
+    app = picker
+    other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
+    os.makedirs(os.path.dirname(other), exist_ok=True)
+    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+                           "coordSpace": "region"}, {"gear": _png(90)})
+    reads = []
+    real = flowfile.template_bytes
+    monkeypatch.setattr(ui_dialogs.flowfile if hasattr(ui_dialogs, "flowfile")
+                        else flowfile, "template_bytes",
+                        lambda p, n: (reads.append((p, n)), real(p, n))[1])
+    d = _Driver(app.root, TITLE)
+
+    def just_look(dr):
+        dr.press("取消")
+
+    _open(app, d, just_look)
+    assert reads == [], "沒展開就不去讀那份存檔裡的圖"

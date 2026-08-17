@@ -435,11 +435,21 @@ def store_calibration_images(profile_dir, images):
 
     images: {範本名: bytes 或圖檔路徑}。回傳落地的範本名 list。
     """
+    shutil.rmtree(calibration_dir(profile_dir), ignore_errors=True)
+    return add_calibration_images(profile_dir, images)
+
+
+def add_calibration_images(profile_dir, images):
+    """把校準圖併進 profile 自存的那一疊 (不清掉既有的).
+
+    `來源基準`流程要歸位時得量來源那一對, 但本 profile 自己的那一對不能被
+    蓋掉——兩對圖並存, 由 `calibration.json` 的 `pair` 與流程的 `sourceBaseline`
+    各自指名要用哪兩張。回傳落地的範本名 list。
+    """
     d = calibration_dir(profile_dir)
-    shutil.rmtree(d, ignore_errors=True)
     os.makedirs(d, exist_ok=True)
     out = []
-    for name, blob in images.items():
+    for name, blob in (images or {}).items():
         with open(os.path.join(d, name + ".png"), "wb") as f:
             f.write(_blob(blob))
         out.append(name)
@@ -685,6 +695,26 @@ def collect_flow_templates(steps, library, taken=()):
             "downgraded": sorted(downgraded), "missing": sorted(missing)}
 
 
+def flat_calibration(cal, library):
+    """一次性轉換用: 把舊校準資料的`校準對`拉平, 並取出那兩張圖.
+
+    與流程引用同一條拉平規則 (`flatten_name` + 撞名加序號); 校準對與流程的
+    範本是兩套獨立的名字空間 (校準圖由 profile 自存), 所以只要這一對彼此
+    不撞名就夠。回傳 (新的校準資料 dict, {新名稱: 圖檔路徑}); cal 為 None
+    時回 (None, {})。
+    """
+    if cal is None:
+        return None, {}
+    pair, images = [], {}
+    for old_name in cal["pair"]:
+        new_name = free_name(flatten_name(old_name), pair)
+        pair.append(new_name)
+        caps = library.get(old_name)
+        if caps:
+            images[new_name] = baseline_capture(caps)
+    return dict(cal, pair=pair), images
+
+
 # ================= 舊格式匯入 =================
 
 def _pack_library(z, refs):
@@ -761,7 +791,7 @@ def import_legacy(path, profile_dir, stem=None):
         lib = scan_templates(os.path.join(profile_dir, "templates"))
         r = collect_flow_templates(data.get("steps") or [], lib)
         images = dict(r["images"])
-        pos_in = _legacy_meta_pos(os.path.join(profile_dir, "templates"))
+        pos_in = legacy_meta_pos(os.path.join(profile_dir, "templates"))
         cal, cal_images = None, {}
 
     pos = {}
@@ -769,7 +799,7 @@ def import_legacy(path, profile_dir, stem=None):
         p = pos_in.get(old) or pos_in.get(old + ".png")
         if p:
             pos[new] = p
-    cal_result = _apply_import_calibration(data, cal, profile_dir)
+    cal_result = _apply_import_calibration(data, cal, cal_images, profile_dir)
     os.makedirs(flows_dir(profile_dir), exist_ok=True)
     flow_path = free_path(flows_dir(profile_dir), stem, EXT)
     write(flow_path, data, images, pos, cal=cal, cal_images=cal_images)
@@ -779,7 +809,7 @@ def import_legacy(path, profile_dir, stem=None):
             "calibration": cal_result}
 
 
-def _legacy_meta_pos(templates_dir):
+def legacy_meta_pos(templates_dir):
     """讀舊範本庫的 `_meta.json` pos 表 (舊平面格式 name→[x,y] 一併遷移)."""
     try:
         with open(os.path.join(templates_dir, "_meta.json"),
@@ -792,7 +822,7 @@ def _legacy_meta_pos(templates_dir):
     return meta.get("pos", {})
 
 
-def _apply_import_calibration(data, src_cal, profile_dir):
+def _apply_import_calibration(data, src_cal, src_images, profile_dir):
     """匯入/開啟外來存檔時的校準三分支 (ADR 0005); 回傳說明 dict 或 None.
 
     - 目標 profile 無校準資料 → 採用來源的 (倍率留空＝未校準) → adopted
@@ -800,6 +830,11 @@ def _apply_import_calibration(data, src_cal, profile_dir):
       基準) 換算落地 → converted
     - 不同對 → 流程照來源尺度落地、附`來源基準`標記 → foreign
       (帶標記的流程存檔前必須先歸位, 守門在 app.save_flow)
+
+    **來源攜帶的校準圖一併落進 profile 自存位置**: 少了這一步, 採用分支叫使用者
+    去按「校準」會找不到圖、`來源基準`流程也永遠歸不了位 (量測取的是 profile
+    自存的圖)。回傳值的 `images` 是實際落地的範本名, 空的代表來源沒帶圖
+    (舊流程包可能如此), 呼叫端據此提醒使用者重新指定校準對。
     """
     if src_cal is None:
         return None
@@ -809,15 +844,22 @@ def _apply_import_calibration(data, src_cal, profile_dir):
             "pair": list(src_cal["pair"]),
             "baseline": float(src_cal["baseline"]),
             "scale": None, "fingerprint": None})
-        return {"kind": "adopted", "pair": list(src_cal["pair"])}
+        # 本 profile 原本沒有校準資料 → 整批取代 (沒有別人的圖要保護)
+        landed = store_calibration_images(profile_dir, src_images)
+        return {"kind": "adopted", "pair": list(src_cal["pair"]),
+                "images": landed}
     if set(target["pair"]) == set(src_cal["pair"]):
         ratio = float(target["baseline"]) / float(src_cal["baseline"])
         calibration.scale_steps(data.get("steps") or [], ratio)
-        return {"kind": "converted", "ratio": ratio}
+        return {"kind": "converted", "ratio": ratio,
+                "images": sorted(calibration_images(profile_dir))}
     data[calibration.SOURCE_BASELINE] = {
         "pair": list(src_cal["pair"]),
         "baseline": float(src_cal["baseline"])}
-    return {"kind": "foreign", "pair": list(src_cal["pair"])}
+    # 併進來 (不清掉本 profile 自己那一對): 歸位要量的是**來源**那一對
+    landed = add_calibration_images(profile_dir, src_images)
+    return {"kind": "foreign", "pair": list(src_cal["pair"]),
+            "images": landed}
 
 
 def adopt_foreign_flow(path, profile_dir):
@@ -828,7 +870,8 @@ def adopt_foreign_flow(path, profile_dir):
     """
     r = read(path)
     data = r["data"]
-    cal_result = _apply_import_calibration(data, r["cal"], profile_dir)
+    cal_result = _apply_import_calibration(data, r["cal"], r["cal_images"],
+                                          profile_dir)
     os.makedirs(flows_dir(profile_dir), exist_ok=True)
     stem = os.path.splitext(os.path.basename(path))[0]
     dest = free_path(flows_dir(profile_dir), stem, EXT)

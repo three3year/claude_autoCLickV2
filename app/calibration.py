@@ -205,7 +205,9 @@ def rebase(profile_dir, fingerprint):
         try:
             if flowfile.update_flow_data(p, rewrite) is not None:
                 rewritten.append(os.path.basename(p))
-        except (OSError, ValueError, KeyError):
+        except Exception:
+            # 壞檔跳過, 但**不能**讓它中斷整個迴圈: 中途拋出＝前面幾份已改寫、
+            # 後面幾份沒改, 那正是混尺度。壞檔本來就載入不了, 沒有尺度問題。
             continue
     draft = flowfile.read_draft(profile_dir)
     if draft is not None and rewrite(draft) is not False:

@@ -369,8 +369,10 @@ class _MeasureApp(app_mod.App):
         pass
 
     def reload_profile(self):
-        self.profile = SimpleNamespace(
-            templates=dict(flowfile.calibration_template_list(self.profile_dir)))
+        """引擎看得到的＝本流程的範本 (工作區) ＋ profile 自存的校準圖."""
+        templates = {n: object() for n in self.ws.names()}
+        templates.update(flowfile.calibration_template_list(self.profile_dir))
+        self.profile = SimpleNamespace(templates=templates)
 
     def _update_cal_ui(self):
         pass
@@ -395,11 +397,12 @@ def test_指定校準對把兩張圖複製進profile自存(tkroot, monkeypatch, 
     _stub_capture(monkeypatch)
     monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app: ("a", "b"))
     vision = Vision()
-    vision.plan(flowfile.cal_template_name("a"), [(100, 100)])
-    vision.plan(flowfile.cal_template_name("b"), [(400, 100)])
+    vision.plan("a", [(100, 100)])     # 量的是本流程的範本 (量成功才複製)
+    vision.plan("b", [(400, 100)])
     a = _MeasureApp(tkroot, tmp_path, vision)
     a.ws.add("a", b"AAA")
     a.ws.add("b", b"BBB")
+    a.reload_profile()
 
     a.designate_pair()
 
@@ -439,3 +442,53 @@ def test_profile缺校準圖時量測失敗並提示重新指定(tkroot, monkeyp
     a.reload_profile()
     assert a._measure_pair(["a", "b"], "校準") is None
     assert any("校準圖" in m for m in rec)
+
+
+def test_指定校準對量測失敗時舊校準圖不被砍掉(tkroot, monkeypatch, tmp_path):
+    """先複製再量測的話,量測失敗就留下「calibration.json 指名一對圖、圖已被刪」
+    的殘局——指定失敗必須完全不動舊校準."""
+    from harness import Vision
+    _stub_capture(monkeypatch)
+    _warnings(monkeypatch)
+    monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app: ("a", "b"))
+    # 既有校準: 一對圖 + calibration.json
+    calibration.save(str(tmp_path), {"pair": ["old1", "old2"],
+                                     "baseline": 111.0, "scale": 1.0,
+                                     "fingerprint": None})
+    flowfile.store_calibration_images(str(tmp_path),
+                                      {"old1": b"O1", "old2": b"O2"})
+    vision = Vision()
+    vision.plan("a", [(100, 100)])       # b 找不到 → 量測失敗
+    vision.plan("b", [None])
+    a = _MeasureApp(tkroot, tmp_path, vision)
+    a.ws.add("a", b"AAA")
+    a.ws.add("b", b"BBB")
+    a.reload_profile()
+
+    a.designate_pair()
+
+    assert sorted(flowfile.calibration_images(str(tmp_path))) == \
+        ["old1", "old2"], "舊校準圖原封不動"
+    cal = calibration.load(str(tmp_path))
+    assert cal["pair"] == ["old1", "old2"] and cal["baseline"] == 111.0
+
+
+def test_指定校準對用本流程的範本量測(tkroot, monkeypatch, tmp_path):
+    """量的是工作區裡那兩張 (量成功才複製進 profile), 不是 profile 自存的圖
+    ——否則第一次指定時 profile 還沒有圖, 根本量不起來."""
+    from harness import Vision
+    _stub_capture(monkeypatch)
+    monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app: ("a", "b"))
+    vision = Vision()
+    vision.plan("a", [(0, 0)])
+    vision.plan("b", [(0, 50)])
+    a = _MeasureApp(tkroot, tmp_path, vision)
+    a.ws.add("a", b"AAA")
+    a.ws.add("b", b"BBB")
+    a.reload_profile()
+
+    a.designate_pair()
+
+    assert vision.lookups == ["a", "b"], "查的是本流程的範本名, 沒有 _cal/ 前綴"
+    assert calibration.load(str(tmp_path))["baseline"] == 50.0
+    assert sorted(flowfile.calibration_images(str(tmp_path))) == ["a", "b"]

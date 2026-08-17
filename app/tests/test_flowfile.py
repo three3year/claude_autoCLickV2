@@ -502,7 +502,8 @@ def test_開啟外來檔_目標無校準資料則採用來源的且倍率留空(
     src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 200.0,
                                    "scale": 1.0, "fingerprint": None})
     r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["calibration"] == {"kind": "adopted", "pair": ["calA", "calB"]}
+    assert r["calibration"]["kind"] == "adopted"
+    assert r["calibration"]["pair"] == ["calA", "calB"]
     cal = calibration.load(str(profile))
     assert (cal["pair"], cal["baseline"]) == (["calA", "calB"], 200.0)
     assert cal["scale"] is None, "倍率留空＝未校準"
@@ -534,7 +535,8 @@ def test_開啟外來檔_不同對照來源尺度落地並附來源基準標記(
     src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 100.0,
                                    "scale": 1.0, "fingerprint": None})
     r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["calibration"] == {"kind": "foreign", "pair": ["calA", "calB"]}
+    assert r["calibration"]["kind"] == "foreign"
+    assert r["calibration"]["pair"] == ["calA", "calB"]
     assert r["data"]["steps"][1]["x"] == 30
     assert r["data"][calibration.SOURCE_BASELINE] == {
         "pair": ["calA", "calB"], "baseline": 100.0}
@@ -592,3 +594,68 @@ def test_校準圖交給引擎的範本名永不與本流程的範本撞名(tmp_
     assert set(lst) & set(ws.names()) == set(), "兩邊的鍵不重疊"
     # 前綴含 `/`, 使用者輸入的名稱一律被清成平面名稱 → 撞不到
     assert "/" not in flowfile.clean_name("_cal/btn")
+
+
+# ---------- 匯入換算落地後校準必須真的能用 ----------
+
+def test_採用分支把來源的校準圖落進profile(tmp_path):
+    """不落地的話,「請按校準量測本機倍率」這句建議根本做不到 (量測取的是
+    profile 自存的圖)——採用分支等於死路."""
+    profile = make_profile(tmp_path)
+    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 200.0,
+                                   "scale": 1.0, "fingerprint": None})
+    r = flowfile.adopt_foreign_flow(src, str(profile))
+    assert r["calibration"]["kind"] == "adopted"
+    imgs = flowfile.calibration_images(str(profile))
+    assert sorted(imgs) == ["calA", "calB"], "校準圖要在 profile 自存位置"
+    assert open(imgs["calA"], "rb").read() == b"CA"
+    # 也要進得了引擎的範本清單, 量測才查得到
+    assert sorted(flowfile.calibration_template_list(str(profile))) == [
+        flowfile.cal_template_name("calA"), flowfile.cal_template_name("calB")]
+
+
+def test_不同對分支併進來源校準圖_本profile自己那對不被蓋掉(tmp_path):
+    """`來源基準`流程要歸位就得量**來源**那一對; 本 profile 自己那一對還要留著
+    給一般校準用——兩對並存."""
+    profile = make_profile(tmp_path)
+    calibration.save(str(profile), {"pair": ["mine1", "mine2"],
+                                    "baseline": 300.0, "scale": 1.0,
+                                    "fingerprint": None})
+    flowfile.store_calibration_images(str(profile),
+                                      {"mine1": b"M1", "mine2": b"M2"})
+    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 100.0,
+                                   "scale": 1.0, "fingerprint": None})
+
+    r = flowfile.adopt_foreign_flow(src, str(profile))
+
+    assert r["calibration"]["kind"] == "foreign"
+    imgs = flowfile.calibration_images(str(profile))
+    assert sorted(imgs) == ["calA", "calB", "mine1", "mine2"]
+    assert open(imgs["mine1"], "rb").read() == b"M1", "本 profile 那對沒被蓋掉"
+    assert open(imgs["calA"], "rb").read() == b"CA", "來源那對也在 (歸位要量)"
+
+
+def test_同一對分支不動既有的校準圖(tmp_path):
+    profile = make_profile(tmp_path)
+    calibration.save(str(profile), {"pair": ["calA", "calB"], "baseline": 200.0,
+                                    "scale": 1.0, "fingerprint": None})
+    flowfile.store_calibration_images(str(profile),
+                                      {"calA": b"KEEP", "calB": b"KEEP2"})
+    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 100.0,
+                                   "scale": 1.0, "fingerprint": None})
+    r = flowfile.adopt_foreign_flow(src, str(profile))
+    assert r["calibration"]["kind"] == "converted"
+    imgs = flowfile.calibration_images(str(profile))
+    assert open(imgs["calA"], "rb").read() == b"KEEP", "既有的圖不被來源覆蓋"
+
+
+def test_來源沒帶校準圖時如實回報(tmp_path):
+    """舊流程包可能沒帶圖: 採用了 pair/baseline 但沒有圖可量, 要讓呼叫端知道."""
+    profile = make_profile(tmp_path)
+    path = str(tmp_path / ("noimg" + flowfile.EXT))
+    flowfile.write(path, flow([find_step("a")]), {"a": b"A"},
+                   cal={"pair": ["c1", "c2"], "baseline": 100.0,
+                        "scale": 1.0, "fingerprint": None})   # 沒給 cal_images
+    r = flowfile.adopt_foreign_flow(path, str(profile))
+    assert r["calibration"]["kind"] == "adopted"
+    assert r["calibration"]["images"] == []
