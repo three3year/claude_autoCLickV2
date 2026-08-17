@@ -11,18 +11,18 @@ import profile_store  # noqa: E402
 
 def test_建立profile會帶入目錄結構與預設config(tmp_path):
     dest = profile_store.create_profile(str(tmp_path), "mygame")
-    assert os.path.isdir(os.path.join(dest, "templates"))
     assert os.path.isdir(os.path.join(dest, "flows"))
+    assert not os.path.exists(os.path.join(dest, "templates")),         "沒有範本庫了 (ADR 0006): 範本圖住在流程存檔裡"
     with open(os.path.join(dest, "config.yaml"), encoding="utf-8") as f:
         cfg = f.read()
     with open(profile_store.default_config_path(), encoding="utf-8") as f:
         assert cfg == f.read(), "新 profile 的 config 應是引擎預設 config 的完整複本"
 
 
-def test_列舉只算有templates目錄的資料夾(tmp_path):
+def test_列舉只算有引擎參數設定檔的資料夾(tmp_path):
     profile_store.create_profile(str(tmp_path), "a")
     profile_store.create_profile(str(tmp_path), "b")
-    os.makedirs(tmp_path / "junk")  # 沒有 templates/ → 不是 profile
+    os.makedirs(tmp_path / "junk")  # 沒有 config.yaml → 不是 profile
     (tmp_path / "app_state.json").write_text("{}", encoding="utf-8")
     assert profile_store.list_profiles(str(tmp_path)) == ["a", "b"]
 

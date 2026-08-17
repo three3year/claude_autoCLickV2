@@ -2,5 +2,4 @@ center:
 - 520
 - 730
 expected: present
-template: zh/解鎖線索計數
 tolerance: 20

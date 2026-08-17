@@ -12,6 +12,7 @@ import harness  # noqa: F401  # 先把 app/ 加進 sys.path
 import app as app_mod
 import calibration
 import enginehub
+import flowfile
 import ui_dialogs
 
 
@@ -176,17 +177,19 @@ class _RebaseApp(app_mod.App):
         pass
 
 
+OTHER_FLOW = "other" + flowfile.EXT
+
+
 def _write_flow(profile_dir, name, steps):
-    flows = os.path.join(str(profile_dir), "flows")
-    os.makedirs(flows, exist_ok=True)
-    with open(os.path.join(flows, name), "w", encoding="utf-8") as f:
-        json.dump({"steps": steps, "coordSpace": "region"}, f)
+    """一份流程＝一個自包自足的存檔 (ADR 0006)."""
+    os.makedirs(os.path.join(str(profile_dir), "flows"), exist_ok=True)
+    flowfile.write(os.path.join(str(profile_dir), "flows", name),
+                   {"steps": steps, "coordSpace": "region"}, {})
 
 
 def _read_steps(profile_dir, name):
-    with open(os.path.join(str(profile_dir), "flows", name),
-              encoding="utf-8") as f:
-        return json.load(f)["steps"]
+    return flowfile.read(os.path.join(str(profile_dir), "flows",
+                                      name))["data"]["steps"]
 
 
 def test_倍率不為1時存檔自動重定並告知(tkroot, monkeypatch, tmp_path):
@@ -196,12 +199,12 @@ def test_倍率不為1時存檔自動重定並告知(tkroot, monkeypatch, tmp_pa
     calibration.save(str(tmp_path), {
         "pair": ["a", "b"], "baseline": 200.0, "scale": 1.25,
         "fingerprint": calibration.current_fingerprint()})
-    _write_flow(tmp_path, "other.json", [{"type": "click", "x": 100, "y": 40}])
+    _write_flow(tmp_path, OTHER_FLOW, [{"type": "click", "x": 100, "y": 40}])
     a = _RebaseApp(tkroot, tmp_path, [{"type": "click", "x": 8, "y": 8}])
 
     a._maybe_rebase()
 
-    assert _read_steps(tmp_path, "other.json")[0]["x"] == 125, \
+    assert _read_steps(tmp_path, OTHER_FLOW)[0]["x"] == 125, \
         "profile 內其他流程檔一併改寫 (漏一份=混尺度)"
     assert (a.steps[0]["x"], a.steps[0]["y"]) == (10, 10), "記憶體同步跟上新基準"
     cal = calibration.load(str(tmp_path))
@@ -217,12 +220,12 @@ def test_倍率為1時存檔不觸發重定(tkroot, monkeypatch, tmp_path):
     calibration.save(str(tmp_path), {
         "pair": ["a", "b"], "baseline": 200.0, "scale": 1.0,
         "fingerprint": calibration.current_fingerprint()})
-    _write_flow(tmp_path, "other.json", [{"type": "click", "x": 100, "y": 40}])
+    _write_flow(tmp_path, OTHER_FLOW, [{"type": "click", "x": 100, "y": 40}])
     a = _RebaseApp(tkroot, tmp_path, [{"type": "click", "x": 8, "y": 8}])
 
     a._maybe_rebase()
 
-    assert _read_steps(tmp_path, "other.json")[0]["x"] == 100, "不改寫任何流程檔"
+    assert _read_steps(tmp_path, OTHER_FLOW)[0]["x"] == 100, "不改寫任何流程檔"
     assert a.steps[0]["x"] == 8
     assert infos == [] and a.rendered == 0
 
@@ -235,12 +238,12 @@ def test_未校準時存檔不觸發重定(tkroot, monkeypatch, tmp_path):
     calibration.save(str(tmp_path), {
         "pair": ["a", "b"], "baseline": 200.0, "scale": 1.25,
         "fingerprint": {"x": 0, "y": 0, "w": 1, "h": 1}})  # 別台機器量的
-    _write_flow(tmp_path, "other.json", [{"type": "click", "x": 100, "y": 40}])
+    _write_flow(tmp_path, OTHER_FLOW, [{"type": "click", "x": 100, "y": 40}])
     a = _RebaseApp(tkroot, tmp_path, [{"type": "click", "x": 8, "y": 8}])
 
     a._maybe_rebase()
 
-    assert _read_steps(tmp_path, "other.json")[0]["x"] == 100
+    assert _read_steps(tmp_path, OTHER_FLOW)[0]["x"] == 100
     assert calibration.load(str(tmp_path))["scale"] == 1.25
     assert infos == []
 

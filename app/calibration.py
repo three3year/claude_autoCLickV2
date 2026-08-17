@@ -2,14 +2,18 @@
 
 詞彙見 app/CONTEXT.md「校準與畫面倍率」。UI 與 runner 只呼叫這個模組,
 不各自實作: 校準資料的載入/儲存、倍率計算、`機器指紋`、`未校準`判定、
-`重定基準`的流程檔改寫、flow pack 的匯入換算與`來源基準`標記。
+`重定基準`的流程存檔改寫、`來源基準`標記。(存檔攜帶校準資料與`匯入換算`
+三分支落在 flowfile——那是存檔格式的事。)
 
 校準資料存在 profile 內 (calibration.json, 隨 profile 資料夾搬遷)::
 
-    pair          `校準對`: 兩個範本正式名稱 (相對路徑不含副檔名)
+    pair          `校準對`: 兩個範本名稱
     baseline      `基準距離`: 校準對匹配框中心在基準機器上的直線距離 (px)
     scale         `畫面倍率`: 本機相對基準的單一等比倍數; null = 從未校準
     fingerprint   `機器指紋`: 量得倍率當下的螢幕配置; 與當下不符 = 視同未校準
+
+校準對的兩張圖由 profile 自存一份 (`flowfile.calibration_images`), 與流程存檔
+解耦——刪掉任何一份流程都不會弄壞校準。
 
 缺檔 = 沒有校準對 = profile 完全不受校準影響 (不警告、不換算)。
 """
@@ -178,42 +182,38 @@ def foreign_ratio(measured_distance, source_baseline_px, current_scale):
 
 
 def rebase(profile_dir, fingerprint):
-    """`重定基準`: profile 內全部流程檔 (含自動存檔) 座標乘上現行倍率改寫、
-    基準距離改為本機量值、倍率歸 1、指紋更新——本機成為新基準 (票 04).
+    """`重定基準`: profile 內**每一份**流程存檔 (含步驟草稿) 的座標乘上現行
+    倍率改寫、基準距離改為本機量值、倍率歸 1、指紋更新——本機成為新基準.
 
+    存檔內的範本圖一個 byte 都不動, 只改 flow.json 的步驟座標。
     帶`來源基準`標記的流程不改寫: 它的尺度由標記定義、與 profile 基準無關,
-    存檔守門會要求先歸位。壞檔 (讀不出 JSON) 跳過——它本來就載入不了,
-    不存在混尺度的問題。回傳改寫的檔名 list。
+    存檔守門會要求先歸位。壞檔 (讀不出來) 跳過——它本來就載入不了, 不存在
+    混尺度的問題。漏改任何一份就是混尺度, 所以草稿也算一份。
+    回傳改寫的檔名 list。
     """
-    import flowpack  # 延後匯入: flowpack 也 import 本模組 (匯出/匯入攜帶)
+    import flowfile  # 延後匯入: flowfile 也 import 本模組 (存檔攜帶校準資料)
     cal = load(profile_dir)
     k = float(cal["scale"])
-    flows = os.path.join(profile_dir, "flows")
-    try:
-        entries = sorted(os.listdir(flows))
-    except OSError:
-        entries = []
-    rewritten = []
-    for fn in entries:
-        p = os.path.join(flows, fn)
-        if not fn.lower().endswith(".json") or not os.path.isfile(p):
-            continue
-        try:
-            with open(p, encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, ValueError):
-            continue
+
+    def rewrite(data):
         if source_baseline(data):
-            continue
-        # 舊格式先過標準遷移 (座標空間換算), 才輪得到倍率改寫
-        flowpack.migrate_flow(data)
+            return False   # 不改寫: 尺度由標記定義
         scale_steps(data.get("steps") or [], k)
-        with open(p, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        rewritten.append(fn)
+
+    rewritten = []
+    for p in flowfile.list_flows(profile_dir):
+        try:
+            if flowfile.update_flow_data(p, rewrite) is not None:
+                rewritten.append(os.path.basename(p))
+        except (OSError, ValueError, KeyError):
+            continue
+    draft = flowfile.read_draft(profile_dir)
+    if draft is not None and rewrite(draft) is not False:
+        flowfile.write_draft(profile_dir, draft)
+        rewritten.append(flowfile.DRAFT_NAME)
     # 新基準距離 = 本機量值 = 舊基準 × 倍率 (倍率就是這樣量出來的)
     cal["baseline"] = float(cal["baseline"]) * k
     cal["scale"] = 1.0
     cal["fingerprint"] = fingerprint
     save(profile_dir, cal)
-    return rewritten
+    return sorted(rewritten)

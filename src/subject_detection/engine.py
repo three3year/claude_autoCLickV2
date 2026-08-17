@@ -1,20 +1,23 @@
-"""Public engine API: Engine.load_profile + Engine.query.
+"""Public engine API: Engine.load_templates + Engine.query.
+
+The caller delivers a **template list** (name → image path) together with the
+config and the artifacts directory; the engine never scans a directory and
+holds no assumptions about the caller's storage layout (see `library.py`).
 
 Query pipeline: gradient-domain multiscale coarse matching produces ranked
-candidates; the best candidate above match_threshold is the answer (the
-embedding verification stage is layered on top in a later ticket).
+candidates; the best candidate above match_threshold is the answer, then the
+embedding verification stage decides.
 """
 from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import cv2
 import numpy as np
 
+from .library import Library, make_library
 from .matching import find_candidates
-from .profile import Profile, load_profile_dir
 from .registration import Artifacts, load_or_register
 
 
@@ -48,33 +51,39 @@ class Engine:
         from .verification import masked_fill
         return self._verifier.embed([masked_fill(art.ref_bgr, art.mask)])[0]
 
-    def load_profile(self, profile_dir: str | Path) -> Profile:
-        profile = load_profile_dir(profile_dir)
-        for name in profile.templates:
-            self.register(profile, name)
-        return profile
+    def load_templates(self, templates, config=None,
+                       artifacts_dir=None) -> Library:
+        """收`範本清單` (範本名 → 圖檔路徑) 並登錄全部, 回傳可查詢的模板庫.
 
-    def register(self, profile: Profile, name: str) -> None:
+        templates: {name: path} 或 {name: [path, ...]} (多路徑＝一個多截圖範本);
+        artifacts_dir: 登錄產物的存放位置, 由呼叫端指定。
+        """
+        library = make_library(templates, config, artifacts_dir)
+        for name in library.templates:
+            self.register(library, name)
+        return library
+
+    def register(self, library: Library, name: str) -> None:
         """單一範本的登錄產物載入/重建; 已載入 (artifacts 在) 的直接沿用."""
-        t = profile.templates[name]
+        t = library.templates[name]
         if t.artifacts is None:
             embed_fn = (self._embed_template
                         if self._verifier is not None else None)
-            t.artifacts = load_or_register(profile.root, t.name,
-                                           t.capture_paths, profile.config,
+            t.artifacts = load_or_register(library.artifacts_dir, t.name,
+                                           t.capture_paths, library.config,
                                            embed_fn=embed_fn)
 
-    def query(self, profile: Profile, template_name: str,
+    def query(self, library: Library, template_name: str,
               search_region: np.ndarray) -> QueryResult:
-        if template_name not in profile.templates:
+        if template_name not in library.templates:
             raise KeyError(f"unknown template: {template_name!r}")
-        template = profile.templates[template_name]
+        template = library.templates[template_name]
         art = template.artifacts
 
         scene_gray = cv2.cvtColor(search_region, cv2.COLOR_BGR2GRAY)
         tpl_gray = art.ref_gray
 
-        cfg = profile.config
+        cfg = library.config
         candidates = find_candidates(
             scene_gray, tpl_gray,
             scale_range=tuple(cfg["scale_range"]),

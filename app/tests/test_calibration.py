@@ -10,6 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import calibration  # noqa: E402
+import flowfile  # noqa: E402
 from harness import Vision  # noqa: E402
 
 FP_A = {"x": 0, "y": 0, "w": 1920, "h": 1080}
@@ -162,7 +163,14 @@ def test_倍率1改寫等於不動():
     assert steps == before
 
 
-# ---------- 重定基準 (票 04) ----------
+# ---------- 重定基準 (ADR 0005) ----------
+
+FLOW1 = "f1" + flowfile.EXT
+FLOW2 = "f2" + flowfile.EXT
+OLDFLOW = "old" + flowfile.EXT
+FOREIGN = "foreign" + flowfile.EXT
+NORMAL = "normal" + flowfile.EXT
+
 
 def _flow(steps, **extra):
     data = {"steps": steps, "coordSpace": "region"}
@@ -171,36 +179,40 @@ def _flow(steps, **extra):
 
 
 def _write_flow(profile, name, data):
-    flows = profile / "flows"
-    flows.mkdir(exist_ok=True)
-    (flows / name).write_text(json.dumps(data, ensure_ascii=False),
-                              encoding="utf-8")
+    """一份流程＝一個自包自足的存檔 (ADR 0006); 草稿仍是輕量 JSON."""
+    (profile / "flows").mkdir(exist_ok=True)
+    if name == flowfile.DRAFT_NAME:
+        flowfile.write_draft(str(profile), data)
+    else:
+        flowfile.write(str(profile / "flows" / name), data, {})
 
 
 def _read_flow(profile, name):
-    return json.loads((profile / "flows" / name).read_text(encoding="utf-8"))
+    if name == flowfile.DRAFT_NAME:
+        return flowfile.read_draft(str(profile))
+    return flowfile.read(str(profile / "flows" / name))["data"]
 
 
 def test_重定基準改寫全部流程檔含自動存檔並更新校準資料(tmp_path):
     calibration.save(str(tmp_path), make_cal(baseline=200.0, scale=1.25, fp=FP_A))
-    _write_flow(tmp_path, "f1.json", _flow([
+    _write_flow(tmp_path, FLOW1, _flow([
         {"type": "click", "x": 100, "y": 40},
         {"type": "find_click", "template": "a", "offsetX": 10, "offsetY": -8}]))
-    _write_flow(tmp_path, "f2.json", _flow([
+    _write_flow(tmp_path, FLOW2, _flow([
         {"type": "drag", "x1": 4, "y1": 4, "x2": 40, "y2": 80, "mode": "prev"}]))
-    _write_flow(tmp_path, "_autosave.json", _flow([
+    _write_flow(tmp_path, flowfile.DRAFT_NAME, _flow([
         {"type": "click", "x": 8, "y": 8, "mode": "prev"}]))
 
     files = calibration.rebase(str(tmp_path), FP_A)
-    assert sorted(files) == ["_autosave.json", "f1.json", "f2.json"], \
+    assert sorted(files) == [flowfile.DRAFT_NAME, FLOW1, FLOW2], \
         "漏一份就是混尺度"
 
-    f1 = _read_flow(tmp_path, "f1.json")["steps"]
+    f1 = _read_flow(tmp_path, FLOW1)["steps"]
     assert (f1[0]["x"], f1[0]["y"]) == (125, 50)
     assert (f1[1]["offsetX"], f1[1]["offsetY"]) == (13, -10)
-    f2 = _read_flow(tmp_path, "f2.json")["steps"]
+    f2 = _read_flow(tmp_path, FLOW2)["steps"]
     assert (f2[0]["x1"], f2[0]["x2"], f2[0]["y2"]) == (5, 50, 100)
-    auto = _read_flow(tmp_path, "_autosave.json")["steps"]
+    auto = _read_flow(tmp_path, flowfile.DRAFT_NAME)["steps"]
     assert (auto[0]["x"], auto[0]["y"]) == (10, 10)
 
     cal = calibration.load(str(tmp_path))
@@ -212,11 +224,11 @@ def test_重定基準改寫全部流程檔含自動存檔並更新校準資料(t
 def test_重定基準會先遷移舊格式流程檔(tmp_path):
     """任何讀存檔的新路徑都要先過座標空間遷移, 否則舊檔座標整批偏掉."""
     calibration.save(str(tmp_path), make_cal(baseline=100.0, scale=2.0, fp=FP_A))
-    _write_flow(tmp_path, "old.json", {  # 無 coordSpace = 舊格式 (螢幕座標)
+    _write_flow(tmp_path, OLDFLOW, {  # 無 coordSpace = 舊格式 (螢幕座標)
         "steps": [{"type": "click", "x": 300, "y": 250}],
         "scanRegion": [100, 50, 800, 600]})
     calibration.rebase(str(tmp_path), FP_A)
-    data = _read_flow(tmp_path, "old.json")
+    data = _read_flow(tmp_path, OLDFLOW)
     assert data["coordSpace"] == "region"
     assert (data["steps"][0]["x"], data["steps"][0]["y"]) == (400, 400), \
         "先換算成範圍座標 (300-100, 250-50) 再乘倍率 2"
@@ -227,11 +239,13 @@ def test_重定基準跳過帶來源基準標記的流程(tmp_path):
     calibration.save(str(tmp_path), make_cal(baseline=100.0, scale=2.0, fp=FP_A))
     marked = _flow([{"type": "click", "x": 30, "y": 40}],
                    sourceBaseline={"pair": ["p", "q"], "baseline": 80.0})
-    _write_flow(tmp_path, "foreign.json", marked)
-    _write_flow(tmp_path, "normal.json", _flow([{"type": "click", "x": 30, "y": 40}]))
+    _write_flow(tmp_path, FOREIGN, marked)
+    _write_flow(tmp_path, NORMAL, _flow([{"type": "click", "x": 30, "y": 40}]))
     files = calibration.rebase(str(tmp_path), FP_A)
-    assert files == ["normal.json"]
-    assert _read_flow(tmp_path, "foreign.json") == marked
+    assert files == [NORMAL]
+    kept = _read_flow(tmp_path, FOREIGN)
+    assert kept["steps"] == marked["steps"], "座標一個字都不改"
+    assert kept["sourceBaseline"] == marked["sourceBaseline"]
 
 
 # ---------- 來源基準標記 (票 06) ----------

@@ -2,10 +2,14 @@
 
 `profiles/<game>/` 是遊戲設定檔, 自帶:
 
-    templates/    範本庫 (單檔範本或多截圖範本目錄; 引擎據此登錄)
-    flows/        該 profile 的流程存檔 (含 _autosave.json)
-    config.yaml   引擎參數 (覆蓋引擎預設; match/verify 門檻都在這)
-    registered/   引擎登錄產物 (可重建, 不進版控)
+    config.yaml       引擎參數 (覆蓋引擎預設; match/verify 門檻都在這)
+    flows/            該 profile 的流程存檔 (含步驟草稿 _autosave.json)
+    calibration.json  校準資料 (校準對名稱、基準距離、本機倍率與機器指紋)
+    calibration/      `校準對`的兩張圖 (profile 自存, 與流程存檔解耦)
+    workspace/        當前流程的可重建快取 (範本圖 + 登錄產物; 不進版控)
+
+**沒有範本庫**: 範本圖住在流程存檔裡 (ADR 0006), profile 只負責上面這些。
+一個資料夾算不算 profile, 看的是引擎參數設定檔在不在。
 
 應用一次連一個 profile; UI 只提供切換與建立, 改名/刪除交給檔案總管。
 部署後 (frozen) 使用者資料放 exe 旁, 原始碼執行用 repo 根目錄。
@@ -28,20 +32,26 @@ def profiles_root(root=None):
     return os.path.join(root if root is not None else data_root(), "profiles")
 
 
+CONFIG_NAME = "config.yaml"
+
+
 def list_profiles(profiles_dir):
-    """profiles_dir 下的 profile 名稱 (有 templates/ 子目錄的資料夾才算)."""
+    """profiles_dir 下的 profile 名稱 (有引擎參數設定檔的資料夾才算).
+
+    判定依據是設定檔而不是範本庫目錄——範本庫已經不存在了 (ADR 0006)。
+    """
     try:
         entries = sorted(os.listdir(profiles_dir))
     except OSError:
         return []
     return [n for n in entries
-            if os.path.isdir(os.path.join(profiles_dir, n, "templates"))]
+            if os.path.isfile(os.path.join(profiles_dir, n, CONFIG_NAME))]
 
 
 def default_config_path():
     """引擎預設 config 檔 (含註解), 建立新 profile 時整份複製."""
-    from subject_detection import profile as sd_profile
-    return os.path.join(os.path.dirname(os.path.abspath(sd_profile.__file__)),
+    from subject_detection import library as sd_library
+    return os.path.join(os.path.dirname(os.path.abspath(sd_library.__file__)),
                         "default_config.yaml")
 
 
@@ -59,9 +69,8 @@ def create_profile(profiles_dir, name):
     dest = os.path.join(profiles_dir, name)
     if os.path.exists(dest):
         raise ValueError(f"profile「{name}」已存在")
-    os.makedirs(os.path.join(dest, "templates"))
     os.makedirs(os.path.join(dest, "flows"))
-    shutil.copyfile(default_config_path(), os.path.join(dest, "config.yaml"))
+    shutil.copyfile(default_config_path(), os.path.join(dest, CONFIG_NAME))
     return dest
 
 

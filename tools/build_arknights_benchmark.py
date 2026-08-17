@@ -1,9 +1,15 @@
 """Regenerate the arknights benchmark set (deterministic).
 
 Scenes are composites of REAL template captures (from one set) pasted onto
-backgrounds, then queried with ANOTHER set's template where possible — this is
-the cross-set scale-invariance test from the spec. Backgrounds come from the
-real clue-board screenshot plus seeded synthetic clutter.
+backgrounds, then queried with ANOTHER set's capture as the case's template
+where possible — this is the cross-set scale-invariance test from the spec.
+Backgrounds come from the real clue-board screenshot plus seeded synthetic
+clutter.
+
+Source captures live in `benchmark/_assets/templates/` — the benchmark owns its
+own inputs and depends on no template library (see ADR 0006).
+Every case gets its own `template.png` (the referenced template's registration
+baseline capture = sorted-first), so cases stay self-contained.
 
 Run:  python tools/build_arknights_benchmark.py
 """
@@ -23,8 +29,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from subject_detection.imio import imread, imwrite  # noqa: E402
 
 PROFILE = ROOT / "profiles" / "arknights"
-TPL = PROFILE / "templates"
 BENCH = PROFILE / "benchmark"
+TPL = BENCH / "_assets" / "templates"
 BOARD = BENCH / "_assets" / "clue_board.png"
 
 
@@ -61,13 +67,22 @@ def capture(name: str, cap: str) -> np.ndarray:
     return imread(TPL / name / f"{cap}.png")
 
 
+def baseline_capture(name: str) -> Path:
+    """The template's registration baseline capture = sorted-first image.
+
+    Multi-capture templates are gone from the app, and the engine registers one
+    image per template, so a case carries exactly this one.
+    """
+    return sorted((TPL / name).glob("*.png"))[0]
+
+
 def write_case(name: str, scene: np.ndarray, template: str, expected: str,
                center: tuple[float, float] | None = None, tolerance: int = 15):
     case = BENCH / name
     case.mkdir(parents=True, exist_ok=True)
     imwrite(case / "screenshot.png", scene)
-    expect: dict = {"template": template, "expected": expected,
-                    "tolerance": tolerance}
+    shutil.copyfile(baseline_capture(template), case / "template.png")
+    expect: dict = {"expected": expected, "tolerance": tolerance}
     if center is not None:
         expect["center"] = [int(round(center[0])), int(round(center[1]))]
     (case / "expect.yaml").write_text(

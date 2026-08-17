@@ -2,5 +2,4 @@ center:
 - 410
 - 294
 expected: present
-template: cn/會客室線索
 tolerance: 15

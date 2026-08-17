@@ -164,10 +164,10 @@ def ask_string(root, title, prompt, initialvalue=""):
 
 
 def pick_cal_pair(app):
-    """選擇`校準對`: 從範本庫挑兩個既有範本 (票 02). 取消回傳 None.
+    """選擇`校準對`: 從本流程的範本挑兩個. 取消回傳 None.
 
-    兩張圖必須會同時出現在同一畫面 (作為畫面縮放的比例尺);
-    指定的當下由呼叫端立刻校準一次。
+    兩張圖必須會同時出現在同一畫面 (作為畫面縮放的比例尺); 選中的兩張由
+    呼叫端複製一份進 profile 自存 (與流程存檔解耦), 並立刻校準一次。
     """
     root = app.root
     names = app.list_template_names()
@@ -185,8 +185,9 @@ def pick_cal_pair(app):
 
     body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
     body.pack(fill="both", expand=True)
-    ttk.Label(body, text="從範本庫選兩個「會同時出現在同一畫面」的範本作為比例尺；\n"
-                         "按確定後立刻校準一次（量基準距離、本機倍率記 1）。",
+    ttk.Label(body, text="從本流程選兩個「會同時出現在同一畫面」的範本作為比例尺；\n"
+                         "按確定後兩張圖會複製進 profile 自存，並立刻校準一次\n"
+                         "（量基準距離、本機倍率記 1）。",
               style="Muted.TLabel", justify="left").pack(anchor="w", pady=(0, 10))
     vars_ = []
     for label in ("範本一", "範本二"):
@@ -970,11 +971,10 @@ def show_match_test(app, template_name, region=None, hide=(), delay=0.0):
         cx, cy = origin[0] + x + w // 2, origin[1] + y + h // 2
         info = f"✔ 找到　分數 {r.score:.3f}　位置 ({cx}, {cy})"
         fg = C["accent"]
-        # 上傳的範本原本沒有 pos → 用這次測到的位置補上, 供相對座標當備援原點
+        # 上傳/複製進來的範本原本沒有 pos → 用這次測到的位置補上,
+        # 供相對座標當備援原點
         if app.template_pos(template_name) is None:
-            meta = app._load_meta()
-            meta["pos"][template_name] = [cx, cy]
-            app._save_meta(meta)
+            app.ws.set_pos(template_name, [cx, cy])
             app.log_ui(f"已記錄「{template_name}」位置 ({cx}, {cy})，可作相對座標原點", "ok")
     elif box is not None:
         info = f"✘ 未達門檻　分數 {r.score:.3f}（紅框為最接近的候選）"

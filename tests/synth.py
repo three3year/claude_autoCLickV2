@@ -1,8 +1,11 @@
 """Shared test helpers: build tiny synthetic game profiles on disk.
 
-Tests exercise the engine only through its public API (load_profile + query),
-so these helpers create real profile folders (templates/ + config.yaml) in
-tmp_path and composite scenes to query against.
+Tests exercise the engine only through its public API (load_templates +
+query), so these helpers create real profile folders (templates/ +
+config.yaml) in tmp_path, then play the caller's part: scan the folder into a
+**template list** and hand it to the engine (`load_library`). The engine itself
+never scans — `template_list` here is the test's stand-in for whatever the real
+caller does (the app scans its workspace; bench uses per-case images).
 
 (Lives outside conftest.py so the name stays unique: app/tests/ has its own
 conftest.py, and `from conftest import ...` would resolve ambiguously.)
@@ -16,6 +19,9 @@ import numpy as np
 import yaml
 
 from subject_detection.imio import imwrite  # noqa: F401  (shared helper)
+from subject_detection.library import load_config
+
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
 rng = np.random.default_rng(1234)
 
@@ -71,3 +77,46 @@ def write_profile(root: Path, templates: dict[str, np.ndarray | dict[str, np.nda
     (profile / "config.yaml").write_text(
         yaml.safe_dump(config or {}), encoding="utf-8")
     return profile
+
+
+def template_list(templates_dir: Path) -> dict[str, list[Path]]:
+    """Scan an image folder into a template list: {name: [path, ...]}.
+
+    Name = relative path without extension; a folder holding only images is one
+    multi-capture template. This is the caller's job, not the engine's.
+    """
+    templates_dir = Path(templates_dir)
+    found: dict[str, list[Path]] = {}
+
+    def only_images(path: Path) -> bool:
+        has_image = False
+        for child in path.iterdir():
+            if child.is_dir():
+                return False
+            has_image = has_image or child.suffix.lower() in _IMAGE_EXTS
+        return has_image
+
+    def walk(d: Path) -> None:
+        for child in sorted(d.iterdir()):
+            if child.is_file() and child.suffix.lower() in _IMAGE_EXTS:
+                found[child.relative_to(templates_dir)
+                      .with_suffix("").as_posix()] = [child]
+            elif child.is_dir():
+                if only_images(child):
+                    found[child.relative_to(templates_dir).as_posix()] = sorted(
+                        p for p in child.iterdir()
+                        if p.suffix.lower() in _IMAGE_EXTS)
+                else:
+                    walk(child)
+
+    if templates_dir.is_dir():
+        walk(templates_dir)
+    return found
+
+
+def load_library(engine, profile_dir: Path):
+    """Play the caller: hand the engine this profile's template list."""
+    profile_dir = Path(profile_dir)
+    return engine.load_templates(template_list(profile_dir / "templates"),
+                                 config=load_config(profile_dir),
+                                 artifacts_dir=profile_dir / "registered")

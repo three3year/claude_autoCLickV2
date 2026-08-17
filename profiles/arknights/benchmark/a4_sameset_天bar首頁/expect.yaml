@@ -2,5 +2,4 @@ center:
 - 462
 - 322
 expected: present
-template: cn/天bar首頁
 tolerance: 15

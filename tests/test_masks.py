@@ -9,7 +9,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from synth import make_scene, paste, write_profile
+from synth import load_library, make_scene, paste, write_profile
 
 rng = np.random.default_rng(4)
 
@@ -68,7 +68,7 @@ def test_translucent_template_matches_on_new_background(engine, tmp_path):
 
     profile_dir = write_profile(tmp_path, {"card": {"a": cap1, "b": cap2}},
                                 config={"mask_strategy": "multi_capture"})
-    profile = engine.load_profile(profile_dir)
+    profile = load_library(engine, profile_dir)
     res = engine.query(profile, "card", scene)
 
     assert res.found is True
@@ -83,7 +83,7 @@ def test_mutable_counter_digits_do_not_break_match(engine, tmp_path):
 
     profile_dir = write_profile(tmp_path, {"badge": {"a": cap1, "b": cap2}},
                                 config={"mask_strategy": "multi_capture"})
-    profile = engine.load_profile(profile_dir)
+    profile = load_library(engine, profile_dir)
     res = engine.query(profile, "badge", scene)
 
     assert res.found is True
@@ -100,7 +100,7 @@ def test_similar_templates_are_not_confused(engine, tmp_path):
 
     profile_dir = write_profile(tmp_path, {"cardA": {"a": a1, "b": a2}},
                                 config={"mask_strategy": "multi_capture"})
-    profile = engine.load_profile(profile_dir)
+    profile = load_library(engine, profile_dir)
     res = engine.query(profile, "cardA", scene_with_b)
 
     assert res.found is False
@@ -111,7 +111,7 @@ def test_single_strategy_works_with_one_capture(engine, tmp_path):
     scene = paste(make_scene(seed=83), card, 150, 90)
     profile_dir = write_profile(tmp_path, {"cardZ": card},
                                 config={"mask_strategy": "single"})
-    profile = engine.load_profile(profile_dir)
+    profile = load_library(engine, profile_dir)
     res = engine.query(profile, "cardZ", scene)
     assert res.found is True
 
@@ -121,7 +121,7 @@ def test_multi_capture_strategy_degrades_gracefully_on_one_capture(engine, tmp_p
     scene = paste(make_scene(seed=84), card, 400, 250)
     profile_dir = write_profile(tmp_path, {"cardQ": card},
                                 config={"mask_strategy": "multi_capture"})
-    profile = engine.load_profile(profile_dir)
+    profile = load_library(engine, profile_dir)
     res = engine.query(profile, "cardQ", scene)
     assert res.found is True
 
@@ -130,12 +130,12 @@ def test_registration_artifacts_persisted_and_reused(engine, tmp_path):
     cap1, cap2 = counter_badge("0"), counter_badge("3")
     profile_dir = write_profile(tmp_path, {"badge": {"a": cap1, "b": cap2}})
 
-    engine.load_profile(profile_dir)
+    load_library(engine, profile_dir)
     reg = profile_dir / "registered" / "badge"
     assert (reg / "meta.json").is_file()
     artifact_files = sorted(p.name for p in reg.iterdir())
     mtimes = {p.name: p.stat().st_mtime_ns for p in reg.iterdir()}
 
-    engine.load_profile(profile_dir)  # second load: reuse, don't recompute
+    load_library(engine, profile_dir)  # second load: reuse, don't recompute
     assert sorted(p.name for p in reg.iterdir()) == artifact_files
     assert {p.name: p.stat().st_mtime_ns for p in reg.iterdir()} == mtimes

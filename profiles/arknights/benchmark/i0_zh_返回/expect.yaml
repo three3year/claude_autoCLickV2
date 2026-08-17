@@ -2,5 +2,4 @@ center:
 - 524
 - 330
 expected: present
-template: zh/返回
 tolerance: 15

@@ -2,5 +2,4 @@ center:
 - 376
 - 268
 expected: present
-template: cn/好友列表
 tolerance: 15

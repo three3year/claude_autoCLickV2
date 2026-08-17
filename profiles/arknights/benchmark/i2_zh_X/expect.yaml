@@ -2,5 +2,4 @@ center:
 - 604
 - 420
 expected: present
-template: zh/X
 tolerance: 15

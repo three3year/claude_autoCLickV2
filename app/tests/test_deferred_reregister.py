@@ -1,7 +1,8 @@
-"""存圖後整庫重登錄延後 (票 05): 先回畫面、後重登錄, 查詢前補跑.
+"""存圖後重新探索延後 (票 05): 先回畫面、後重探索, 查詢前補跑.
 
 App 的重量級 __init__ 以子類跳過 (沿用 test_confirm_next_ui 的模式),
-reload_profile 以計數 stub 取代——只驗「何時重登錄」的排程語意。
+reload_profile 以計數 stub 取代——只驗「何時重探索」的排程語意。
+圖落在工作區 (ADR 0006), 所以子類要備一個真的 Workspace。
 """
 import tkinter as tk
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ import numpy as np
 import harness  # noqa: F401  # 先把 app/ 加進 sys.path
 
 import app as app_mod
+import flowfile
 
 
 class _RegApp(app_mod.App):
@@ -19,14 +21,12 @@ class _RegApp(app_mod.App):
     def __init__(self, root, profile_dir):
         self.root = root
         self.profile_dir = str(profile_dir)
+        self.ws = flowfile.Workspace(self.profile_dir)
         self.profile = SimpleNamespace(templates={})
         self._pending_templates = set()
         self._rereg_after = None
         self.reloads = 0
         self.logged = []
-
-    def current_folder(self):
-        return ""
 
     def reload_profile(self):
         self.reloads += 1

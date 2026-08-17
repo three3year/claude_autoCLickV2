@@ -2,5 +2,4 @@ center:
 - 561
 - 394
 expected: present
-template: cn/快速置入
 tolerance: 15

@@ -1,3 +1,2 @@
 expected: absent
-template: cn/返回
 tolerance: 15

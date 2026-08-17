@@ -2,5 +2,4 @@ center:
 - 438
 - 110
 expected: present
-template: cn/返回
 tolerance: 15

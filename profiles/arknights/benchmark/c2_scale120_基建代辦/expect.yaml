@@ -2,5 +2,4 @@ center:
 - 326
 - 336
 expected: present
-template: cn/基建代辦
 tolerance: 15

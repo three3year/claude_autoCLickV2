@@ -2,5 +2,4 @@ center:
 - 204
 - 197
 expected: present
-template: cn/線索1
 tolerance: 25

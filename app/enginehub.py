@@ -1,4 +1,4 @@
-"""引擎生命週期: 狀態 (載入中/就緒/失敗) + profile 綁定 + 查詢/預載接縫.
+"""引擎生命週期: 狀態 (載入中/就緒/失敗) + 範本清單綁定 + 查詢/預載接縫.
 
 「視窗可操作」與「`引擎就緒`」是兩個時間點 (ADR 0004; 詞彙見
 app/CONTEXT.md「啟動與就緒」)。App 與 runner 都只透過這個介面使用
@@ -58,9 +58,9 @@ class EngineHub:
                          if "subject_detection" in (w.filename or "")]
         self._engine = engine
 
-    def load(self, profile_dir):
-        """引擎＋profile 探索一氣呵成 (背景執行緒用): 全部成功才轉 READY,
-        中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有 profile」。
+    def load(self, root, config_dir=None, extra=None):
+        """引擎＋範本探索一氣呵成 (背景執行緒用): 全部成功才轉 READY,
+        中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有範本清單」。
 
         不做整庫登錄: 登錄產物由`範本預載`/單張載入在使用當下載入
         (ADR 0004), 引擎就緒時間只含模型載入。起訖與耗時落地檔案日誌,
@@ -73,11 +73,11 @@ class EngineHub:
         applog.log("engine.load.start")
         try:
             self._build_engine()
-            profile = self.discover(profile_dir)
+            library = self.discover(root, config_dir, extra)
             if self.profile is None:
                 # 背景載入期間 refresh() 可能已放入更新的快照 (切換
                 # profile/增刪範本), 不能拿這份較舊的探索結果覆蓋
-                self.profile = profile
+                self.profile = library
         except Exception as exc:
             self.error = exc
             self.state = FAILED
@@ -89,20 +89,39 @@ class EngineHub:
                    secs=round(time.perf_counter() - t0, 2),
                    coarse_only=self.coarse_only)
 
-    # ---------- profile ----------
+    # ---------- 範本清單 ----------
 
-    def discover(self, profile_dir):
-        """輕量探索 profile (不需引擎、不讀登錄產物, 只掃目錄與設定):
-        回傳 Profile 供 UI 立即使用, 不觸碰生命週期狀態與 hub.profile
-        (背景載入中的 load() 才擁有它們)."""
-        from subject_detection.profile import load_profile_dir
-        return load_profile_dir(profile_dir)
+    def discover(self, root, config_dir=None, extra=None):
+        """輕量探索範本 (不需引擎、不讀登錄產物, 只掃目錄與設定).
 
-    def refresh(self, profile_dir):
-        """重新探索並綁定 profile (失效標記的落實): 範本增刪改後呼叫,
+        `root` 是放著 `templates/` 與 `registered/` 的目錄——app 交的是當前
+        流程的**工作區**; `config_dir` 是引擎參數設定所在的 profile 目錄
+        (省略＝同 root); `extra` 是要一併交給引擎、但不住在 root 裡的
+        `範本清單` (app 用它帶入 profile 自存的`校準對`圖)。掃出來的清單組成
+        引擎的模板庫, 引擎自己不掃目錄 (ADR 0006)。
+
+        回傳模板庫供 UI 立即使用, 不觸碰生命週期狀態與 hub.profile
+        (背景載入中的 load() 才擁有它們)。
+        """
+        import os
+
+        import flowfile
+        from subject_detection.library import load_config, make_library
+        templates_dir = os.path.join(str(root), "templates")
+        if not os.path.isdir(templates_dir):
+            raise FileNotFoundError(f"沒有範本目錄可掃: {templates_dir}")
+        templates = flowfile.scan_templates(templates_dir)
+        templates.update(extra or {})
+        return make_library(templates,
+                            load_config(config_dir if config_dir is not None
+                                        else root),
+                            os.path.join(str(root), "registered"))
+
+    def refresh(self, root, config_dir=None, extra=None):
+        """重新探索並綁定範本清單 (失效標記的落實): 範本增刪改後呼叫,
         清單立即反映、所有登錄產物失效 (artifacts 歸零), 下次
         `範本預載`/單張載入時重載。不需引擎, 任何狀態都可呼叫。"""
-        self.profile = self.discover(profile_dir)
+        self.profile = self.discover(root, config_dir, extra)
         return self.profile
 
     # ---------- 查詢 / 載入 (runner 偵測接縫的超集) ----------

@@ -2,5 +2,4 @@ center:
 - 336
 - 261
 expected: present
-template: cn/信用購買
 tolerance: 15

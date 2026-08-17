@@ -10,9 +10,10 @@ mutable regions. Strategies (config `mask_strategy`):
 - single: gradient-stability heuristic on one capture — structure stays,
   flat areas leave. multi_capture with one capture degrades to this.
 
-Artifacts are persisted under <profile>/registered/<template_name>/ together
-with capture content hashes and the registration-relevant config subset, so
-loads reuse them and any relevant change re-registers (see ticket 05).
+Artifacts are persisted under <artifacts_dir>/<template_name>/ (the caller
+picks the directory) together with capture content hashes and the
+registration-relevant config subset, so loads reuse them and any relevant
+change re-registers (see ticket 05).
 """
 from __future__ import annotations
 
@@ -162,13 +163,13 @@ def _store_artifacts(reg_dir: Path, art: Artifacts, meta: dict) -> None:
         json.dumps(meta, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
 
-def load_or_register(profile_root: Path, name: str,
+def load_or_register(artifacts_dir: Path, name: str,
                      capture_paths: list[Path], config: dict,
                      embed_fn=None) -> Artifacts:
     """embed_fn(Artifacts) -> np.ndarray computes the subject embedding when
     the engine has a verifier; the embedding is persisted next to the other
     artifacts and reloaded with them."""
-    reg_dir = profile_root / "registered" / name
+    reg_dir = Path(artifacts_dir) / name
     meta = expected_meta(capture_paths, config)
     art = _load_artifacts(reg_dir, meta)
     rebuilt = art is None
