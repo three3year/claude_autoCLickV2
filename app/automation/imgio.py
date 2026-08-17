@@ -27,6 +27,33 @@ def imread(path):
     return img
 
 
+def imdecode(blob):
+    """把圖檔位元組解成 BGR/BGRA (供直接從流程存檔裡讀出來的圖預覽用)."""
+    import cv2
+    import numpy as np
+    if not blob:
+        return None
+    img = cv2.imdecode(np.frombuffer(blob, dtype=np.uint8),
+                       cv2.IMREAD_UNCHANGED)
+    if img is None:
+        return None
+    if img.ndim == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    elif img.ndim == 3 and img.shape[2] == 2:
+        gray, a = img[:, :, 0], img[:, :, 1]
+        img = np.dstack([cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR), a])
+    return img
+
+
+def encode_png(img):
+    """把影像編成 PNG 位元組 (現場截圖在按下確定前只存在記憶體裡)."""
+    import cv2
+    ok, buf = cv2.imencode(".png", img)
+    if not ok:
+        raise RuntimeError("無法編碼圖片")
+    return buf.tobytes()
+
+
 def imwrite(path, img):
     import cv2
     ext = os.path.splitext(path)[1] or ".png"

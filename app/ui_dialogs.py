@@ -3,9 +3,10 @@
 辨識一律走 app 的引擎接縫 (app.detector.query); 匹配門檻屬 profile config,
 對話框不再有每步門檻欄位 (ADR 0002)。
 """
+import os
 import time
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import calibration
 import ui_grab
@@ -223,6 +224,240 @@ def pick_cal_pair(app):
     dlg.bind("<Escape>", lambda e: dlg.destroy())
 
     _center(dlg, root)
+    make_modal(dlg)
+    dlg.focus_force()
+    root.wait_window(dlg)
+    return result[0]
+
+
+CUR_FLOW_LABEL = "本流程"
+NEW_LABEL = "新加入（按確定才複製進本流程）"
+
+
+def _tmpl_source_rows(app, opened, pending):
+    """選範本對話框左側樹狀的列: (顯示文字, 種類, 值).
+
+    種類: `group` (可展開/收合的來源) / `tmpl` (一個範本)。
+    列出其他流程存檔的範本時**只讀 zip 索引**, 不整包解壓——縮圖等到右側
+    預覽真的要顯示那一張時才讀 (一次一張)。
+    """
+    import flowfile
+    rows = []
+
+    def group(key, label, names, count_note=True):
+        mark = "▾" if key in opened else "▸"
+        tail = f"（{len(names)}）" if count_note else ""
+        rows.append((f" {mark} {label}{tail}", "group", key))
+        if key in opened:
+            for n in names:
+                rows.append((f"　　🖼 {n}", "tmpl", (key, n)))
+
+    if pending:
+        group(NEW_LABEL, NEW_LABEL, sorted(pending), count_note=False)
+    group(CUR_FLOW_LABEL, CUR_FLOW_LABEL, app.list_template_names())
+    for path in flowfile.list_flows(app.profile_dir):
+        if flowfile.is_inside_profile(path, app.profile_dir) and \
+                os.path.abspath(path) == os.path.abspath(
+                    app.ws.flow_path() or ""):
+            continue   # 就是本流程那一份存檔, 已經以「本流程」列在上面
+        try:
+            names = flowfile.template_names(path)
+        except Exception:
+            continue   # 壞掉的存檔不該讓整個對話框開不起來
+        group(path, os.path.basename(path), names)
+    return rows
+
+
+def _tmpl_blob(app, source, name, pending):
+    """某一列範本的圖檔位元組 (本流程讀工作區的檔, 其他存檔只取那一張)."""
+    import flowfile
+    if source == NEW_LABEL:
+        return pending[name]["blob"]
+    if source == CUR_FLOW_LABEL:
+        try:
+            with open(app.ws.path_of(name), "rb") as f:
+                return f.read()
+        except OSError:
+            return None
+    return flowfile.template_bytes(source, name)
+
+
+def pick_template(app, title="選擇範本", initial=None):
+    """選範本對話框: 本流程、profile 內其他流程存檔、磁碟上的 PNG、現場截圖.
+
+    **按確定的那一刻才把選中的圖複製進本流程**; 按取消時檔案系統完全沒有
+    變化 (包括在對話框裡現場拍的截圖, 取消即丟棄)。撞名自動加序號並改寫
+    步驟引用, 所以複製進來永遠不會蓋掉本流程已有的圖。
+
+    回傳本流程裡最終的範本名, 取消回傳 None。引擎未就緒時照樣可以開、可以
+    挑圖 (挑圖不需要辨識)。
+    """
+    import flowfile
+    from automation import imgio
+
+    root = app.root
+    dlg = tk.Toplevel(root)
+    dlg.title(title)
+    dlg.configure(bg=C["panel"])
+    dlg.transient(root)
+
+    opened = {CUR_FLOW_LABEL}   # 展開中的來源
+    pending = {}                # 尚未落地的新圖: 名稱 → {blob, pos}
+    rows = []
+    result = [None]
+
+    body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
+    body.pack(fill="both", expand=True)
+    ttk.Label(body, text="從本流程或其他流程存檔挑一張範本；也可以從磁碟挑 PNG "
+                        "或現場截圖。\n按「確定」才會把選中的圖複製進本流程。",
+              style="Muted.TLabel", justify="left").grid(
+        row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
+
+    lb = tk.Listbox(body, bg=C["bg"], fg=C["text"], selectbackground=C["sel"],
+                    selectforeground=C["text"], font=FONT, bd=0,
+                    highlightthickness=1, highlightbackground=C["border"],
+                    highlightcolor=C["accent"], activestyle="none",
+                    width=34, height=14, exportselection=False)
+    lb.grid(row=1, column=0, sticky="nsew")
+    sb = ttk.Scrollbar(body, orient="vertical", command=lb.yview)
+    lb.configure(yscrollcommand=sb.set)
+    sb.grid(row=1, column=1, sticky="ns")
+
+    pv = ttk.Frame(body, style="Panel.TFrame")
+    pv.grid(row=1, column=2, sticky="nsew", padx=(12, 0))
+    thumb = tk.Label(pv, bg=C["bg"], bd=0, highlightthickness=1,
+                     highlightbackground=C["border"])
+    thumb.pack()
+    info = ttk.Label(pv, text="", style="Muted.TLabel", justify="left")
+    info.pack(anchor="w", pady=(6, 0))
+    body.columnconfigure(0, weight=1)
+    body.rowconfigure(1, weight=1)
+
+    def selected():
+        s = lb.curselection()
+        if not s or s[0] >= len(rows):
+            return None
+        _text, kind, value = rows[s[0]]
+        return (kind, value)
+
+    def render(keep=None):
+        rows[:] = _tmpl_source_rows(app, opened, pending)
+        lb.delete(0, "end")
+        for text, _kind, _value in rows:
+            lb.insert("end", text)
+        if keep is not None:
+            for i, (_t, kind, value) in enumerate(rows):
+                if kind == "tmpl" and value == keep:
+                    lb.selection_set(i)
+                    lb.see(i)
+                    break
+        show()
+
+    def show():
+        sel = selected()
+        img = None
+        if sel and sel[0] == "tmpl":
+            source, name = sel[1]
+            img = imgio.imdecode(_tmpl_blob(app, source, name, pending))
+        ph = _thumb_photo(dlg, img)
+        thumb.configure(image=ph)
+        thumb._photo = ph
+        if sel and sel[0] == "tmpl":
+            source, name = sel[1]
+            where = (source if source in (CUR_FLOW_LABEL, NEW_LABEL)
+                     else os.path.basename(source))
+            size = f"{img.shape[1]}×{img.shape[0]}px" if img is not None else "讀不到圖"
+            info.configure(text=f"名稱：{name}\n尺寸：{size}\n來源：{where}")
+        else:
+            info.configure(text="")
+
+    def on_select(_e=None):
+        sel = selected()
+        if sel and sel[0] == "group":   # 點來源列 = 展開/收合
+            (opened.discard if sel[1] in opened else opened.add)(sel[1])
+            render()
+            return
+        show()
+
+    lb.bind("<<ListboxSelect>>", on_select)
+
+    def _stage(name, blob, pos=None):
+        """把一張新圖暫存起來 (還沒落地); 名稱在暫存區內不重複."""
+        final = flowfile.free_name(flowfile.clean_name(name) or "template",
+                                  pending)
+        pending[final] = {"blob": blob, "pos": pos}
+        opened.add(NEW_LABEL)
+        render(keep=(NEW_LABEL, final))
+        return final
+
+    def from_disk():
+        paths = filedialog.askopenfilenames(
+            parent=dlg, title="從磁碟挑圖片",
+            filetypes=[("圖片檔", "*.png *.webp *.jpg *.jpeg *.bmp *.gif "
+                                 "*.tif *.tiff"), ("所有檔案", "*.*")])
+        for p in paths:
+            img = imgio.imread(p)   # 一律重新編碼成 PNG
+            if img is None:
+                continue
+            _stage(os.path.splitext(os.path.basename(p))[0],
+                   imgio.encode_png(img))
+
+    def shoot():
+        # 走既有的清場入口 (絕不自行 withdraw/deiconify); 截下來的圖只暫存,
+        # 按取消就一起丟掉
+        r = app.pick_region_raw(hide=(dlg,))
+        if not r:
+            return
+        _stage(app._next_template_name(taken=pending),
+               imgio.encode_png(r["img"]),
+               pos=[r["screenX"] + r["w"] // 2, r["screenY"] + r["h"] // 2])
+
+    tools = ttk.Frame(body, style="Panel.TFrame")
+    tools.grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
+    ttk.Button(tools, text="截圖新增", style="Accent.TButton",
+               command=shoot).pack(side="left")
+    ttk.Button(tools, text="從磁碟挑圖…", style="Small.TButton",
+               command=from_disk).pack(side="left", padx=(6, 0))
+
+    def on_ok():
+        sel = selected()
+        if not sel or sel[0] != "tmpl":
+            messagebox.showwarning(title, "請先選一張範本", parent=dlg)
+            return
+        source, name = sel[1]
+        if source == CUR_FLOW_LABEL:
+            result[0] = name          # 已經是本流程的範本, 不必複製
+            dlg.destroy()
+            return
+        if source == NEW_LABEL:
+            blob, pos = pending[name]["blob"], pending[name]["pos"]
+        else:
+            blob, pos = flowfile.template_bytes(source, name), None
+        if blob is None:
+            messagebox.showwarning(title, f"讀不到「{name}」的圖", parent=dlg)
+            return
+        # 確定的這一刻才複製進本流程 (獨立副本, 來源日後改圖不影響本流程)
+        final = app.add_template_image(name, blob, pos=pos)
+        if final != name:
+            app.log_ui(f"範本「{name}」與本流程已有的同名，"
+                       f"已自動改名為「{final}」", "warn")
+        app.refresh_templates()
+        app.log_ui(f"已把範本「{final}」加入本流程"
+                   "；建議跑一次「比對測試」確認畫面上找得到", "ok")
+        result[0] = final
+        dlg.destroy()
+
+    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
+    foot.pack(fill="x")
+    ttk.Button(foot, text="取消", command=dlg.destroy).pack(side="right",
+                                                           padx=(8, 0))
+    ttk.Button(foot, text="確定", style="Run.TButton",
+               command=on_ok).pack(side="right")
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+    render(keep=(CUR_FLOW_LABEL, initial) if initial else None)
+    _center(dlg, root)
+    ui_theme.disable_transitions(dlg)   # 截圖前隱藏對話框需立即生效
     make_modal(dlg)
     dlg.focus_force()
     root.wait_window(dlg)
@@ -670,9 +905,6 @@ def edit_step(app, step):
         v["onNotFound"] = tk.StringVar(
             value=NF_ZH.get(step.get("onNotFound", "skip"), NF_ZH["skip"]))
 
-        PENDING = "（新截圖，確定後加入範本）"
-        pending = [None]  # 尚未存檔的截圖 (按確定才匯入範本)
-
         fr = add_row("範本圖片")
         tmpl_cb = ttk.Combobox(fr, textvariable=v["template"],
                                values=app.list_template_names(), width=24,
@@ -685,33 +917,28 @@ def edit_step(app, step):
         pv_lbl.pack(side="left")
         PV_W, PV_H = 150, 84  # 比主視窗縮圖小: 這個對話框列數多, 高度優先
 
-        def cur_tmpl_img():
-            """目前選擇的範本影像 (暫存截圖或已登錄範本), 無則 None."""
-            if v["template"].get() == PENDING:
-                return pending[0]["img"] if pending[0] else None
-            nm = v["template"].get()
-            if nm:
-                return app.template_image(nm)
-            return None
-
         def update_preview(*_):
-            ph = _thumb_photo(dlg, cur_tmpl_img(), bw=PV_W, bh=PV_H)
+            nm = v["template"].get()
+            ph = _thumb_photo(dlg, app.template_image(nm) if nm else None,
+                              bw=PV_W, bh=PV_H)
             pv_lbl.configure(image=ph)
             pv_lbl._photo = ph
 
         tmpl_cb.bind("<<ComboboxSelected>>", update_preview, add=True)
         update_preview()
 
-        def new_tmpl():
-            r = app.pick_region_raw(hide=(dlg,))
-            if r:
-                pending[0] = r
-                v["template"].set(PENDING)
+        def choose_tmpl():
+            """選範本對話框: 跨存檔瀏覽、從磁碟挑圖、現場截圖 (確定才複製)."""
+            name = pick_template(app, "選擇範本圖片",
+                                 initial=v["template"].get() or None)
+            if name:
+                v["template"].set(name)
+                tmpl_cb.configure(values=app.list_template_names())
                 update_preview()
 
         # 回到範本圖片列補上按鈕 (排版在 combobox 之後)
-        ttk.Button(tmpl_cb.master, text="截圖新增", style="Accent.TButton",
-                   command=new_tmpl).pack(side="left")
+        ttk.Button(tmpl_cb.master, text="選擇範本…", style="Accent.TButton",
+                   command=choose_tmpl).pack(side="left")
 
         fr = add_row("等待逾時")
         ttk.Spinbox(fr, textvariable=v["timeout"], from_=0, to=3600,
@@ -770,15 +997,17 @@ def edit_step(app, step):
                                    state="readonly")
         cfm_tmpl_cb.pack(side="left", padx=(0, 6))
 
-        def new_cfm_tmpl():
-            r = app.pick_region_raw(hide=(dlg,))
-            if r:
-                nm = app.save_captured(r)  # 確認圖即時存檔 (不走主範本的 pending)
+        def choose_cfm_tmpl():
+            # 確認圖走與主範本**同一個**選範本對話框: 現場截圖後按取消
+            # 一律丟棄 (舊的「截圖即時存檔」語意已改掉)
+            nm = pick_template(app, "選擇確認圖",
+                               initial=v["confirmTemplate"].get() or None)
+            if nm:
                 cfm_tmpl_cb.configure(values=app.list_template_names())
                 v["confirmTemplate"].set(nm)
 
-        ttk.Button(cfm_row, text="截圖新增", style="Accent.TButton",
-                   command=new_cfm_tmpl).pack(side="left")
+        ttk.Button(cfm_row, text="選擇範本…", style="Accent.TButton",
+                   command=choose_cfm_tmpl).pack(side="left")
         cfm_tmpl_note = add_note("截「點成功後才會出現」的下一畫面圖案（如結算畫面、下一關按鈕）")
 
         # 是否把找到 (點擊) 的位置更新為相對座標原點
@@ -815,16 +1044,8 @@ def edit_step(app, step):
             if not name:
                 messagebox.showwarning("測試", "請先選擇範本圖片", parent=dlg)
                 return
-            if name == PENDING:
-                if pending[0] is None:
-                    messagebox.showwarning("測試", "請先選擇範本圖片", parent=dlg)
-                    return
-                # 引擎只查得到已登錄的範本 → 先存檔登錄再測
-                # (與確認圖同慣例: 即時存檔, 之後取消對話框範本仍會留下)
-                name = app.save_captured(pending[0])
-                pending[0] = None
-                v["template"].set(name)
-                tmpl_cb.configure(values=app.list_template_names())
+            # 範本一定已經在本流程裡了 (選範本對話框按確定的那一刻就複製進來),
+            # 所以這裡直接測即可
             show_match_test(app, name, hide=(dlg,))
 
         ttk.Button(fr, text="立即比對測試", style="Accent.TButton",
@@ -867,10 +1088,6 @@ def edit_step(app, step):
             elif t == "find_click":
                 if not v["template"].get():
                     raise ValueError("請選擇範本圖片")
-                if v["template"].get() == PENDING:
-                    if pending[0] is None:
-                        raise ValueError("請選擇範本圖片")
-                    v["template"].set(app.save_captured(pending[0]))  # 確定才匯入
                 action = ACT_KEY[v["action"].get()]
                 confirm = CFM_KEY[v["confirm"].get()] if action == "click" else "none"
                 if confirm == "appear" and not v["confirmTemplate"].get():

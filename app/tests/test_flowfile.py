@@ -557,3 +557,38 @@ def test_開啟外來檔_無校準資料時不產生校準資料(tmp_path):
     r = flowfile.adopt_foreign_flow(src, str(profile))
     assert r["calibration"] is None
     assert calibration.load(str(profile)) is None
+
+
+# ---------- profile 自存的校準圖 ----------
+
+def test_校準圖存在profile_與流程存檔解耦(tmp_path):
+    profile = make_profile(tmp_path)
+    names = flowfile.store_calibration_images(str(profile),
+                                              {"calA": b"A", "calB": b"B"})
+    assert names == ["calA", "calB"]
+    imgs = flowfile.calibration_images(str(profile))
+    assert sorted(imgs) == ["calA", "calB"]
+    assert open(imgs["calA"], "rb").read() == b"A"
+    # 工作區被整個清空 (切流程) 也不影響校準圖
+    ws = flowfile.Workspace(str(profile))
+    ws.clear()
+    assert sorted(flowfile.calibration_images(str(profile))) == ["calA", "calB"]
+
+
+def test_重新指定校準對會整批取代舊的一對(tmp_path):
+    profile = make_profile(tmp_path)
+    flowfile.store_calibration_images(str(profile), {"old1": b"1", "old2": b"2"})
+    flowfile.store_calibration_images(str(profile), {"new1": b"3", "new2": b"4"})
+    assert sorted(flowfile.calibration_images(str(profile))) == ["new1", "new2"]
+
+
+def test_校準圖交給引擎的範本名永不與本流程的範本撞名(tmp_path):
+    profile = make_profile(tmp_path)
+    flowfile.store_calibration_images(str(profile), {"btn": b"CAL"})
+    ws = flowfile.Workspace(str(profile))
+    ws.add("btn", b"FLOW")   # 本流程剛好也有一個叫 btn 的範本
+    lst = flowfile.calibration_template_list(str(profile))
+    assert list(lst) == [flowfile.CAL_NAME_PREFIX + "btn"]
+    assert set(lst) & set(ws.names()) == set(), "兩邊的鍵不重疊"
+    # 前綴含 `/`, 使用者輸入的名稱一律被清成平面名稱 → 撞不到
+    assert "/" not in flowfile.clean_name("_cal/btn")

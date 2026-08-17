@@ -346,3 +346,96 @@ def test_守門取消則不存檔(tkroot, monkeypatch, tmp_path):
                  dict(MARKER))
     assert a._resolve_source_baseline() is False
     assert a._source_baseline == MARKER
+
+
+# ---------- 校準圖由 profile 自存 (ADR 0006) ----------
+
+class _MeasureApp(app_mod.App):
+    """只建 _measure_pair / designate_pair 需要的欄位; 清場與擷取以樁取代."""
+
+    def __init__(self, root, profile_dir, vision):
+        self.root = root
+        self.profile_dir = str(profile_dir)
+        self.ws = flowfile.Workspace(self.profile_dir)
+        self.hub = vision
+        self.detector = vision
+        self.profile = SimpleNamespace(templates={})
+        self.scan_region = None
+        self._pending_templates = set()
+        self._rereg_after = None
+        self.logged = []
+
+    def ensure_registered(self):
+        pass
+
+    def reload_profile(self):
+        self.profile = SimpleNamespace(
+            templates=dict(flowfile.calibration_template_list(self.profile_dir)))
+
+    def _update_cal_ui(self):
+        pass
+
+    def log_ui(self, msg, level="info"):
+        self.logged.append(msg)
+
+
+def _stub_capture(monkeypatch):
+    import contextlib
+
+    from harness import Screen
+    monkeypatch.setattr(app_mod.ui_overlay, "screen_clear",
+                        lambda root, extra=(): contextlib.nullcontext())
+    monkeypatch.setattr(app_mod.capture, "grab",
+                        lambda region=None: (Screen((0, 0)), (0, 0)))
+    monkeypatch.setattr(app_mod.time, "sleep", lambda s: None)
+
+
+def test_指定校準對把兩張圖複製進profile自存(tkroot, monkeypatch, tmp_path):
+    from harness import Vision
+    _stub_capture(monkeypatch)
+    monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app: ("a", "b"))
+    vision = Vision()
+    vision.plan(flowfile.cal_template_name("a"), [(100, 100)])
+    vision.plan(flowfile.cal_template_name("b"), [(400, 100)])
+    a = _MeasureApp(tkroot, tmp_path, vision)
+    a.ws.add("a", b"AAA")
+    a.ws.add("b", b"BBB")
+
+    a.designate_pair()
+
+    stored = flowfile.calibration_images(str(tmp_path))
+    assert sorted(stored) == ["a", "b"], "兩張圖複製進 profile 自存"
+    assert open(stored["a"], "rb").read() == b"AAA"
+    cal = calibration.load(str(tmp_path))
+    assert cal["pair"] == ["a", "b"]
+    assert cal["baseline"] == 300.0 and cal["scale"] == 1.0
+
+
+def test_量測取profile自存的校準圖_不是本流程的範本(tkroot, monkeypatch, tmp_path):
+    """刪掉或搬走任何一份流程後校準仍可量測——工作區裡沒有那兩張圖也要行."""
+    from harness import Vision
+    _stub_capture(monkeypatch)
+    flowfile.store_calibration_images(str(tmp_path), {"a": b"A", "b": b"B"})
+    vision = Vision()
+    vision.plan(flowfile.cal_template_name("a"), [(0, 0)])
+    vision.plan(flowfile.cal_template_name("b"), [(0, 60)])
+    a = _MeasureApp(tkroot, tmp_path, vision)
+    a.reload_profile()
+    assert a.ws.names() == [], "工作區是空的 (流程被刪掉了)"
+
+    dist = a._measure_pair(["a", "b"], "校準")
+
+    assert dist == 60.0
+    assert vision.lookups == [flowfile.cal_template_name("a"),
+                              flowfile.cal_template_name("b")], \
+        "查的是 profile 自存的校準圖, 不是本流程的範本"
+
+
+def test_profile缺校準圖時量測失敗並提示重新指定(tkroot, monkeypatch, tmp_path):
+    from harness import Vision
+    _stub_capture(monkeypatch)
+    rec = _warnings(monkeypatch)
+    a = _MeasureApp(tkroot, tmp_path, Vision())
+    a.reload_profile()
+    assert a._measure_pair(["a", "b"], "校準") is None
+    assert any("校準圖" in m for m in rec)
