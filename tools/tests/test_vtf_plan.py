@@ -159,3 +159,18 @@ def test_交付報告沒有說明時寫無(demo, engine):
     res = run(demo, engine, [find("開始")])
     text = open(res["report_path"], encoding="utf-8").read()
     assert "分岔建議" in text
+
+
+def test_交付報告列出流程裡的按鍵步驟即使計畫沒寫說明(demo, engine):
+    steps = [find("開始"), {"type": "key", "keys": "esc"}, find("確定")]
+    res = run(demo, engine, steps)
+    text = open(res["report_path"], encoding="utf-8").read()
+    section = text.split("## 口頭補充的按鍵")[1].split("##")[0]
+    assert "步驟 2" in section and "esc" in section
+
+
+@pytest.mark.parametrize("extra", [{"confirm": "gone"},
+                                   {"confirm": "appear", "confirmTemplate": "確定"}])
+def test_不點擊的找圖寫了點擊後確認就報錯(demo, engine, extra):
+    refused(demo, engine, [find("開始", action="none", **extra), find("確定")],
+            "confirm")

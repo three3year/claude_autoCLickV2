@@ -10,12 +10,15 @@
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 
 import cv2
 
 import calibration
 import flowfile
 from automation import flowfmt
+from subject_detection.library import load_config
 
 from . import defaults
 from . import origin as origin_mod
@@ -49,8 +52,6 @@ def _video_ratio(region, info, profile):
     範本圖不因它縮放 (交給引擎的尺度搜尋), 所以它必須落在 profile 引擎
     設定的尺度範圍內, 否則執行時引擎根本找不到範本。
     """
-    from subject_detection.library import load_config
-
     rw = region[2] / info["width"]
     rh = region[3] / info["height"]
     if abs(rw - rh) / min(rw, rh) > RATIO_TOLERANCE:
@@ -119,7 +120,6 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
         p["video"], verify_mod.frames_needed(p["templates"], p["steps"]))
     crops = {n: _crop(frames, n, t, info) for n, t in p["templates"].items()}
 
-    from subject_detection.library import load_config
     engine = engine or verify_mod.make_engine()
     checked = verify_mod.verify(engine, crops, p["templates"], p["steps"],
                                 frames, load_config(profile))
@@ -158,18 +158,14 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
 
     flows = flowfile.flows_dir(profile)
     os.makedirs(flows, exist_ok=True)
-    flow_path = flowfile.free_path(flows, p["name"], flowfile.EXT)
-    try:
-        flowfile.write(flow_path, data, images, pos)
-    except BaseException:
-        for leftover in (flow_path + ".tmp",):
-            if os.path.exists(leftover):
-                os.remove(leftover)
-        raise
+    rp = report_path or p["report_path"]
+    stem = _free_stem(flows, p["name"], beside=rp is None)
+    flow_path = os.path.join(flows, stem + flowfile.EXT)
+    rp = str(rp or os.path.join(flows, stem + ".md"))
 
     used = flowfile.used_templates(steps)
     result = {
-        "flow_path": flow_path,
+        "flow_path": flow_path, "report_path": rp,
         "video": p["video"], "profile": profile,
         "video_size": [info["width"], info["height"]],
         "region": region, "ratio": ratio,
@@ -182,10 +178,36 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
         "found": found,
         "step_list": steps,
     }
-    rp = report_path or p["report_path"] or flowfile.free_path(
-        flows, os.path.splitext(os.path.basename(flow_path))[0], ".md")
-    os.makedirs(os.path.dirname(os.path.abspath(rp)), exist_ok=True)
-    with open(rp, "w", encoding="utf-8") as f:
-        f.write(report_mod.render(result, p))
-    result["report_path"] = str(rp)
+    _place(flow_path, rp, data, images, pos, report_mod.render(result, p))
     return result
+
+
+def _free_stem(flows, name, beside):
+    """流程目錄裡未被占用的檔名主幹 (不覆蓋既有存檔).
+
+    與 `flowfile.free_path` 同一條加序號規則 (name、name_2、name_3…); 報告與
+    存檔並排時兩個檔名要一起空著, 報告才保證與存檔同名。
+    """
+    stem, n = name, 1
+    while (os.path.exists(os.path.join(flows, stem + flowfile.EXT))
+           or (beside and os.path.exists(os.path.join(flows, stem + ".md")))):
+        n += 1
+        stem = f"{name}_{n}"
+    return stem
+
+
+def _place(flow_path, report_path, data, images, pos, report_text):
+    """存檔與報告先在暫存目錄寫完整, 再一起落地; 任何一步失敗都不留半成品."""
+    with tempfile.TemporaryDirectory(prefix="vtf_out_") as tmp:
+        staged = os.path.join(tmp, "flow" + flowfile.EXT)
+        flowfile.write(staged, data, images, pos)
+        staged_report = os.path.join(tmp, "report.md")
+        with open(staged_report, "w", encoding="utf-8") as f:
+            f.write(report_text)
+        os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
+        shutil.move(staged, flow_path)
+        try:
+            shutil.move(staged_report, report_path)
+        except BaseException:
+            os.remove(flow_path)
+            raise

@@ -230,6 +230,10 @@ def _steps(raw, templates):
                 _err(where, f"引用的範本「{s.get('template')}」不在計畫的範本清單裡")
             if "at" in s:
                 s["at"] = _xy(where + " at", s["at"])
+            if s.get("action", "click") != "click" and (
+                    s.get("confirm", "none") != "none" or s.get("confirmTemplate")):
+                _err(where, "點擊後確認 (confirm/confirmTemplate) 只有動作為點擊的"
+                     "找圖才有意義，不點擊的找圖不要寫")
             if s.get("confirm") == "appear":
                 if s.get("confirmTemplate") not in templates:
                     _err(where, f"確認圖「{s.get('confirmTemplate')}」"

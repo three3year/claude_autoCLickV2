@@ -193,3 +193,16 @@ def test_只能粗篩時命令列輸出明說驗證不完整(demo, coarse_engine
 
     assert cli.main(["assemble", str(plan_path)]) == 0
     assert "驗證不完整" in capsys.readouterr().out
+
+
+def test_該點的那一幀找到的是別處的同款圖時標待重拍原因寫位置不符(tmp_path, engine):
+    # 第 15 幀起「開始」搬到 (300, 180); 步驟卻說在第 15 幀點了原位置
+    video = moving_video(tmp_path)
+    profile = make_profile(tmp_path, region=REGION)
+    templates = {"開始": {"frame": 5, "box": box("開始")}}
+    steps = [find("開始", frame=15)]
+
+    res = run(demo_plan(video, profile, steps=steps, templates=templates), engine)
+
+    assert list(res["retake"]) == [RETAKE + "開始"]
+    assert any("位置不符" in why for why in res["retake"][RETAKE + "開始"])

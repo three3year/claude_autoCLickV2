@@ -63,13 +63,20 @@ def render(res, plan):
              "無。影片裡沒出現的彈窗不會被加成分岔；實跑卡住時再自己補。"),
             ("無法用點擊解釋的畫面變化", "unexplained",
              "無。"),
-            ("口頭補充的按鍵", "keys", "無。"),
+
             ("其他說明", "notes", None)):
         if not notes[key] and empty is None:
             continue
         lines += [f"## {title}", ""]
         lines += [f"- {n}" for n in notes[key]] or [empty]
         lines.append("")
+
+    # 按鍵影片裡看不到, 一定來自口頭補充: 流程裡的按鍵步驟一律列出, 再附計畫的說明
+    lines += ["## 口頭補充的按鍵", ""]
+    keys = [f"- 步驟 {i}：按鍵 `{s['keys']}`"
+            for i, s in enumerate(res["step_list"], 1) if s["type"] == "key"]
+    lines += keys + [f"- {n}" for n in notes["keys"]] or ["無。"]
+    lines.append("")
 
     lines += ["## 步驟清單", "", "| # | 步驟 | 內容 |", "|---|---|---|"]
     for i, s in enumerate(res["step_list"], 1):

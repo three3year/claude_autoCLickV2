@@ -8,8 +8,9 @@
 
 - 取材幀與 present 幀: 找得到, 且中心落在預期位置附近 (預設＝裁切框中心,
   present 可寫明新位置)
-- 引用它的每個找圖步驟的 frame (該點的那一幀): 找得到——引擎在這一幀實際
-  找到的框就是原點推算用的框
+- 引用它的每個找圖步驟的 frame (該點的那一幀): 找得到, 且步驟的點擊位置
+  `at` 落在找到的框附近 (框外最多再一個框寬高)——引擎在這一幀實際找到的
+  框就是原點推算用的框, 找錯同款圖偏移就全錯
 - absent 幀 (還沒出現的那幾幀): 找不到
 - 計畫標示 clean: false (找不到乾淨影格): 不論結果都待重拍
 """
@@ -21,16 +22,12 @@ import tempfile
 import cv2
 
 from .errors import ToolError
+from .geom import center as _center
 
 
 def position_tolerance(box):
     """中心容許偏離的距離 (px): 壓縮失真讓框抖個 1-2px 是常態."""
     return max(6.0, 0.25 * min(box[2], box[3]))
-
-
-def _center(box):
-    x, y, w, h = box
-    return x + w // 2, y + h // 2
 
 
 def make_engine():
@@ -111,8 +108,15 @@ def verify(engine, crops, templates, steps, frames, config):
                 if s["type"] != "find_click" or s["template"] != name:
                     continue
                 frame = step_frame(s, templates)
-                if query(frame) is None:
+                got = query(frame)
+                if got is None:
                     res["reasons"].append(f"步驟 {no} 該點的那一幀（第 {frame} 幀）找不到")
+                elif "at" in s:
+                    gx, gy = _center(got)
+                    if abs(s["at"][0] - gx) > got[2] or abs(s["at"][1] - gy) > got[3]:
+                        res["reasons"].append(
+                            f"位置不符（步驟 {no} 第 {frame} 幀：點擊位置 "
+                            f"{s['at'][0]},{s['at'][1]} 離找到的框 {gx},{gy} 太遠）")
             for frame in t["absent"]:
                 if query(frame) is not None:
                     res["reasons"].append(f"出現前就匹配（第 {frame} 幀不該找得到）")

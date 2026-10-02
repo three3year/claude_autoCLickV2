@@ -202,3 +202,28 @@ def test_命令列報錯時以非零結束並印出原因(tmp_path):
 
     assert proc.returncode != 0
     assert "搜尋範圍" in proc.stderr.decode("utf-8", "replace")
+
+
+def test_報告寫不出來時不留下存檔(demo, engine, tmp_path):
+    video, profile = demo
+    blocker = tmp_path / "是檔案不是目錄"
+    blocker.write_bytes(b"x")
+    before = snapshot(profile)
+
+    with pytest.raises(OSError):
+        run(demo_plan(video, profile), engine,
+            report_path=str(blocker / "報告.md"))
+
+    assert snapshot(profile) == before
+
+
+def test_預設報告與存檔同名並排即使有殘留的同名報告(demo, engine):
+    video, profile = demo
+    stale = profile / "flows" / "日常.md"
+    stale.write_text("舊報告", encoding="utf-8")
+
+    res = run(demo_plan(video, profile), engine)
+
+    assert os.path.basename(res["flow_path"]) == "日常_2" + flowfile.EXT
+    assert os.path.basename(res["report_path"]) == "日常_2.md"
+    assert stale.read_text(encoding="utf-8") == "舊報告"

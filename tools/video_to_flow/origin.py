@@ -19,11 +19,7 @@
 from __future__ import annotations
 
 from .errors import ToolError
-
-
-def _center(box):
-    x, y, w, h = box
-    return x + w // 2, y + h // 2
+from .geom import center as _center
 
 
 def _no_origin(no, step, why):
@@ -45,23 +41,23 @@ def derive(steps, templates, located):
     偏移不可信 (組裝前的結構檢查用)。
     """
     origin, why = None, ""
-    stack = []   # [(種類, 進入區段時的原點)]
+    stack = []   # [(種類, 進入區段時的原點, 沒有原點的原因)]
     out = []
     for i, s in enumerate(steps):
         no = i + 1
         s = dict(s)
         t = s["type"]
         if t == "loop_start":
-            stack.append(("loop", origin))
+            stack.append(("loop", origin, why))
             origin, why = None, _IN_LOOP
         elif t == "branch_start":
-            stack.append(("branch", origin))
+            stack.append(("branch", origin, why))
         elif t == "branch_or":
-            origin = stack[-1][1]
+            _, origin, why = stack[-1]
         elif t == "loop_end":
-            _, before = stack.pop()
+            _, before, before_why = stack.pop()
             if origin is None:   # 區段內沒有任何原點來源 → 原點仍是進區段前那個
-                origin, why = before, ""
+                origin, why = before, before_why
         elif t == "branch_end":
             stack.pop()
             origin, why = None, _AFTER_BRANCH

@@ -35,3 +35,6 @@
 `library.load_config`（讀 profile 的引擎參數）、`QueryResult.debug`
 （比對測試的除錯分數，格式不承諾穩定）。**掃目錄是呼叫端的事**：引擎沒有
 「給我一個 profile 目錄我自己找圖」這條入口（ADR 0006）。
+`tools/video_to_flow`（`影片轉流程`工具，不進 app、不進打包版）也直接用同一組
+公開 API（`make_library`＋`Engine.register`／`query`）在影片影格上自我驗證範本：
+它不執行流程、沒有 runner，不是 app 的第二條辨識路徑。
