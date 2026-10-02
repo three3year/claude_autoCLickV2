@@ -26,4 +26,4 @@ where = ["src"]
 subject_detection = ["default_config.yaml"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "app/tests"]
+testpaths = ["tests", "app/tests", "tools/tests"]
