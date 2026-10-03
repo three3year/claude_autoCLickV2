@@ -1,4 +1,8 @@
-"""票 02 — `影片換算比`與尺度檢查 (含已校準 profile 的`畫面倍率`換回基準尺度).
+"""影片與實際畫面同尺度 (1:1) 與`畫面倍率`換回基準尺度.
+
+示範影片是在執行流程的這台機器上、以實際畫面尺度錄的: 影片像素就是螢幕
+像素, 偏移不依搜尋範圍大小換算 (搜尋範圍只決定流程在哪裡找圖)。profile
+已校準且畫面倍率≠1 時, 座標再換回基準尺度 (ADR 0005)。
 
 只打組裝入口; 斷言存檔裡的偏移、範本圖尺寸、報告文字與 profile 檔案狀態。
 """
@@ -11,14 +15,14 @@ import pytest
 import flowfile
 import video_to_flow
 from vtf_synth import (VIDEO_H, VIDEO_W, box, center, demo_plan, demo_video,
-                       find, make_profile, snapshot)
+                       find, make_profile)
 
 FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
 OTHER_FP = {"x": 0, "y": 0, "w": 2560, "h": 1440}
 
 
-def region(k, ky=None):
-    return [0, 0, round(VIDEO_W * k), round(VIDEO_H * (ky or k))]
+def region(w, h, x=0, y=0):
+    return [x, y, w, h]
 
 
 def off(name, dx, dy):
@@ -41,56 +45,44 @@ def saved_steps(res):
     return flowfile.read(res["flow_path"])["data"]["steps"]
 
 
-def test_搜尋範圍是影片的1點5倍時找圖偏移乘1點5且範本不縮放(tmp_path, engine):
-    res, _ = assemble(tmp_path, engine, region(1.5),
+@pytest.mark.parametrize("reg", [
+    region(VIDEO_W, VIDEO_H),
+    region(VIDEO_W + 38, VIDEO_H + 63, 133, 45),    # 搜尋範圍連視窗邊框一起框
+    region(round(VIDEO_W * 1.5), round(VIDEO_H * 1.5)),
+], ids=["同尺寸", "比影片大且長寬比不同", "1.5倍"])
+def test_偏移以影片像素原樣存檔不依搜尋範圍大小換算(tmp_path, engine, reg):
+    res, _ = assemble(tmp_path, engine, reg,
                       steps=[off("開始", 10, -3), off("確定", 0, 0),
                              off("下一步", -7, 5)])
 
     steps = saved_steps(res)
     assert [(s["offsetX"], s["offsetY"]) for s in steps] == [
-        (15, -5), (0, 0), (-11, 8)]   # ×1.5 四捨五入 (負值對稱進位)
+        (10, -3), (0, 0), (-7, 5)]
     r = flowfile.read(res["flow_path"])
+    assert r["data"]["scanRegion"] == reg
     for name in ("開始", "確定", "下一步"):
         img = cv2.imdecode(np.frombuffer(r["images"][name], np.uint8),
                            cv2.IMREAD_COLOR)
         assert list(img.shape[1::-1]) == box(name)[2:]
-    assert res["ratio"] == pytest.approx(1.5)
 
 
-@pytest.mark.parametrize("ky", [1.5 * 1.03, 1.5 * 0.97])
-def test_寬高比值差距超過約2趴就報錯且沒有新檔(tmp_path, engine, ky):
-    video = demo_video(tmp_path)
-    profile = make_profile(tmp_path, region=region(1.5, ky))
-    before = snapshot(profile)
+def test_影片比搜尋範圍大時照常組裝但提醒(tmp_path, engine):
+    res, _ = assemble(tmp_path, engine, region(VIDEO_W - 80, VIDEO_H))
 
-    with pytest.raises(video_to_flow.ToolError, match="長寬比"):
-        video_to_flow.assemble(demo_plan(video, profile), engine=engine,
-                               fingerprint=FP)
-    assert snapshot(profile) == before
+    assert any("比搜尋範圍大" in w for w in res["warnings"])
+    text = open(res["report_path"], encoding="utf-8").read()
+    assert "比搜尋範圍大" in text
 
 
-def test_寬高比值差距在容許內照常組裝(tmp_path, engine):
-    res, _ = assemble(tmp_path, engine, region(1.5, 1.5 * 1.01))
-    assert res["ratio"] == pytest.approx(1.5, abs=0.01)
-
-
-@pytest.mark.parametrize("k", [2.0, 0.5])
-def test_影片換算比超出引擎尺度範圍就報錯且沒有新檔(tmp_path, engine, k):
-    video = demo_video(tmp_path)
-    profile = make_profile(tmp_path, region=region(k),
-                           config={"scale_range": [0.6, 1.5]})
-    before = snapshot(profile)
-
-    with pytest.raises(video_to_flow.ToolError, match="尺度範圍"):
-        video_to_flow.assemble(demo_plan(video, profile), engine=engine,
-                               fingerprint=FP)
-    assert snapshot(profile) == before
+def test_影片不比搜尋範圍大時沒有提醒(tmp_path, engine):
+    res, _ = assemble(tmp_path, engine, region(VIDEO_W + 38, VIDEO_H + 63))
+    assert res["warnings"] == []
 
 
 def test_profile已校準且畫面倍率不是1時座標再除以倍率(tmp_path, engine):
     cal = {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.25,
            "fingerprint": FP}
-    res, profile = assemble(tmp_path, engine, region(1.0),
+    res, profile = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H),
                             steps=[off("開始", 10, -5)], cal=cal)
 
     s = saved_steps(res)[0]
@@ -101,40 +93,31 @@ def test_profile已校準且畫面倍率不是1時座標再除以倍率(tmp_path
         assert json.load(f) == cal
 
 
-def test_影片換算比與畫面倍率一起換算只進位一次(tmp_path, engine):
-    cal = {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.2,
-           "fingerprint": FP}
-    res, _ = assemble(tmp_path, engine, region(1.5),
-                      steps=[off("開始", 7, 3)], cal=cal)
-    s = saved_steps(res)[0]
-    # 7 × 1.5 ÷ 1.2 = 8.75 → 9; 3 × 1.25 = 3.75 → 4
-    assert (s["offsetX"], s["offsetY"]) == (9, 4)
-
-
 @pytest.mark.parametrize("cal", [
     {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.0, "fingerprint": FP},
     {"pair": ["a", "b"], "baseline": 100.0, "scale": None, "fingerprint": None},
     {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.25, "fingerprint": OTHER_FP},
 ], ids=["倍率1", "從未校準", "指紋不符"])
 def test_未校準或倍率為1時座標不變(tmp_path, engine, cal):
-    res, _ = assemble(tmp_path, engine, region(1.0),
+    res, _ = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H),
                       steps=[off("開始", 10, -5)], cal=cal)
     s = saved_steps(res)[0]
     assert (s["offsetX"], s["offsetY"]) == (10, -5)
 
 
-def test_交付報告寫明影片換算比與畫面倍率換算(tmp_path, engine):
+def test_交付報告寫明影片與實際畫面同尺度與畫面倍率換算(tmp_path, engine):
     cal = {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.25,
            "fingerprint": FP}
-    res, _ = assemble(tmp_path, engine, region(1.5), cal=cal)
+    res, _ = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H), cal=cal)
     text = open(res["report_path"], encoding="utf-8").read()
-    assert "影片換算比：1.500" in text
+    assert "影片尺度：與實際畫面一致" in text
+    assert "換算比" not in text
     assert "畫面倍率" in text and "1.250" in text
 
 
 def test_未校準時報告提醒以倍率1換算(tmp_path, engine):
     cal = {"pair": ["a", "b"], "baseline": 100.0, "scale": None,
            "fingerprint": None}
-    res, _ = assemble(tmp_path, engine, region(1.0), cal=cal)
+    res, _ = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H), cal=cal)
     text = open(res["report_path"], encoding="utf-8").read()
     assert "未校準" in text

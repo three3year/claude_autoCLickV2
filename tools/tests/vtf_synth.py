@@ -247,3 +247,103 @@ def snapshot(profile):
             p = Path(dirpath) / fn
             out[p.relative_to(profile).as_posix()] = p.read_bytes()
     return out
+
+
+# ---------- 遊戲自繪游標: 錄影程式沒畫特效, 游標本身在點擊時抖一下 ----------
+
+CURSOR_W, CURSOR_H = 30, 38
+
+
+def cursor_sprite(pressed=False):
+    """遊戲自繪的游標 (BGRA; alpha＝不透明處): 尖端 (熱點) 在左上角 (1, 1).
+
+    一支白色長矛 + 下方一顆有黑眼的骷髏頭; pressed＝點擊當下那一兩幀的樣子
+    (骷髏頭往下一沉、眼睛變大)——遊戲畫的`點擊特效`。
+    """
+    img = np.zeros((CURSOR_H, CURSOR_W, 4), np.uint8)
+    white = (235, 240, 245, 255)
+    cv2.line(img, (1, 1), (16, 22), white, 3)
+    dy = 4 if pressed else 0
+    cv2.ellipse(img, (18, 24 + dy // 2), (10, 8), 0, 0, 360, (210, 215, 220, 255), -1)
+    cv2.ellipse(img, (15, 24 + dy // 2), (4, 3) if not pressed else (6, 5), 0, 0, 360,
+                (20, 20, 20, 255), -1)
+    for tx in (12, 17, 22):
+        cv2.line(img, (tx, 30 + dy // 2), (tx, 36), (225, 230, 235, 255), 2)
+    cv2.line(img, (20, 12 + dy), (27, 6 + dy), (180, 190, 200, 255), 2)
+    cv2.line(img, (8, 4 + dy), (4, 10 + dy), (200, 205, 210, 255), 2)
+    return img
+
+
+CURSOR_HOTSPOT = (1, 1)
+
+
+def draw_sprite(img, sprite, x, y, hotspot=CURSOR_HOTSPOT):
+    """把 BGRA 游標畫到 img 上, 熱點落在 (x, y); 超出畫面的部分裁掉."""
+    h, w = sprite.shape[:2]
+    x0, y0 = int(round(x)) - hotspot[0], int(round(y)) - hotspot[1]
+    H, W = img.shape[:2]
+    sx0, sy0 = max(0, -x0), max(0, -y0)
+    sx1, sy1 = min(w, W - x0), min(h, H - y0)
+    if sx1 <= sx0 or sy1 <= sy0:
+        return
+    roi = img[y0 + sy0:y0 + sy1, x0 + sx0:x0 + sx1]
+    sp = sprite[sy0:sy1, sx0:sx1]
+    a = sp[..., 3:4].astype(np.float32) / 255
+    roi[:] = (sp[..., :3] * a + roi * (1 - a)).astype(np.uint8)
+
+
+def busy_screen(seed):
+    """紋理很多的畫面 (底色區塊 + 小方格), 游標在上面才看得出背景在變."""
+    r = np.random.default_rng(seed)
+    img = r.integers(20, 200, (VIDEO_H // 10 + 1, VIDEO_W // 10 + 1, 3), dtype=np.uint8)
+    img = cv2.resize(img, (VIDEO_W, VIDEO_H), interpolation=cv2.INTER_NEAREST)
+    for _ in range(25):
+        p1 = (int(r.integers(0, VIDEO_W)), int(r.integers(0, VIDEO_H)))
+        cv2.circle(img, p1, int(r.integers(3, 14)),
+                   tuple(int(c) for c in r.integers(0, 255, 3)), -1)
+    return img
+
+
+def cursor_video(path, clicks=(), n_frames=160, fps=20, press_frames=2,
+                 scenes=((0, 0),), keyframes=(), parked=None):
+    """合成一支「遊戲自繪游標」的示範影片 (沒有錄影程式的點擊特效).
+
+    clicks: [(幀, (x, y))]——游標先移過去停住, 從該幀起畫 pressed 樣子
+        press_frames 幀 (遊戲的點擊特效), 之後恢復一般樣子;
+    scenes: [(起幀, 底圖種子)]——畫面切換;
+    keyframes: 這些幀整張疊一層雜訊 (模擬壓縮的關鍵幀跳動: 全畫面都在變);
+    parked: 開頭游標停的位置 (預設 (20, 20))。
+    """
+    start = parked or (20.0, 20.0)
+    keys = [(0, start)]
+    for f, p in sorted(clicks):
+        keys += [(f - 6, keys[-1][1]), (f - 2, p), (f + press_frames + 4, p)]
+
+    def cursor_at(f):
+        prev = keys[0]
+        for k in keys:
+            if k[0] >= f:
+                (f0, a), (f1, b) = prev, k
+                if f1 <= f0:
+                    return b
+                t = (f - f0) / (f1 - f0)
+                return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+            prev = k
+        return keys[-1][1]
+
+    shots = {seed: busy_screen(seed) for _, seed in scenes}
+    noise = np.random.default_rng(7)
+    normal, pressed = cursor_sprite(False), cursor_sprite(True)
+    frames = []
+    for f in range(n_frames):
+        seed = [s for start_f, s in scenes if start_f <= f][-1]
+        img = shots[seed].copy()
+        down = any(fc <= f < fc + press_frames for fc, _ in clicks)
+        x, y = cursor_at(f)
+        draw_sprite(img, pressed if down else normal, x, y)
+        if f in keyframes:
+            img = np.clip(img.astype(np.int16)
+                          + noise.normal(0, 6, img.shape).astype(np.int16),
+                          0, 255).astype(np.uint8)
+        frames.append(img)
+    return write_video(path, frames, fps=fps)

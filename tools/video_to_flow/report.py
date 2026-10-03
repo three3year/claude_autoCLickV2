@@ -30,7 +30,7 @@ def render(res, plan):
         f"- 流程存檔：`{res['flow_path']}`",
         f"- 示範影片：`{res['video']}`（{res['video_size'][0]}×{res['video_size'][1]}）",
         f"- 搜尋範圍：[{_fmt_region(res['region'])}]",
-        f"- 影片換算比：{res['ratio']:.3f}（偏移 ×換算比；範本圖不縮放）",
+        "- 影片尺度：與實際畫面一致（影片像素＝螢幕像素，偏移與範本圖都不縮放）",
         f"- 畫面倍率：{_scale_line(res)}",
         f"- 步驟數：{res['steps']}",
         f"- 範本數：{res['templates']}",
@@ -38,6 +38,8 @@ def render(res, plan):
     if res["unused"]:
         lines.append(f"- 沒有步驟引用、未放進存檔的範本：{'、'.join(res['unused'])}")
     lines.append("")
+    if res["warnings"]:
+        lines += ["## 提醒", ""] + [f"- {w}" for w in res["warnings"]] + [""]
     lines += ["## 自我驗證", ""]
     if res["verification"] == "coarse":
         lines += ["**驗證不完整**：深度驗證模型無法載入，引擎只剩粗篩；"

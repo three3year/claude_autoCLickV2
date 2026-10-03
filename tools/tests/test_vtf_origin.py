@@ -12,8 +12,8 @@ from vtf_synth import (FRAME, VIDEO_H, VIDEO_W, center, demo_plan, demo_video,
                        find, make_profile, snapshot)
 
 FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
-K = 1.5
-REGION = [0, 0, round(VIDEO_W * K), round(VIDEO_H * K)]
+# 搜尋範圍比影片大: 偏移仍是影片像素原樣 (影片與實際畫面同尺度)
+REGION = [0, 0, round(VIDEO_W * 1.5), round(VIDEO_H * 1.5)]
 
 
 @pytest.fixture
@@ -32,7 +32,8 @@ def saved(res):
 
 
 def sc(v):
-    return flowfmt.scale_px(v, K)
+    """影片像素 → 存檔像素: 同尺度, 原樣."""
+    return v
 
 
 def found_center(res, name, frame=None):
@@ -44,7 +45,7 @@ def click(x, y, **kw):
     return dict({"type": "click", "at": [x, y]}, **kw)
 
 
-def test_相對座標點擊的偏移等於點擊位置減前一個找圖實際找到的中心乘換算比(demo, engine):
+def test_相對座標點擊的偏移等於點擊位置減前一個找圖實際找到的中心(demo, engine):
     res = run(demo, engine, [find("開始"), click(150, 100)])
 
     cx, cy = found_center(res, "開始")

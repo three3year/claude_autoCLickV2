@@ -41,33 +41,19 @@ def _profile_region(profile):
     return [int(v) for v in region], draft
 
 
-# 寬、高兩個換算比值容許的相對差距: 超過就是長寬比對不上 (錄影框或搜尋範圍
-# 框錯), 硬算會讓每個偏移都差幾個百分點
-RATIO_TOLERANCE = 0.02
+def _size_warnings(region, info):
+    """影片與搜尋範圍的尺寸提醒 (不拒絕).
 
-
-def _video_ratio(region, info, profile):
-    """`影片換算比`＝搜尋範圍寬高 ÷ 影片畫面寬高; 條件可疑就拒絕.
-
-    範本圖不因它縮放 (交給引擎的尺度搜尋), 所以它必須落在 profile 引擎
-    設定的尺度範圍內, 否則執行時引擎根本找不到範本。
+    `示範影片`與實際畫面同尺度 (影片像素＝螢幕像素), 偏移不依搜尋範圍換算;
+    搜尋範圍只決定執行時在哪裡找圖, 通常連視窗邊框一起框、比影片略大。
+    影片反而比搜尋範圍大＝錄到了範圍外的東西, 或錄影時縮放了畫面——
+    前者照樣能跑, 後者範本與偏移都會差一個倍數, 交給使用者判斷。
     """
-    rw = region[2] / info["width"]
-    rh = region[3] / info["height"]
-    if abs(rw - rh) / min(rw, rh) > RATIO_TOLERANCE:
-        raise ToolError(
-            f"影片與搜尋範圍的長寬比對不上：影片 {info['width']}×{info['height']}、"
-            f"搜尋範圍 {region[2]}×{region[3]}（寬比 {rw:.3f}、高比 {rh:.3f}，"
-            f"差距超過 {RATIO_TOLERANCE:.0%}）。請確認錄影只錄遊戲視窗、"
-            "搜尋範圍框在同一個遊戲畫面上")
-    ratio = (rw + rh) / 2
-    lo, hi = (float(v) for v in load_config(profile)["scale_range"])
-    if not lo <= ratio <= hi:
-        raise ToolError(
-            f"影片換算比 {ratio:.3f} 超出 profile 引擎設定的尺度範圍 "
-            f"[{lo}, {hi}]：範本取自影片、不縮放，執行時引擎會找不到它們。"
-            "請用與執行時相近的視窗大小重錄，或調整 profile 的 scale_range")
-    return ratio
+    if info["width"] <= region[2] and info["height"] <= region[3]:
+        return []
+    return [f"影片比搜尋範圍大（影片 {info['width']}×{info['height']}、"
+            f"搜尋範圍 {region[2]}×{region[3]}）：確認錄影是以實際畫面尺度（不縮放）"
+            "錄的，且執行時遊戲畫面落在搜尋範圍內；錄影若有縮放，範本與偏移都會對不上"]
 
 
 def _screen_scale(profile, fingerprint):
@@ -113,7 +99,7 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
     profile = p["profile"]
     region, draft = _profile_region(profile)
     info = video_mod.probe(p["video"])
-    ratio = _video_ratio(region, info, profile)
+    warnings = _size_warnings(region, info)
     scale, cal_state = _screen_scale(profile, fingerprint)
 
     frames = video_mod.read_frames(
@@ -135,12 +121,11 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
     # 驗證沒過的範本: 名稱加`待重拍`前綴、步驟引用 (含確認圖) 同步改寫
     images = {n: _png(img) for n, img in crops.items()}
     # 範本元資料 pos＝取材當下的中心螢幕座標 (編輯器推算預設原點的備援):
-    # 影片像素 → 目前搜尋範圍內的螢幕座標
+    # 影片像素＝螢幕像素, 以影片左上角對齊搜尋範圍左上角近似
     pos = {}
     for n, t in p["templates"].items():
         x, y, w, h = t["box"]
-        pos[n] = [region[0] + flowfmt.scale_px(x + w // 2, ratio),
-                  region[1] + flowfmt.scale_px(y + h // 2, ratio)]
+        pos[n] = [region[0] + x + w // 2, region[1] + y + h // 2]
     retake = {}
     for name, r in checked.items():
         if r["reasons"]:
@@ -149,9 +134,10 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
             images[new] = images.pop(name)
             pos[new] = pos.pop(name)
             retake[new] = r["reasons"]
-    # 影片像素的偏移 → 本機像素 (×換算比) → 當前基準尺度 (÷畫面倍率, ADR 0005);
-    # 一次乘完再進位, 重用校準模組的步驟縮放 (哪些欄位是像素只有它說得算)
-    calibration.scale_steps(steps, ratio / scale)
+    # 影片像素＝本機像素 → 當前基準尺度 (÷畫面倍率, ADR 0005); 重用校準模組的
+    # 步驟縮放 (哪些欄位是像素只有它說得算)
+    if scale != 1.0:
+        calibration.scale_steps(steps, 1.0 / scale)
     data = {"steps": steps, "runMode": "count", "runCount": 1,
             "scanRegion": region, "avoidHover": bool(draft.get("avoidHover", False)),
             flowfmt.COORD_SPACE: flowfmt.REGION}
@@ -168,7 +154,7 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
         "flow_path": flow_path, "report_path": rp,
         "video": p["video"], "profile": profile,
         "video_size": [info["width"], info["height"]],
-        "region": region, "ratio": ratio,
+        "region": region, "warnings": warnings,
         "scale": scale, "calibration": cal_state,
         "steps": len(steps),
         "templates": len(used),

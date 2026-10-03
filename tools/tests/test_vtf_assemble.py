@@ -18,7 +18,7 @@ from vtf_synth import (ROOT, VIDEO_H, VIDEO_W, box, demo_plan, demo_video,
                        make_profile, read_frame, snapshot)
 
 FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
-REGION = [100, 50, VIDEO_W, VIDEO_H]   # 搜尋範圍與影片同尺寸 → 影片換算比 1
+REGION = [100, 50, VIDEO_W, VIDEO_H]   # 搜尋範圍與影片同尺寸
 
 
 @pytest.fixture
@@ -120,14 +120,14 @@ def test_profile既有資料一律不動只多出存檔與報告(demo, engine):
     assert res["report_path"].endswith("日常.md")
 
 
-def test_交付報告列出搜尋範圍影片換算比步驟數與範本數(demo, engine):
+def test_交付報告列出搜尋範圍影片尺度步驟數與範本數(demo, engine):
     video, profile = demo
     res = run(demo_plan(video, profile), engine)
 
     with open(res["report_path"], encoding="utf-8") as f:
         text = f.read()
     assert "搜尋範圍" in text and "100, 50, 480, 270" in text
-    assert "影片換算比" in text and "1.000" in text
+    assert "影片尺度：與實際畫面一致" in text
     assert "步驟數：3" in text
     assert "範本數：3" in text
 

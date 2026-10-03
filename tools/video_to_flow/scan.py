@@ -3,9 +3,15 @@
 讓 Claude 不必逐幀看影片: 找出`點擊特效`出現的時間與位置, 附信心與縮圖,
 由 Claude 覆核 (剔誤報、補漏抓) 後寫`轉換計畫`。
 
-兩種偵測 (都在縮到寬 ≤640 的影格上做, 位置換回影片像素):
+三種偵測. 遊戲自己畫游標 (錄影程式畫不出特效) 時用第一種, 見 `cursor.py`:
 
-- **特效樣本** (sample): 錄影程式畫的特效長相描述 `{"bgr": [b, g, r],
+- **游標樣本** (`{"kind": "cursor", ...}`, 由 `learn_cursor` 從影片學到): 逐幀追
+  遊戲畫的游標, 游標停著時它自己抖一下 (按下/放開) 就是點擊; 畫面切換前沒看到
+  特效的, 以游標停留處補低信心候選。候選多一個 `cue`: effect / screen。
+
+以下兩種在縮到寬 ≤640 的影格上做, 位置換回影片像素:
+
+- **顏色樣本** (sample): 錄影程式畫的特效長相描述 `{"bgr": [b, g, r],
   "tolerance": 60}`——第一次處理某位使用者的影片時從影片學到 (見 skill)。
   逐幀找接近該顏色的區塊、跨幀追蹤: 停在原地＝點擊, 一路移動＝拖曳
   (起訖兩點)。一開頭就在、長時間不動、隨整個畫面切換才出現的同色區塊是
@@ -25,6 +31,7 @@ import os
 import cv2
 import numpy as np
 
+from . import cursor as cursor_mod
 from . import video as video_mod
 from .errors import ToolError
 
@@ -40,12 +47,16 @@ MERGE_SECONDS = 0.3
 def _load_sample(sample):
     if sample is None:
         return None
+    base = os.getcwd()
     if not isinstance(sample, dict):
+        base = os.path.dirname(os.path.abspath(str(sample)))
         try:
             with open(sample, encoding="utf-8") as f:
                 sample = json.load(f)
         except (OSError, ValueError) as e:
             raise ToolError(f"讀不到特效樣本：{sample}（{e}）") from None
+    if isinstance(sample, dict) and sample.get("kind") == "cursor":
+        return cursor_mod.load_sample(sample, base)
     bgr = sample.get("bgr") if isinstance(sample, dict) else None
     if (not isinstance(bgr, list) or len(bgr) != 3
             or not all(isinstance(v, (int, float)) and 0 <= v <= 255 for v in bgr)):
@@ -54,7 +65,7 @@ def _load_sample(sample):
     tol = sample.get("tolerance", 60)
     if not isinstance(tol, (int, float)) or tol <= 0:
         raise ToolError(f"特效樣本的 tolerance 要是正數，收到 {tol!r}")
-    return {"bgr": np.array(bgr, np.int16), "tolerance": float(tol)}
+    return {"kind": "color", "bgr": np.array(bgr, np.int16), "tolerance": float(tol)}
 
 
 class _Tracks:
@@ -282,7 +293,8 @@ def scan(video, out_dir, sample=None, frames=()):
     video = str(video)
     info = video_mod.probe(video)
     smp = _load_sample(sample)
-    det = _Detector(info, smp)
+    cursor = smp is not None and smp["kind"] == "cursor"
+    det = cursor_mod.Detector(info, smp) if cursor else _Detector(info, smp)
     for i, frame in video_mod.iter_frames(video):
         det.feed(i, frame)
     total = det.count
@@ -294,6 +306,8 @@ def scan(video, out_dir, sample=None, frames=()):
         item = {"id": k, "frame": c["frame"], "time": round(c["frame"] / fps, 3),
                 "endFrame": c["endFrame"], "kind": c["kind"],
                 "confidence": round(min(1.0, c["conf"]), 2), "color": c["color"]}
+        if "cue" in c:
+            item["cue"] = c["cue"]
         item["x"], item["y"] = det.to_video(c["c"])
         if c["kind"] == "drag":
             item["from"] = det.to_video(c["frm"])
@@ -350,7 +364,7 @@ def scan(video, out_dir, sample=None, frames=()):
 
     result = {"video": video, "width": info["width"], "height": info["height"],
               "fps": fps, "frames": total,
-              "mode": "sample" if smp else "fallback",
+              "mode": "cursor" if cursor else "sample" if smp else "fallback",
               "highConfidence": HIGH, "candidates": cands}
     path = os.path.join(out_dir, "candidates.json")
     with open(path, "w", encoding="utf-8") as f:
