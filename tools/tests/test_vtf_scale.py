@@ -110,7 +110,7 @@ def test_交付報告寫明影片與實際畫面同尺度與畫面倍率換算(t
            "fingerprint": FP}
     res, _ = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H), cal=cal)
     text = open(res["report_path"], encoding="utf-8").read()
-    assert "影片尺度：與實際畫面一致" in text
+    assert "影片與實際畫面同尺度" in text
     assert "換算比" not in text
     assert "畫面倍率" in text and "1.250" in text
 

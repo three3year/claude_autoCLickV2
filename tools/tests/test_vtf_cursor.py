@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 import video_to_flow
-from vtf_synth import (CURSOR_HOTSPOT, ROOT, VIDEO_H, VIDEO_W, cursor_sprite,
+from vtf_synth import (ROOT, VIDEO_H, VIDEO_W, cursor_sprite,
                        cursor_video)
 
 CLICKS = [(30, (100, 80)), (70, (300, 160)), (115, (200, 200))]
@@ -93,8 +93,9 @@ def test_畫面切換前沒看到特效時仍列為低信心候選(sample, tmp_p
 
     low = [c for c in res["candidates"] if c["cue"] == "screen"]
     assert low and all(c["confidence"] < res["highConfidence"] for c in low)
-    assert hits(low, 49, (150, 120)) or any(
-        abs(c["x"] - 150) <= POS_TOL and abs(c["y"] - 120) <= POS_TOL for c in low)
+    # 位置＝切換前游標停的地方; 幀＝停留期間 (切換在第 50 幀)
+    assert any(abs(c["x"] - 150) <= POS_TOL and abs(c["y"] - 120) <= POS_TOL
+               and 40 <= c["frame"] <= 50 for c in low)
 
 
 def test_壓縮關鍵幀的全畫面跳動不算點擊(sample, tmp_path):
@@ -146,7 +147,16 @@ def test_命令列學樣本再掃描(clicks_video, tmp_path):
     assert "cursor" in proc.stdout.decode("utf-8", "replace")
 
 
-def test_熱點常數與合成游標一致():
-    # 測試輔助自身的健全性: 熱點那一點是不透明的游標尖端
-    assert cursor_sprite()[CURSOR_HOTSPOT[1], CURSOR_HOTSPOT[0], 3] == 255
-    assert (VIDEO_W, VIDEO_H) == (480, 270)
+def test_學樣本給的位置超出畫面時指名是哪一幀(clicks_video, tmp_path):
+    pts = LEARN_AT[:5] + [(125, (VIDEO_W + 30, 40))]
+    with pytest.raises(video_to_flow.ToolError, match="125.*超出畫面"):
+        video_to_flow.learn_cursor(clicks_video, pts, tmp_path / "s.json")
+
+
+def test_熱點落在游標圖外時提醒(clicks_video, tmp_path):
+    # 每幀都指在尖端左上 8px 的空白處: 學得出游標, 但熱點不在游標上
+    off = [(f, (x - 8, y - 8)) for f, (x, y) in LEARN_AT]
+    res = video_to_flow.learn_cursor(clicks_video, off, tmp_path / "s.json")
+    assert any("熱點" in w for w in res["warnings"])
+    good = video_to_flow.learn_cursor(clicks_video, LEARN_AT, tmp_path / "g.json")
+    assert good["warnings"] == []

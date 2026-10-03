@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import math
 import os
+from collections import namedtuple
 
 import cv2
 import numpy as np
@@ -31,11 +32,12 @@ ALIGN = 6                 # 學樣本時各幀互相對齊容許的偏差 (Claud
 STABLE_STD = 20.0         # 跨幀離散程度低於此＝游標本體 (背景每幀不同)
 MAX_COVER = 0.6           # 穩定像素佔裁切窗超過此比例＝背景沒有變化, 學不出來
 FIT_MIN = 0.5             # 學樣本時每一幀與中位數游標的相似度下限
+HOT_SLACK = 6             # 熱點可以落在游標圖外多遠 (尖端常是細線, 學不進去)
 
 TRACK_MIN = 0.5           # 遮罩比對分數 ≥ 此值才算找到游標
 TRACK_SURE = 0.7          # 分數 ≥ 此值＝肯定是游標 (低於此才拿熱點那一角來比)
 TRACK_NEAR = 0.5          # 在上一幀位置附近找到、分數 ≥ 此值就算同一個游標
-NEAR = 8                  # 「上一幀位置附近」的範圍 (px)
+LOCK_RADIUS = 8           # 「上一幀位置附近」的範圍 (px)
 SWITCH = 0.05             # 整張找到的別處要比原地高出這麼多才換過去
 # 游標樣子變化以灰階 RMS 計 (第一支示範影片校準: 點擊 10–28、平常 0–8)
 QUIET = 8.0               # 上一幀游標樣子變化低於此＝平靜
@@ -45,6 +47,14 @@ JITTER = 3                # 比對樣子變化時容許的對齊抖動 (px)
 PAIR_SECONDS = 0.4        # 按下、放開兩次抖動相隔多近算同一次點擊
 REACT_SECONDS = 1.5       # 點擊後多久內畫面切換算「有反應」; 也是補低信心候選的回看範圍
 SCREEN_CONF = 0.4         # 畫面切換前沒看到特效時補上的候選信心
+
+
+def _best(img, tpl, mask=None):
+    """遮罩比對的最佳 (分數, 左上角); 遮罩讓某些位置算不出分數 (NaN) 時當 -1."""
+    res = cv2.matchTemplate(img, tpl, cv2.TM_CCOEFF_NORMED, mask=mask)
+    res = np.nan_to_num(res, nan=-1.0, posinf=-1.0, neginf=-1.0)
+    _, v, _, loc = cv2.minMaxLoc(res)
+    return float(v), loc
 
 
 def _read_png(path):
@@ -106,6 +116,12 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
         raise ToolError(f"學游標樣本至少要 {MIN_POINTS} 幀（游標停在不同背景上），"
                         f"收到 {len(pts)} 幀")
     frames = video_mod.read_frames(video, [f for f, _ in pts])
+    out = [f for f, (x, y) in pts
+           if not (0 <= x < frames[f].shape[1] and 0 <= y < frames[f].shape[0])]
+    if out:
+        raise ToolError(f"第 {', '.join(map(str, out))} 幀給的位置超出畫面"
+                        f"（影片 {frames[out[0]].shape[1]}×{frames[out[0]].shape[0]}）："
+                        "位置要寫游標尖端的影片像素")
     r = int(radius)
     wins = [_window(frames[f], x, y, r) for f, (x, y) in pts]
 
@@ -132,9 +148,7 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
             # 在原裁切窗上找 ref, 只在原位置 ±ALIGN 內找
             lo_y, lo_x = max(0, y0 - ALIGN), max(0, x0 - ALIGN)
             area = src[lo_y:y1 + ALIGN, lo_x:x1 + ALIGN]
-            res = cv2.matchTemplate(area, ref, cv2.TM_CCOEFF_NORMED, mask=m)
-            res = np.nan_to_num(res, nan=-1.0, posinf=-1.0, neginf=-1.0)
-            _, _, _, (lx, ly) = cv2.minMaxLoc(res)
+            _, (lx, ly) = _best(area, ref, m)
             new.append((lo_x + lx - x0, lo_y + ly - y0))
         shifts = new
     aligned = [_shift(img, valid, dx, dy) for (img, valid), (dx, dy) in zip(wins, shifts)]
@@ -160,8 +174,7 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
     m = alpha
     for (f, _), a in zip(pts, aligned):
         crop = a[0][y0:y1, x0:x1].clip(0, 255).astype(np.uint8)
-        s = cv2.matchTemplate(_gray(crop), _gray(tpl), cv2.TM_CCOEFF_NORMED, mask=m)
-        s = float(np.nan_to_num(s, nan=-1.0).max())
+        s, _ = _best(_gray(crop), _gray(tpl), m)
         fits[f] = round(s, 3)
         if s < FIT_MIN:
             bad.append(f)
@@ -178,12 +191,20 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
         raise ToolError("游標樣本圖無法編碼成 PNG")
     buf.tofile(png)
     hotspot = [int(round(hot[0] - x0)), int(round(hot[1] - y0))]
+    warnings = []
+    if not (-HOT_SLACK <= hotspot[0] < tpl.shape[1] + HOT_SLACK
+            and -HOT_SLACK <= hotspot[1] < tpl.shape[0] + HOT_SLACK):
+        warnings.append(
+            f"熱點 {hotspot} 落在游標圖（{tpl.shape[1]}×{tpl.shape[0]}）外：給的位置可能"
+            "不是游標尖端，或尖端太細沒被學進去；候選位置會照這個熱點偏移，"
+            "請從格線圖確認尖端位置後重學")
     sample = {"kind": "cursor", "template": os.path.basename(png), "hotspot": hotspot,
               "learnedFrom": [f for f, _ in pts]}
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(sample, f, ensure_ascii=False, indent=2)
     return {"sample_path": out_path, "template_path": png, "size": [int(x1 - x0), int(y1 - y0)],
-            "hotspot": hotspot, "cover": round(float(alpha.mean() / 255), 3), "fits": fits}
+            "hotspot": hotspot, "cover": round(float(alpha.mean() / 255), 3), "fits": fits,
+            "warnings": warnings}
 
 
 def _robust(stack):
@@ -256,30 +277,19 @@ class _View:
             small = cv2.resize(padded, None, fx=self.cs, fy=self.cs,
                                interpolation=cv2.INTER_AREA) if self.cs < 1 else padded
             small_cache[self.cs] = small
-        r = cv2.matchTemplate(small, self.small_tpl, cv2.TM_CCOEFF_NORMED,
-                              mask=self.small_mask)
-        r = np.nan_to_num(r, nan=-1.0, posinf=-1.0, neginf=-1.0)
-        _, _, _, (x, y) = cv2.minMaxLoc(r)
+        _, (x, y) = _best(small, self.small_tpl, self.small_mask)
+        # 縮圖上的位置換回原尺寸, 在附近幾 px 內精確找
         m = int(math.ceil(2 / self.cs)) + 1
-        x0, y0 = max(0, int(x / self.cs) - m), max(0, int(y / self.cs) - m)
-        win = padded[y0:y0 + self.th + 2 * m, x0:x0 + self.tw + 2 * m]
-        if win.shape[0] < self.th or win.shape[1] < self.tw:
-            return -1.0, (0, 0)
-        r = cv2.matchTemplate(win, self.tpl, cv2.TM_CCOEFF_NORMED, mask=self.mask)
-        r = np.nan_to_num(r, nan=-1.0, posinf=-1.0, neginf=-1.0)
-        _, v, _, (lx, ly) = cv2.minMaxLoc(r)
-        return float(v), (x0 + lx, y0 + ly)
+        return self.near(padded, int(x / self.cs), int(y / self.cs), m)
 
     def near(self, padded, lx, ly, r):
-        """只在 (lx, ly) 附近 ±r 找 (游標上一幀的位置): 回傳 (分數, 位置)."""
+        """只在左上角 (lx, ly) 附近 ±r 找: 回傳 (分數, 樣本左上角位置)."""
         x0, y0 = max(0, lx - r), max(0, ly - r)
         win = padded[y0:ly + self.th + r, x0:lx + self.tw + r]
         if win.shape[0] < self.th or win.shape[1] < self.tw:
             return -1.0, (0, 0)
-        res = cv2.matchTemplate(win, self.tpl, cv2.TM_CCOEFF_NORMED, mask=self.mask)
-        res = np.nan_to_num(res, nan=-1.0, posinf=-1.0, neginf=-1.0)
-        _, v, _, (x, y) = cv2.minMaxLoc(res)
-        return float(v), (x0 + x, y0 + y)
+        v, (x, y) = _best(win, self.tpl, self.mask)
+        return v, (x0 + x, y0 + y)
 
     def change(self, padded, prev, lx, ly):
         """游標這一幀與上一幀同一處的樣子差 (灰階 RMS, 容許 ±JITTER 對齊)."""
@@ -293,10 +303,13 @@ class _View:
         return math.sqrt(max(0.0, float(r.min())) / self.n)
 
 
+# 每幀追蹤紀錄: 找到游標? 熱點 (x, y)、游標樣子變化 (RMS; 無法比較時 None)、
+# 全畫面平均灰階差、是否畫面切換
+_Rec = namedtuple("_Rec", "found x y change gdiff trans")
+
+
 class Detector:
     """逐幀追游標、看它在停住時有沒有抖一下 (遊戲畫的點擊特效)."""
-
-    s = 1.0   # 影片像素直接用, 不縮圖
 
     def __init__(self, info, sample):
         self.fps = info["fps"]
@@ -316,7 +329,7 @@ class Detector:
         self.prev = None          # 上一幀 (補邊後的灰階)
         self.last = None          # 上一幀找到游標時: (樣子, 位置)
         self.prev_small = None
-        self.recs = []            # 每幀: (找到?, 熱點 x, y, 樣子變化, 全畫面差, 切換?)
+        self.recs = []            # 每幀一筆 _Rec
         self.count = 0
 
     def feed(self, i, frame):
@@ -338,9 +351,9 @@ class Detector:
             # 分數掉一些, 仍要鎖在原地——整張找的結果要明顯更像才換過去
             # (游標移走了, 或上一幀其實鎖錯在背景上)
             v, (lx, ly) = self.last
-            sc, lc = v.near(padded, lx, ly, NEAR)
+            sc, lc = v.near(padded, lx, ly, LOCK_RADIUS)
             if sc >= TRACK_NEAR and not (score >= sc + SWITCH
-                                         and math.dist(loc, lc) > NEAR):
+                                         and math.dist(loc, lc) > LOCK_RADIUS):
                 view, score, loc = v, sc, lc
         found = score >= TRACK_MIN
         self.last = (view, loc) if found else None
@@ -354,7 +367,7 @@ class Detector:
         if found and self.prev is not None:
             change = view.change(padded, self.prev, *loc)
         hx, hy = loc[0] - P + self.hot[0], loc[1] - P + self.hot[1]
-        self.recs.append((found, hx, hy, change, gd, trans))
+        self.recs.append(_Rec(found, hx, hy, change, gd, trans))
         self.prev, self.prev_small = padded, small
 
     @property
@@ -365,14 +378,13 @@ class Detector:
         recs = self.recs
         presses = []
         for k in range(1, len(recs)):
-            ok, x, y, ch, gd, _ = recs[k]
-            pok, px, py, pch, _, _ = recs[k - 1]
-            if not (ok and pok) or ch is None or pch is None:
+            cur, prev = recs[k], recs[k - 1]
+            if not (cur.found and prev.found) or cur.change is None or prev.change is None:
                 continue
-            if math.dist((x, y), (px, py)) > self.still:
+            if math.dist((cur.x, cur.y), (prev.x, prev.y)) > self.still:
                 continue
-            if pch < QUIET and ch >= SPIKE and gd < GLOBAL_MAX:
-                presses.append({"frame": k, "c": (px, py), "spike": ch})
+            if prev.change < QUIET and cur.change >= SPIKE and cur.gdiff < GLOBAL_MAX:
+                presses.append({"frame": k, "c": (prev.x, prev.y)})
         out = []
         gap = max(1, round(PAIR_SECONDS * self.fps))
         for p in presses:
@@ -386,7 +398,7 @@ class Detector:
                         "kind": "click", "cue": "effect", "paired": False,
                         "color": None, "area": 0})
         react = max(1, round(REACT_SECONDS * self.fps))
-        onsets = [k for k in range(1, len(recs)) if recs[k][5] and not recs[k - 1][5]]
+        onsets = [k for k in range(1, len(recs)) if recs[k].trans and not recs[k - 1].trans]
         for c in out:
             reacted = any(c["frame"] <= t <= c["endFrame"] + react for t in onsets)
             c["conf"] = 0.8 + 0.1 * c.pop("paired") + 0.1 * reacted
@@ -396,10 +408,10 @@ class Detector:
                 continue
             spot = None
             for k in range(t - 1, max(0, t - react) - 1, -1):
-                ok, x, y = recs[k][:3]
-                pok, px, py = recs[k - 1][:3] if k > 0 else (False, 0, 0)
-                if ok and pok and math.dist((x, y), (px, py)) <= self.still:
-                    spot = (k, (x, y))
+                cur, prev = recs[k], recs[k - 1] if k > 0 else None
+                if (cur.found and prev is not None and prev.found
+                        and math.dist((cur.x, cur.y), (prev.x, prev.y)) <= self.still):
+                    spot = (k, (cur.x, cur.y))
                     break
             if spot is None:
                 continue

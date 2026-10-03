@@ -80,23 +80,28 @@ def main(argv=None):
                       f"@ {c['x']},{c['y']} 信心 {c['confidence']:.2f} {c['kind']}"
                       + (f" {c['cue']}" if "cue" in c else ""))
         elif args.cmd == "learn-cursor":
-            from .cursor import learn
-            res = learn(args.video, args.at, args.out)
+            from . import learn_cursor
+            res = learn_cursor(args.video, args.at, args.out)
             print(f"游標樣本：{res['sample_path']}（圖 {res['template_path']}）")
             print(f"  大小 {res['size'][0]}×{res['size'][1]}、熱點 {res['hotspot']}、"
                   f"不透明 {res['cover']:.0%}")
             print("  各幀相似度：" + "、".join(f"{f}={v}" for f, v in res["fits"].items()))
+            for w in res["warnings"]:
+                print(f"提醒：{w}")
         else:
             from .assemble import assemble
             res = assemble(args.plan, report_path=args.report)
             print(f"流程存檔：{res['flow_path']}")
             print(f"交付報告：{res['report_path']}")
+            for w in res["warnings"]:
+                print(f"提醒：{w}")
             if res["verification"] == "coarse":
                 print("警告：驗證不完整——深度驗證模型無法載入，只做了粗篩")
             for name, why in res["retake"].items():
                 print(f"待重拍：{name}：{'；'.join(why)}")
             summary = {k: v for k, v in res.items()
-                       if k not in ("flow_path", "report_path", "found", "step_list")}
+                       if k not in ("flow_path", "report_path", "found", "step_list",
+                                    "warnings")}
             print(json.dumps(summary, ensure_ascii=False, indent=2))
     except ToolError as e:
         print(f"錯誤：{e}", file=sys.stderr)

@@ -120,14 +120,14 @@ def test_profile既有資料一律不動只多出存檔與報告(demo, engine):
     assert res["report_path"].endswith("日常.md")
 
 
-def test_交付報告列出搜尋範圍影片尺度步驟數與範本數(demo, engine):
+def test_交付報告列出搜尋範圍影片同尺度步驟數與範本數(demo, engine):
     video, profile = demo
     res = run(demo_plan(video, profile), engine)
 
     with open(res["report_path"], encoding="utf-8") as f:
         text = f.read()
     assert "搜尋範圍" in text and "100, 50, 480, 270" in text
-    assert "影片尺度：與實際畫面一致" in text
+    assert "影片與實際畫面同尺度" in text
     assert "步驟數：3" in text
     assert "範本數：3" in text
 

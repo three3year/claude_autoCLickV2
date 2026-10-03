@@ -30,7 +30,7 @@ def render(res, plan):
         f"- 流程存檔：`{res['flow_path']}`",
         f"- 示範影片：`{res['video']}`（{res['video_size'][0]}×{res['video_size'][1]}）",
         f"- 搜尋範圍：[{_fmt_region(res['region'])}]",
-        "- 影片尺度：與實際畫面一致（影片像素＝螢幕像素，偏移與範本圖都不縮放）",
+        "- 影片與實際畫面同尺度：影片像素＝螢幕像素，偏移與範本圖都不縮放",
         f"- 畫面倍率：{_scale_line(res)}",
         f"- 步驟數：{res['steps']}",
         f"- 範本數：{res['templates']}",
