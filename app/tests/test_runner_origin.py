@@ -53,7 +53,7 @@ def test_等待消失記錄最後看到的位置當原點(harness):
 def test_尚無原點時相對座標步驟被跳過(harness):
     harness.run([click(10, 20, mode="prev"), click(9, 9)])
     assert harness.clicks() == [(9, 9)]
-    assert "尚無上一個點擊位置" in harness.log_text()
+    assert "尚無原點" in harness.log_text()
 
 
 def test_找圖偏移後的位置才是原點(harness):

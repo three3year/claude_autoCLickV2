@@ -150,4 +150,4 @@ def test_勾掉更新原點時補點不影響原點(harness):
                  find("b.png", action="none", updateOrigin=False, interval=0.1),
                  click(7, 3, mode="prev")])
     assert harness.clicks() == [(500, 400), (500, 400)]
-    assert "尚無上一個點擊位置" in harness.log_text()
+    assert "尚無原點" in harness.log_text()

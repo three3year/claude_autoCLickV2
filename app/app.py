@@ -771,12 +771,18 @@ class App:
 
             opts = ui_dialogs.edit_target_opts(
                 self, self.root, base, "忙碌指示的找圖設定", test_fn=test)
-            if opts is not None:
-                self.busy_target = findtarget.make_target(name, **opts)
+            tgt = findtarget.make_target(name, **opts) if opts else None
+            if tgt is not None and findtarget.needs_origin(tgt):
+                # 補做前才查、那時的原點不固定: 只能以搜尋範圍為基準
+                messagebox.showwarning(
+                    "忙碌指示", "忙碌指示的限定範圍與指定點不能以原點為基準，"
+                    "請改用九宮格或搜尋範圍", parent=self.root)
+            elif tgt is not None:
+                self.busy_target = tgt
                 self._autosave()
                 self.log_ui(f"已設定忙碌指示「{name}」：補做前畫面上有它就先不補",
                             "ok")
-        ui_dialogs._discard_unused(self, added, None)
+        ui_dialogs.discard_unused(self, added, None)
         self._update_retry_ui()
 
     # ================= UI 建構 =================

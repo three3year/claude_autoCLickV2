@@ -2,12 +2,13 @@
 
 **一份`流程`＝一個自包自足的存檔** (副檔名 `.autoclickpack`, zip)::
 
-    flow.json               步驟與流程層級設定 (含 coordSpace、`校準對`與`基準距離`)
+    flow.json               步驟與流程層級設定 (含 coordSpace、`校準對`與`基準距離`、
+                            `補做間隔`、`忙碌指示`)
     templates/<名稱>.png    本流程引用到的範本圖 (一範本一張圖, 名稱平面無層級)
     templates/_meta.json    範本元資料: {"pos": {範本名: [x, y]}}
 
-存檔**只寫入被引用的**範本 (步驟的找圖目標含`確認圖`, 以及流程的`校準對`,
-見 `flow_refs`): 刪掉引用它的步驟再存檔, 那張圖就離開存檔——檔案內容永遠等於
+存檔**只寫入被引用的**範本 (步驟的找圖目標含`確認圖`, 以及流程的`校準對`與
+`忙碌指示`, 見 `flow_refs`): 刪掉引用它的步驟再存檔, 那張圖就離開存檔——檔案內容永遠等於
 流程真正需要的東西。
 
 **工作區** (`<profile>/workspace/`) 是 profile 底下可重建的快取: 當前流程解出來
@@ -133,18 +134,14 @@ def flow_refs(data):
     """一份流程引用的全部範本名 (已排序): 步驟的`找圖目標` + 流程層級設定
     (`校準對`、`忙碌指示`).
 
-    「被引用的範本」只有這一份定義: 存檔只打包它們、範本預載載它們、對話框
-    收回未使用的新圖時保留它們——校準對不被步驟引用, 漏了它, 存檔一整理
+    規則在 findtarget.referenced_templates (範本預載也照它): 存檔只打包它們、
+    對話框收回未使用的新圖時保留它們——校準對不被步驟引用, 漏了它, 存檔一整理
     流程就不能執行。
     """
-    refs = set(used_templates(data.get("steps") or []))
     cal = calibration.flow_pair(data)
-    if cal:
-        refs.update(cal["pair"])
     busy = busy_target(data)
-    if busy:
-        refs.add(busy["template"])
-    return sorted(refs)
+    extra = [*(cal["pair"] if cal else ()), *([busy["template"]] if busy else ())]
+    return sorted(findtarget.referenced_templates(data.get("steps") or [], extra))
 
 
 def rename_flow_refs(data, old, new):
@@ -167,15 +164,7 @@ def rename_flow_refs(data, old, new):
 def used_templates(steps):
     """所有`找圖目標`引用的範本名 (確認圖只在生效確認選「確認圖出現」時算;
     找圖、座標點擊、拖曳都有確認圖), 已排序."""
-    used = set()
-    for s in steps:
-        if s.get("type") == "find_click" and findtarget.template(s):
-            used.add(findtarget.template(s))
-        if (s.get("type") in findtarget.CONFIRMABLE
-                and s.get("confirm") == "appear"
-                and findtarget.confirm_template(s)):
-            used.add(findtarget.confirm_template(s))
-    return sorted(used)
+    return sorted(findtarget.referenced_templates(steps))
 
 
 # flowFormat 2 的步驟欄位: 範本名直接掛在步驟上 → 3 的`找圖目標`
@@ -282,8 +271,8 @@ def _blob(src):
 def write(path, data, images, pos=None):
     """寫出一份自包自足的流程存檔; 回傳被引用卻缺圖的範本名 list.
 
-    images: {範本名: bytes 或圖檔路徑}。只有 `data` 引用到的範本 (步驟與校準對,
-    `flow_refs`) 會進存檔 (未被引用的圖不進去, 存檔才不會囤積用不到的圖)。缺圖不是
+    images: {範本名: bytes 或圖檔路徑}。只有 `data` 引用到的範本 (步驟、校準對、
+    忙碌指示, `flow_refs`) 會進存檔 (未被引用的圖不進去, 存檔才不會囤積用不到的圖)。缺圖不是
     致命錯誤 (使用者可能剛刪掉範本, 步驟由既有機制標示為有問題), 回報給呼叫端
     寫進執行紀錄即可。
     """

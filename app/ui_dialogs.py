@@ -1490,7 +1490,7 @@ def edit_step(app, step):
 
     # ---- 座標點擊 / 拖曳的`生效確認` (ADR 0008) ----
     pointer_confirm = None
-    if t in ("click", "drag"):
+    if t in findtarget.POINTER_TYPES:
         pointer_confirm = _pointer_confirm_block(
             app, dlg, body, step, v, added, add_row, add_note, lbl)
 
@@ -1517,7 +1517,6 @@ def edit_step(app, step):
                                "相對上一步點擊位置": "prev"}[v["mode"].get()],
                          button=v["button"].get(), ms=max(50, v["ms"].get()),
                          holdMs=max(0, v["holdMs"].get()))
-            if pointer_confirm is not None:
                 pointer_confirm(s)
             elif t == "loop_start":
                 s.update(count=max(1, v["count"].get()))
@@ -1580,7 +1579,7 @@ def edit_step(app, step):
     make_modal(dlg)
     dlg.focus_force()
     root.wait_window(dlg)
-    _discard_unused(app, added, result[0])
+    discard_unused(app, added, result[0])
     return result[0]
 
 
@@ -1596,7 +1595,7 @@ def _pointer_confirm_block(app, dlg, body, step, v, added, add_row, add_note,
                            lbl):
     """座標點擊／拖曳對話框的`生效確認`區塊; 回傳 apply(s): 把表單寫回步驟.
 
-    方式、確認圖 (同一個選範本對話框＋找圖設定)、逾時/輪詢、找不到時 (預設停止:
+    方式、確認圖 (同一個選範本對話框＋找圖設定)、逾時/輪詢、`找不到時` (預設停止:
     拖曳沒生效還往下走, 後面的相對點擊會點錯列)。沒有確認時不寫任何確認欄位。
     """
     key_of = {n: k for k, n in POINTER_CFM_ZH.items()}
@@ -1665,7 +1664,7 @@ def _pointer_confirm_block(app, dlg, body, step, v, added, add_row, add_note,
     ttk.Spinbox(fr, textvariable=v["cfm_interval"], from_=0.1, to=60,
                 increment=0.1, width=6).pack(side="left", padx=(0, 4))
     lbl(fr, "秒檢查")
-    fr = row("確認不到時")
+    fr = row("找不到時")
     ttk.Combobox(fr, textvariable=v["cfm_nf"], width=18, state="readonly",
                  values=list(NF_ZH.values())).pack(side="left")
 
@@ -1698,7 +1697,7 @@ def _pointer_confirm_block(app, dlg, body, step, v, added, add_row, add_note,
     return apply
 
 
-def _discard_unused(app, added, step):
+def discard_unused(app, added, step):
     """把這次對話框加進來、最後卻沒被用到的範本收回去.
 
     取消整個對話框＝這次加的圖全部丟棄; 按確定則只留這一步真的引用到的

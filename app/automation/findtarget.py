@@ -46,7 +46,8 @@ def confirm_template(step):
     return confirm_target(step).get("template", "")
 
 
-CONFIRMABLE = ("find_click", "click", "drag")   # 有`生效確認`的步驟種類
+POINTER_TYPES = ("click", "drag")               # 座標點擊與拖曳
+CONFIRMABLE = ("find_click",) + POINTER_TYPES   # 有`生效確認`的步驟種類
 
 
 def uses_confirm_target(step):
@@ -55,6 +56,28 @@ def uses_confirm_target(step):
     if t not in CONFIRMABLE or step.get("confirm") != "appear":
         return False
     return t != "find_click" or step.get("action", "click") == "click"
+
+
+def referenced_templates(steps, extra=()):
+    """被引用的範本名 (依出現順序去重): 找圖步驟的範本、生效確認的確認圖,
+    再加上流程層級設定引用的 extra (校準對、忙碌指示).
+
+    「被引用的範本」只有這一份定義: 存檔打包 (flowfile.flow_refs) 與
+    `範本預載` (執行器) 都照它。「點到下一步的圖出現」引用的是下一步的範本、
+    分岔條件是分支開頭的找圖步驟——都已涵蓋在「所有找圖步驟」之中。
+    """
+    seen = []
+    for s in steps:
+        names = [template(s)] if s.get("type") == "find_click" else []
+        if uses_confirm_target(s):
+            names.append(confirm_template(s))
+        for n in names:
+            if n and n not in seen:
+                seen.append(n)
+    for n in extra:
+        if n and n not in seen:
+            seen.append(n)
+    return seen
 
 
 def step_targets(step):

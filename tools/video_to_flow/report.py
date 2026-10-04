@@ -139,7 +139,7 @@ def _describe(s):
             if mode == "appear":
                 text += (f"「{findtarget.confirm_template(s)}」"
                          f"{findtarget.tag_text(findtarget.confirm_target(s))}")
-            text += f"；逾時 {s['timeout']}s 確認不到時{_NF[s['onNotFound']]}"
+            text += f"；逾時 {s['timeout']}s 找不到時{_NF[s['onNotFound']]}"
         return text
     if t == "wait":
         return f"{s['ms']} ms"

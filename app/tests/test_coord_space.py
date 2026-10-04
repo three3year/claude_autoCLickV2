@@ -47,7 +47,7 @@ def test_沒有搜尋範圍時絕對座標步驟會停下並說明(harness):
 def test_沒有搜尋範圍時相對座標步驟仍可執行(harness):
     """只有`絕對座標`需要範圍當基準."""
     harness.run([click(1, 1, mode="prev")], scan_region=None)
-    assert "尚無上一個點擊位置" in harness.log_text()
+    assert "尚無原點" in harness.log_text()
 
 
 # ---------- 存檔格式遷移 ----------

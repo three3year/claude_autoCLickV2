@@ -509,7 +509,7 @@ def test_取消整個對話框時這次加的範本被丟棄(picker):
     app.ws.add("kept", b"K")
     app.steps = [{"type": "find_click", "target": {"template": "kept"}}]
 
-    ui_dialogs._discard_unused(app, ["shot_1", "shot_2"], None)
+    ui_dialogs.discard_unused(app, ["shot_1", "shot_2"], None)
 
     assert app.ws.names() == ["kept"], "這次加的都不留"
     assert any("丟棄" in m for _l, m in app.logged)
@@ -522,7 +522,7 @@ def test_按確定時只留這一步真的引用到的(picker):
     step = {"type": "find_click", "target": {"template": "a"},
             "confirm": "appear", "confirmTarget": {"template": "c"}}
 
-    ui_dialogs._discard_unused(app, ["a", "b", "c"], step)
+    ui_dialogs.discard_unused(app, ["a", "b", "c"], step)
 
     assert app.ws.names() == ["a", "c"], "中途換掉的那張不留"
 
@@ -532,7 +532,7 @@ def test_已被其他步驟引用的絕不誤刪(picker):
     app.ws.add("shared", b"S")
     app.steps = [{"type": "find_click", "target": {"template": "shared"}}]
 
-    ui_dialogs._discard_unused(app, ["shared"], None)
+    ui_dialogs.discard_unused(app, ["shared"], None)
 
     assert app.ws.names() == ["shared"]
 
@@ -544,7 +544,7 @@ def test_校準對的範本絕不誤刪(picker):
     app.ws.add("關閉", b"X")
     app.flow_cal = {"pair": ["圖示", "關閉"], "baseline": 1696.0}
 
-    ui_dialogs._discard_unused(app, ["圖示", "關閉"], None)
+    ui_dialogs.discard_unused(app, ["圖示", "關閉"], None)
 
     assert app.ws.names() == sorted(["圖示", "關閉"])
 
@@ -552,7 +552,7 @@ def test_校準對的範本絕不誤刪(picker):
 def test_沒有新增範本時是空操作(picker):
     app = picker
     app.ws.add("a", b"A")
-    ui_dialogs._discard_unused(app, [], None)
+    ui_dialogs.discard_unused(app, [], None)
     assert app.ws.names() == ["a"]
     assert app.logged == []
 

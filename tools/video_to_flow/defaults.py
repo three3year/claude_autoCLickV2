@@ -12,7 +12,7 @@
 """
 from __future__ import annotations
 
-from automation.runner import confirm_next_connected, origin_source
+from automation.runner import POINTER_TYPES, confirm_next_connected, origin_source
 
 FIND = {"timeout": 10, "interval": 0.5, "action": "click", "button": "left",
         "clicks": 1, "onNotFound": "stop", "updateOrigin": True}
@@ -41,10 +41,10 @@ def apply(steps):
                 s.setdefault(k, v)
             if "confirm" not in s and origin_source(steps, i) == "find":
                 s["confirm"] = "gone"
-        if t in ("click", "drag") and s.get("confirm", "none") != "none":
-            for k, v in CONFIRM.items():
-                s.setdefault(k, v)
         elif t == "wait":
             for k, v in WAIT.items():
+                s.setdefault(k, v)
+        if t in POINTER_TYPES and s.get("confirm", "none") != "none":
+            for k, v in CONFIRM.items():
                 s.setdefault(k, v)
     return steps

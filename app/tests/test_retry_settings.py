@@ -145,3 +145,16 @@ def test_範本預載也載忙碌指示(harness):
     from harness import find
     harness.run([find("a")], busy=dict(BUSY))
     assert "提交中" in harness.vision.preloads[0]
+
+
+def test_忙碌指示不能以原點為基準(tkroot, monkeypatch, tmp_path):
+    rec = _warnings(monkeypatch)
+    a = _SetApp(tkroot, tmp_path)
+    monkeypatch.setattr(ui_dialogs, "pick_template",
+                        lambda app, title, initial=None: "提交中")
+    monkeypatch.setattr(ui_dialogs, "edit_target_opts", lambda *a_, **k: {
+        "limit": {"kind": "origin", "x": 0, "y": 0, "w": 9, "h": 9},
+        "pick": None, "color": False})
+    a.edit_busy_indicator()
+    assert a.busy_target is None
+    assert any("原點" in m for m in rec)

@@ -65,7 +65,7 @@ def confirm_next_connected(steps, idx):
     return idx + 1 < len(steps) and steps[idx + 1].get("type") == "find_click"
 
 
-POINTER_TYPES = ("click", "drag")   # 座標點擊與拖曳: 也有`生效確認` (ADR 0008)
+POINTER_TYPES = findtarget.POINTER_TYPES   # 座標點擊與拖曳: 也有`生效確認` (ADR 0008)
 
 
 def effect_confirm(step):
@@ -109,24 +109,9 @@ def uses_confirm_next(step):
     return effect_confirm(step) == "next"
 
 
-def flow_templates(steps):
-    """`範本預載`名單: 流程引用的全部範本名, 依出現順序去重.
-
-    找圖步驟的範本 + 確認圖 (找圖點擊、座標點擊、拖曳的「確認圖出現」)。
-    「點到下一步的圖出現」引用的是下一步 (必為找圖) 的範本、分岔條件是
-    分支開頭的找圖步驟——都已涵蓋在「所有找圖步驟」之中。
-    """
-    seen = []
-    for s in steps:
-        names = []
-        if s.get("type") == "find_click":
-            names.append(findtarget.template(s))
-        if findtarget.uses_confirm_target(s):
-            names.append(findtarget.confirm_template(s))
-        for n in names:
-            if n and n not in seen:
-                seen.append(n)
-    return seen
+def flow_templates(steps, extra=()):
+    """`範本預載`名單 (見 findtarget.referenced_templates, 唯一的定義)."""
+    return findtarget.referenced_templates(steps, extra)
 
 
 def _matching_branch_end(steps, i):
@@ -208,8 +193,8 @@ class Runner:
         self.total_rounds = 0 if run_mode == "infinite" else max(1, int(run_count))
         self.scan_region = scan_region  # 全域搜尋範圍 [x,y,w,h]; 步驟未自設範圍時套用
         self.avoid_hover = avoid_hover  # 找圖截圖前先把滑鼠移開, 避免 hover 反白干擾
-        # 流程的校準資料 {pair, baseline}; `畫面倍率`由開頭校準得出 (_calibrate)
-        self.calibration = calibration
+        # 流程的校準資料 {pair, baseline} (不成形＝None); `畫面倍率`由開頭校準得出
+        self.calibration = calibration if calib.valid(calibration) else None
         self.scale = 1.0
         # `補做間隔` (秒) 與`忙碌指示` (找圖目標或 None): 流程層級設定
         self.retry_interval = max(0.0, float(retry_interval))
@@ -349,14 +334,11 @@ class Runner:
         缺圖/登錄產物損壞在這裡就報明錯誤、流程不開跑——不讓問題拖到
         跑到一半才炸。每次執行都重掃 (登錄快取有效性由引擎那層把關)。
         """
-        names = flow_templates(steps)
-        cal = calib.flow_pair({calib.FLOW_KEY: self.calibration})
-        extra = list(cal["pair"]) if cal else []   # 開頭校準要查
+        extra = list(self.calibration["pair"]) if self.calibration else []
         if self.busy:
-            extra.append(self.busy["template"])     # 補做判斷要查
-        for n in extra:
-            if n not in names:
-                names.append(n)   # 流程層級設定引用的也是被引用的範本
+            extra.append(self.busy["template"])
+        # 流程層級設定 (開頭校準、補做判斷要查) 引用的也是被引用的範本
+        names = flow_templates(steps, extra)
         if not names:
             return
         self._preparing = True
@@ -381,7 +363,7 @@ class Runner:
         資料、任一張找不到、兩張重疊＝拋錯 (流程一個輸入都不送), 都寫一筆
         `calibrate` 檔案日誌。
         """
-        cal = calib.flow_pair({calib.FLOW_KEY: self.calibration})
+        cal = self.calibration
         if cal is None:
             self._log_calibrate(result="no_pair")
             raise RuntimeError("這份流程沒有校準對（舊格式或尚未設定）→ 不執行；"
@@ -414,10 +396,14 @@ class Runner:
                  f" ÷ 基準 {float(cal['baseline']):.1f}px）", "ok")
 
     def _log_calibrate(self, **fields):
+        self._log_file("calibrate", **fields)
+
+    def _log_file(self, event, **fields):
+        """寫一筆檔案日誌 (所有事件共用); 日誌絕不能反過來影響執行."""
         try:
-            self.filelog("calibrate", **fields)
+            self.filelog(event, **fields)
         except Exception:
-            pass   # 日誌絕不能反過來影響執行
+            pass
 
     # ---------- 原點 ----------
     def _set_origin(self, xy, target=None, box=None, origin=None):
@@ -526,7 +512,7 @@ class Runner:
         t = step["type"]
         rel = step.get("mode", "abs") == "prev"
         if rel and self._last_click is None:
-            self.log(f"[{no}] 相對座標: 尚無上一個點擊位置 → 跳過", "warn")
+            self.log(f"[{no}] 相對座標: 尚無原點 → 跳過", "warn")
             return None
         base = self._last_click if rel else self._abs_origin()
         button = step.get("button", "left")
@@ -563,7 +549,7 @@ class Runner:
             # `原點的圖離開`判斷不了: 輸入先不送 (送了也確認不了生效與否)
             self.log(f"[{no}] 「原點的圖離開」但原點不是來自找圖（或沒有原點）"
                      "→ 無法執行", "warn")
-            self._log_input("input.confirm", step=no, kind=t, mode=mode,
+            self._log_file("input.confirm", step=no, kind=t, mode=mode,
                             result="cannot_run", **fields)
             return self._on_not_found(no, f"[{no}] 原點不是來自找圖，無法確認生效",
                                       step.get("onNotFound", "stop"))
@@ -577,85 +563,59 @@ class Runner:
         if mode == "none":
             if updates:
                 self._set_origin(after)
-            self._log_input("input", step=no, kind=t, **fields)
+            self._log_file("input", step=no, kind=t, **fields)
             return None
+        rec = dict(step=no, kind=t, mode=mode, **fields)
         if mode == "gone":
-            return self._leaves(no, step, t, args, after, updates, fields, src)
-        origin = after if updates else before   # 確認以操作後的原點為準
-        ctgt = (findtarget.target(steps[idx + 1]) if mode == "next"
-                else findtarget.confirm_target(step))
-        cname = ctgt.get("template", "")
-        label = ("下一步的圖" if mode == "next" else "確認圖") + f"「{cname}」"
-        rec = dict(step=no, kind=t, mode=mode, template=cname, **fields)
-        if origin is None and findtarget.needs_origin(ctgt):
-            self.log(f"[{no}] {label}出現的判定以原點為基準: 尚無原點 → "
-                     "以「不確認」執行", "warn")
-            self._log_input("input.confirm", result="cannot_run", **rec)
-            return None
+            # `原點的圖離開`: 重查產生原點的找圖目標 (限定範圍以它查詢時的原點換算、
+            # 比色照開), 它挑中的框不再有匹配＝生效 (同等待消失的同位置判定)
+            tgt, box = src["target"], src["box"]
+            what = f"原點的圖「{tgt.get('template', '')}」"
+            rec.update(template=tgt.get("template", ""),
+                       picked=findtarget.fmt_box(box))
+
+            def check(screen, org):
+                f = self._find(no, tgt, screen, org, src["origin"])
+                return findtarget.still_there(box, f.matches) is None, f
+            waiting, done, fail = (f"{what}離開原位", f"{what}已離開原位",
+                                   f"{what}仍在原位")
+        else:
+            origin = after if updates else before   # 確認以操作後的原點為準
+            ctgt = (findtarget.target(steps[idx + 1]) if mode == "next"
+                    else findtarget.confirm_target(step))
+            what = (("下一步的圖" if mode == "next" else "確認圖")
+                    + f"「{ctgt.get('template', '')}」")
+            rec["template"] = ctgt.get("template", "")
+            if origin is None and findtarget.needs_origin(ctgt):
+                self.log(f"[{no}] {what}出現的判定以原點為基準: 尚無原點 → "
+                         "以「不確認」執行", "warn")
+                self._log_file("input.confirm", result="cannot_run", **rec)
+                return None
+
+            def check(screen, org):
+                f = self._find(no, ctgt, screen, org, origin, kind="確認")
+                return f.picked is not None, f
+            waiting, done, fail = f"{what}出現", f"{what}已出現", f"未見{what}"
         timeout = float(step.get("timeout", 10))
-        interval = float(step.get("interval", 0.5))
-        self.log(f"[{no}] 等待生效（直到{label}出現）")
-
-        def check(screen, org):
-            f = self._find(no, ctgt, screen, org, origin, kind="確認")
-            return f.picked is not None, f
-
+        self.log(f"[{no}] 等待生效（直到{waiting}）")
         ok, f, polls, inputs, delay = self._await_effect(
-            no, timeout, interval, check, lambda screen, org: True,
-            lambda: self._input(t, *args))
+            no, timeout, float(step.get("interval", 0.5)), check,
+            lambda screen, org: True, lambda: self._input(t, *args))
         rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}")
         if ok:
             if updates:
                 self._set_origin(after)
-            self.log(f"[{no}] 已生效（{label}已出現）", "ok")
-            self._log_input("input.confirm", result="found",
-                            picked=findtarget.fmt_box(f.picked.box), **rec)
+            self.log(f"[{no}] 已生效（{done}）", "ok")
+            if mode == "gone":
+                self._log_file("input.confirm", result="gone", **rec)
+            else:
+                self._log_file("input.confirm", result="found",
+                               **dict(rec, picked=findtarget.fmt_box(f.picked.box)))
             return None
-        self._log_input("input.confirm", result="timeout", **rec)
+        self._log_file("input.confirm", result="timeout", **rec)
         return self._on_not_found(
             no, f"[{no}] {'點擊' if t == 'click' else '拖曳'}後 {timeout}s 內"
-                f"未見{label}（送了 {inputs} 次）",
-            step.get("onNotFound", "stop"))
-
-    def _leaves(self, no, step, t, args, after, updates, fields, src):
-        """`原點的圖離開`: 重查產生原點的找圖目標, 它挑中的框不再有匹配＝生效.
-
-        用的是來源找圖目標原本的設定 (限定範圍以它查詢時的原點換算、比色照開),
-        「同一個位置」沿用等待消失的判定 (別處的同款不算)。操作前不多查一次。
-        """
-        tgt, box = src["target"], src["box"]
-        name = tgt.get("template", "")
-        timeout = float(step.get("timeout", 10))
-        interval = float(step.get("interval", 0.5))
-        self.log(f"[{no}] 等待生效（直到原點的圖「{name}」離開原位）")
-
-        def check(screen, org):
-            f = self._find(no, tgt, screen, org, src["origin"])
-            return findtarget.still_there(box, f.matches) is None, f
-
-        ok, f, polls, inputs, delay = self._await_effect(
-            no, timeout, interval, check, lambda screen, org: True,
-            lambda: self._input(t, *args))
-        rec = dict(step=no, kind=t, mode="gone", template=name,
-                   picked=findtarget.fmt_box(box), inputs=inputs, polls=polls,
-                   busy_delay=f"{delay:.2f}", **fields)
-        if ok:
-            if updates:
-                self._set_origin(after)
-            self.log(f"[{no}] 已生效（「{name}」已離開原位）", "ok")
-            self._log_input("input.confirm", result="gone", **rec)
-            return None
-        self._log_input("input.confirm", result="timeout", **rec)
-        return self._on_not_found(
-            no, f"[{no}] {'點擊' if t == 'click' else '拖曳'}後 {timeout}s 內"
-                f"「{name}」仍在原位（送了 {inputs} 次）",
-            step.get("onNotFound", "stop"))
-
-    def _log_input(self, event, **fields):
-        try:
-            self.filelog(event, **fields)
-        except Exception:
-            pass   # 日誌絕不能反過來影響執行
+                f"{fail}（送了 {inputs} 次）", step.get("onNotFound", "stop"))
 
     def _await_effect(self, no, timeout, interval, check, may_retry, resend):
         """`生效確認`的共同迴圈 (找圖點擊、座標點擊、拖曳共用).
@@ -784,10 +744,7 @@ class Runner:
                               else "-")
             fields["failed"] = f.failed
         fields.update(extra)
-        try:
-            self.filelog("find.target", **fields)
-        except Exception:
-            pass   # 日誌絕不能反過來影響執行
+        self._log_file("find.target", **fields)
 
     def _exec_branch(self, idx, steps):
         """分岔: 輪詢各分支開頭找圖步驟的找圖目標, 先挑到誰就走誰.
@@ -870,7 +827,7 @@ class Runner:
         off = (self._sc(step.get("offsetX", 0)), self._sc(step.get("offsetY", 0)))
         button = step.get("button", "left")
         clicks = int(step.get("clicks", 1))
-        # 這一步判定所依據的原點 (本步驟執行前的): 點擊/補點更新原點後, 本步
+        # 這一步判定所依據的原點 (本步驟執行前的): 點擊/補做更新原點後, 本步
         # 自己的找圖目標仍以它為準
         origin = self._last_click
         if origin is None and findtarget.needs_origin(tgt):
@@ -1027,7 +984,7 @@ class Runner:
                          "cannot_run")
             return None
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")
-        # 被點的那個位置 (每輪以最新一次查詢更新); 目標已離開原位＝不補點
+        # 被點的那個位置 (每輪以最新一次查詢更新); 目標已離開原位＝不補做
         cur = {"box": box, "still": None, "fm": None}
 
         def check(screen, org):
