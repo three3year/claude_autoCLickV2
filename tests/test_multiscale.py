@@ -100,3 +100,39 @@ def test_near_fullscreen_coarse_stays_fast(engine, tmp_path):
     elapsed = (time.perf_counter() - t0) * 1000
     _assert_hit(res, 900, 500, w, h)
     assert elapsed < 500, f"coarse query took {elapsed:.0f}ms"
+
+
+# ---- flow-scale 票 01: 預期尺度 (呼叫端提示主體大約是模板的幾倍) ----
+
+def test_expected_scale_sweeps_only_around_it(engine, tmp_path):
+    """給了預期尺度就只掃它附近 (約 0.84～1.19 倍); 遠在外面的不會被找到."""
+    tpl = make_template(w=64, h=48, seed=29)
+    scene, w, h = _scaled_paste(make_scene(seed=78), tpl, 220, 130, 0.65)
+    profile = load_library(engine, write_profile(tmp_path, {"btn": tpl}))
+
+    assert engine.query(profile, "btn", scene).found, "沒給預期尺度＝照設定全掃"
+    assert not engine.query(profile, "btn", scene, expected_scale=1.0).found
+    _assert_hit(engine.query(profile, "btn", scene, expected_scale=0.65),
+                220, 130, w, h)
+
+
+def test_expected_scale_covers_two_steps_each_side(engine, tmp_path):
+    tpl = make_template(w=64, h=48, seed=30)
+    profile = load_library(engine, write_profile(tmp_path, {"btn": tpl}))
+    for s in (0.86, 1.17):   # 左右各 2 格 (×1.09²≈1.19) 之內
+        scene, w, h = _scaled_paste(make_scene(seed=79), tpl, 200, 100, s)
+        _assert_hit(engine.query(profile, "btn", scene, expected_scale=1.0),
+                    200, 100, w, h)
+    scene, _, _ = _scaled_paste(make_scene(seed=79), tpl, 200, 100, 1.4)
+    assert not engine.query(profile, "btn", scene, expected_scale=1.0).found
+
+
+def test_expected_scale_itself_is_on_the_grid(engine, tmp_path):
+    """網格有一格剛好落在預期尺度上: 原尺寸貼上的主體, 框就是模板原尺寸."""
+    tpl = make_template(w=50, h=38, seed=31)
+    profile = load_library(engine, write_profile(tmp_path, {"btn": tpl}))
+    scene = paste(make_scene(seed=80), tpl, 260, 140)
+
+    res = engine.query(profile, "btn", scene, expected_scale=1.0)
+
+    assert res.found and res.box == (260, 140, 50, 38)

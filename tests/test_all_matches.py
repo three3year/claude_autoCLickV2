@@ -114,3 +114,26 @@ def test_真實影格_基建總覽上四張製造站卡全部回報(engine, tmp_
         res = engine.query(lib, "card", scene)
         for want in expect["centers"]:
             assert any(_near(m.box, want, 15) for m in res.matches), (name, want)
+
+
+def test_真實影格_預期尺度1_X站1列開比色仍找到且框與全掃一致(engine, tmp_path):
+    """flow-scale 票 01: 流程尺度下執行 (倍率 1) 時引擎只掃 1.0 附近; 網格對準 1.0,
+    框不偏、比色照樣過門檻 (沒對準時框偏 2～4px, 比色會掉到門檻下).
+
+    範本取自同一幀, 所以對準 1.0 的框就是範本原尺寸; 全掃的網格沒有一格落在
+    1.0, 框可能差 1px——位置與全掃一致即可."""
+    for name in ("r7_color_製造站1列_d3f490", "r9_color_貿易站1列_d3f552",
+                 "r10_color_貿易站1列_d3f600"):
+        tpl, scene, expect = real_case(name)
+        th, tw = imread(tpl).shape[:2]
+        lib = engine.load_templates({"row": tpl}, config=load_config(ARKNIGHTS),
+                                    artifacts_dir=tmp_path / "registered")
+        full = engine.query(lib, "row", scene, color_check=True)
+        near = engine.query(lib, "row", scene, color_check=True,
+                            expected_scale=1.0)
+        assert near.found and len(near.matches) == len(full.matches), name
+        for a, b in zip(near.matches, full.matches):
+            assert _near(a.box, _center(b.box), 2), name
+            assert a.box[2:] == (tw, th), name
+        for want in expect["centers"]:
+            assert any(_near(m.box, want, 15) for m in near.matches), name

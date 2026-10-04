@@ -152,6 +152,7 @@ class Vision:
         self.grabs = []      # 每次擷取用的搜尋範圍
         self.lookups = []    # 每次查詢的範本名稱
         self.color_checks = []   # 每次查詢的 (範本名稱, 是否要求比色)
+        self.expected_scales = []   # 每次查詢的 (範本名稱, 收到的`預期尺度`)
         # ---- 生命週期假件 (enginehub.EngineHub 的形狀, 票 01) ----
         self.state = enginehub.READY   # 測試可撥成 LOADING / FAILED
         self.preloads = []         # 每次`範本預載`收到的名單
@@ -196,12 +197,14 @@ class Vision:
         return Screen((0, 0)), (0, 0)
 
     # ---- runner 的偵測查詢接縫 (同 Engine.query 的形狀) ----
-    def query(self, name, search_region, color_check=False):
+    def query(self, name, search_region, color_check=False,
+              expected_scale=None):
         if name in self._missing:
             raise KeyError(f"unknown template: {name!r}")
         with self._lock:
             self.lookups.append(name)
             self.color_checks.append((name, bool(color_check)))
+            self.expected_scales.append((name, expected_scale))
             hit = self._next(name)
         w, h = self.size
         hits = [] if hit is None else (

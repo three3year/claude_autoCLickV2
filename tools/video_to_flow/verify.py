@@ -78,13 +78,14 @@ def _color_modes(name, steps):
 
 
 class _Detector:
-    """找圖目標模組要的偵測接縫 (query(範本名, 影像, color_check))."""
+    """找圖目標模組要的偵測接縫 (query(範本名, 影像, color_check, expected_scale))."""
 
     def __init__(self, engine, lib):
         self.engine, self.lib = engine, lib
 
-    def query(self, name, image, color_check=False):
-        return self.engine.query(self.lib, name, image, color_check=color_check)
+    def query(self, name, image, color_check=False, expected_scale=None):
+        return self.engine.query(self.lib, name, image, color_check=color_check,
+                                 expected_scale=expected_scale)
 
 
 class Checker:

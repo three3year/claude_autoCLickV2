@@ -22,6 +22,7 @@ class FakeEngine:
         self.coarse_only = coarse_only
         self.registered = []
         self.queries = []
+        self.expected_scales = []
         self.loaded = None
 
     def load_profile(self, profile_dir):
@@ -31,8 +32,10 @@ class FakeEngine:
     def register(self, profile, name):
         self.registered.append(name)
 
-    def query(self, profile, name, search_region, color_check=False):
+    def query(self, profile, name, search_region, color_check=False,
+              expected_scale=None):
         self.queries.append((profile, name, search_region, color_check))
+        self.expected_scales.append(expected_scale)
         return "RESULT"
 
 
@@ -80,6 +83,14 @@ def test_query委派引擎與當前profile(tmp_path):
     hub.query("a", "SCREEN", color_check=True)
     assert engine.queries == [(p, "a", "SCREEN", False),
                               (p, "a", "SCREEN", True)]
+
+
+def test_query把預期尺度交給引擎_沒給就是None(tmp_path):
+    hub, engine = _ready_hub(tmp_path)
+    hub.profile = FakeProfile()
+    hub.query("a", "SCREEN")
+    hub.query("a", "SCREEN", expected_scale=0.9)
+    assert engine.expected_scales == [None, 0.9]
 
 
 def test_preload逐一登錄(tmp_path):

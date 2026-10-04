@@ -10,7 +10,10 @@ verification stage, and every candidate that passes it is a **match**. A query
 reports all matches (zero or more); which one to use is the caller's business
 (ADR 0007). A caller may additionally request the **color check** for a single
 query (`color_check=True`): verified candidates whose color comparison falls
-under the profile's `color_threshold` are not matches (see color.py).
+under the profile's `color_threshold` are not matches (see color.py). A
+caller that knows about how large the subject is relative to its template may
+pass the **expected scale**: the coarse sweep then covers only the few scales
+centered on it (see matching.py) instead of the profile's `scale_range`.
 """
 from __future__ import annotations
 
@@ -98,7 +101,8 @@ class Engine:
 
     def query(self, library: Library, template_name: str,
               search_region: np.ndarray,
-              color_check: bool = False) -> QueryResult:
+              color_check: bool = False,
+              expected_scale: float | None = None) -> QueryResult:
         if template_name not in library.templates:
             raise KeyError(f"unknown template: {template_name!r}")
         template = library.templates[template_name]
@@ -113,7 +117,8 @@ class Engine:
             scene_gray, tpl_gray,
             scale_range=tuple(cfg["scale_range"]),
             aspect_jitter=float(cfg["aspect_jitter"]),
-            mask=art.mask, peak_threshold=match_threshold)
+            mask=art.mask, peak_threshold=match_threshold,
+            expected_scale=expected_scale)
         debug = {
             "candidates": [{"box": c.box, "score": round(c.score, 4),
                             "scale": round(c.scale, 3),

@@ -22,6 +22,8 @@ _BEST_K = 5                 # per-scale best peaks always refined too (the
                             # single-instance pool), on top of top_k
 _PEAKS_PER_SCALE = 64       # local peaks examined per scale (before NMS)
 _NMS_IOU = 0.3
+_EXPECTED_STEPS = 2         # expected scale given: sweep this many grid steps
+                            # each side of it (fixed here, not a profile knob)
 
 
 @dataclass
@@ -116,6 +118,14 @@ def _scale_grid(lo: float, hi: float) -> list[float]:
     return scales
 
 
+def _expected_grid(expected: float) -> list[float]:
+    """The scales swept around an expected scale: centered on it, so the
+    expected scale itself is always on the grid (an off-grid sweep lands the
+    box a few px off, enough to fail the color check)."""
+    return [expected * _SCALE_STEP ** k
+            for k in range(-_EXPECTED_STEPS, _EXPECTED_STEPS + 1)]
+
+
 def _local_peaks(res: np.ndarray, w: int, h: int,
                  threshold: float | None) -> list[tuple[int, int, float]]:
     """(x, y, score) of the result map's peaks at one scale.
@@ -156,16 +166,22 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
                     scale_range: tuple[float, float], aspect_jitter: float,
                     mask: np.ndarray | None = None,
                     top_k: int = _TOP_K,
-                    peak_threshold: float | None = None) -> list[Candidate]:
+                    peak_threshold: float | None = None,
+                    expected_scale: float | None = None) -> list[Candidate]:
     """Sweep scales/aspect and return candidate boxes, best first.
 
     Every scale contributes its best peak plus — given `peak_threshold` —
     every other local peak at or above it, so repeated identical subjects
     are all candidates. Refined candidates that converge on the same spot
-    are merged (NMS)."""
+    are merged (NMS). Given `expected_scale`, the coarse grid is the few
+    scales centered on it instead of the whole `scale_range`."""
     sh, sw = scene_gray.shape
     th, tw = tpl_gray.shape
-    lo, hi = float(scale_range[0]), float(scale_range[1])
+    if expected_scale is not None:
+        grid = _expected_grid(float(expected_scale))
+    else:
+        grid = _scale_grid(float(scale_range[0]), float(scale_range[1]))
+    lo = grid[0]
 
     # --- coarse pass on a downscaled scene ---------------------------------
     down = min(1.0, _COARSE_MAX_DIM / max(sh, sw))
@@ -181,7 +197,7 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
     # refinement, where the final score is computed
     best: list[Candidate] = []    # each scale's global maximum
     extra: list[Candidate] = []   # the other above-threshold peaks
-    for s in _scale_grid(lo, hi):
+    for s in grid:
         w = round(tw * s * down)
         h = round(th * s * down)
         if w < _MIN_TPL_PX or h < _MIN_TPL_PX:

@@ -126,10 +126,14 @@ class EngineHub:
 
     # ---------- 查詢 / 載入 (runner 偵測接縫的超集) ----------
 
-    def query(self, name, search_region, color_check=False):
-        """查詢所有匹配; color_check＝這次查詢要不要`比色` (ADR 0007)."""
+    def query(self, name, search_region, color_check=False,
+              expected_scale=None):
+        """查詢所有匹配; color_check＝這次查詢要不要`比色` (ADR 0007);
+        expected_scale＝引擎的`預期尺度` (None＝照 profile 的尺度範圍全掃,
+        ADR 0009)."""
         return self._engine.query(self.profile, name, search_region,
-                                  color_check=color_check)
+                                  color_check=color_check,
+                                  expected_scale=expected_scale)
 
     def preload(self, names):
         """`範本預載`: 一次載入這些範本的登錄產物 (缺名丟 KeyError)."""
