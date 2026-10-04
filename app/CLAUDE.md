@@ -212,6 +212,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   才會炸，靠 `tests/test_ui_palette.py` 的掃描測試當靜態防線（新增色票鍵或樣式時不必改它）
 - overlay/對話框互動：`event_generate` 模擬，注意事件要發到綁定的 **Canvas** 而非 Toplevel
 - modal 對話框 `grab_set` 會卡住背景測試程序 → 截圖/關閉動作放在 thread 或 `after()` 裡
+- **一次性 GUI 冒煙腳本開頭必須先呼叫 `tests/nodialogs.py` 的 `stub_dialogs()`**（pytest 由
+  conftest 自動套用）：messagebox/filedialog 是原生 modal，驅動時序不對觸發了驗證警告
+  （例如「九宮格至少要勾一格」）就會整個卡死、等使用者來按掉；跑完印出它回傳的紀錄
 - 測 runner 點擊邏輯時 monkeypatch `automation.runner.win.click`，不要真的動使用者滑鼠
 - 驗證文字顏色不能用像素找色：ClearType 次像素渲染會在白字邊緣產生橙/藍彩邊造成誤判，
   改用 `tk.Text.bbox` 量字元位置、或放大截圖目視

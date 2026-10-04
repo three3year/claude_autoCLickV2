@@ -24,21 +24,14 @@ def no_real_dialogs(monkeypatch):
     測試跑在使用者的桌面上: 真的彈出來會卡住測試程序 (modal 等人來按), 還會
     蓋在使用者畫面上——這種打擾等同於測試失敗。全部換成記錄; 詢問類一律回
     「否」(最保守的那條路), 需要「是」的測試自己在測試裡 monkeypatch 覆蓋
-    (測試本體的 setattr 比 autouse fixture 晚套用, 會贏)。
+    (測試本體的 setattr 比 autouse fixture 晚套用, 會贏)。實作在 `nodialogs.py`,
+    一次性 GUI 冒煙腳本也用同一個。
 
     回傳 {"warning": [...], "info": [...], "error": [...]}, 想斷言就拿去用。
     """
-    from tkinter import messagebox
+    from nodialogs import stub_dialogs
 
-    seen = {"warning": [], "info": [], "error": []}
-    for kind in seen:
-        monkeypatch.setattr(
-            messagebox, "show" + kind,
-            lambda title, msg, _k=kind, **kw: seen[_k].append(msg))
-    monkeypatch.setattr(messagebox, "askyesno", lambda *a, **kw: False)
-    monkeypatch.setattr(messagebox, "askyesnocancel", lambda *a, **kw: None)
-    monkeypatch.setattr(messagebox, "askokcancel", lambda *a, **kw: False)
-    return seen
+    return stub_dialogs(monkeypatch.setattr)
 
 
 @pytest.fixture
