@@ -81,6 +81,12 @@ FUSE_INTERVAL_MS = 1000
 FUSE_TRIP = 3
 
 
+def _target_tags(tgt):
+    """找圖目標有特別設定 (限定範圍/挑選規則/比色) 時的簡短標記."""
+    t = findtarget.tags(tgt)
+    return f"〔{'、'.join(t)}〕" if t else ""
+
+
 def step_desc(s):
     t = s["type"]
     if t == "click":
@@ -96,10 +102,13 @@ def step_desc(s):
         nf = {"stop": "停止", "break": "跳出"}.get(s.get("onNotFound"), "跳過")
         cfm = {"gone": "，點到消失", "appear": "，點到確認圖出現",
                "next": "，點到下一步的圖出現"}.get(s.get("confirm"), "")
+        if s.get("confirm") == "appear":
+            cfm += _target_tags(findtarget.confirm_target(s))
         ox, oy = int(s.get("offsetX", 0)), int(s.get("offsetY", 0))
         off = f"，偏移({ox:+d}, {oy:+d})" if ox or oy else ""
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
-        return (f"{findtarget.template(s) or '?'} → {act}{off}{cfm}{uo}"
+        return (f"{findtarget.template(s) or '?'}"
+                f"{_target_tags(findtarget.target(s))} → {act}{off}{cfm}{uo}"
                 f"（逾時{s.get('timeout', 10)}s→{nf}）")
     if t == "drag":
         if s.get("mode", "abs") == "prev":

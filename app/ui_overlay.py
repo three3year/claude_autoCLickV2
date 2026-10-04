@@ -302,8 +302,9 @@ def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None):
     hide: 額外需要暫時隱藏的視窗 (例如對話框).
     base: line 模式的預設原點 (螢幕座標); 給定時原點已標示,
           使用者只需點一下目標位置即完成.
-    mark: 純標示用的原點 (螢幕座標); 只畫記號不影響操作,
-          供「相對位置拖曳」自由拖線時對照原點在哪.
+    mark: 純標示用的原點 (螢幕座標); 只畫記號不影響操作 (各模式皆可),
+          供「相對位置拖曳」自由拖線、框選以原點為基準的限定範圍、
+          點選指定點時對照原點在哪.
     回傳:
       region → {"screenX","screenY","w","h","img"(裁切的 BGR)}
       point  → {"screenX","screenY"}
@@ -382,7 +383,9 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
 
     INFO = "#2080F0"  # 選取層所有線條統一用藍
     hint_x = max(20, -origin[0]) + 40
-    if mode == "region":
+    if mode == "region" and mark is not None:
+        full = hint + "　（◎＝原點，拖曳＝框出範圍，Esc 取消）"
+    elif mode == "region":
         full = hint + "　（直接點選＝取用高亮框，拖曳＝自訂範圍，Esc 取消）"
     elif mode == "line" and base is not None:
         full = hint + "　（原點已標示，點一下目標位置即完成，Esc 取消）"
@@ -390,6 +393,8 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
         full = hint + "　（◎＝原點，拖出一條線＝拖曳路徑，Esc 取消）"
     elif mode == "line":
         full = hint + "　（拖曳：起點＝基準點，終點＝目標點，Esc 取消）"
+    elif mark is not None:
+        full = hint + "　（◎＝原點，Esc 取消）"
     else:
         full = hint + "　（Esc 取消）"
     cv.create_rectangle(hint_x - 14, 16, hint_x + len(full) * 15 + 20, 52,
@@ -451,8 +456,8 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
         st["start"] = (x0, y0)
         cv.coords(line_dot, x0 - 2.5, y0 - 2.5, x0 + 2.5, y0 + 2.5)
         cv.itemconfigure(line_dot, state="normal")
-    if mode == "line" and mark is not None:
-        # 純標示的原點記號 (◎): 不影響拖線操作
+    if mark is not None and not (mode == "line" and base is not None):
+        # 純標示的原點記號 (◎): 不影響拖線/框選/點選操作
         mx0, my0 = mark[0] - origin[0], mark[1] - origin[1]
         cv.create_oval(mx0 - 7, my0 - 7, mx0 + 7, my0 + 7, outline=INFO, width=2)
         cv.create_oval(mx0 - 2, my0 - 2, mx0 + 2, my0 + 2, fill=INFO, outline="")

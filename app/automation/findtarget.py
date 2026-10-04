@@ -292,3 +292,76 @@ def pick_text(tgt):
         return (f"near:{pick.get('base', 'region')}"
                 f"({int(pick.get('x', 0)):+d},{int(pick.get('y', 0)):+d})")
     return "score"
+
+
+# ================= 編輯器: 組找圖目標、拾取換算、標記 =================
+
+def make_target(template, limit=None, pick=None, color=False):
+    """由表單值組一個找圖目標; 預設值 (不限定/分數最高/不比色) 不寫進存檔."""
+    tgt = {"template": template}
+    if limit and limit.get("kind") == "origin":
+        tgt["limit"] = dict(limit)
+    elif limit and limit.get("kind") == "grid" and limit.get("cells"):
+        tgt["limit"] = {"kind": "grid", "cells": sorted(set(limit["cells"]))}
+    if pick and pick.get("kind", "score") != "score":
+        tgt["pick"] = dict(pick)
+    if color:
+        tgt["colorCheck"] = True
+    return tgt
+
+
+def offset_from_screen(xy, base, k):
+    """拾取到的螢幕位置 → 相對基準點的偏移, 反除`畫面倍率`歸一到基準尺度
+    (與相對座標拾取同一套換算)."""
+    return (flowfmt.scale_px(xy[0] - base[0], 1.0 / k),
+            flowfmt.scale_px(xy[1] - base[1], 1.0 / k))
+
+
+def rect_from_screen(box, origin, k):
+    """框選到的螢幕矩形 → 以原點為基準的限定範圍 (基準尺度)."""
+    x, y = offset_from_screen(box[:2], origin, k)
+    return {"kind": "origin", "x": x, "y": y,
+            "w": flowfmt.scale_px(box[2], 1.0 / k),
+            "h": flowfmt.scale_px(box[3], 1.0 / k)}
+
+
+def tags(tgt):
+    """步驟清單上的簡短標記: 有特別設定的屬性 (限定範圍、挑選規則、比色)."""
+    out = []
+    if (tgt.get("limit") or {}).get("kind") in ("origin", "grid"):
+        out.append("限定")
+    pick = tgt.get("pick") or {}
+    if pick.get("kind") == "top":
+        out.append(f"由上到下第{pick.get('n', 1)}")
+    elif pick.get("kind") == "left":
+        out.append(f"由左到右第{pick.get('n', 1)}")
+    elif pick.get("kind") == "near":
+        out.append("最接近指定點")
+    if tgt.get("colorCheck"):
+        out.append("比色")
+    return out
+
+
+def summary(tgt):
+    """找圖設定一行摘要: 限定範圍；挑選規則；比色."""
+    lim = tgt.get("limit") or {}
+    if lim.get("kind") == "origin":
+        part1 = (f"原點矩形 ({int(lim.get('x', 0)):+d},{int(lim.get('y', 0)):+d})"
+                 f" {int(lim.get('w', 0))}×{int(lim.get('h', 0))}")
+    elif lim.get("kind") == "grid" and lim.get("cells"):
+        part1 = "九宮格 " + ",".join(str(c) for c in sorted(lim["cells"]))
+    else:
+        part1 = "整個搜尋範圍"
+    pick = tgt.get("pick") or {}
+    kind = pick.get("kind", "score")
+    if kind == "top":
+        part2 = f"由上到下第 {pick.get('n', 1)} 個"
+    elif kind == "left":
+        part2 = f"由左到右第 {pick.get('n', 1)} 個"
+    elif kind == "near":
+        base = "原點" if pick.get("base") == "origin" else "搜尋範圍左上"
+        part2 = (f"最接近{base} ({int(pick.get('x', 0)):+d},"
+                 f"{int(pick.get('y', 0)):+d})")
+    else:
+        part2 = "分數最高"
+    return "；".join((part1, part2, "比色" if tgt.get("colorCheck") else "不比色"))

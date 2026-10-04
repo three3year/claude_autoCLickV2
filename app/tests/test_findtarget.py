@@ -198,3 +198,49 @@ def test_最接近指定點以搜尋範圍為基準_不受限定範圍裁切影�
            "pick": {"kind": "near", "base": "region", "x": 1200, "y": 900}}
     r, _ = run([(1000, 800), (1250, 900)], target=tgt)
     assert center(r.picked) == (1250, 900)
+
+
+# ---------- 編輯器用的純邏輯 (票 07) ----------
+
+def test_組找圖目標_預設值不寫進存檔():
+    assert findtarget.make_target("a") == {"template": "a"}
+    assert findtarget.make_target(
+        "a", limit={"kind": "grid", "cells": [3, 1]},
+        pick={"kind": "top", "n": 2}, color=True) == {
+        "template": "a", "limit": {"kind": "grid", "cells": [1, 3]},
+        "pick": {"kind": "top", "n": 2}, "colorCheck": True}
+    assert findtarget.make_target("a", limit={"kind": "grid", "cells": []},
+                                  pick={"kind": "score"}) == {"template": "a"}
+
+
+def test_拾取的螢幕位置反除畫面倍率存成基準尺度():
+    # 與相對座標拾取一致: (螢幕位置 − 基準點) ÷ 倍率
+    assert findtarget.offset_from_screen((650, 280), (500, 300), 1.0) == (150, -20)
+    assert findtarget.offset_from_screen((650, 280), (500, 300), 2.0) == (75, -10)
+    rect = findtarget.rect_from_screen((400, 340, 400, 200), (500, 300), 2.0)
+    assert rect == {"kind": "origin", "x": -50, "y": 20, "w": 200, "h": 100}
+
+
+def test_步驟清單的簡短標記():
+    assert findtarget.tags({"template": "a"}) == []
+    assert findtarget.tags({"template": "a", "colorCheck": True,
+                            "pick": {"kind": "top", "n": 3},
+                            "limit": {"kind": "grid", "cells": [9]}}) == \
+        ["限定", "由上到下第3", "比色"]
+    assert findtarget.tags({"template": "a",
+                            "pick": {"kind": "near", "base": "origin",
+                                     "x": 0, "y": 0}}) == ["最接近指定點"]
+
+
+def test_設定摘要():
+    assert findtarget.summary({"template": "a"}) == "整個搜尋範圍；分數最高；不比色"
+    text = findtarget.summary({
+        "template": "a", "colorCheck": True,
+        "limit": {"kind": "origin", "x": -50, "y": 20, "w": 200, "h": 100},
+        "pick": {"kind": "near", "base": "region", "x": 10, "y": 20}})
+    assert text == ("原點矩形 (-50,+20) 200×100；最接近搜尋範圍左上 (+10,+20)"
+                    "；比色")
+    assert findtarget.summary({"template": "a",
+                               "limit": {"kind": "grid", "cells": [3, 6]},
+                               "pick": {"kind": "left", "n": 2}}) == \
+        "九宮格 3,6；由左到右第 2 個；不比色"
