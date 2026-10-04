@@ -27,7 +27,7 @@
 
 自動化應用 → 主體偵測引擎（單向）。引擎不知道 app 存在。
 **辨識**只有一條路：runner 建構時注入的偵測器
-（`query(範本名, 搜尋區域) → QueryResult`，app 端實作為 `enginehub.EngineHub`；
+（`query(範本名, 搜尋區域, color_check) → QueryResult`，回報所有匹配，app 端實作為 `enginehub.EngineHub`；
 見 ADR 0002），不允許第二條比對路徑。
 此外 app 也使用引擎的公開 API 做範本登錄與顯示：`Engine.load_templates`
 （收`範本清單`＋引擎參數＋登錄產物位置）、`Engine.register`（單張登錄）、

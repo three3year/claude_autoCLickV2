@@ -17,9 +17,13 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：
   `capture.py`(mss 截圖)、`win.py`(ctypes 滑鼠/DPI/視窗資訊)、`runner.py`(步驟執行緒)、
   `hotkey.py`(F12 急停)、`imgio.py`(中文路徑圖片讀寫)、
-  `stage.py`(舞台介面，並行執行未移植、接縫保留)、`flowfmt.py`(存檔格式版本與遷移)
+  `stage.py`(舞台介面，並行執行未移植、接縫保留)、`flowfmt.py`(存檔格式版本與遷移)、
+  `findtarget.py`(`找圖目標`：存檔欄位、限定範圍/挑選規則/位置是否仍有匹配的唯一實作——
+  執行器、編輯器比對測試、影片轉流程自我驗證三處共用，行為一致由此保證)
 - **辨識單一路徑走主體偵測引擎**（ADR 0002）：runner 建構時注入偵測器
-  （`query(範本名, 搜尋區域影像) → QueryResult`，範本不存在丟 KeyError）。
+  （`query(範本名, 搜尋區域影像, color_check) → QueryResult`，`matches` 是所有匹配，
+  範本不存在丟 KeyError；ADR 0007）。每個找圖點都經 `findtarget.find` 執行一個找圖目標，
+  判定結束時寫一筆 `find.target` 到 `autoclick.log`（實跑回報點錯時先查它）。
   舊 matcher 已移除，**不要再加備援比對路徑**
 - **啟動契約（ADR 0004，取代舊的「啟動建 Engine＋整庫登錄」）**：視窗先開、
   引擎於背景執行緒 `hub.load()` 載入（驗證模型常駐；載入失敗降級
@@ -62,7 +66,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   `flowfile.migrate_flow()`（內含 `flowfmt.to_region_space()`）換算成範圍座標。
   任何讀存檔的新路徑都要記得先過這一關，否則舊檔的座標會被當成新格式而整批偏掉。
   另有 `flowFormat` 標記分辨「自包自足存檔」與「舊流程包」（兩者都是含 flow.json
-  的 zip，沒有標記就分不出該直接開還是該走單向轉換）
+  的 zip，沒有標記就分不出該直接開還是該走單向轉換）。`flowFormat` ≥ 2＝自包自足；
+  寫檔一律蓋 3（範本名收進`找圖目標` `target`/`confirmTarget`，2 的存檔與步驟草稿讀入時由
+  `migrate_flow` 遷移）——讀範本名一律經 `findtarget.template()` 等存取函式
 - **校準與畫面倍率（ADR 0005，詞彙見 app/CONTEXT.md）**：純邏輯全部在
   `calibration.py`（資料存取、未校準判定、量測、重定改寫）；存檔攜帶校準資料與
   `匯入換算`三分支在 `flowfile`（那是存檔格式的事）。UI 與 runner 只呼叫它們。
@@ -191,7 +197,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - 執行器邏輯有 pytest 回歸網（`app/tests/`，隨根目錄 `pytest` 一起跑）。
   假畫面／假輸入／虛擬時鐘都在 `tests/harness.py`：假件形狀＝`enginehub`
   生命週期介面（`query` 回 `QueryResult`＋state/preload/ensure_template）——
-  這是全 repo 唯一假件點；`vision.plan(範本名, [None, (x,y)])`
+  這是全 repo 唯一假件點；`vision.plan(範本名, [None, (x,y), [(x,y), (x,y,分數,比色分數)]])`
   安排「第幾次查詢才找到」，`win` 的點擊/拖曳/按鍵全被換成只記事件，`等待` 走虛擬時鐘不真的睡。
   要驗執行器行為先加測試，不要再寫一次性腳本
 - profile 管理與流程存檔/工作區是純檔案邏輯，用暫存目錄真測不 mock
@@ -264,7 +270,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   只有「直接前一個原點步驟就是找圖」才即時找畫面（備援截圖位置）；途中隔了相對點擊/拖曳＝
   畫面已被切換，一律用「截圖當下位置」重現剛剛拾取的點，不可信任畫面殘留同圖
 - 找圖點擊有「點擊後確認生效」`confirm`：none／gone（點到目標圖消失）／appear（點到確認圖
-  `confirmTemplate` 出現）。沒生效會自動補點、用步驟的逾時/重試當預算，逾時仍未生效走
+  `confirmTarget` 出現）。沒生效會自動補點、用步驟的逾時/重試當預算，逾時仍未生效走
   `onNotFound`。appear 的確認圖與主範本走**同一個**選範本對話框（`pick_template`）：按確定才複製進本流程，取消對話框時這次加進來、最後沒被引用的圖一併丟棄（舊的「截圖即時存檔、取消對話框圖仍留下」語意已移除）。
   **只有 click 才有意義**：選任一種「不點擊」時，整列用 `sync_click_opts` 自動隱藏、且存為 none
 - 窄視窗塞不下的按鈕列用 `HScrollStrip`（橫向捲動容器，滾輪橫向捲動）：步驟鈕列釘選
