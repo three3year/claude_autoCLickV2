@@ -1365,6 +1365,19 @@ def edit_step(app, step):
         act_cb = ttk.Combobox(fr, textvariable=v["action"], width=20,
                               state="readonly", values=list(ACT_ZH.values()))
         act_cb.pack(side="left")
+        # `出現等候上限` (只對等待消失): 自建 label 方便隨動作整列顯示/隱藏
+        v["appearLimitMs"] = tk.IntVar(value=int(step.get("appearLimitMs") or 0))
+        appear_lbl = ttk.Label(body, text="出現等候上限", style="Muted.TLabel")
+        appear_lbl.grid(row=row_i[0], column=0, sticky="w", pady=3, padx=(0, 12))
+        appear_fr = ttk.Frame(body, style="Panel.TFrame")
+        appear_fr.grid(row=row_i[0], column=1, sticky="w", pady=3)
+        row_i[0] += 1
+        ttk.Spinbox(appear_fr, textvariable=v["appearLimitMs"], from_=0,
+                    to=600000, increment=100, width=8).pack(side="left",
+                                                            padx=(0, 4))
+        lbl(appear_fr, "毫秒（0＝不設）")
+        appear_note = add_note("這段時間內一次都沒看到＝通過（例：等「正在提交」這種"
+                               "可能不出現的忙碌指示）；看到了就照常等它消失、受逾時限制")
         mouse_row(v)
 
         fr = add_row("點擊偏移")
@@ -1445,6 +1458,9 @@ def edit_step(app, step):
             is_click = ACT_KEY[v["action"].get()] == "click"
             for w in (cfm_mode_lbl, cfm_mode_fr, cfm_main_note):
                 w.grid() if is_click else w.grid_remove()
+            gone = ACT_KEY[v["action"].get()] == "wait_gone"
+            for w in (appear_lbl, appear_fr, appear_note):
+                w.grid() if gone else w.grid_remove()
             appear = is_click and CFM_KEY[v["confirm"].get()] == "appear"
             for w in (cfm_lbl, cfm_row, cfm_tmpl_note, summary_lbl["cfm"]):
                 w.grid() if appear else w.grid_remove()
@@ -1533,6 +1549,11 @@ def edit_step(app, step):
                     confirm=confirm,
                     updateOrigin=v["updateOrigin"].get(),
                 )
+                limit_ms = max(0, int(v["appearLimitMs"].get()))
+                if action == "wait_gone" and limit_ms:
+                    s["appearLimitMs"] = limit_ms
+                else:
+                    s.pop("appearLimitMs", None)
                 s.pop("region", None)  # 舊版步驟範圍 (已廢除; 限定範圍在找圖目標裡)
                 s.pop("rotate", None)  # 舊版執行期旋轉比對已移除
         except (tk.TclError, ValueError) as e:

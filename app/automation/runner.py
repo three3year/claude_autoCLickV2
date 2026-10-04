@@ -704,8 +704,13 @@ class Runner:
         # ---- 等待消失: 必須先看到圖至少一次, 之後消失才算通過 ----
         # (從未出現不能判定成功: 可能畫面根本沒進到預期狀態)
         # 「消失」＝先前挑中的那個位置不再有匹配; 別處的同款圖不影響
+        # `出現等候上限` (appearLimitMs, 預設不設): 這段時間內一次都沒看到＝通過
+        # ——等「可能出現、也可能根本不出現」的圖 (忙碌指示), 取代固定等待
         if action == "wait_gone":
-            deadline = time.monotonic() + timeout
+            start = time.monotonic()
+            deadline = start + timeout
+            limit_ms = step.get("appearLimitMs")
+            appear_by = start + float(limit_ms) / 1000.0 if limit_ms else None
             tracked = None
             polls = 0
             while True:
@@ -725,6 +730,11 @@ class Runner:
                     self.log(f"[{no}] 「{name}」已消失", "ok")
                     self._record(no, "wait_gone", f, "gone", polls=polls,
                                  picked=findtarget.fmt_box(tracked))
+                    return None
+                elif appear_by is not None and time.monotonic() >= appear_by:
+                    self.log(f"[{no}] 「{name}」在出現等候上限 {int(limit_ms)}ms "
+                             "內沒出現 → 通過", "ok")
+                    self._record(no, "wait_gone", f, "not_appeared", polls=polls)
                     return None
                 if time.monotonic() >= deadline:
                     break

@@ -98,6 +98,8 @@ def step_desc(s):
                "next": "，點到下一步的圖出現"}.get(s.get("confirm"), "")
         if s.get("confirm") == "appear":
             cfm += findtarget.tag_text(findtarget.confirm_target(s))
+        if s.get("action") == "wait_gone" and s.get("appearLimitMs"):
+            act += f"（出現等候上限 {int(s['appearLimitMs'])}ms）"
         ox, oy = int(s.get("offsetX", 0)), int(s.get("offsetY", 0))
         off = f"，偏移({ox:+d}, {oy:+d})" if ox or oy else ""
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
