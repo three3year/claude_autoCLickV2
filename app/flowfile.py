@@ -165,14 +165,15 @@ def rename_flow_refs(data, old, new):
 
 
 def used_templates(steps):
-    """所有`找圖目標`引用的範本名 (確認圖只在「點到確認圖出現」時算), 已排序."""
+    """所有`找圖目標`引用的範本名 (確認圖只在生效確認選「確認圖出現」時算;
+    找圖、座標點擊、拖曳都有確認圖), 已排序."""
     used = set()
     for s in steps:
-        if s.get("type") != "find_click":
-            continue
-        if findtarget.template(s):
+        if s.get("type") == "find_click" and findtarget.template(s):
             used.add(findtarget.template(s))
-        if s.get("confirm") == "appear" and findtarget.confirm_template(s):
+        if (s.get("type") in findtarget.CONFIRMABLE
+                and s.get("confirm") == "appear"
+                and findtarget.confirm_template(s)):
             used.add(findtarget.confirm_template(s))
     return sorted(used)
 

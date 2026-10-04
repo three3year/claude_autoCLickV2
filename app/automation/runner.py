@@ -65,25 +65,39 @@ def confirm_next_connected(steps, idx):
     return idx + 1 < len(steps) and steps[idx + 1].get("type") == "find_click"
 
 
+POINTER_TYPES = ("click", "drag")   # 座標點擊與拖曳: 也有`生效確認` (ADR 0008)
+
+
+def effect_confirm(step):
+    """步驟實際生效的`生效確認`方式: none / gone / appear / next.
+
+    找圖只有動作為點擊時有意義; 座標點擊與拖曳一律可設; 其他步驟沒有。
+    """
+    t = step.get("type")
+    if t == "find_click" and step.get("action", "click") != "click":
+        return "none"
+    if t != "find_click" and t not in POINTER_TYPES:
+        return "none"
+    return step.get("confirm", "none")
+
+
 def uses_confirm_next(step):
-    """步驟是否用了「點到下一步的圖出現」(只有動作為點擊的找圖有意義)."""
-    return (step.get("type") == "find_click"
-            and step.get("action", "click") == "click"
-            and step.get("confirm") == "next")
+    """步驟是否用了「點到下一步的圖出現」."""
+    return effect_confirm(step) == "next"
 
 
 def flow_templates(steps):
     """`範本預載`名單: 流程引用的全部範本名, 依出現順序去重.
 
-    找圖步驟的範本 + 確認圖 (confirm: "appear", 只有動作為點擊時有意義)。
+    找圖步驟的範本 + 確認圖 (找圖點擊、座標點擊、拖曳的「確認圖出現」)。
     「點到下一步的圖出現」引用的是下一步 (必為找圖) 的範本、分岔條件是
     分支開頭的找圖步驟——都已涵蓋在「所有找圖步驟」之中。
     """
     seen = []
     for s in steps:
-        if s.get("type") != "find_click":
-            continue
-        names = [findtarget.template(s)]
+        names = []
+        if s.get("type") == "find_click":
+            names.append(findtarget.template(s))
         if findtarget.uses_confirm_target(s):
             names.append(findtarget.confirm_template(s))
         for n in names:
@@ -443,51 +457,10 @@ class Runner:
         no = idx + 1  # 執行紀錄用的 1-based 步驟序號
         t = step.get("type")
         prev, self._prev_type = self._prev_type, t
-        if t == "click":
-            mode = step.get("mode", "abs")
-            x, y = self._sc(step["x"]), self._sc(step["y"])
-            desc = ""
-            if mode == "prev":
-                if self._last_click is None:
-                    self.log(f"[{no}] 相對座標: 尚無上一個點擊位置 → 跳過", "warn")
-                    return
-                x, y = self._last_click[0] + x, self._last_click[1] + y
-                desc = f"（上一步 {int(step['x']):+d},{int(step['y']):+d}）"
-            else:
-                ox, oy = self._abs_origin()
-                x, y = ox + x, oy + y
-                desc = f"（範圍內 {int(step['x'])},{int(step['y'])}）"
-            button = step.get("button", "left")
-            clicks = int(step.get("clicks", 1))
-            self._input("click", x, y, button, clicks)
-            if step.get("updateOrigin", True):
-                self._last_click = (x, y)
-            self.log(f"[{no}] 點擊 ({x}, {y}){desc} {_btn_name(button)}×{clicks}")
+        if t in POINTER_TYPES:
+            return self._exec_pointer(steps, idx)
 
-        elif t == "drag":
-            x1, y1 = self._sc(step["x1"]), self._sc(step["y1"])
-            x2, y2 = self._sc(step["x2"]), self._sc(step["y2"])
-            desc = ""
-            if step.get("mode", "abs") == "prev":
-                if self._last_click is None:
-                    self.log(f"[{no}] 相對座標: 尚無上一個點擊位置 → 跳過", "warn")
-                    return
-                bx, by = self._last_click
-                desc = f"（上一步 {x1:+d},{y1:+d} → {x2:+d},{y2:+d}）"
-                x1, y1, x2, y2 = bx + x1, by + y1, bx + x2, by + y2
-            else:
-                ox, oy = self._abs_origin()
-                desc = f"（範圍內 {x1},{y1} → {x2},{y2}）"
-                x1, y1, x2, y2 = ox + x1, oy + y1, ox + x2, oy + y2
-            button = step.get("button", "left")
-            ms = int(step.get("ms", 300))
-            hold = int(step.get("holdMs", 0))
-            self._input("drag", x1, y1, x2, y2, button, ms, hold)
-            self._last_click = (x2, y2)  # 拖曳終點可當相對座標原點
-            hd = f" 停頓{hold}ms放開" if hold else ""
-            self.log(f"[{no}] 拖曳 ({x1}, {y1}) → ({x2}, {y2}){desc} {_btn_name(button)} {ms}ms{hd}")
-
-        elif t == "wait":
+        if t == "wait":
             ms = int(step.get("ms", 1000))
             self.log(f"[{no}] 等待 {ms} ms")
             if self.stage is not None and prev == "drag":
@@ -506,6 +479,133 @@ class Runner:
 
         else:
             self.log(f"[{no}] 未知步驟類型: {t}", "warn")
+
+    def _exec_pointer(self, steps, idx):
+        """座標點擊 / 拖曳: 換算落點 → 送出 → (有設的話) `生效確認`.
+
+        原點: 沒有確認時送出就更新 (同舊行為); 有確認時**生效後才更新**——補做
+        送出的輸入以第一次輸入前的原點計算, 與第一次完全相同。
+        """
+        step = steps[idx]
+        no = idx + 1
+        t = step["type"]
+        rel = step.get("mode", "abs") == "prev"
+        if rel and self._last_click is None:
+            self.log(f"[{no}] 相對座標: 尚無上一個點擊位置 → 跳過", "warn")
+            return None
+        base = self._last_click if rel else self._abs_origin()
+        button = step.get("button", "left")
+        if t == "click":
+            x = base[0] + self._sc(step["x"])
+            y = base[1] + self._sc(step["y"])
+            clicks = int(step.get("clicks", 1))
+            args = (x, y, button, clicks)
+            after = (x, y)
+            updates = step.get("updateOrigin", True)
+            where = (f"（上一步 {int(step['x']):+d},{int(step['y']):+d}）" if rel
+                     else f"（範圍內 {int(step['x'])},{int(step['y'])}）")
+            text = f"點擊 ({x}, {y}){where} {_btn_name(button)}×{clicks}"
+            fields = {"at": f"({x},{y})"}
+        else:
+            x1, y1 = self._sc(step["x1"]), self._sc(step["y1"])
+            x2, y2 = self._sc(step["x2"]), self._sc(step["y2"])
+            where = (f"（上一步 {x1:+d},{y1:+d} → {x2:+d},{y2:+d}）" if rel
+                     else f"（範圍內 {x1},{y1} → {x2},{y2}）")
+            x1, y1, x2, y2 = (base[0] + x1, base[1] + y1,
+                              base[0] + x2, base[1] + y2)
+            ms = int(step.get("ms", 300))
+            hold = int(step.get("holdMs", 0))
+            args = (x1, y1, x2, y2, button, ms, hold)
+            after = (x2, y2)
+            updates = True   # 拖曳終點一律是新原點
+            hd = f" 停頓{hold}ms放開" if hold else ""
+            text = (f"拖曳 ({x1}, {y1}) → ({x2}, {y2}){where} "
+                    f"{_btn_name(button)} {ms}ms{hd}")
+            fields = {"from": f"({x1},{y1})", "to": f"({x2},{y2})"}
+        before = self._last_click
+        self._input(t, *args)
+        self.log(f"[{no}] {text}")
+        mode = effect_confirm(step)
+        if mode == "next" and not confirm_next_connected(steps, idx):
+            # 執行期防禦線: 理論上已被執行前檢查擋下, 退化成「不確認」
+            self.log(f"[{no}] 「下一步的圖出現」但下一步不是找圖步驟"
+                     "→ 以「不確認」執行", "warn")
+            mode = "none"
+        if mode not in ("appear", "next"):
+            if updates:
+                self._last_click = after
+            self._log_input("input", step=no, kind=t, **fields)
+            return None
+        origin = after if updates else before   # 確認以操作後的原點為準
+        ctgt = (findtarget.target(steps[idx + 1]) if mode == "next"
+                else findtarget.confirm_target(step))
+        cname = ctgt.get("template", "")
+        label = ("下一步的圖" if mode == "next" else "確認圖") + f"「{cname}」"
+        rec = dict(step=no, kind=t, mode=mode, template=cname, **fields)
+        if origin is None and findtarget.needs_origin(ctgt):
+            self.log(f"[{no}] {label}出現的判定以原點為基準: 尚無原點 → "
+                     "以「不確認」執行", "warn")
+            self._log_input("input.confirm", result="cannot_run", **rec)
+            return None
+        timeout = float(step.get("timeout", 10))
+        interval = float(step.get("interval", 0.5))
+        self.log(f"[{no}] 等待生效（直到{label}出現）")
+
+        def check(screen, org):
+            f = self._find(no, ctgt, screen, org, origin, kind="確認")
+            return f.picked is not None, f
+
+        ok, f, polls, inputs, delay = self._await_effect(
+            no, timeout, interval, check, lambda screen, org: True,
+            lambda: self._input(t, *args))
+        rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}")
+        if ok:
+            if updates:
+                self._last_click = after
+            self.log(f"[{no}] 已生效（{label}已出現）", "ok")
+            self._log_input("input.confirm", result="found",
+                            picked=findtarget.fmt_box(f.picked.box), **rec)
+            return None
+        self._log_input("input.confirm", result="timeout", **rec)
+        return self._on_not_found(
+            no, f"[{no}] {'點擊' if t == 'click' else '拖曳'}後 {timeout}s 內"
+                f"未見{label}（送了 {inputs} 次）",
+            step.get("onNotFound", "stop"))
+
+    def _log_input(self, event, **fields):
+        try:
+            self.filelog(event, **fields)
+        except Exception:
+            pass   # 日誌絕不能反過來影響執行
+
+    def _await_effect(self, no, timeout, interval, check, may_retry, resend):
+        """`生效確認`的共同迴圈 (找圖點擊、座標點擊、拖曳共用).
+
+        每個輪詢間隔截一張圖, check(screen, org) → (生效與否, 紀錄用的結果);
+        沒生效時 may_retry(screen, org) 為真、且過了`補做`的兩道門 (補做間隔、
+        忙碌指示) 才 resend() 重送同一個輸入。整段不讓出舞台。
+        回傳 (生效與否, 最後一次 check 的結果, 輪詢數, 輸入數, 因忙碌延後秒數)。
+        """
+        region = getattr(self, "scan_region", None)
+        deadline = time.monotonic() + timeout
+        inputs, polls = 1, 0
+        gate = {"busy_since": None, "delay": 0.0}
+        while True:
+            self._sleep(interval)   # 先給應用程式反應時間
+            self._check_stop()
+            screen, org = self._grab(region)
+            polls += 1
+            ok, last = check(screen, org)
+            if ok:
+                break
+            if may_retry(screen, org) and self._retry_ready(no, screen, org,
+                                                            gate):
+                resend()
+                inputs += 1
+            if time.monotonic() >= deadline:
+                break
+        self._settle_busy(gate, time.monotonic())
+        return ok, last, polls, inputs, gate["delay"]
 
     def _enclosing_end(self, steps, pos):
         """pos 之後第一個未配對的結束標記索引 (= 所屬最內層區段結尾); 無則 None."""
@@ -801,10 +901,10 @@ class Runner:
             return None
         # ---- 點擊後確認生效階段 ----
         return self._confirm_click(steps, idx, confirm, tgt, origin, hit.box,
-                                   region, off, button, clicks, timeout,
-                                   interval, on_nf)
+                                   off, button, clicks, timeout, interval,
+                                   on_nf)
 
-    def _confirm_click(self, steps, idx, mode, tgt, origin, box, region,
+    def _confirm_click(self, steps, idx, mode, tgt, origin, box,
                        off, button, clicks, timeout, interval, on_nf):
         """點擊後重試直到「確認生效」: 目標圖消失(gone)、確認圖出現(appear)
         或下一步的圖出現(next)。
@@ -847,55 +947,40 @@ class Runner:
                          "cannot_run")
             return None
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")
-        deadline = time.monotonic() + timeout
-        n_clicks, polls = 1, 0
-        gate = {"busy_since": None, "delay": 0.0}
-        while True:
-            self._sleep(interval)  # 先給應用程式反應時間
-            self._check_stop()
-            screen, org = self._grab(region)
-            polls += 1
-            fm = self._find(no, tgt, screen, org, origin)
-            still = findtarget.still_there(box, fm.matches)
+        # 被點的那個位置 (每輪以最新一次查詢更新); 目標已離開原位＝不補點
+        cur = {"box": box, "still": None, "fm": None}
+
+        def check(screen, org):
+            fm = cur["fm"] = self._find(no, tgt, screen, org, origin)
+            cur["still"] = findtarget.still_there(cur["box"], fm.matches)
+            if cur["still"] is not None:
+                cur["box"] = cur["still"].box
             if mode == "gone":
-                if still is None:
-                    self.log(f"[{no}] 點擊已生效（{done}）", "ok")
-                    self._record(no, role, fm, "gone", polls=polls,
-                                 clicks=n_clicks,
-                                 picked=findtarget.fmt_box(box),
-                                 busy_delay=f"{gate['delay']:.2f}")
-                    return None
-            else:  # appear / next: 照確認圖/下一步自己的找圖目標
-                fc = self._find(no, ctgt, screen, org, self._last_click,
-                                kind=kind)
-                if fc.picked is not None:
-                    self.log(f"[{no}] 點擊已生效（{done}）", "ok")
-                    self._record(no, role, fc, "found", polls=polls,
-                                 clicks=n_clicks,
-                                 busy_delay=f"{gate['delay']:.2f}")
-                    return None
-            # 尚未生效 → 被點的位置還有匹配、且過了補做的兩道門, 就補點它
-            # (位置以最新一次查詢為準); 目標已離開原位＝不補點
-            if still is not None:
-                box = still.box
-                if self._retry_ready(no, screen, org, gate):
-                    cx, cy = still.center
-                    sx, sy = cx + off[0], cy + off[1]
-                    self._input("click", sx, sy, button, clicks)
-                    n_clicks += 1
-                    if step.get("updateOrigin", True):
-                        self._last_click = (sx, sy)
-            if time.monotonic() >= deadline:
-                break
-        self._settle_busy(gate, time.monotonic())
-        delay = f"{gate['delay']:.2f}"
+                return cur["still"] is None, fm
+            fc = self._find(no, ctgt, screen, org, self._last_click, kind=kind)
+            return fc.picked is not None, fc
+
+        def resend():
+            cx, cy = cur["still"].center
+            sx, sy = cx + off[0], cy + off[1]
+            self._input("click", sx, sy, button, clicks)
+            if step.get("updateOrigin", True):
+                self._last_click = (sx, sy)
+
+        ok, f, polls, n_clicks, delay = self._await_effect(
+            no, timeout, interval, check,
+            lambda screen, org: cur["still"] is not None, resend)
+        extra = {"polls": polls, "clicks": n_clicks,
+                 "busy_delay": f"{delay:.2f}"}
         if mode == "gone":
-            self._record(no, role, fm, "not_gone", polls=polls,
-                         clicks=n_clicks, picked=findtarget.fmt_box(box),
-                         busy_delay=delay)
-        else:
-            self._record(no, role, fc, "timeout", polls=polls, clicks=n_clicks,
-                         busy_delay=delay)
+            extra["picked"] = findtarget.fmt_box(cur["box"])
+        if ok:
+            self.log(f"[{no}] 點擊已生效（{done}）", "ok")
+            self._record(no, role, f, "gone" if mode == "gone" else "found",
+                         **extra)
+            return None
+        self._record(no, role, f, "not_gone" if mode == "gone" else "timeout",
+                     **extra)
         return self._on_not_found(no, fail, on_nf)
 
 

@@ -1249,8 +1249,6 @@ def edit_step(app, step):
         v["clicks"] = tk.IntVar(value=step.get("clicks", 1))
         v["offsetX"] = tk.IntVar(value=step.get("offsetX", 0))
         v["offsetY"] = tk.IntVar(value=step.get("offsetY", 0))
-        NF_ZH = {"skip": "跳過此步驟繼續", "break": "跳出目前區段",
-                 "stop": "停止整個流程"}
         v["onNotFound"] = tk.StringVar(
             value=NF_ZH.get(step.get("onNotFound", "skip"), NF_ZH["skip"]))
 
@@ -1490,6 +1488,12 @@ def edit_step(app, step):
         ttk.Button(fr, text="立即比對測試", style="Accent.TButton",
                    command=test_now).pack(side="left")
 
+    # ---- 座標點擊 / 拖曳的`生效確認` (ADR 0008) ----
+    pointer_confirm = None
+    if t in ("click", "drag"):
+        pointer_confirm = _pointer_confirm_block(
+            app, dlg, body, step, v, added, add_row, add_note, lbl)
+
     # ---- 確定 / 取消 ----
     foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
     foot.pack(fill="x")
@@ -1505,6 +1509,7 @@ def edit_step(app, step):
                                "相對上一步點擊位置": "prev"}[v["mode"].get()],
                          button=v["button"].get(), clicks=v["clicks"].get(),
                          updateOrigin=v["updateOrigin"].get())
+                pointer_confirm(s)
             elif t == "drag":
                 s.update(x1=v["x1"].get(), y1=v["y1"].get(),
                          x2=v["x2"].get(), y2=v["y2"].get(),
@@ -1512,6 +1517,8 @@ def edit_step(app, step):
                                "相對上一步點擊位置": "prev"}[v["mode"].get()],
                          button=v["button"].get(), ms=max(50, v["ms"].get()),
                          holdMs=max(0, v["holdMs"].get()))
+            if pointer_confirm is not None:
+                pointer_confirm(s)
             elif t == "loop_start":
                 s.update(count=max(1, v["count"].get()))
             elif t in ("loop_end", "branch_end"):
@@ -1575,6 +1582,117 @@ def edit_step(app, step):
     root.wait_window(dlg)
     _discard_unused(app, added, result[0])
     return result[0]
+
+
+POINTER_CFM_ZH = {"none": "不確認（送一次就走）",
+                  "appear": "做到確認圖出現為止",
+                  "next": "做到下一步的圖出現"}
+NF_ZH = {"skip": "跳過此步驟繼續", "break": "跳出目前區段",
+         "stop": "停止整個流程"}
+
+
+def _pointer_confirm_block(app, dlg, body, step, v, added, add_row, add_note,
+                           lbl):
+    """座標點擊／拖曳對話框的`生效確認`區塊; 回傳 apply(s): 把表單寫回步驟.
+
+    方式、確認圖 (同一個選範本對話框＋找圖設定)、逾時/輪詢、找不到時 (預設停止:
+    拖曳沒生效還往下走, 後面的相對點擊會點錯列)。沒有確認時不寫任何確認欄位。
+    """
+    key_of = {n: k for k, n in POINTER_CFM_ZH.items()}
+    v["confirm"] = tk.StringVar(value=POINTER_CFM_ZH.get(
+        step.get("confirm", "none"), POINTER_CFM_ZH["none"]))
+    v["cfm_tmpl"] = tk.StringVar(value=findtarget.confirm_template(step))
+    v["cfm_timeout"] = tk.DoubleVar(value=step.get("timeout", 10))
+    v["cfm_interval"] = tk.DoubleVar(value=step.get("interval", 0.5))
+    v["cfm_nf"] = tk.StringVar(value=NF_ZH.get(step.get("onNotFound", "stop"),
+                                               NF_ZH["stop"]))
+    opts = _target_opts(findtarget.confirm_target(step))
+
+    fr = add_row("生效確認")
+    cfm_cb = ttk.Combobox(fr, textvariable=v["confirm"], width=20,
+                          state="readonly", values=list(POINTER_CFM_ZH.values()))
+    cfm_cb.pack(side="left")
+    add_note("網路慢時遊戲畫好了卻還不接受輸入, 輸入會被吃掉: 設了就檢查有沒有生效, "
+             "沒生效在補做間隔後重送同一個輸入（畫面上有忙碌指示時先不送）。"
+             "「下一步的圖出現」看緊接的找圖步驟（下一步不是找圖時該列顯示 ⚠）")
+
+    rows = []
+
+    def row(label):
+        fr_ = add_row(label)
+        lab = body.grid_slaves(row=int(fr_.grid_info()["row"]), column=0)
+        rows.append((lab, fr_))
+        return fr_
+
+    fr = row("確認圖")
+    tmpl_cb = ttk.Combobox(fr, textvariable=v["cfm_tmpl"],
+                           values=app.list_template_names(), width=22,
+                           state="readonly")
+    tmpl_cb.pack(side="left", padx=(0, 6))
+
+    def choose():
+        before = set(app.list_template_names())
+        nm = pick_template(app, "選擇確認圖",
+                           initial=v["cfm_tmpl"].get() or None)
+        added.extend(n for n in app.list_template_names() if n not in before)
+        if nm:
+            tmpl_cb.configure(values=app.list_template_names())
+            v["cfm_tmpl"].set(nm)
+
+    def set_opts():
+        got = edit_target_opts(app, dlg, findtarget.make_target(
+            v["cfm_tmpl"].get(), **opts), "確認圖的找圖設定")
+        if got is not None:
+            opts.update(got)
+            summary.configure(text="　" + findtarget.summary(
+                findtarget.make_target(v["cfm_tmpl"].get(), **opts)))
+
+    ttk.Button(fr, text="選擇範本…", style="Accent.TButton",
+               command=choose).pack(side="left")
+    ttk.Button(fr, text="設定…", style="Small.TButton",
+               command=set_opts).pack(side="left", padx=(6, 0))
+    summary = ttk.Label(fr, style="Muted.TLabel", text="　" + findtarget.summary(
+        findtarget.make_target(v["cfm_tmpl"].get(), **opts)))
+    summary.pack(side="left")
+
+    fr = row("確認逾時")
+    ttk.Spinbox(fr, textvariable=v["cfm_timeout"], from_=0, to=3600,
+                increment=1, width=7).pack(side="left", padx=(0, 4))
+    lbl(fr, "秒，每")
+    ttk.Spinbox(fr, textvariable=v["cfm_interval"], from_=0.1, to=60,
+                increment=0.1, width=6).pack(side="left", padx=(0, 4))
+    lbl(fr, "秒檢查")
+    fr = row("確認不到時")
+    ttk.Combobox(fr, textvariable=v["cfm_nf"], width=18, state="readonly",
+                 values=list(NF_ZH.values())).pack(side="left")
+
+    def sync(*_):
+        mode = key_of[v["confirm"].get()]
+        for i, (lab, fr_) in enumerate(rows):
+            show = mode != "none" and (i != 0 or mode == "appear")
+            for w in (*lab, fr_):
+                w.grid() if show else w.grid_remove()
+
+    sync()
+    cfm_cb.bind("<<ComboboxSelected>>", sync, add=True)
+
+    def apply(s):
+        mode = key_of[v["confirm"].get()]
+        for k in ("confirm", findtarget.CONFIRM_TARGET, "timeout", "interval",
+                  "onNotFound"):
+            s.pop(k, None)
+        if mode == "none":
+            return
+        if mode == "appear":
+            if not v["cfm_tmpl"].get():
+                raise ValueError("「做到確認圖出現為止」需選擇確認圖")
+            s[findtarget.CONFIRM_TARGET] = findtarget.make_target(
+                v["cfm_tmpl"].get(), **opts)
+        s.update(confirm=mode, timeout=v["cfm_timeout"].get(),
+                 interval=max(0.1, v["cfm_interval"].get()),
+                 onNotFound={n: k for k, n in NF_ZH.items()}[v["cfm_nf"].get()])
+
+    return apply
 
 
 def _discard_unused(app, added, step):

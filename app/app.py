@@ -81,6 +81,19 @@ FUSE_INTERVAL_MS = 1000
 FUSE_TRIP = 3
 
 
+def _pointer_confirm_desc(s):
+    """座標點擊/拖曳的`生效確認`摘要 (沒設＝空字串)."""
+    mode = s.get("confirm", "none")
+    what = {"appear": f"確認圖「{findtarget.confirm_template(s) or '?'}」"
+                      f"{findtarget.tag_text(findtarget.confirm_target(s))}出現",
+            "next": "下一步的圖出現",
+            "gone": "原點的圖離開"}.get(mode)
+    if what is None:
+        return ""
+    nf = {"skip": "跳過", "break": "跳出"}.get(s.get("onNotFound"), "停止")
+    return f"，做到{what}（逾時{s.get('timeout', 10)}s→{nf}）"
+
+
 def step_desc(s):
     t = s["type"]
     if t == "click":
@@ -89,7 +102,8 @@ def step_desc(s):
         else:
             pos = f"範圍內 ({s['x']}, {s['y']})"
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
-        return f"{pos} {BTN_ZH.get(s.get('button', 'left'))}×{s.get('clicks', 1)}{uo}"
+        return (f"{pos} {BTN_ZH.get(s.get('button', 'left'))}×{s.get('clicks', 1)}"
+                f"{uo}{_pointer_confirm_desc(s)}")
     if t == "find_click":
         act = {"click": "點擊", "none": "僅等待出現",
                "wait_gone": "等待消失"}.get(s.get("action", "click"), "點擊")
@@ -113,7 +127,8 @@ def step_desc(s):
         else:
             pos = f"({s['x1']}, {s['y1']}) → ({s['x2']}, {s['y2']})"
         hd = f" 停{s.get('holdMs')}ms" if s.get("holdMs") else ""
-        return f"{pos} {BTN_ZH.get(s.get('button', 'left'))} {s.get('ms', 300)}ms{hd}"
+        return (f"{pos} {BTN_ZH.get(s.get('button', 'left'))} {s.get('ms', 300)}ms"
+                f"{hd}{_pointer_confirm_desc(s)}")
     if t == "wait":
         return f"{s.get('ms', 0)} ms"
     if t == "key":
@@ -1997,11 +2012,10 @@ class App:
         names = set(self.list_template_names())
         missing = []
         for s in steps:
-            if s["type"] != "find_click":
-                continue
-            if findtarget.template(s) not in names:
+            if (s["type"] == "find_click"
+                    and findtarget.template(s) not in names):
                 missing.append(findtarget.template(s) or "(未選擇)")
-            if (s.get("confirm") == "appear"
+            if (findtarget.uses_confirm_target(s)
                     and findtarget.confirm_template(s) not in names):
                 missing.append((findtarget.confirm_template(s) or "(未選擇)")
                                + "（確認圖）")

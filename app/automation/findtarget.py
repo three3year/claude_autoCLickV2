@@ -46,19 +46,23 @@ def confirm_template(step):
     return confirm_target(step).get("template", "")
 
 
+CONFIRMABLE = ("find_click", "click", "drag")   # 有`生效確認`的步驟種類
+
+
 def uses_confirm_target(step):
-    """`確認圖`是否生效: 只有動作為點擊、點擊後確認選「確認圖出現」時才有意義."""
-    return (step.get("type") == "find_click"
-            and step.get("action", "click") == "click"
-            and step.get("confirm") == "appear")
+    """`確認圖`是否生效: 生效確認選「確認圖出現」(找圖還要動作為點擊)."""
+    t = step.get("type")
+    if t not in CONFIRMABLE or step.get("confirm") != "appear":
+        return False
+    return t != "find_click" or step.get("action", "click") == "click"
 
 
 def step_targets(step):
     """步驟上存在的找圖目標 [(鍵, 目標), ...] (改名時走訪用)."""
-    if step.get("type") != "find_click":
-        return []
-    return [(k, step[k]) for k in (TARGET, CONFIRM_TARGET)
-            if isinstance(step.get(k), dict)]
+    t = step.get("type")
+    keys = ((TARGET, CONFIRM_TARGET) if t == "find_click"
+            else (CONFIRM_TARGET,) if t in CONFIRMABLE else ())
+    return [(k, step[k]) for k in keys if isinstance(step.get(k), dict)]
 
 
 # ================= 執行一個找圖目標 =================
