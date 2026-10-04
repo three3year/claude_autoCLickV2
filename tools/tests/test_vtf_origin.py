@@ -24,7 +24,7 @@ def demo(tmp_path):
 def run(demo, engine, steps):
     video, profile = demo
     return video_to_flow.assemble(demo_plan(video, profile, steps=steps),
-                                  engine=engine, fingerprint=FP)
+                                  engine=engine)
 
 
 def saved(res):

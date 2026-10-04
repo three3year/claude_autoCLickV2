@@ -95,6 +95,9 @@ def main(argv=None):
             print(f"交付報告：{res['report_path']}")
             for w in res["warnings"]:
                 print(f"提醒：{w}")
+            if not res["calibration"]:
+                why = res["calibration_problem"] or "計畫沒有指定"
+                print(f"警告：沒有校準對（{why}）——這份流程不能執行")
             if res["verification"] == "coarse":
                 print("警告：驗證不完整——深度驗證模型無法載入，只做了粗篩")
             for name, why in res["retake"].items():

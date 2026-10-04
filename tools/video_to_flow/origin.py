@@ -42,8 +42,8 @@ def _target(no, name, attrs, origin, why, what):
     """計畫的找圖目標屬性 (影片像素的畫面位置) → 存檔的`找圖目標`.
 
     以原點為基準的矩形/指定點換成相對 origin 的偏移; 以搜尋範圍為基準的指定點
-    原樣 (影片左上角＝搜尋範圍左上角); 九宮格是比例。仍是影片像素, 換回基準
-    尺度由組裝統一做 (calibration.scale_steps)。
+    原樣 (影片左上角＝搜尋範圍左上角); 九宮格是比例。影片像素就是`流程尺度`,
+    原樣進存檔 (ADR 0009)。
     """
     lim, pick = attrs.get("limit"), attrs.get("pick")
     limit = p = None

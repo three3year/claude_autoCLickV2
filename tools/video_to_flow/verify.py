@@ -120,6 +120,7 @@ class Checker:
                     self.results[name]["reasons"].append(
                         f"引擎無法登錄這張範本（{e}）")
         self.detector = _Detector(engine, self.lib)
+        self.registered = frozenset(self._registered)
         self._cache = {}
         for name, t in templates.items():
             if name in self._registered:
@@ -131,8 +132,9 @@ class Checker:
     def _matches(self, name, frame, color):
         key = (name, frame, color)
         if key not in self._cache:
+            # 影片尺度＝流程尺度: 與倍率 1 的執行同樣以預期尺度 1 查詢
             r = self.engine.query(self.lib, name, self.frames[frame],
-                                  color_check=color)
+                                  color_check=color, expected_scale=1.0)
             self._cache[key] = [tuple(int(v) for v in m.box) for m in r.matches]
         return self._cache[key]
 

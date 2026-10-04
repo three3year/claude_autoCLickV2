@@ -22,7 +22,7 @@ def demo(tmp_path):
 
 
 def run(plan, engine):
-    return video_to_flow.assemble(plan, engine=engine, fingerprint=FP)
+    return video_to_flow.assemble(plan, engine=engine)
 
 
 def saved(res):

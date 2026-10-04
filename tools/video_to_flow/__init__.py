@@ -7,7 +7,7 @@
         示範影片 → 候選點擊清單 (candidates.json) + 每個候選前後數幀的縮圖
     learn_cursor(video, points, out_path)
         遊戲自繪游標 → 游標樣本 (給 scan 的 sample; 錄影程式畫不出點擊特效時用)
-    assemble(plan, engine=None, fingerprint=None, report_path=None)
+    assemble(plan, engine=None, report_path=None)
         轉換計畫 + 目標 profile → 自我驗證 → 流程存檔 + 交付報告
 
 兩個入口都有命令列 (`python tools/video_to_flow scan|assemble ...`, 見

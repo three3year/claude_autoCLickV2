@@ -127,10 +127,24 @@ def center(name):
     return [x + w // 2, y + h // 2]
 
 
-def demo_video(tmp_path):
+# 遊戲視窗的標題列 (每一幀都在): 左上的圖示與右上的關閉鈕＝`校準對`
+TITLE = {"圖示": make_button(w=40, h=30, seed=11),
+         "關閉": make_button(w=40, h=30, seed=13)}
+TITLE_POS = {"圖示": (4, 3), "關閉": (VIDEO_W - 44, 3)}
+
+
+def title_box(name):
+    x, y = TITLE_POS[name]
+    h, w = TITLE[name].shape[:2]
+    return [x, y, w, h]
+
+
+def demo_video(tmp_path, title=False):
+    """標準示範影片; title＝每一幀都畫上標題列的圖示與關閉鈕 (校準對)."""
+    bar = [(TITLE[n], *TITLE_POS[n]) for n in TITLE] if title else []
     frames = []
     for name, lo, hi in SCREENS:
-        frames += [screen([(BUTTONS[name], *POS[name])])] * (hi - lo)
+        frames += [screen([(BUTTONS[name], *POS[name])] + bar)] * (hi - lo)
     return write_video(Path(tmp_path) / "demo.mp4", frames)
 
 

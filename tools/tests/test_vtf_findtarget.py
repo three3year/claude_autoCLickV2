@@ -17,13 +17,12 @@ from vtf_synth import (VIDEO_H, VIDEO_W, box, center, demo_plan, demo_video,
                        find, make_button, make_profile, screen, snapshot,
                        timeline, write_video)
 
-FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
 REGION = [0, 0, VIDEO_W, VIDEO_H]
 RETAKE = "待重拍_"
 
 
 def run(plan, engine):
-    return video_to_flow.assemble(plan, engine=engine, fingerprint=FP)
+    return video_to_flow.assemble(plan, engine=engine)
 
 
 def saved_steps(res):
@@ -114,12 +113,13 @@ def test_以搜尋範圍為基準的指定點與九宮格(tmp_path, engine):
                                    "x": 320, "y": 170}
 
 
-def test_畫面倍率不等於1時換回基準尺度(tmp_path, engine):
+def test_profile的舊校準資料不影響_限定範圍與指定點原樣是影片像素(tmp_path, engine):
+    """影片尺度就是流程尺度 (ADR 0009): 不讀 profile 校準, 不換算."""
     video = demo_video(tmp_path)
     profile = make_profile(tmp_path, region=REGION)
     with open(profile / "calibration.json", "w", encoding="utf-8") as f:
         json.dump({"pair": ["p", "q"], "baseline": 100.0, "scale": 2.0,
-                   "fingerprint": FP}, f)
+                   "fingerprint": None}, f)
     ox, oy = center("開始")
     bx, by, bw, bh = box("確定")
     second = {"limit": {"kind": "origin", "rect": [bx - 10, by - 10, bw + 20,
@@ -128,12 +128,10 @@ def test_畫面倍率不等於1時換回基準尺度(tmp_path, engine):
     res = run(located_plan(video, profile, second), engine)
 
     s = saved_steps(res)[1]
-    assert s["target"]["limit"] == {"kind": "origin",
-                                    "x": round((bx - 10 - ox) / 2),
-                                    "y": round((by - 10 - oy) / 2),
-                                    "w": round((bw + 20) / 2),
-                                    "h": round((bh + 20) / 2)}
-    assert (s["target"]["pick"]["x"], s["target"]["pick"]["y"]) == (160, 85)
+    assert s["target"]["limit"] == {"kind": "origin", "x": bx - 10 - ox,
+                                    "y": by - 10 - oy, "w": bw + 20,
+                                    "h": bh + 20}
+    assert (s["target"]["pick"]["x"], s["target"]["pick"]["y"]) == (320, 170)
 
 
 def test_限定範圍設錯_目標不在範圍內被標待重拍(tmp_path, engine):

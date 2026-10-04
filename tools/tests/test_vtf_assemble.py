@@ -29,7 +29,7 @@ def demo(tmp_path):
 
 
 def run(plan, engine, **kw):
-    return video_to_flow.assemble(plan, engine=engine, fingerprint=FP, **kw)
+    return video_to_flow.assemble(plan, engine=engine, **kw)
 
 
 def new_files(before, profile):

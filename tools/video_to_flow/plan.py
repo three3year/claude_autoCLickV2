@@ -18,6 +18,7 @@
         {"type": "key", "keys": "esc"},
         {"type": "loop_start", "count": 5}, ..., {"type": "loop_end"}
       ],
+      "calibration": {"pair": ["標題列圖示", "關閉鈕"], "frame": 120},
       "report": {"branches": ["…"], "unexplained": ["…"], "keys": ["…"]}
     }
 
@@ -32,6 +33,11 @@
 at: [x, y]})、`limit` (限定範圍: {kind: origin, rect: [x, y, w, h]} 或
 {kind: grid, cells: [1..9]})。矩形與指定點同樣寫影片像素的畫面位置, 組裝依該步的
 原點換成相對值 (確認圖用點擊後的原點)。`confirmTemplate` 是只有範本的確認圖簡寫。
+
+`calibration` 指名這份流程的`校準對` (兩個計畫裡的範本, 例: 遊戲視窗標題列的
+圖示＋關閉鈕) 與量基準距離的那一幀 (預設＝第一張的取材幀)。影片尺度就是流程
+尺度 (ADR 0009): 組裝在那一幀上量兩張的中心距離當`基準距離`。沒寫＝產出的
+流程沒有校準對, 不能執行 (交付報告會寫明)。
 """
 from __future__ import annotations
 
@@ -172,7 +178,7 @@ def load(plan):
         raise ToolError("轉換計畫的最外層要是 JSON 物件")
 
     known = {"video", "profile", "name", "templates", "steps", "report",
-             "reportPath"}
+             "reportPath", "calibration"}
     extra = sorted(set(plan) - known)
     if extra:
         _err("最外層", f"不認得的欄位 {', '.join(extra)}")
@@ -195,6 +201,7 @@ def load(plan):
         "report": _report(plan.get("report")),
     }
     out["steps"] = _steps(plan.get("steps"), out["templates"])
+    out["calibration"] = _calibration(plan.get("calibration"), out["templates"])
     origin.derive(out["steps"], out["templates"], None)  # 相對座標前要有原點
     return out
 
@@ -239,6 +246,25 @@ def _templates(raw):
         out[name] = {"frame": frame, "box": [int(c) for c in b],
                      "present": present, "absent": absent, "clean": clean}
     return out
+
+
+def _calibration(raw, templates):
+    """`校準對`: {"pair": [兩個範本名], "frame": 量測幀}; 沒寫回傳 None."""
+    if raw is None:
+        return None
+    where = "calibration"
+    if not isinstance(raw, dict) or set(raw) - {"pair", "frame"}:
+        _err(where, f"要是 {{pair, frame}} 物件，收到 {raw!r}")
+    pair = raw.get("pair")
+    if (not isinstance(pair, list) or len(pair) != 2
+            or not all(isinstance(n, str) for n in pair) or pair[0] == pair[1]):
+        _err(where, f"pair 要是兩個不同的範本名，收到 {pair!r}")
+    for n in pair:
+        if n not in templates:
+            _err(where, f"校準對的範本「{n}」不在計畫的範本清單裡")
+    frame = (_frame(where + " frame", raw["frame"]) if "frame" in raw
+             else templates[pair[0]]["frame"])
+    return {"pair": list(pair), "frame": frame}
 
 
 def _report(raw):

@@ -2,7 +2,10 @@
 
 順序 (任何一步拒絕都在寫檔之前, profile 一個檔案都不會多)::
 
-    讀計畫 → 讀 profile 草稿的`搜尋範圍` → 裁範本 → 組步驟 → 寫存檔 → 寫報告
+    讀計畫 → 讀 profile 草稿的`搜尋範圍` → 裁範本 → 組步驟 → 量校準對 → 寫存檔 → 寫報告
+
+影片尺度就是`流程尺度` (ADR 0009): 偏移與範本圖原樣進存檔, 不讀 profile 的
+任何校準資料; `校準對`由計畫指名、`基準距離`在影片影格上量。
 
 存檔一律經 app 既有的 `flowfile.write` 寫出 (格式只由一個地方決定), 檔名走
 既有的「不撞名」規則落在 profile 的流程目錄, 絕不覆蓋。
@@ -56,20 +59,24 @@ def _size_warnings(region, info):
             "錄的，且執行時遊戲畫面落在搜尋範圍內；錄影若有縮放，範本與偏移都會對不上"]
 
 
-def _screen_scale(profile, fingerprint):
-    """目標 profile 的`畫面倍率` (與執行期同一套判定); 回傳 (倍率, 狀態).
+def _measure_pair(c, checker, frames):
+    """在影片影格上量`校準對`: 回傳 (流程的校準資料或 None, 量不到的原因或 None).
 
-    狀態: none (沒有校準對) / uncalibrated (有校準對但本機未校準, 以 1 代入)
-    / calibrated。
+    與執行開頭的校準同一套量測 (`calibration.measure`, 全範圍查詢); 影片尺度
+    就是流程尺度, 所以量到的距離直接就是`基準距離`。
     """
-    cal = calibration.load(profile)
-    if cal is None:
-        return 1.0, "none"
-    if fingerprint is None:
-        fingerprint = calibration.current_fingerprint()
-    if calibration.is_uncalibrated(cal, fingerprint):
-        return 1.0, "uncalibrated"
-    return calibration.effective_scale(cal, fingerprint), "calibrated"
+    if c is None:
+        return None, None
+    pair, frame = c["pair"], c["frame"]
+    unregistered = [n for n in pair if n not in checker.registered]
+    if unregistered:
+        return None, f"引擎無法登錄 {'、'.join(unregistered)}"
+    m = calibration.measure(checker.detector.query, frames[frame], pair)
+    if m.missing:
+        return None, f"第 {frame} 幀上找不到 {'、'.join(m.missing)}"
+    if m.too_close:
+        return None, f"第 {frame} 幀上兩張圖重疊，不能當比例尺"
+    return calibration.make(pair, round(m.distance, 1)), None
 
 
 def _crop(frames, name, t, info):
@@ -87,23 +94,23 @@ def _png(img):
     return buf.tobytes()
 
 
-def assemble(plan, engine=None, fingerprint=None, report_path=None):
+def assemble(plan, engine=None, report_path=None):
     """組裝一份流程存檔; 回傳結果 dict (flow_path、report_path、…).
 
     plan: 計畫 dict 或計畫 JSON 檔路徑。engine: 已建好的引擎 (測試共用;
-    None＝自行建構)。fingerprint: `機器指紋` (None＝讀當下螢幕配置)。
-    report_path: 交付報告位置 (None＝計畫的 reportPath, 再沒有就與存檔
-    同名並排)。
+    None＝自行建構)。report_path: 交付報告位置 (None＝計畫的 reportPath,
+    再沒有就與存檔同名並排)。
     """
     p = plan_mod.load(plan)
     profile = p["profile"]
     region, draft = _profile_region(profile)
     info = video_mod.probe(p["video"])
     warnings = _size_warnings(region, info)
-    scale, cal_state = _screen_scale(profile, fingerprint)
 
-    frames = video_mod.read_frames(
-        p["video"], verify_mod.frames_needed(p["templates"], p["steps"]))
+    need = verify_mod.frames_needed(p["templates"], p["steps"])
+    if p["calibration"]:
+        need.add(p["calibration"]["frame"])
+    frames = video_mod.read_frames(p["video"], need)
     crops = {n: _crop(frames, n, t, info) for n, t in p["templates"].items()}
 
     engine = engine or verify_mod.make_engine()
@@ -114,6 +121,7 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
     steps = defaults.apply(origin_mod.derive(p["steps"], p["templates"],
                                              checker.locate))
     checked = checker.finish()
+    cal, cal_problem = _measure_pair(p["calibration"], checker, frames)
     found = {n: r["boxes"] for n, r in checked.items()}
     # 驗證沒過的範本: 名稱加`待重拍`前綴、步驟引用 (含確認圖) 同步改寫
     images = {n: _png(img) for n, img in crops.items()}
@@ -123,21 +131,19 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
     for n, t in p["templates"].items():
         x, y, w, h = t["box"]
         pos[n] = [region[0] + x + w // 2, region[1] + y + h // 2]
+    data = {"steps": steps, "runMode": "count", "runCount": 1,
+            "scanRegion": region, "avoidHover": bool(draft.get("avoidHover", False)),
+            flowfmt.COORD_SPACE: flowfmt.REGION}
+    if cal:
+        data[calibration.FLOW_KEY] = cal
     retake = {}
     for name, r in checked.items():
         if r["reasons"]:
             new = plan_mod.RETAKE_PREFIX + name
-            flowfile.rename_refs(steps, name, new)
+            flowfile.rename_flow_refs(data, name, new)   # 步驟與校準對一起改
             images[new] = images.pop(name)
             pos[new] = pos.pop(name)
             retake[new] = r["reasons"]
-    # 影片像素＝本機像素 → 當前基準尺度 (÷畫面倍率, ADR 0005); 重用校準模組的
-    # 步驟縮放 (哪些欄位是像素只有它說得算)
-    if scale != 1.0:
-        calibration.scale_steps(steps, 1.0 / scale)
-    data = {"steps": steps, "runMode": "count", "runCount": 1,
-            "scanRegion": region, "avoidHover": bool(draft.get("avoidHover", False)),
-            flowfmt.COORD_SPACE: flowfmt.REGION}
 
     flows = flowfile.flows_dir(profile)
     os.makedirs(flows, exist_ok=True)
@@ -146,13 +152,15 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
     flow_path = os.path.join(flows, stem + flowfile.EXT)
     rp = str(rp or os.path.join(flows, stem + ".md"))
 
-    used = flowfile.used_templates(steps)
+    used = flowfile.flow_refs(data)
     result = {
         "flow_path": flow_path, "report_path": rp,
         "video": p["video"], "profile": profile,
         "video_size": [info["width"], info["height"]],
         "region": region, "warnings": warnings,
-        "scale": scale, "calibration": cal_state,
+        "calibration": data.get(calibration.FLOW_KEY),
+        "calibration_frame": (p["calibration"] or {}).get("frame"),
+        "calibration_problem": cal_problem,
         "steps": len(steps),
         "templates": len(used),
         "verification": "coarse" if engine.coarse_only else "full",

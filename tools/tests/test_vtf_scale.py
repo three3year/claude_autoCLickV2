@@ -1,8 +1,8 @@
-"""影片與實際畫面同尺度 (1:1) 與`畫面倍率`換回基準尺度.
+"""影片與實際畫面同尺度 (1:1), 影片尺度就是流程尺度 (ADR 0009).
 
 示範影片是在執行流程的這台機器上、以實際畫面尺度錄的: 影片像素就是螢幕
-像素, 偏移不依搜尋範圍大小換算 (搜尋範圍只決定流程在哪裡找圖)。profile
-已校準且畫面倍率≠1 時, 座標再換回基準尺度 (ADR 0005)。
+像素, 偏移不依搜尋範圍大小換算 (搜尋範圍只決定流程在哪裡找圖), 也不讀
+profile 的校準資料。`校準對`由計畫指名, `基準距離`在影片影格上量。
 
 只打組裝入口; 斷言存檔裡的偏移、範本圖尺寸、報告文字與 profile 檔案狀態。
 """
@@ -12,13 +12,16 @@ import cv2
 import numpy as np
 import pytest
 
+import calibration
 import flowfile
 import video_to_flow
-from vtf_synth import (VIDEO_H, VIDEO_W, box, center, demo_plan, demo_video,
-                       find, make_profile)
+from vtf_synth import (VIDEO_H, VIDEO_W, box, center, demo_plan, demo_templates,
+                       demo_video, find, make_profile, title_box)
 
-FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
-OTHER_FP = {"x": 0, "y": 0, "w": 2560, "h": 1440}
+
+def title_center(name):
+    x, y, w, h = title_box(name)
+    return x + w // 2, y + h // 2
 
 
 def region(w, h, x=0, y=0):
@@ -38,7 +41,7 @@ def assemble(tmp_path, engine, reg, steps=None, config=None, cal=None):
         with open(profile / "calibration.json", "w", encoding="utf-8") as f:
             json.dump(cal, f)
     plan = demo_plan(video, profile, steps=steps)
-    return video_to_flow.assemble(plan, engine=engine, fingerprint=FP), profile
+    return video_to_flow.assemble(plan, engine=engine), profile
 
 
 def saved_steps(res):
@@ -79,45 +82,87 @@ def test_影片不比搜尋範圍大時沒有提醒(tmp_path, engine):
     assert res["warnings"] == []
 
 
-def test_profile已校準且畫面倍率不是1時座標再除以倍率(tmp_path, engine):
+def test_不讀profile的校準資料_座標原樣(tmp_path, engine):
+    """影片尺度就是流程尺度 (ADR 0009): profile 的舊校準資料一律不看、不寫."""
     cal = {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.25,
-           "fingerprint": FP}
+           "fingerprint": None}
     res, profile = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H),
                             steps=[off("開始", 10, -5)], cal=cal)
 
     s = saved_steps(res)[0]
-    assert (s["offsetX"], s["offsetY"]) == (8, -4)
-    assert res["scale"] == pytest.approx(1.25)
-    # 校準資料只讀不寫
+    assert (s["offsetX"], s["offsetY"]) == (10, -5)
     with open(profile / "calibration.json", encoding="utf-8") as f:
         assert json.load(f) == cal
 
 
-@pytest.mark.parametrize("cal", [
-    {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.0, "fingerprint": FP},
-    {"pair": ["a", "b"], "baseline": 100.0, "scale": None, "fingerprint": None},
-    {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.25, "fingerprint": OTHER_FP},
-], ids=["倍率1", "從未校準", "指紋不符"])
-def test_未校準或倍率為1時座標不變(tmp_path, engine, cal):
-    res, _ = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H),
-                      steps=[off("開始", 10, -5)], cal=cal)
-    s = saved_steps(res)[0]
-    assert (s["offsetX"], s["offsetY"]) == (10, -5)
+# ---------- 校準對 (flow-scale 票 05) ----------
+
+def title_plan(tmp_path, pair=("圖示", "關閉"), **extra):
+    video = demo_video(tmp_path, title=True)
+    profile = make_profile(tmp_path, region=region(VIDEO_W, VIDEO_H))
+    templates = demo_templates()
+    for n in ("圖示", "關閉"):
+        templates[n] = {"frame": 5, "box": title_box(n)}
+    plan = demo_plan(video, profile, templates=templates, **extra)
+    if pair:
+        plan["calibration"] = {"pair": list(pair)}
+    return plan
 
 
-def test_交付報告寫明影片與實際畫面同尺度與畫面倍率換算(tmp_path, engine):
-    cal = {"pair": ["a", "b"], "baseline": 100.0, "scale": 1.25,
-           "fingerprint": FP}
-    res, _ = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H), cal=cal)
+def test_產出的流程帶校準對與基準距離_兩張圖是流程的範本(tmp_path, engine):
+    res = video_to_flow.assemble(title_plan(tmp_path), engine=engine)
+
+    r = flowfile.read(res["flow_path"])
+    (ax, ay), (bx, by) = title_center("圖示"), title_center("關閉")
+    assert calibration.flow_pair(r["data"]) == {
+        "pair": ["圖示", "關閉"], "baseline": float(abs(bx - ax))}
+    assert ay == by
+    assert {"圖示", "關閉"} <= set(r["images"]), "校準對的圖跟著存檔"
+
+
+def test_交付報告列出校準對與基準距離(tmp_path, engine):
+    res = video_to_flow.assemble(title_plan(tmp_path), engine=engine)
     text = open(res["report_path"], encoding="utf-8").read()
-    assert "影片與實際畫面同尺度" in text
-    assert "換算比" not in text
-    assert "畫面倍率" in text and "1.250" in text
+    assert "校準對：圖示 × 關閉" in text and "基準距離" in text
+    assert "不能執行" not in text
 
 
-def test_未校準時報告提醒以倍率1換算(tmp_path, engine):
-    cal = {"pair": ["a", "b"], "baseline": 100.0, "scale": None,
-           "fingerprint": None}
-    res, _ = assemble(tmp_path, engine, region(VIDEO_W, VIDEO_H), cal=cal)
+def test_沒有指定校準對_報告明說流程不能執行(tmp_path, engine):
+    res = video_to_flow.assemble(title_plan(tmp_path, pair=None), engine=engine)
+    assert calibration.flow_pair(flowfile.read(res["flow_path"])["data"]) is None
     text = open(res["report_path"], encoding="utf-8").read()
-    assert "未校準" in text
+    assert "不能執行" in text
+
+
+def test_校準對量不到_報告明說原因且流程不帶校準對(tmp_path, engine):
+    plan = title_plan(tmp_path)
+    plan["calibration"]["frame"] = 35       # 那一幀沒有「開始」
+    plan["calibration"]["pair"] = ["開始", "關閉"]
+    res = video_to_flow.assemble(plan, engine=engine)
+    assert calibration.flow_pair(flowfile.read(res["flow_path"])["data"]) is None
+    text = open(res["report_path"], encoding="utf-8").read()
+    assert "量不到" in text and "開始" in text and "不能執行" in text
+
+
+def test_自我驗證的查詢帶預期尺度1(tmp_path, engine):
+    class Spy:
+        """真引擎外面包一層, 記下每次查詢收到的預期尺度."""
+
+        def __init__(self, inner):
+            self.inner, self.seen = inner, []
+
+        def __getattr__(self, name):
+            return getattr(self.inner, name)
+
+        def query(self, lib, name, image, color_check=False,
+                  expected_scale=None):
+            self.seen.append((name, expected_scale))
+            return self.inner.query(lib, name, image, color_check=color_check,
+                                    expected_scale=expected_scale)
+
+    spy = Spy(engine)
+    video_to_flow.assemble(title_plan(tmp_path), engine=spy)
+    verify = [s for n, s in spy.seen if n not in ("圖示", "關閉")]
+    assert verify and all(s == 1.0 for s in verify)
+    cal = [s for n, s in spy.seen if n in ("圖示", "關閉")]
+    assert None in cal, "量基準距離與執行開頭的校準一樣用全範圍查"

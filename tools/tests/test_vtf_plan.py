@@ -21,7 +21,7 @@ def demo(tmp_path):
 def run(demo, engine, steps, **extra):
     video, profile = demo
     return video_to_flow.assemble(demo_plan(video, profile, steps=steps, **extra),
-                                  engine=engine, fingerprint=FP)
+                                  engine=engine)
 
 
 def saved(res):
@@ -175,3 +175,19 @@ def test_交付報告列出流程裡的按鍵步驟即使計畫沒寫說明(demo
 def test_不點擊的找圖寫了點擊後確認就報錯(demo, engine, extra):
     refused(demo, engine, [find("開始", action="none", **extra), find("確定")],
             "confirm")
+
+
+# ---------- 校準對 (flow-scale 票 05) ----------
+
+STEPS3 = [find("開始"), find("確定"), find("下一步")]
+
+
+@pytest.mark.parametrize("cal, match", [
+    ({"pair": ["開始", "沒這張"]}, "校準對的範本「沒這張」"),
+    ({"pair": ["開始", "開始"]}, "兩個不同的範本名"),
+    ({"pair": ["開始"]}, "兩個不同的範本名"),
+    ({"pair": ["開始", "確定"], "frame": -1}, "非負整數"),
+    ({"pair": ["開始", "確定"], "baseline": 100}, "pair, frame"),
+])
+def test_校準對寫錯時拒絕(demo, engine, cal, match):
+    refused(demo, engine, STEPS3, match, calibration=cal)

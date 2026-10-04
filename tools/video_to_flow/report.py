@@ -12,16 +12,19 @@ def _fmt_region(r):
     return ", ".join(str(int(v)) for v in r)
 
 
-def _scale_line(res):
-    state = res["calibration"]
-    if state == "none":
-        return "profile 沒有校準對，不換算"
-    if state == "uncalibrated":
-        return ("profile 有校準對但本機未校準 → 以倍率 1 換算，座標可能偏移；"
-                "建議先在 app 按「校準」再重新組裝")
-    if res["scale"] == 1.0:
-        return "1.000（已校準，不換算）"
-    return f"{res['scale']:.3f}（已校準；座標再 ÷{res['scale']:.3f} 換回基準尺度）"
+def _calibration_line(res):
+    """`校準對`一行: 有＝名稱與基準距離; 沒有/量不到＝流程不能執行."""
+    cal = res["calibration"]
+    if cal:
+        a, b = cal["pair"]
+        return (f"{a} × {b}，基準距離 {float(cal['baseline']):.1f}px"
+                f"（第 {res['calibration_frame']} 幀量得；影片尺度就是流程尺度）")
+    how = ("在計畫的 calibration 指名兩張執行開頭一定看得到的範本"
+           "（遊戲視窗標題列的圖示＋關閉鈕）重新組裝，或在編輯器按「設定校準對」")
+    if res["calibration_problem"]:
+        return (f"**量不到**（{res['calibration_problem']}）——這份流程不能執行；"
+                f"請{how}")
+    return f"**沒有**——這份流程不能執行；請{how}"
 
 
 def render(res, plan):
@@ -33,7 +36,7 @@ def render(res, plan):
         f"- 示範影片：`{res['video']}`（{res['video_size'][0]}×{res['video_size'][1]}）",
         f"- 搜尋範圍：[{_fmt_region(res['region'])}]",
         "- 影片與實際畫面同尺度：影片像素＝螢幕像素，偏移與範本圖都不縮放",
-        f"- 畫面倍率：{_scale_line(res)}",
+        f"- 校準對：{_calibration_line(res)}",
         f"- 步驟數：{res['steps']}",
         f"- 範本數：{res['templates']}",
     ]
