@@ -81,6 +81,29 @@ def effect_confirm(step):
     return step.get("confirm", "none")
 
 
+def origin_source(steps, idx):
+    """`原點`在 steps[idx] 執行前來自哪種步驟 (靜態推算): "find" / "pointer" / None.
+
+    與編輯器的「預設原點推算」同一套走法: 往上找最近一個會更新原點的步驟
+    (找圖三態、座標點擊勾著更新原點、拖曳), 等待/按鍵/區段標記略過。
+    「原點的圖離開」只在原點來自找圖時才判斷得了。
+    """
+    for s in reversed(steps[:idx]):
+        t = s.get("type")
+        if t == "drag":
+            return "pointer"
+        if t == "click" and s.get("updateOrigin", True):
+            return "pointer"
+        if t == "find_click" and s.get("updateOrigin", True):
+            return "find"
+    return None
+
+
+def uses_origin_leaves(step):
+    """座標點擊/拖曳是否用了`原點的圖離開` (存成 confirm: "gone")."""
+    return step.get("type") in POINTER_TYPES and effect_confirm(step) == "gone"
+
+
 def uses_confirm_next(step):
     """步驟是否用了「點到下一步的圖出現」."""
     return effect_confirm(step) == "next"
@@ -138,7 +161,7 @@ class Runner:
         self.scan_region = None
         self.avoid_hover = False
         self.scale = 1.0
-        self._last_click = None
+        self._set_origin(None)
         self._step = (0, 0)  # (目前步驟序號, 總步驟數); 0 = 尚未進入步驟
         self._preparing = False  # `範本預載`進行中 (UI 顯示「準備範本中…」)
         self._prev_type = None  # 上一個執行過的步驟型別 (供拖曳後讓出的標註)
@@ -193,6 +216,7 @@ class Runner:
         self.busy = busy if busy and busy.get("template") else None
         self._last_input = None   # 上一次送出輸入的時間 (monotonic)
         self._last_click = None  # 上一次點擊的螢幕座標, 供相對座標步驟使用
+        self._origin_src = None  # 原點來自找圖時: {target, box, origin}
         self._step = (0, 0)
         self._preparing = False
         self._prev_type = None
@@ -395,6 +419,17 @@ class Runner:
         except Exception:
             pass   # 日誌絕不能反過來影響執行
 
+    # ---------- 原點 ----------
+    def _set_origin(self, xy, target=None, box=None, origin=None):
+        """更新`原點`並記下它的來源.
+
+        來自找圖時記下找圖目標、它挑中的框、查詢它時用的原點 (限定範圍換算用),
+        供`原點的圖離開`重查; 來自座標點擊或拖曳時來源記為 None (非找圖)。
+        """
+        self._last_click = xy
+        self._origin_src = (None if target is None else
+                            {"target": target, "box": box, "origin": origin})
+
     # ---------- 輸入與`補做` ----------
     def _input(self, kind, *args):
         """送出一個輸入 (win.click / drag / press_keys) 並記下時間.
@@ -522,20 +557,30 @@ class Runner:
             text = (f"拖曳 ({x1}, {y1}) → ({x2}, {y2}){where} "
                     f"{_btn_name(button)} {ms}ms{hd}")
             fields = {"from": f"({x1},{y1})", "to": f"({x2},{y2})"}
-        before = self._last_click
+        before, src = self._last_click, self._origin_src
+        mode = effect_confirm(step)
+        if mode == "gone" and src is None:
+            # `原點的圖離開`判斷不了: 輸入先不送 (送了也確認不了生效與否)
+            self.log(f"[{no}] 「原點的圖離開」但原點不是來自找圖（或沒有原點）"
+                     "→ 無法執行", "warn")
+            self._log_input("input.confirm", step=no, kind=t, mode=mode,
+                            result="cannot_run", **fields)
+            return self._on_not_found(no, f"[{no}] 原點不是來自找圖，無法確認生效",
+                                      step.get("onNotFound", "stop"))
         self._input(t, *args)
         self.log(f"[{no}] {text}")
-        mode = effect_confirm(step)
         if mode == "next" and not confirm_next_connected(steps, idx):
             # 執行期防禦線: 理論上已被執行前檢查擋下, 退化成「不確認」
             self.log(f"[{no}] 「下一步的圖出現」但下一步不是找圖步驟"
                      "→ 以「不確認」執行", "warn")
             mode = "none"
-        if mode not in ("appear", "next"):
+        if mode == "none":
             if updates:
-                self._last_click = after
+                self._set_origin(after)
             self._log_input("input", step=no, kind=t, **fields)
             return None
+        if mode == "gone":
+            return self._leaves(no, step, t, args, after, updates, fields, src)
         origin = after if updates else before   # 確認以操作後的原點為準
         ctgt = (findtarget.target(steps[idx + 1]) if mode == "next"
                 else findtarget.confirm_target(step))
@@ -561,7 +606,7 @@ class Runner:
         rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}")
         if ok:
             if updates:
-                self._last_click = after
+                self._set_origin(after)
             self.log(f"[{no}] 已生效（{label}已出現）", "ok")
             self._log_input("input.confirm", result="found",
                             picked=findtarget.fmt_box(f.picked.box), **rec)
@@ -570,6 +615,40 @@ class Runner:
         return self._on_not_found(
             no, f"[{no}] {'點擊' if t == 'click' else '拖曳'}後 {timeout}s 內"
                 f"未見{label}（送了 {inputs} 次）",
+            step.get("onNotFound", "stop"))
+
+    def _leaves(self, no, step, t, args, after, updates, fields, src):
+        """`原點的圖離開`: 重查產生原點的找圖目標, 它挑中的框不再有匹配＝生效.
+
+        用的是來源找圖目標原本的設定 (限定範圍以它查詢時的原點換算、比色照開),
+        「同一個位置」沿用等待消失的判定 (別處的同款不算)。操作前不多查一次。
+        """
+        tgt, box = src["target"], src["box"]
+        name = tgt.get("template", "")
+        timeout = float(step.get("timeout", 10))
+        interval = float(step.get("interval", 0.5))
+        self.log(f"[{no}] 等待生效（直到原點的圖「{name}」離開原位）")
+
+        def check(screen, org):
+            f = self._find(no, tgt, screen, org, src["origin"])
+            return findtarget.still_there(box, f.matches) is None, f
+
+        ok, f, polls, inputs, delay = self._await_effect(
+            no, timeout, interval, check, lambda screen, org: True,
+            lambda: self._input(t, *args))
+        rec = dict(step=no, kind=t, mode="gone", template=name,
+                   picked=findtarget.fmt_box(box), inputs=inputs, polls=polls,
+                   busy_delay=f"{delay:.2f}", **fields)
+        if ok:
+            if updates:
+                self._set_origin(after)
+            self.log(f"[{no}] 已生效（「{name}」已離開原位）", "ok")
+            self._log_input("input.confirm", result="gone", **rec)
+            return None
+        self._log_input("input.confirm", result="timeout", **rec)
+        return self._on_not_found(
+            no, f"[{no}] {'點擊' if t == 'click' else '拖曳'}後 {timeout}s 內"
+                f"「{name}」仍在原位（送了 {inputs} 次）",
             step.get("onNotFound", "stop"))
 
     def _log_input(self, event, **fields):
@@ -825,7 +904,8 @@ class Runner:
                     if step.get("updateOrigin", True):
                         # 記錄最後看到的位置 (不點擊也算相對座標原點)
                         cx, cy = hit.center
-                        self._last_click = (cx + off[0], cy + off[1])
+                        self._set_origin((cx + off[0], cy + off[1]), tgt,
+                                         hit.box, origin)
                 elif tracked is not None:
                     self.log(f"[{no}] 「{name}」已消失", "ok")
                     self._record(no, "wait_gone", f, "gone", polls=polls,
@@ -881,14 +961,14 @@ class Runner:
         if not do_click:
             if step.get("updateOrigin", True):
                 # 不點擊也記錄找到的位置 (含偏移), 供相對座標步驟當原點
-                self._last_click = (sx, sy)
+                self._set_origin((sx, sy), tgt, hit.box, origin)
             self.log(f"[{no}] 找到「{name}」(相似度 {hit.score:.3f}{many}) "
                      f"位置 ({sx}, {sy})", "ok")
             return None
 
         self._input("click", sx, sy, button, clicks)
         if step.get("updateOrigin", True):
-            self._last_click = (sx, sy)
+            self._set_origin((sx, sy), tgt, hit.box, origin)
         confirm = step.get("confirm", "none")
         if confirm == "next" and not confirm_next_connected(steps, idx):
             # 執行期防禦線: 理論上已被存檔與執行前檢查擋下, 退化成「不確認」
@@ -965,7 +1045,7 @@ class Runner:
             sx, sy = cx + off[0], cy + off[1]
             self._input("click", sx, sy, button, clicks)
             if step.get("updateOrigin", True):
-                self._last_click = (sx, sy)
+                self._set_origin((sx, sy), tgt, cur["box"], origin)
 
         ok, f, polls, n_clicks, delay = self._await_effect(
             no, timeout, interval, check,

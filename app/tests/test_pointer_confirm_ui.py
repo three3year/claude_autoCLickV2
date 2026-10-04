@@ -122,3 +122,46 @@ def test_執行前檢查_座標點擊的確認圖不在本流程就擋下(tkroot
     a.start_run()
     assert a.runner.started == []
     assert any("不見了（確認圖）" in m for m in rec)
+
+
+# ---------- 原點的圖離開 (effect-confirm 票 04) ----------
+
+def test_拖曳對話框可選原點的圖離開_摘要顯示(make_app):
+    a = make_app(1.0)
+    got = _edit(a, drag(1, 2, 3, 4, _edit=True),
+                _pick("原點的圖離開", "原點的圖離開"), _press("確定"),
+                title="編輯：滑鼠拖曳")
+    assert got["confirm"] == "gone" and got["onNotFound"] == "stop"
+    assert "做到原點的圖離開（逾時10s→停止）" in app_mod.step_desc(got)
+
+
+def test_原點不是來自找圖時有警告標記且執行前擋下(tkroot):
+    from harness import wait
+    tkroot.withdraw()
+    leaves = dict(mode="prev", confirm="gone")
+    a = _MiniApp(tkroot, [find("row1", action="none"), wait(300),
+                          drag(0, 0, 0, -100, **leaves),     # 原點來自找圖
+                          drag(0, 0, 0, -100, **leaves),     # 來自上一個拖曳
+                          click(5, 5), click(0, 0, **leaves),  # 來自點擊
+                          find("x", action="none", updateOrigin=False),
+                          click(0, 0, **leaves)])           # 仍是點擊 (找圖沒更新)
+    try:
+        a.render_steps()
+        lines = a.step_list.get("1.0", "end").splitlines()
+        assert ["⚠" in ln for ln in lines] == [False, False, False, True,
+                                              False, True, False, True]
+        assert a._origin_leaves_bad(a.steps) == [3, 5, 7]
+        assert a._origin_leaves_bad(a.steps[2:3]) == [0], \
+            "測試選取片段沒包含原點來源＝擋"
+    finally:
+        a.step_list.destroy()
+
+
+def test_執行時原點的圖離開不成立就擋下(tkroot, monkeypatch, tmp_path):
+    from test_calibration_ui import _CalApp, _warnings
+    rec = _warnings(monkeypatch)
+    a = _CalApp(tkroot, tmp_path, cal={"pair": ["p", "q"], "baseline": 100.0})
+    a.steps = [click(1, 2), drag(0, 0, 0, 9, mode="prev", confirm="gone")]
+    a.start_run()
+    assert a.runner.started == []
+    assert any("原點的圖離開" in m and "步驟 2" in m for m in rec)

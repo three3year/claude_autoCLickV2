@@ -38,7 +38,8 @@ import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowfmt, hotkey, imgio, win
 from automation.runner import (Runner, branch_layout, confirm_next_connected,
-                               uses_confirm_next)
+                               origin_source, uses_confirm_next,
+                               uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
 
 PROFILES_DIR = profile_store.profiles_root()
@@ -91,7 +92,7 @@ def _pointer_confirm_desc(s):
     if what is None:
         return ""
     nf = {"skip": "跳過", "break": "跳出"}.get(s.get("onNotFound"), "停止")
-    return f"，做到{what}（逾時{s.get('timeout', 10)}s→{nf}）"
+    return f"，做到{what}（逾時{float(s.get('timeout', 10)):g}s→{nf}）"
 
 
 def step_desc(s):
@@ -1178,9 +1179,13 @@ class App:
             if tail:
                 segs.append((tail, row_color))
             segs.append((f"［{STEP_LABELS[t]}］", LABEL_COLORS.get(t, row_color)))
-            if uses_confirm_next(s) and not confirm_next_connected(self.steps, i):
-                # 「點到下一步的圖出現」但目前不相連 (存檔後被移動/刪除/改掉
-                # 下一步): 執行前會被擋下, 平時只在列上提示、不彈窗
+            if ((uses_confirm_next(s)
+                 and not confirm_next_connected(self.steps, i))
+                    or (uses_origin_leaves(s)
+                        and origin_source(self.steps, i) != "find")):
+                # 「點到下一步的圖出現」不相連, 或「原點的圖離開」的原點不是
+                # 來自找圖 (存檔後被移動/刪除/改掉前後步驟): 執行前會被擋下,
+                # 平時只在列上提示、不彈窗
                 segs.append(("⚠ ", C["warn"]))
             segs.append((body, row_color))
             rows.append(segs)
@@ -2039,6 +2044,15 @@ class App:
             messagebox.showwarning("執行", err, parent=self.root)
             return
         # `找圖相連`檢查 (測試選取片段在 test_selected_steps 先以絕對編號擋下)
+        bad = [i + 1 for i in self._origin_leaves_bad(steps)]
+        if bad:
+            messagebox.showwarning(
+                "執行",
+                "「原點的圖離開」需要原點來自找圖步驟：\n"
+                f"步驟 {', '.join(map(str, bad))} 前面最近的原點來自點擊／拖曳"
+                "（或沒有原點）。\n請在它前面放找圖步驟當原點，或改用確認圖",
+                parent=self.root)
+            return
         bad = [i + 1 for i in self._confirm_next_bad(steps)]
         if bad:
             messagebox.showwarning(
@@ -2087,6 +2101,14 @@ class App:
         return [i for i, s in enumerate(steps)
                 if uses_confirm_next(s) and not confirm_next_connected(steps, i)]
 
+    def _origin_leaves_bad(self, steps):
+        """「原點的圖離開」但原點不是來自找圖的座標點擊/拖曳索引 (0-based).
+
+        測試選取時傳入的是片段: 原點來源在片段外＝片段內沒有找圖來源, 一樣擋。
+        """
+        return [i for i, s in enumerate(steps)
+                if uses_origin_leaves(s) and origin_source(steps, i) != "find"]
+
     def _fragment_origin_error(self, steps, base):
         """片段內「執行到時必然沒有原點」的相對座標步驟編號 (完整清單編號).
 
@@ -2130,6 +2152,16 @@ class App:
             return
         # `找圖相連`檢查以絕對編號提示 (與原點檢查同慣例); 片段結尾恰是
         # 「點到下一步的圖出現」步驟＝不相連, 要把下一步一起選進來
+        bad = [lo + i + 1
+               for i in self._origin_leaves_bad(self.steps[lo:hi + 1])]
+        if bad:
+            messagebox.showwarning(
+                "測試選取",
+                "「原點的圖離開」需要原點來自找圖步驟：\n"
+                f"步驟 {', '.join(map(str, bad))} 的原點不是找圖，或不在選取範圍內。"
+                "\n請把作為原點的找圖步驟一起選進來",
+                parent=self.root)
+            return
         bad = [lo + i + 1 for i in self._confirm_next_bad(self.steps[lo:hi + 1])]
         if bad:
             messagebox.showwarning(
