@@ -88,6 +88,7 @@ class _Driver:
         self.title = title
         self.dlg = None
         self.error = None
+        self._flushing = False   # 正在 helper 自己的 update() 裡
 
     def run(self, *actions):
         """actions: 收 driver 的 callable, 依序排進事件迴圈執行."""
@@ -100,6 +101,11 @@ class _Driver:
     def _wrap(self, act):
         def go():
             if self.error is not None:
+                return
+            if self._flushing:
+                # 前一個動作還在 helper 的 update() 裡 (它跑得比排程慢):
+                # 這時進來會插隊, 例如在 select 中途就按掉對話框——晚一點再跑
+                self.root.after(30, go)
                 return
             try:
                 act(self)
@@ -144,7 +150,7 @@ class _Driver:
         `under` 指定先找到哪一個來源, 再從它底下找——不同來源可以有同名的
         範本, 不指定就會抓到第一個。
         """
-        self.dlg.update()
+        self._update()
         node = self._find_node(needle, under)
         self.tree.focus(node)
         if self.tree.parent(node) == "":     # 來源列: 展開 (內容此時才讀)
@@ -153,12 +159,20 @@ class _Driver:
         else:                                # 範本列: 選取
             self.tree.selection_set(node)
             self.tree.event_generate("<<TreeviewSelect>>")
-        self.dlg.update()
+        self._update()
 
     def press(self, text):
         _btn(self.dlg, text).invoke()
         if self.dlg.winfo_exists():
+            self._update()
+
+    def _update(self):
+        """處理對話框的待辦事件; 期間到期的下一個動作會被延後 (見 _wrap)."""
+        self._flushing = True
+        try:
             self.dlg.update()
+        finally:
+            self._flushing = False
 
     def info_text(self):
         for w in _all(self.dlg):
