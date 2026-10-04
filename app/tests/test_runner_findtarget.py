@@ -46,7 +46,7 @@ def test_同款仍在時目標圖消失照樣成立_只看被點的位置(harnes
 
 def test_被點的位置仍有匹配就補點那個位置(harness):
     harness.vision.plan("card", [CARDS, CARDS, CARDS[:2]])
-    harness.run([find("card", target=TOP, confirm="gone", interval=0.1)])
+    harness.run(retry_interval=0, steps=[find("card", target=TOP, confirm="gone", interval=0.1)])
     assert harness.clicks() == [(600, 300), (600, 300)]
 
 
@@ -68,7 +68,7 @@ def test_等待消失_挑中位置一直在就逾時(harness):
 def test_點到下一步的圖出現套用下一步的挑選規則(harness):
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("card", [CARDS[:2], CARDS])
-    harness.run([find("a", confirm="next", interval=0.1),
+    harness.run(retry_interval=0, steps=[find("a", confirm="next", interval=0.1),
                  find("card", target=TOP, interval=0.1)])
     # 下一步要第三張: 只有兩張時還不算出現 → 補點 a; 四張到齊才生效
     assert harness.clicks() == [(100, 100), (100, 100), (600, 300)]
@@ -96,7 +96,7 @@ def test_確認圖套用自己的挑選規則(harness):
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("ok", [[(500, 500)], [(500, 500), (500, 700)]])
     two = tgt("ok", pick={"kind": "top", "n": 2})
-    harness.run([find("a", confirm="appear", confirmTarget=two, interval=0.1)])
+    harness.run(retry_interval=0, steps=[find("a", confirm="appear", confirmTarget=two, interval=0.1)])
     assert harness.clicks() == [(100, 100), (100, 100)]
     assert "確認圖「ok」已出現" in harness.log_text()
 
@@ -172,7 +172,7 @@ def test_下一步的限定範圍以點擊後的原點計算(harness):
                        "h": 100}}
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("card", [[(600, 300)], [(600, 300), (200, 300)]])
-    harness.run([find("a", confirm="next", interval=0.1),
+    harness.run(retry_interval=0, steps=[find("a", confirm="next", interval=0.1),
                  find("card", target=below, interval=0.1)])
     # 點擊後原點 (100,100) → 限定 (50,250)-(250,350): 只有 (200,300) 在裡面
     assert harness.clicks() == [(100, 100), (100, 100), (200, 300)]

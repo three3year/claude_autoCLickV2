@@ -97,7 +97,7 @@ def test_範本遺失時停止並說明是哪一張(harness):
 
 def test_點擊後確認目標消失前會自動補點(harness):
     harness.vision.plan("a.png", [(500, 400), (500, 400), None])
-    harness.run([find("a.png", confirm="gone", interval=0.1)])
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="gone", interval=0.1)])
     assert harness.clicks() == [(500, 400), (500, 400)], "沒生效要補點一次"
     assert "已生效" in harness.log_text()
 
@@ -105,7 +105,7 @@ def test_點擊後確認目標消失前會自動補點(harness):
 def test_點擊後確認圖出現才算生效(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("ok.png", [None, (700, 700)])
-    harness.run([find("a.png", confirm="appear", confirmTarget=tgt("ok.png"),
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="appear", confirmTarget=tgt("ok.png"),
                       interval=0.1)])
     assert harness.clicks() == [(500, 400), (500, 400)]
     assert "已生效" in harness.log_text()

@@ -79,7 +79,7 @@ def test_找圖輪詢失敗不讓出(harness):
 
 def test_找圖到點擊到確認生效是一個原子區段(harness):
     harness.vision.plan("a.png", [(500, 400), (500, 400), None])
-    harness.run([find("a.png", confirm="gone", interval=0.5)],
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="gone", interval=0.5)],
                 stage=harness.make_stage())
     assert harness.kinds() == ["acquire", "click", "click", "leave"], \
         "找到→點擊→補點→生效之間不得交接"

@@ -52,7 +52,7 @@ def test_uses_confirm_next_只認動作為點擊的找圖步驟():
 def test_點到下一步的圖出現前會自動補點(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700)])
-    harness.run([find("a.png", confirm="next", interval=0.1),
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="next", interval=0.1),
                  find("b.png", interval=0.1)])
     # a 點一次沒生效 → 補點一次; b 出現後進下一步、b 自己被點到
     assert harness.clicks() == [(500, 400), (500, 400), (700, 700)]
@@ -72,7 +72,7 @@ def test_逾時未見下一步的圖依找不到時處置(harness):
 def test_下一步是僅等待出現也能當確認條件(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700)])
-    harness.run([find("a.png", confirm="next", interval=0.1),
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="next", interval=0.1),
                  find("b.png", action="none", interval=0.1)])
     assert harness.clicks() == [(500, 400), (500, 400)], "b 僅等待, 不該被點"
     assert "已生效" in harness.log_text()
@@ -81,7 +81,7 @@ def test_下一步是僅等待出現也能當確認條件(harness):
 def test_下一步是等待消失也能當確認條件(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700), (700, 700), None])
-    harness.run([find("a.png", confirm="next", interval=0.1),
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="next", interval=0.1),
                  find("b.png", action="wait_gone", interval=0.1)])
     assert harness.clicks() == [(500, 400), (500, 400)]
     assert "已生效" in harness.log_text()
@@ -107,7 +107,7 @@ def test_最後一步用點到下一步同樣退化不崩潰(harness):
 def test_分岔分支內的找圖也能點到下一步(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700)])
-    harness.run([branch_start(),
+    harness.run(retry_interval=0, steps=[branch_start(),
                  find("a.png", confirm="next", interval=0.1),
                  find("b.png", interval=0.1),
                  branch_end()])
@@ -137,7 +137,7 @@ def test_確認成功訊息不改寫含出現二字的範本名(harness):
 def test_補點更新原點供相對座標使用(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700)])
-    harness.run([find("a.png", confirm="next", interval=0.1),
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="next", interval=0.1),
                  find("b.png", action="none", updateOrigin=False, interval=0.1),
                  click(7, 3, mode="prev")])
     assert harness.clicks() == [(500, 400), (500, 400), (507, 403)]
@@ -146,7 +146,7 @@ def test_補點更新原點供相對座標使用(harness):
 def test_勾掉更新原點時補點不影響原點(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700)])
-    harness.run([find("a.png", confirm="next", updateOrigin=False, interval=0.1),
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="next", updateOrigin=False, interval=0.1),
                  find("b.png", action="none", updateOrigin=False, interval=0.1),
                  click(7, 3, mode="prev")])
     assert harness.clicks() == [(500, 400), (500, 400)]

@@ -88,7 +88,7 @@ def test_記下實際的限定矩形(harness):
 
 def test_點擊後確認_目標圖消失的判定也有紀錄(harness):
     harness.vision.plan("card", [CARDS, CARDS, CARDS[:2]])
-    harness.run([find("card", target={"pick": {"kind": "top", "n": 3}},
+    harness.run(retry_interval=0, steps=[find("card", target={"pick": {"kind": "top", "n": 3}},
                       confirm="gone", interval=0.1)])
     [f] = records(harness, "find")
     [c] = records(harness, "confirm_gone")

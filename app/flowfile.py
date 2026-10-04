@@ -109,9 +109,29 @@ def rename_refs(steps, old, new):
     return changed
 
 
+# 流程層級的`補做`設定 (ADR 0008; 存法比照 avoidHover, 缺鍵＝預設值, 舊存檔不必遷移)
+RETRY_KEY = "retryIntervalMs"   # `補做間隔` (毫秒)
+RETRY_DEFAULT_MS = 1000
+BUSY_KEY = "busyTarget"         # `忙碌指示`: 一個`找圖目標`, 不設＝沒有這個鍵
+
+
+def retry_interval_ms(data):
+    """流程的`補做間隔` (毫秒); 缺或壞＝預設 1000."""
+    try:
+        return max(0, int((data or {}).get(RETRY_KEY, RETRY_DEFAULT_MS)))
+    except (TypeError, ValueError):
+        return RETRY_DEFAULT_MS
+
+
+def busy_target(data):
+    """流程的`忙碌指示` (找圖目標); 沒設回傳 None."""
+    tgt = (data or {}).get(BUSY_KEY)
+    return tgt if isinstance(tgt, dict) and tgt.get("template") else None
+
+
 def flow_refs(data):
     """一份流程引用的全部範本名 (已排序): 步驟的`找圖目標` + 流程層級設定
-    (`校準對`).
+    (`校準對`、`忙碌指示`).
 
     「被引用的範本」只有這一份定義: 存檔只打包它們、範本預載載它們、對話框
     收回未使用的新圖時保留它們——校準對不被步驟引用, 漏了它, 存檔一整理
@@ -121,11 +141,15 @@ def flow_refs(data):
     cal = calibration.flow_pair(data)
     if cal:
         refs.update(cal["pair"])
+    busy = busy_target(data)
+    if busy:
+        refs.add(busy["template"])
     return sorted(refs)
 
 
 def rename_flow_refs(data, old, new):
-    """把整份流程對 `old` 的引用 (步驟 + 校準對) 就地改成 `new`; 回傳改動筆數."""
+    """把整份流程對 `old` 的引用 (步驟 + 校準對 + 忙碌指示) 就地改成 `new`;
+    回傳改動筆數."""
     changed = rename_refs(data.get("steps") or [], old, new)
     cal = calibration.flow_pair(data)
     if cal:
@@ -133,6 +157,10 @@ def rename_flow_refs(data, old, new):
             if n == old:
                 cal["pair"][i] = new
                 changed += 1
+    busy = busy_target(data)
+    if busy and busy["template"] == old:
+        busy["template"] = new
+        changed += 1
     return changed
 
 

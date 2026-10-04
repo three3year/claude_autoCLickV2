@@ -11,6 +11,10 @@ threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分
 每次執行開頭先`校準` (ADR 0009): 流程自帶`校準對`與`基準距離`, 執行器在畫面上
 找到兩張圖、以中心距離 ÷ 基準距離得出這次的`畫面倍率`——座標乘上它, 每次找圖
 把它當`預期尺度`交給偵測器。量不到 (或流程沒有校準對) 就一個輸入都不送。
+
+`生效確認`還沒通過時的`補做` (重送同一個輸入) 有兩道門 (ADR 0008): 距上一次
+輸入已過`補做間隔`, 且畫面上沒有`忙碌指示` (流程有設才查; 只在補做判斷時查)。
+所有實際送出的輸入都經過 `_input`, 它記下「上一次輸入」的時間。
 """
 import threading
 import time
@@ -157,7 +161,8 @@ class Runner:
 
     # ---------- 控制 ----------
     def start(self, steps, run_mode="count", run_count=1, start_delay=3,
-              scan_region=None, avoid_hover=False, calibration=None):
+              scan_region=None, avoid_hover=False, calibration=None,
+              retry_interval=1.0, busy=None):
         if self.running:
             raise RuntimeError("已在執行中")
         self._stop.clear()
@@ -169,6 +174,10 @@ class Runner:
         # 流程的校準資料 {pair, baseline}; `畫面倍率`由開頭校準得出 (_calibrate)
         self.calibration = calibration
         self.scale = 1.0
+        # `補做間隔` (秒) 與`忙碌指示` (找圖目標或 None): 流程層級設定
+        self.retry_interval = max(0.0, float(retry_interval))
+        self.busy = busy if busy and busy.get("template") else None
+        self._last_input = None   # 上一次送出輸入的時間 (monotonic)
         self._last_click = None  # 上一次點擊的螢幕座標, 供相對座標步驟使用
         self._step = (0, 0)
         self._preparing = False
@@ -304,9 +313,12 @@ class Runner:
         """
         names = flow_templates(steps)
         cal = calib.flow_pair({calib.FLOW_KEY: self.calibration})
-        for n in (cal["pair"] if cal else ()):
+        extra = list(cal["pair"]) if cal else []   # 開頭校準要查
+        if self.busy:
+            extra.append(self.busy["template"])     # 補做判斷要查
+        for n in extra:
             if n not in names:
-                names.append(n)   # 校準對是被引用的範本 (開頭校準要查)
+                names.append(n)   # 流程層級設定引用的也是被引用的範本
         if not names:
             return
         self._preparing = True
@@ -369,6 +381,43 @@ class Runner:
         except Exception:
             pass   # 日誌絕不能反過來影響執行
 
+    # ---------- 輸入與`補做` ----------
+    def _input(self, kind, *args):
+        """送出一個輸入 (win.click / drag / press_keys) 並記下時間.
+
+        執行器所有實際送出輸入的地方都經過這裡: 補做間隔從上一次輸入算起。
+        """
+        getattr(win, kind)(*args)
+        self._last_input = time.monotonic()
+
+    def _retry_ready(self, no, screen, org, gate):
+        """`補做`的兩道門: 已過`補做間隔`、且畫面上沒有`忙碌指示`.
+
+        忙碌指示只在這裡查 (間隔已滿才查, 一般輸入前不查), 用的是這一輪
+        確認輪詢的同一張截圖, 不另外截圖也不讓出舞台。gate 記錄因忙碌延後
+        的累計秒數 (busy_since: 這次開始延後的時間; delay: 已結算的總和)。
+        """
+        now = time.monotonic()
+        if (self._last_input is not None
+                and now - self._last_input < self.retry_interval - 1e-6):
+            return False
+        if self.busy is not None:
+            f = self._find(no, self.busy, screen, org, self._last_click,
+                           kind="忙碌指示")
+            if f.picked is not None:
+                if gate["busy_since"] is None:
+                    gate["busy_since"] = now
+                return False
+        self._settle_busy(gate, now)
+        return True
+
+    @staticmethod
+    def _settle_busy(gate, now):
+        """把進行中的忙碌延後結算進總和."""
+        if gate["busy_since"] is not None:
+            gate["delay"] += now - gate["busy_since"]
+            gate["busy_since"] = None
+
     # ---------- 步驟 ----------
     def _abs_origin(self):
         """`絕對座標`的基準＝目前`搜尋範圍`的左上角.
@@ -410,7 +459,7 @@ class Runner:
                 desc = f"（範圍內 {int(step['x'])},{int(step['y'])}）"
             button = step.get("button", "left")
             clicks = int(step.get("clicks", 1))
-            win.click(x, y, button, clicks)
+            self._input("click", x, y, button, clicks)
             if step.get("updateOrigin", True):
                 self._last_click = (x, y)
             self.log(f"[{no}] 點擊 ({x}, {y}){desc} {_btn_name(button)}×{clicks}")
@@ -433,7 +482,7 @@ class Runner:
             button = step.get("button", "left")
             ms = int(step.get("ms", 300))
             hold = int(step.get("holdMs", 0))
-            win.drag(x1, y1, x2, y2, button, ms, hold)
+            self._input("drag", x1, y1, x2, y2, button, ms, hold)
             self._last_click = (x2, y2)  # 拖曳終點可當相對座標原點
             hd = f" 停頓{hold}ms放開" if hold else ""
             self.log(f"[{no}] 拖曳 ({x1}, {y1}) → ({x2}, {y2}){desc} {_btn_name(button)} {ms}ms{hd}")
@@ -452,7 +501,7 @@ class Runner:
 
         elif t == "key":
             keys = step.get("keys", "")
-            win.press_keys(keys)
+            self._input("press_keys", keys)
             self.log(f"[{no}] 按鍵 {keys}")
 
         else:
@@ -727,7 +776,7 @@ class Runner:
                      f"位置 ({sx}, {sy})", "ok")
             return None
 
-        win.click(sx, sy, button, clicks)
+        self._input("click", sx, sy, button, clicks)
         if step.get("updateOrigin", True):
             self._last_click = (sx, sy)
         confirm = step.get("confirm", "none")
@@ -790,6 +839,7 @@ class Runner:
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")
         deadline = time.monotonic() + timeout
         n_clicks, polls = 1, 0
+        gate = {"busy_since": None, "delay": 0.0}
         while True:
             self._sleep(interval)  # 先給應用程式反應時間
             self._check_stop()
@@ -802,7 +852,8 @@ class Runner:
                     self.log(f"[{no}] 點擊已生效（{done}）", "ok")
                     self._record(no, role, fm, "gone", polls=polls,
                                  clicks=n_clicks,
-                                 picked=findtarget.fmt_box(box))
+                                 picked=findtarget.fmt_box(box),
+                                 busy_delay=f"{gate['delay']:.2f}")
                     return None
             else:  # appear / next: 照確認圖/下一步自己的找圖目標
                 fc = self._find(no, ctgt, screen, org, self._last_click,
@@ -810,24 +861,31 @@ class Runner:
                 if fc.picked is not None:
                     self.log(f"[{no}] 點擊已生效（{done}）", "ok")
                     self._record(no, role, fc, "found", polls=polls,
-                                 clicks=n_clicks)
+                                 clicks=n_clicks,
+                                 busy_delay=f"{gate['delay']:.2f}")
                     return None
-            # 尚未生效 → 被點的位置還有匹配就補點它 (位置以最新一次查詢為準)
+            # 尚未生效 → 被點的位置還有匹配、且過了補做的兩道門, 就補點它
+            # (位置以最新一次查詢為準); 目標已離開原位＝不補點
             if still is not None:
                 box = still.box
-                cx, cy = still.center
-                sx, sy = cx + off[0], cy + off[1]
-                win.click(sx, sy, button, clicks)
-                n_clicks += 1
-                if step.get("updateOrigin", True):
-                    self._last_click = (sx, sy)
+                if self._retry_ready(no, screen, org, gate):
+                    cx, cy = still.center
+                    sx, sy = cx + off[0], cy + off[1]
+                    self._input("click", sx, sy, button, clicks)
+                    n_clicks += 1
+                    if step.get("updateOrigin", True):
+                        self._last_click = (sx, sy)
             if time.monotonic() >= deadline:
                 break
+        self._settle_busy(gate, time.monotonic())
+        delay = f"{gate['delay']:.2f}"
         if mode == "gone":
             self._record(no, role, fm, "not_gone", polls=polls,
-                         clicks=n_clicks, picked=findtarget.fmt_box(box))
+                         clicks=n_clicks, picked=findtarget.fmt_box(box),
+                         busy_delay=delay)
         else:
-            self._record(no, role, fc, "timeout", polls=polls, clicks=n_clicks)
+            self._record(no, role, fc, "timeout", polls=polls, clicks=n_clicks,
+                         busy_delay=delay)
         return self._on_not_found(no, fail, on_nf)
 
 

@@ -55,6 +55,6 @@ def test_找圖不點擊時原點也含倍率後的偏移(harness):
 
 def test_點擊後確認的補點同樣乘上倍率(harness):
     harness.vision.plan("a.png", [(500, 400), (500, 400), None])
-    harness.run([find("a.png", confirm="gone", interval=0.1,
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="gone", interval=0.1,
                       offsetX=4, offsetY=0)], scale=1.5)
     assert harness.clicks() == [(506, 400), (506, 400)]
