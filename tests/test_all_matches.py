@@ -94,6 +94,16 @@ def real_case(name):
     return case.template_path, imread(case.screenshot_path), case.expect
 
 
+def test_真實影格_小圖示不被別的尺度的雜訊峰擠出候選(engine, tmp_path):
+    """範本取自同一幀, 一定要找到: 每個尺度收多個峰值後, 單一實例的最佳峰仍要在候選裡."""
+    for name in ("s0_small_訂單交付_d2f478", "s1_small_每日線索_d2f1142"):
+        tpl, scene, expect = real_case(name)
+        lib = engine.load_templates({"icon": tpl}, config=load_config(ARKNIGHTS),
+                                    artifacts_dir=tmp_path / "registered")
+        res = engine.query(lib, "icon", scene)
+        assert any(_near(m.box, expect["center"], 15) for m in res.matches), name
+
+
 def test_真實影格_基建總覽上四張製造站卡全部回報(engine, tmp_path):
     """同款四張全部是匹配 (不開比色時同形狀的貿易站卡也會進來——那是比色的事)."""
     for name in ("r0_multi_製造站卡_d3f300", "r1_multi_製造站卡_d2f662",

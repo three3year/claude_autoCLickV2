@@ -1,0 +1,7 @@
+# real frame (demo2 f478, cropped): 待辦欄的「訂單交付」小圖示 (47×40) on a busy screen. The template is cut from this very frame,
+# so it must be found; regression guard for many-peaks-per-scale crowding the true match out of the candidates.
+center:
+- 432
+- 474
+expected: present
+tolerance: 15

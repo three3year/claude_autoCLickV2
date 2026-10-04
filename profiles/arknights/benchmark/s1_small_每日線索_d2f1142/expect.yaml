@@ -1,0 +1,7 @@
+# real frame (demo2 f1142, full): 線索板右上的「每日線索」小圖示 (48×54) on a busy screen. The template is cut from this very frame,
+# so it must be found; regression guard for many-peaks-per-scale crowding the true match out of the candidates.
+center:
+- 1820
+- 259
+expected: present
+tolerance: 15

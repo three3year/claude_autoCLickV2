@@ -18,6 +18,8 @@ _COARSE_MAX_DIM = 640       # scene is downscaled to about this for the sweep
 _MIN_TPL_PX = 8             # scaled template may not drop below this
 _TOP_K = 20                 # candidates handed to refinement / verification:
                             # enough for a row of a dozen identical subjects
+_BEST_K = 5                 # per-scale best peaks always refined too (the
+                            # single-instance pool), on top of top_k
 _PEAKS_PER_SCALE = 64       # local peaks examined per scale (before NMS)
 _NMS_IOU = 0.3
 
@@ -177,7 +179,8 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
 
     # the coarse sweep runs unmasked (fast FFT path); the mask weighs in at
     # refinement, where the final score is computed
-    raw: list[Candidate] = []
+    best: list[Candidate] = []    # each scale's global maximum
+    extra: list[Candidate] = []   # the other above-threshold peaks
     for s in _scale_grid(lo, hi):
         w = round(tw * s * down)
         h = round(th * s * down)
@@ -187,13 +190,18 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
             continue
         tpl_s = _resize(tpl_gray, w, h)
         res = _match(scene_grad_small, gradient_map(tpl_s), None)
-        for px, py, val in _local_peaks(res, w, h, peak_threshold):
-            raw.append(Candidate(
+        for i, (px, py, val) in enumerate(_local_peaks(res, w, h,
+                                                       peak_threshold)):
+            (extra if i else best).append(Candidate(
                 box=(round(px / down), round(py / down),
                      round(tw * s), round(th * s)),
                 score=val, scale=s, aspect=1.0))
 
-    kept = _nms(raw, top_k)
+    # the single-instance pool is refined on its own, never crowded out or
+    # suppressed by extra peaks: on a busy screen a small template's coarse
+    # scores are noisy, so a wrong-scale peak can outscore and overlap the
+    # true match before refinement. Duplicates merge in the NMS after it.
+    kept = _nms(best, _BEST_K) + _nms(best + extra, top_k)
 
     # --- refinement at full resolution -------------------------------------
     refined = [_refine(scene_grad_full, tpl_gray, mask, c, aspect_jitter)
