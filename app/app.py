@@ -36,7 +36,7 @@ import ui_dialogs
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import capture, flowfmt, hotkey, imgio, win
+from automation import capture, findtarget, flowfmt, hotkey, imgio, win
 from automation.runner import (Runner, branch_layout, confirm_next_connected,
                                uses_confirm_next)
 from ui_theme import C, FONT, FONT_MONO
@@ -99,7 +99,7 @@ def step_desc(s):
         ox, oy = int(s.get("offsetX", 0)), int(s.get("offsetY", 0))
         off = f"，偏移({ox:+d}, {oy:+d})" if ox or oy else ""
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
-        return (f"{s.get('template', '?')} → {act}{off}{cfm}{uo}"
+        return (f"{findtarget.template(s) or '?'} → {act}{off}{cfm}{uo}"
                 f"（逾時{s.get('timeout', 10)}s→{nf}）")
     if t == "drag":
         if s.get("mode", "abs") == "prev":
@@ -1138,7 +1138,7 @@ class App:
             "click": {"type": "click", "x": 500, "y": 400, "button": "left", "clicks": 1},
             "drag": {"type": "drag", "x1": 400, "y1": 300, "x2": 600, "y2": 400,
                      "button": "left", "ms": 500, "holdMs": 500},
-            "find_click": {"type": "find_click", "template": "",
+            "find_click": {"type": "find_click", "target": {"template": ""},
                            "timeout": 10, "interval": 0.5, "action": "click",
                            "button": "left", "clicks": 1, "offsetX": 0, "offsetY": 0,
                            "onNotFound": "skip"},
@@ -1601,7 +1601,7 @@ class App:
         if not name:
             return
         used = [i + 1 for i, s in enumerate(self.steps)
-                if s.get("template") == name or s.get("confirmTemplate") == name]
+                if name in flowfile.used_templates([s])]
         # 沒有步驟使用時直接刪除, 不打擾
         if used and not messagebox.askyesno(
                 "刪除範本",
@@ -1978,11 +1978,12 @@ class App:
         for s in steps:
             if s["type"] != "find_click":
                 continue
-            if s.get("template") not in names:
-                missing.append(s.get("template") or "(未選擇)")
+            if findtarget.template(s) not in names:
+                missing.append(findtarget.template(s) or "(未選擇)")
             if (s.get("confirm") == "appear"
-                    and s.get("confirmTemplate") not in names):
-                missing.append((s.get("confirmTemplate") or "(未選擇)") + "（確認圖）")
+                    and findtarget.confirm_template(s) not in names):
+                missing.append((findtarget.confirm_template(s) or "(未選擇)")
+                               + "（確認圖）")
         if missing:
             messagebox.showwarning("執行", "找圖步驟的範本不存在：\n" + "\n".join(missing),
                                    parent=self.root)

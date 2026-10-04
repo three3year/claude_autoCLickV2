@@ -90,7 +90,8 @@ def _img(fill=200, w=12, h=8):
 
 
 def _find(template, **extra):
-    s = {"type": "find_click", "template": template, "action": "click"}
+    s = {"type": "find_click", "target": {"template": template},
+         "action": "click"}
     s.update(extra)
     return s
 
@@ -314,7 +315,7 @@ def test_匯入舊flow_json_轉成新存檔並套用既有規則(tkroot, tmp_pat
 
     a.open_flow()
 
-    assert a.steps[0]["template"] == "V", "範本名去副檔名並拉平"
+    assert a.steps[0]["target"]["template"] == "V", "範本名去副檔名並拉平"
     assert "threshold" not in a.steps[0], "每步 threshold 安靜丟棄"
     assert (a.steps[1]["x"], a.steps[1]["y"]) == (200, 200), "座標空間遷移"
     assert a.ws.names() == ["V"]
@@ -337,7 +338,7 @@ def test_匯入舊流程包_多截圖取登錄基準張(tkroot, tmp_path, monkey
 
     a.open_flow()
 
-    assert a.steps[0]["template"] == "V"
+    assert a.steps[0]["target"]["template"] == "V"
     assert open(a.ws.path_of("V"), "rb").read() == b"A"
     saved = flowfile.list_flows(a.profile_dir)
     assert len(saved) == 1 and flowfile.template_names(saved[0]) == ["V"]

@@ -59,8 +59,8 @@ def test_框到空白處的範本標待重拍且步驟引用與存檔圖名同�
     r = saved(res)
     assert RETAKE + "空白" in r["images"] and "空白" not in r["images"]
     s = r["data"]["steps"]
-    assert s[1]["template"] == RETAKE + "空白"
-    assert s[2]["confirmTemplate"] == RETAKE + "空白"
+    assert s[1]["target"]["template"] == RETAKE + "空白"
+    assert s[2]["confirmTarget"]["template"] == RETAKE + "空白"
     assert flowfile.used_templates(s) == sorted(r["images"])
     assert RETAKE + "空白" in report(res)
 
@@ -74,7 +74,7 @@ def test_在該點的那一幀找不到的範本標待重拍(demo, engine):
 
     assert list(res["retake"]) == [RETAKE + "確定"]
     assert any("找不到" in why for why in res["retake"][RETAKE + "確定"])
-    assert saved(res)["data"]["steps"][1]["template"] == RETAKE + "確定"
+    assert saved(res)["data"]["steps"][1]["target"]["template"] == RETAKE + "確定"
 
 
 def test_在該找不到的幀也匹配到的範本標待重拍原因寫出現前就匹配(demo, engine):

@@ -136,7 +136,8 @@ def test_量測在搜尋範圍內找時距離不受範圍原點影響():
 
 def test_改寫涵蓋三類偏移含拖曳兩端點():
     steps = [
-        {"type": "find_click", "template": "a", "offsetX": 10, "offsetY": -20},
+        {"type": "find_click", "target": {"template": "a"}, "offsetX": 10,
+         "offsetY": -20},
         {"type": "click", "x": 30, "y": 40},
         {"type": "click", "x": 5, "y": -5, "mode": "prev"},
         {"type": "drag", "x1": 10, "y1": 10, "x2": 60, "y2": 80},
@@ -157,7 +158,8 @@ def test_改寫涵蓋三類偏移含拖曳兩端點():
 
 def test_倍率1改寫等於不動():
     steps = [{"type": "click", "x": 30, "y": 40},
-             {"type": "find_click", "template": "a", "offsetX": 7, "offsetY": 3}]
+             {"type": "find_click", "target": {"template": "a"}, "offsetX": 7,
+              "offsetY": 3}]
     before = json.loads(json.dumps(steps))
     calibration.scale_steps(steps, 1.0)
     assert steps == before
@@ -197,7 +199,8 @@ def test_重定基準改寫全部流程檔含自動存檔並更新校準資料(t
     calibration.save(str(tmp_path), make_cal(baseline=200.0, scale=1.25, fp=FP_A))
     _write_flow(tmp_path, FLOW1, _flow([
         {"type": "click", "x": 100, "y": 40},
-        {"type": "find_click", "template": "a", "offsetX": 10, "offsetY": -8}]))
+        {"type": "find_click", "target": {"template": "a"}, "offsetX": 10,
+         "offsetY": -8}]))
     _write_flow(tmp_path, FLOW2, _flow([
         {"type": "drag", "x1": 4, "y1": 4, "x2": 40, "y2": 80, "mode": "prev"}]))
     _write_flow(tmp_path, flowfile.DRAFT_NAME, _flow([

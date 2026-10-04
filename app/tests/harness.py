@@ -4,7 +4,7 @@
 
     def test_something(harness):
         harness.vision.plan("a.png", [None, (500, 400)])  # 第一次沒找到, 第二次起找到
-        harness.run([{"type": "find_click", "template": "a.png"}])
+        harness.run([find("a.png")])
         assert harness.clicks() == [(500, 400)]
 
 設計要點:
@@ -44,8 +44,15 @@ def drag(x1, y1, x2, y2, **kw):
     return dict({"type": "drag", "x1": x1, "y1": y1, "x2": x2, "y2": y2}, **kw)
 
 
-def find(template, **kw):
-    return dict({"type": "find_click", "template": template}, **kw)
+def tgt(template, **attrs):
+    """`找圖目標`: 範本 + 限定範圍/挑選規則/比色 (缺＝預設)."""
+    return dict({"template": template}, **attrs)
+
+
+def find(template, target=None, **kw):
+    """找圖步驟; target 給`找圖目標`的其餘屬性 (limit/pick/colorCheck)."""
+    return dict({"type": "find_click", "target": tgt(template, **(target or {}))},
+                **kw)
 
 
 def key(keys):

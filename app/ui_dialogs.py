@@ -12,7 +12,7 @@ import calibration
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import capture, flowfmt, win
+from automation import capture, findtarget, flowfmt, win
 from ui_theme import C, FONT
 
 BTN_NAMES = [("left", "左鍵"), ("right", "右鍵"), ("middle", "中鍵")]
@@ -586,7 +586,7 @@ def _region_origin(app, parent):
 
 def _find_template_now(app, dlg, prev):
     """隱藏視窗後在框選範圍內即時查一次 prev 的範本, 回傳中心座標或 None."""
-    name = prev.get("template", "")
+    name = findtarget.template(prev)
     if not app.hub.ready:
         # `引擎就緒`前提示並拒絕 (清場中不得彈 modal——會隱形卡死);
         # 回 None 走「截圖當下位置」備援, 拾取流程不中斷
@@ -656,10 +656,10 @@ def _resolve_prev_origin(app, step, dlg, k=1.0):
             off = (flowfmt.scale_px(prev.get("offsetX", 0), k),
                    flowfmt.scale_px(prev.get("offsetY", 0), k))
             if via_rel:
-                pos = app.template_pos(prev.get("template", ""))
+                pos = app.template_pos(findtarget.template(prev))
             else:
                 pos = _find_template_now(app, dlg, prev) or app.template_pos(
-                    prev.get("template", ""))
+                    findtarget.template(prev))
             if pos:
                 return pos[0] + off[0] + dx, pos[1] + off[1] + dy
             return None  # 找圖位置無法推算, 中斷
@@ -969,7 +969,7 @@ def edit_step(app, step):
         add_note("單鍵如 enter、esc、f5、a；組合鍵用 + 連接，如 ctrl+v、alt+f4")
 
     elif t == "find_click":
-        v["template"] = tk.StringVar(value=step.get("template", ""))
+        v["template"] = tk.StringVar(value=findtarget.template(step))
         v["timeout"] = tk.DoubleVar(value=step.get("timeout", 10))
         v["interval"] = tk.DoubleVar(value=step.get("interval", 0.5))
         ACT_ZH = {"click": "點擊該圖片",
@@ -1054,7 +1054,7 @@ def edit_step(app, step):
         CFM_KEY = {n: k for k, n in CFM_ZH.items()}
         v["confirm"] = tk.StringVar(
             value=CFM_ZH.get(step.get("confirm", "none"), CFM_ZH["none"]))
-        v["confirmTemplate"] = tk.StringVar(value=step.get("confirmTemplate", ""))
+        v["confirmTemplate"] = tk.StringVar(value=findtarget.confirm_template(step))
 
         # 「點擊後確認」整列自建 label 方便隨「不點擊」整列隱藏
         cfm_mode_lbl = ttk.Label(body, text="點擊後確認", style="Muted.TLabel")
@@ -1183,8 +1183,16 @@ def edit_step(app, step):
                 # confirm == "next" 而下一步不是找圖時不在此擋下 (拍板
                 # 2026-08-16 修訂): 允許先存, 由步驟清單的 ⚠ 標記提示、
                 # 執行前檢查攔下——作者常先建這步再補下一步
+                # 找圖目標的其餘屬性 (限定範圍/挑選規則/比色) 原樣保留
+                s[findtarget.TARGET] = dict(findtarget.target(step),
+                                            template=v["template"].get())
+                if confirm == "appear":
+                    s[findtarget.CONFIRM_TARGET] = dict(
+                        findtarget.confirm_target(step),
+                        template=v["confirmTemplate"].get())
+                else:
+                    s.pop(findtarget.CONFIRM_TARGET, None)
                 s.update(
-                    template=v["template"].get(),
                     timeout=v["timeout"].get(),
                     interval=max(0.1, v["interval"].get()),
                     action=action,
@@ -1192,7 +1200,6 @@ def edit_step(app, step):
                     offsetX=v["offsetX"].get(), offsetY=v["offsetY"].get(),
                     onNotFound={n: k for k, n in NF_ZH.items()}[v["onNotFound"].get()],
                     confirm=confirm,
-                    confirmTemplate=v["confirmTemplate"].get() if confirm == "appear" else "",
                     updateOrigin=v["updateOrigin"].get(),
                 )
                 s.pop("region", None)
@@ -1229,7 +1236,8 @@ def _discard_unused(app, added, step):
         return
     keep = set()
     if step:
-        keep = {step.get("template"), step.get("confirmTemplate")} - {None, ""}
+        keep = {findtarget.template(step),
+                findtarget.confirm_template(step)} - {None, ""}
     others = set(flowfile.used_templates(getattr(app, "steps", []) or []))
     dropped = [n for n in dict.fromkeys(added)
                if n not in keep and n not in others]

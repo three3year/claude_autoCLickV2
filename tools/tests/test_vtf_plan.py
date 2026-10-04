@@ -76,7 +76,8 @@ def test_計畫有指定時照計畫(demo, engine):
              find("下一步", confirm="none", button="right", clicks=2)]
     s = saved(run(demo, engine, steps))
     assert (s[0]["confirm"], s[0]["onNotFound"], s[0]["timeout"]) == ("gone", "skip", 30)
-    assert (s[1]["confirm"], s[1]["confirmTemplate"]) == ("appear", "下一步")
+    assert (s[1]["confirm"], s[1]["confirmTarget"]) == ("appear",
+                                                       {"template": "下一步"})
     assert (s[2]["confirm"], s[2]["button"], s[2]["clicks"]) == ("none", "right", 2)
 
 

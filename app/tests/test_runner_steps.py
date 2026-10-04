@@ -1,7 +1,7 @@
 """執行器的既有行為回歸網: 等待、找圖三態、點擊後確認、按鍵."""
 
 
-from harness import click, find, key, wait
+from harness import click, find, key, tgt, wait
 
 
 # ---------- 等待 ----------
@@ -105,7 +105,7 @@ def test_點擊後確認目標消失前會自動補點(harness):
 def test_點擊後確認圖出現才算生效(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("ok.png", [None, (700, 700)])
-    harness.run([find("a.png", confirm="appear", confirmTemplate="ok.png",
+    harness.run([find("a.png", confirm="appear", confirmTarget=tgt("ok.png"),
                       interval=0.1)])
     assert harness.clicks() == [(500, 400), (500, 400)]
     assert "已生效" in harness.log_text()

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 
+from automation import findtarget
+
 from . import verify as verify_mod
 
 
@@ -101,12 +103,12 @@ def _describe(s):
     """步驟一行摘要 (偏移已是存檔裡的基準尺度數值)."""
     t = s["type"]
     if t == "find_click":
-        text = f"「{s['template']}」{_ACTION[s['action']]}"
+        text = f"「{findtarget.template(s)}」{_ACTION[s['action']]}"
         if s["offsetX"] or s["offsetY"]:
             text += f"，偏移 {s['offsetX']:+d},{s['offsetY']:+d}"
         text += _CONFIRM[s["confirm"]]
         if s["confirm"] == "appear":
-            text += f"「{s['confirmTemplate']}」"
+            text += f"「{findtarget.confirm_template(s)}」"
         text += f"；逾時 {s['timeout']}s 找不到時{_NF[s['onNotFound']]}"
         if not s["updateOrigin"]:
             text += "；不更新原點"

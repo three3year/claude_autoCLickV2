@@ -216,7 +216,7 @@ def test_左側列出本流程與其他流程存檔(picker):
     app.ws.add("mine", _png())
     other = os.path.join(app.profile_dir, "flows", "morning" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "btn"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "btn"}}],
                            "coordSpace": "region"}, {"btn": _png(50)})
     d = _Driver(app.root, TITLE)
 
@@ -238,7 +238,7 @@ def test_展開其他存檔看到它的範本(picker):
     app = picker
     other = os.path.join(app.profile_dir, "flows", "night" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
                            "coordSpace": "region"}, {"gear": _png(90, 30, 20)})
     d = _Driver(app.root, TITLE)
     seen = {}
@@ -265,7 +265,7 @@ def test_按確定才把其他存檔的圖複製進本流程(picker):
     app = picker
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
                            "coordSpace": "region"}, {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
@@ -284,7 +284,7 @@ def test_按取消時檔案系統完全沒有變化(picker):
     app = picker
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
                            "coordSpace": "region"}, {"gear": _png(90)})
     before = _snapshot(app.ws)
     d = _Driver(app.root, TITLE)
@@ -314,7 +314,7 @@ def test_跨流程複製進來的是獨立副本(picker):
     app = picker
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
                            "coordSpace": "region"}, {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
@@ -325,7 +325,7 @@ def test_跨流程複製進來的是獨立副本(picker):
 
     _open(app, d, pick)
     # 來源流程日後改圖
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
                            "coordSpace": "region"}, {"gear": _png(10)})
     assert open(app.ws.path_of("gear"), "rb").read() == _png(90)
 
@@ -335,7 +335,7 @@ def test_撞名自動加序號並寫進執行紀錄(picker):
     app.ws.add("gear", _png(1))
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
                            "coordSpace": "region"}, {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
@@ -493,7 +493,7 @@ def test_取消整個對話框時這次加的範本被丟棄(picker):
     「截圖即時存檔、取消對話框圖仍留下」的行為一併改成丟棄。」"""
     app = picker
     app.ws.add("kept", b"K")
-    app.steps = [{"type": "find_click", "template": "kept"}]
+    app.steps = [{"type": "find_click", "target": {"template": "kept"}}]
 
     ui_dialogs._discard_unused(app, ["shot_1", "shot_2"], None)
 
@@ -505,8 +505,8 @@ def test_按確定時只留這一步真的引用到的(picker):
     app = picker
     for n in ("a", "b", "c"):
         app.ws.add(n, b"X")
-    step = {"type": "find_click", "template": "a", "confirm": "appear",
-            "confirmTemplate": "c"}
+    step = {"type": "find_click", "target": {"template": "a"},
+            "confirm": "appear", "confirmTarget": {"template": "c"}}
 
     ui_dialogs._discard_unused(app, ["a", "b", "c"], step)
 
@@ -516,7 +516,7 @@ def test_按確定時只留這一步真的引用到的(picker):
 def test_已被其他步驟引用的絕不誤刪(picker):
     app = picker
     app.ws.add("shared", b"S")
-    app.steps = [{"type": "find_click", "template": "shared"}]
+    app.steps = [{"type": "find_click", "target": {"template": "shared"}}]
 
     ui_dialogs._discard_unused(app, ["shared"], None)
 
@@ -538,7 +538,7 @@ def test_樹狀每一列都帶縮圖_展開時才讀(picker):
     app.ws.add("mine", _png(200, 20, 12))
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
                            "coordSpace": "region"}, {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
     seen = {}
@@ -562,7 +562,7 @@ def test_未展開的來源不去讀它的圖(picker, monkeypatch):
     app = picker
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "template": "gear"}],
+    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
                            "coordSpace": "region"}, {"gear": _png(90)})
     reads = []
     real = flowfile.template_bytes

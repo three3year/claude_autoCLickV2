@@ -28,7 +28,7 @@ import zipfile
 from pathlib import Path
 
 import calibration
-from automation import flowfmt
+from automation import findtarget, flowfmt
 
 EXT = ".autoclickpack"          # 流程存檔副檔名 (沿用舊流程包的副檔名)
 DRAFT_NAME = "_autosave.json"   # 步驟草稿 (自動存檔; 輕量 JSON, 圖留在工作區)
@@ -42,14 +42,14 @@ CAL_PREFIX = "calibration/"
 # 自包自足存檔的格式標記: 舊流程包同樣是「zip 內含 flow.json」, 沒有標記就無從
 # 分辨「直接開得起來的存檔」與「要走單向轉換的舊流程包」
 FORMAT_KEY = "flowFormat"
-FORMAT = 2
+FORMAT = 3                 # 寫檔一律蓋這個版本 (3: 範本收進`找圖目標`, ADR 0007)
+SELF_CONTAINED_SINCE = 2   # 2 起就是自包自足存檔; 2 → 3 只是步驟結構遷移
 
 # `校準對`的圖交給引擎時用的範本名前綴: 校準圖由 profile 自存、與流程解耦, 但
 # 辨識只有一條路徑 (query(範本名, 搜尋區域)), 所以它們也得在引擎的`範本清單`裡。
 # 前綴含 `/`, 流程範本名一律被 `clean_name` 擋掉斜線 → 永遠不會撞名。
 CAL_NAME_PREFIX = "_cal/"
 
-_TMPL_KEYS = ("template", "confirmTemplate")
 _IMG_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
 
 
@@ -99,36 +99,46 @@ def free_name(name, taken):
 
 
 def rename_refs(steps, old, new):
-    """把步驟對 `old` 的引用 (含`確認圖`) 就地改成 `new`; 回傳改動筆數.
+    """把步驟對 `old` 的引用 (所有`找圖目標`, 含`確認圖`) 就地改成 `new`;
+    回傳改動筆數.
 
     跨流程複製撞名加序號、範本重新命名共用這一條路徑——引用漏改就等於
     流程指向一張不存在的圖。
     """
     changed = 0
     for s in steps:
-        for k in _TMPL_KEYS:
-            if s.get(k) == old:
-                s[k] = new
+        for _, t in findtarget.step_targets(s):
+            if t.get("template") == old:
+                t["template"] = new
                 changed += 1
     return changed
 
 
 def used_templates(steps):
-    """步驟引用的所有範本名 (含「點擊後確認」的確認圖), 已排序."""
+    """所有`找圖目標`引用的範本名 (確認圖只在「點到確認圖出現」時算), 已排序."""
     used = set()
     for s in steps:
-        if s.get("type") == "find_click" and s.get("template"):
-            used.add(s["template"])
-        if s.get("confirm") == "appear" and s.get("confirmTemplate"):
-            used.add(s["confirmTemplate"])
+        if s.get("type") != "find_click":
+            continue
+        if findtarget.template(s):
+            used.add(findtarget.template(s))
+        if s.get("confirm") == "appear" and findtarget.confirm_template(s):
+            used.add(findtarget.confirm_template(s))
     return sorted(used)
+
+
+def _migrate_steps(steps):
+    """flowFormat 2 → 3 的步驟結構遷移 (冪等): 範本名搬進`找圖目標`."""
+    for s in steps or []:
+        findtarget.migrate_step(s)
 
 
 def migrate_flow(data):
     """舊 flow dict 就地遷移成新格式, 回傳提示訊息 list.
 
-    座標空間 (螢幕→範圍)、範本引用去副檔名、每步 threshold 丟棄。
-    對已是新格式的資料是 no-op, 所有讀檔路徑一律先過這一關。
+    座標空間 (螢幕→範圍)、範本名搬進`找圖目標` (flowFormat 2 → 3)、範本引用
+    去副檔名、每步 threshold 丟棄。對已是新格式的資料是 no-op, 所有讀檔路徑
+    (存檔、步驟草稿、舊 JSON、舊流程包) 一律先過這一關。
     """
     notes = []
     note = flowfmt.to_region_space(data)
@@ -136,9 +146,10 @@ def migrate_flow(data):
         notes.append(note)
     for s in data.get("steps") or []:
         s.pop("threshold", None)
-        for k in _TMPL_KEYS:
-            if s.get(k):
-                s[k] = strip_ext(s[k])
+        findtarget.migrate_step(s)
+        for _, t in findtarget.step_targets(s):
+            if t.get("template"):
+                t["template"] = strip_ext(t["template"])
     return notes
 
 
@@ -206,11 +217,12 @@ def write(path, data, images, pos=None, cal=None, cal_images=None):
     寫進執行紀錄即可。
     """
     images = images or {}
-    refs = used_templates(data.get("steps") or [])
+    stamped = json.loads(json.dumps(data))  # 深拷貝: 不改呼叫端的資料
+    _migrate_steps(stamped.get("steps"))     # 寫出的步驟一律是 v3 結構
+    stamped[FORMAT_KEY] = FORMAT
+    refs = used_templates(stamped.get("steps") or [])
     pos = pos or {}
     missing = [n for n in refs if n not in images]
-    stamped = dict(data)
-    stamped[FORMAT_KEY] = FORMAT
     tmp = str(path) + ".tmp"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr(FLOW_ENTRY, json.dumps(stamped, ensure_ascii=False, indent=2))
@@ -255,7 +267,7 @@ def is_flow_file(path):
             return False
         with zipfile.ZipFile(path) as z:
             data = json.loads(z.read(FLOW_ENTRY).decode("utf-8"))
-        return int(data.get(FORMAT_KEY, 0)) >= FORMAT
+        return int(data.get(FORMAT_KEY, 0)) >= SELF_CONTAINED_SINCE
     except (OSError, KeyError, ValueError, TypeError):
         return False
 
@@ -324,6 +336,7 @@ def update_flow_data(path, fn):
         return None
     if fn(data) is False:
         return None
+    data[FORMAT_KEY] = FORMAT   # 已遷移成 v3 結構, 標記一併更新
     tmp = str(path) + ".tmp"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
         for info, blob in items:

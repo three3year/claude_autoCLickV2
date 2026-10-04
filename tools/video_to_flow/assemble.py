@@ -17,7 +17,7 @@ import cv2
 
 import calibration
 import flowfile
-from automation import flowfmt
+from automation import findtarget, flowfmt
 from subject_detection.library import load_config
 
 from . import defaults
@@ -118,6 +118,8 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
                 or t["box"])
 
     steps = defaults.apply(origin_mod.derive(p["steps"], p["templates"], located))
+    for s in steps:   # 計畫的範本欄位 → 存檔的`找圖目標` (flowFormat 3)
+        findtarget.migrate_step(s)
     # 驗證沒過的範本: 名稱加`待重拍`前綴、步驟引用 (含確認圖) 同步改寫
     images = {n: _png(img) for n, img in crops.items()}
     # 範本元資料 pos＝取材當下的中心螢幕座標 (編輯器推算預設原點的備援):

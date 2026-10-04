@@ -9,7 +9,7 @@
 import threading
 import time
 
-from . import capture, flowfmt, win
+from . import capture, findtarget, flowfmt, win
 
 
 class StopRequested(Exception):
@@ -65,10 +65,9 @@ def flow_templates(steps):
     for s in steps:
         if s.get("type") != "find_click":
             continue
-        names = [s.get("template", "")]
-        if (s.get("action", "click") == "click"
-                and s.get("confirm") == "appear"):
-            names.append(s.get("confirmTemplate", ""))
+        names = [findtarget.template(s)]
+        if findtarget.uses_confirm_target(s):
+            names.append(findtarget.confirm_template(s))
         for n in names:
             if n and n not in seen:
                 seen.append(n)
@@ -481,7 +480,7 @@ class Runner:
         timeout = max(float(c.get("timeout", 10)) for c in conds)
         interval = min(float(c.get("interval", 0.5)) for c in conds)
         region = getattr(self, "scan_region", None)
-        names = " | ".join(c.get("template", "?") for c in conds)
+        names = " | ".join(findtarget.template(c) or "?" for c in conds)
         self.log(f"[{idx + 1}] 分岔: 等待任一張圖出現（{names}）")
         deadline = time.monotonic() + timeout
         while True:
@@ -490,9 +489,9 @@ class Runner:
                 self._avoid_cursor(region)
             screen, _ = capture.grab(region)
             for k, c in enumerate(conds):
-                r = self._query(idx + 1, c.get("template", ""), screen)
+                r = self._query(idx + 1, findtarget.template(c), screen)
                 if r.found:
-                    self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{c.get('template')}）", "ok")
+                    self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{findtarget.template(c)}）", "ok")
                     return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
             if time.monotonic() >= deadline:
                 break
@@ -519,7 +518,7 @@ class Runner:
     def _exec_find(self, steps, idx):
         step = steps[idx]
         no = idx + 1
-        name = step.get("template", "")
+        name = findtarget.template(step)
         timeout = float(step.get("timeout", 10))
         interval = float(step.get("interval", 0.5))
         region = getattr(self, "scan_region", None)  # 全域搜尋範圍 [x,y,w,h] 或 None
@@ -623,7 +622,7 @@ class Runner:
         # 範本名本身含「出現」等字時會被改壞
         fail = f"[{no}] 點擊「{name}」後 {timeout}s 內未確認生效"
         if mode == "next":
-            cname = steps[idx + 1].get("template", "")
+            cname = findtarget.template(steps[idx + 1])
             label = f"下一步的圖「{cname}」出現"
             done = f"下一步的圖「{cname}」已出現"
             kind = "下一步的"
@@ -632,7 +631,7 @@ class Runner:
             cname, kind = "", "範本"
             label, done = f"「{name}」消失", f"「{name}」已消失"
         else:  # appear
-            cname = step.get("confirmTemplate", "")
+            cname = findtarget.confirm_template(step)
             kind = "確認"
             label, done = f"確認圖「{cname}」出現", f"確認圖「{cname}」已出現"
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")

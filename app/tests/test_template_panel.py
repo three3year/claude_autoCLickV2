@@ -134,7 +134,7 @@ def test_切換流程時面板跟著換(tkroot, tmp_path):
     try:
         other = os.path.join(str(tmp_path), "other" + flowfile.EXT)
         flowfile.write(other, {"steps": [{"type": "find_click",
-                                          "template": "new"}],
+                                          "target": {"template": "new"}}],
                                "coordSpace": "region"}, {"new": b"N"})
         app.ws.load_flow(other)
         app.refresh_templates()
@@ -158,9 +158,9 @@ def test_選取範本時預覽顯示圖與尺寸(tkroot, tmp_path):
 
 
 def test_重新命名同步改寫所有引用_含確認圖(tkroot, tmp_path, monkeypatch):
-    steps = [{"type": "find_click", "template": "a"},
-             {"type": "find_click", "template": "b", "confirm": "appear",
-              "confirmTemplate": "a"}]
+    steps = [{"type": "find_click", "target": {"template": "a"}},
+             {"type": "find_click", "target": {"template": "b"},
+              "confirm": "appear", "confirmTarget": {"template": "a"}}]
     app = _panel(tkroot, tmp_path, names=("a", "b"), steps=steps)
     try:
         monkeypatch.setattr(ui_dialogs, "ask_string",
@@ -172,8 +172,8 @@ def test_重新命名同步改寫所有引用_含確認圖(tkroot, tmp_path, mon
         assert app._tmpl_names == ["b", "按鈕"]
         assert not os.path.exists(app.ws.path_of("a"))
         assert os.path.exists(app.ws.path_of("按鈕"))
-        assert steps[0]["template"] == "按鈕"
-        assert steps[1]["confirmTemplate"] == "按鈕"
+        assert steps[0]["target"]["template"] == "按鈕"
+        assert steps[1]["confirmTarget"]["template"] == "按鈕"
         assert any("2 個步驟" in m for m in app.logged)
     finally:
         app.destroy()
@@ -206,7 +206,7 @@ def test_重新命名輸入資料夾分隔被清成平面名稱(tkroot, tmp_path
 
 def test_刪除範本從本流程移除_引用它的步驟以既有方式標示(tkroot, tmp_path,
                                                 monkeypatch):
-    steps = [{"type": "find_click", "template": "a"}]
+    steps = [{"type": "find_click", "target": {"template": "a"}}]
     app = _panel(tkroot, tmp_path, names=("a", "b"), steps=steps)
     try:
         asked = []
@@ -222,7 +222,7 @@ def test_刪除範本從本流程移除_引用它的步驟以既有方式標示(
         assert not os.path.exists(os.path.join(app.ws.registered_dir, "a"))
         assert asked and "步驟 1" in asked[0], "有步驟在用它才提醒"
         # 引用仍指向已刪除的範本 → 沿用既有機制 (執行前擋下), 不動步驟
-        assert steps[0]["template"] == "a"
+        assert steps[0]["target"]["template"] == "a"
     finally:
         app.destroy()
 

@@ -3,7 +3,7 @@
 名單收集是純函式直測; 執行路徑用 harness 驗「預載恰在流程動作前發生
 一次、失敗報明錯誤且不開跑」。
 """
-from harness import (branch_end, branch_or, branch_start, click, find, loop,
+from harness import (branch_end, branch_or, branch_start, click, find, loop, tgt,
                      loop_end, wait)
 
 from automation.runner import flow_templates
@@ -17,7 +17,7 @@ def test_收集找圖範本_依出現順序去重():
 
 
 def test_確認圖appear一併收集():
-    steps = [find("a", confirm="appear", confirmTemplate="ok")]
+    steps = [find("a", confirm="appear", confirmTarget=tgt("ok"))]
     assert flow_templates(steps) == ["a", "ok"]
 
 
@@ -33,12 +33,12 @@ def test_分岔條件與區段內找圖_自然涵蓋():
 
 
 def test_非找圖步驟與空名不收集():
-    steps = [click(1, 2), wait(5), {"type": "find_click", "template": ""}]
+    steps = [click(1, 2), wait(5), {"type": "find_click", "target": {"template": ""}}]
     assert flow_templates(steps) == []
 
 
 def test_不點擊的找圖沒有確認圖語意():
-    steps = [find("a", action="none", confirm="appear", confirmTemplate="x")]
+    steps = [find("a", action="none", confirm="appear", confirmTarget=tgt("x"))]
     assert flow_templates(steps) == ["a"]  # 確認只有點擊時有意義
 
 
@@ -47,7 +47,7 @@ def test_不點擊的找圖沒有確認圖語意():
 def test_執行前預載一次_名單含確認圖(harness):
     harness.vision.plan("a", [(500, 400)])
     harness.vision.plan("ok", [(600, 300)])
-    r = harness.run([find("a", confirm="appear", confirmTemplate="ok")])
+    r = harness.run([find("a", confirm="appear", confirmTarget=tgt("ok"))])
     assert r.ended == "done"
     assert harness.vision.preloads == [["a", "ok"]]
     assert harness.clicks()  # 預載後流程照常執行

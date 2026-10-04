@@ -29,7 +29,6 @@ def apply(steps):
                 s["confirm"] = "none"
             elif "confirm" not in s:
                 s["confirm"] = "next" if confirm_next_connected(steps, i) else "gone"
-            s.setdefault("confirmTemplate", "")
         elif t == "click":
             for k, v in CLICK.items():
                 s.setdefault(k, v)

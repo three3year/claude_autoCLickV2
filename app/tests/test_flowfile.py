@@ -37,10 +37,18 @@ def legacy_flow(steps=None, **extra):
     return data
 
 
-def find_step(template, **extra):
-    s = {"type": "find_click", "template": template, "action": "click"}
+def find_step(template, confirm_tmpl=None, **extra):
+    """v3 找圖步驟: 範本在`找圖目標`裡; confirm_tmpl＝確認圖 (點到確認圖出現)."""
+    s = {"type": "find_click", "target": {"template": template},
+         "action": "click"}
+    if confirm_tmpl is not None:
+        s.update(confirm="appear", confirmTarget={"template": confirm_tmpl})
     s.update(extra)
     return s
+
+
+def tmpl(step):
+    return step["target"]["template"]
 
 
 def flow(steps, **extra):
@@ -54,7 +62,7 @@ def flow(steps, **extra):
 def test_範本引用去副檔名():
     data = legacy_flow()
     flowfile.migrate_flow(data)
-    assert data["steps"][0]["template"] == "cn/V"
+    assert tmpl(data["steps"][0]) == "cn/V"
 
 
 def test_每步threshold安靜丟棄():
@@ -76,16 +84,101 @@ def test_確認圖引用同樣去副檔名():
                                "confirmTemplate": "ok.png"}])
     flowfile.migrate_flow(data)
     s = data["steps"][0]
-    assert (s["template"], s["confirmTemplate"]) == ("a", "ok")
+    assert (tmpl(s), s["confirmTarget"]["template"]) == ("a", "ok")
 
 
 def test_新格式資料再遷移是no_op():
-    data = {"steps": [{"type": "find_click", "template": "V"},
+    data = {"steps": [find_step("V", "ok", colorCheck=True),
                       {"type": "click", "x": 30, "y": 40}],
             "scanRegion": [100, 50, 800, 600], "coordSpace": "region"}
+    before = json.loads(json.dumps(data))
     assert flowfile.migrate_flow(data) == []
-    assert data["steps"][0]["template"] == "V"
+    assert data == before
     assert data["steps"][1]["x"] == 30
+
+
+# ---------- 存檔格式 v3: 範本收進`找圖目標` (find-target 票 01) ----------
+
+def v2_steps():
+    """flowFormat 2 的步驟: 範本名直接掛在步驟上."""
+    return [
+        {"type": "find_click", "template": "btn", "action": "click",
+         "confirm": "appear", "confirmTemplate": "ok", "offsetX": 3},
+        {"type": "find_click", "template": "next", "action": "click",
+         "confirm": "gone", "confirmTemplate": ""},
+        {"type": "wait", "ms": 100},
+    ]
+
+
+def write_v2_file(path, steps, images):
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("flow.json", json.dumps(
+            {"steps": steps, "coordSpace": "region", "flowFormat": 2},
+            ensure_ascii=False))
+        z.writestr("templates/_meta.json", json.dumps({"pos": {}}))
+        for n, blob in images.items():
+            z.writestr(f"templates/{n}.png", blob)
+
+
+def test_v2存檔讀入後範本在找圖目標裡(tmp_path):
+    path = str(tmp_path / ("old" + flowfile.EXT))
+    write_v2_file(path, v2_steps(), {"btn": b"B", "ok": b"O", "next": b"N"})
+    assert flowfile.is_flow_file(path), "v2 自包自足存檔照樣直接開"
+    steps = flowfile.read(path)["data"]["steps"]
+    assert steps[0]["target"] == {"template": "btn"}
+    assert steps[0]["confirmTarget"] == {"template": "ok"}
+    assert steps[0]["offsetX"] == 3
+    assert steps[1]["target"] == {"template": "next"}
+    assert "confirmTarget" not in steps[1], "沒有確認圖就不留空目標"
+    for s in steps[:2]:
+        assert "template" not in s and "confirmTemplate" not in s
+
+
+def test_寫出的存檔蓋章3(tmp_path):
+    path = str(tmp_path / ("f" + flowfile.EXT))
+    flowfile.write(path, flow([find_step("a")]), {"a": b"A"})
+    with zipfile.ZipFile(path) as z:
+        assert json.loads(z.read("flow.json"))["flowFormat"] == 3
+
+
+def test_v2存檔改寫流程資料後成為v3(tmp_path):
+    path = str(tmp_path / ("old" + flowfile.EXT))
+    write_v2_file(path, v2_steps(), {"btn": b"B", "ok": b"O", "next": b"N"})
+    flowfile.update_flow_data(path, lambda d: None)
+    with zipfile.ZipFile(path) as z:
+        raw = json.loads(z.read("flow.json"))
+    assert raw["flowFormat"] == 3
+    assert raw["steps"][0]["target"] == {"template": "btn"}
+
+
+def test_步驟草稿讀入同樣遷移(tmp_path):
+    profile = make_profile(tmp_path)
+    flowfile.write_draft(str(profile), {"steps": v2_steps(),
+                                        "coordSpace": "region"})
+    steps = flowfile.read_draft(str(profile))["steps"]
+    assert steps[0]["target"] == {"template": "btn"}
+    assert steps[0]["confirmTarget"] == {"template": "ok"}
+
+
+def test_存檔收的範本集合與遷移前相同(tmp_path):
+    """確認圖只有「點到確認圖出現」時才算引用 (與 v2 相同)."""
+    path = str(tmp_path / ("old" + flowfile.EXT))
+    write_v2_file(path, v2_steps(), {"btn": b"B", "ok": b"O", "next": b"N"})
+    r = flowfile.read(path)
+    assert flowfile.used_templates(r["data"]["steps"]) == ["btn", "next", "ok"]
+    stale = find_step("x", "ghost")
+    stale["confirm"] = "gone"
+    assert flowfile.used_templates([stale]) == ["x"]
+
+
+def test_write收到v2形狀的步驟也先遷移(tmp_path):
+    path = str(tmp_path / ("f" + flowfile.EXT))
+    flowfile.write(path, flow(v2_steps()), {"btn": b"B", "ok": b"O",
+                                            "next": b"N"})
+    assert flowfile.template_names(path) == ["btn", "next", "ok"]
+    with zipfile.ZipFile(path) as z:
+        raw = json.loads(z.read("flow.json"))
+    assert raw["steps"][0]["target"] == {"template": "btn"}
 
 
 # ---------- 名稱規則 ----------
@@ -111,12 +204,11 @@ def test_使用者輸入的名稱沒有資料夾層級():
 
 
 def test_改寫引用含確認圖():
-    steps = [find_step("old"), find_step("x", confirm="appear",
-                                         confirmTemplate="old"),
+    steps = [find_step("old"), find_step("x", "old"),
              {"type": "wait", "ms": 10}]
     assert flowfile.rename_refs(steps, "old", "new") == 2
-    assert steps[0]["template"] == "new"
-    assert steps[1]["confirmTemplate"] == "new"
+    assert tmpl(steps[0]) == "new"
+    assert steps[1]["confirmTarget"]["template"] == "new"
 
 
 # ---------- 存檔內容 ----------
@@ -124,7 +216,7 @@ def test_改寫引用含確認圖():
 def test_存檔只寫入被步驟引用的範本(tmp_path):
     path = tmp_path / ("f" + flowfile.EXT)
     images = {"used": b"U", "cfm": b"C", "junk": b"J"}
-    data = flow([find_step("used", confirm="appear", confirmTemplate="cfm")])
+    data = flow([find_step("used", "cfm")])
     missing = flowfile.write(str(path), data, images)
     assert missing == []
     assert flowfile.template_names(str(path)) == ["cfm", "used"]
@@ -296,13 +388,13 @@ def test_pos只記本流程自己拍的圖(tmp_path):
 def test_重新命名範本_引用同步改寫(tmp_path):
     ws = flowfile.Workspace(str(make_profile(tmp_path)))
     ws.add("a", b"A", pos=[1, 2])
-    steps = [find_step("a", confirm="appear", confirmTemplate="a")]
+    steps = [find_step("a", "a")]
     new = ws.rename("a", "b")
     assert new == "b"
     assert flowfile.rename_refs(steps, "a", new) == 2
     assert ws.names() == ["b"]
     assert ws.pos_of("b") == [1, 2]
-    assert steps[0]["template"] == "b"
+    assert tmpl(steps[0]) == "b"
 
 
 def test_刪除範本後圖與登錄產物都不在(tmp_path):
@@ -392,7 +484,7 @@ def test_轉換規則_拉平撞名加序號並改寫引用(tmp_path):
     r = flowfile.collect_flow_templates(steps, lib)
 
     assert sorted(r["images"]) == ["返回", "返回_2"]
-    assert [s["template"] for s in steps] == ["返回", "返回_2"]
+    assert [tmpl(s) for s in steps] == ["返回", "返回_2"]
     assert r["renamed"] == {"cn/返回": "返回", "zh/返回": "返回_2"}
     assert r["downgraded"] == ["返回"], "只有原本多截圖的才算降級"
     assert r["images"]["返回"].name == "cn.png", "取登錄基準張"
@@ -422,7 +514,7 @@ def test_匯入舊flow_json會遷移並存成新格式存檔(tmp_path):
     assert r["downgraded"] == ["V"]
     back = flowfile.read(r["flow_path"])
     assert back["data"]["coordSpace"] == "region"
-    assert back["data"]["steps"][0]["template"] == "V"
+    assert tmpl(back["data"]["steps"][0]) == "V"
     assert "threshold" not in back["data"]["steps"][0]
     assert back["images"]["V"] == b"1", "多截圖取登錄基準張"
 
@@ -463,7 +555,7 @@ def test_匯入舊流程包_轉成新存檔並拉平名稱(tmp_path):
     assert r["templates"] == ["V", "X"]
     assert r["downgraded"] == ["V"]
     back = flowfile.read(r["flow_path"])
-    assert [s["template"] for s in back["data"]["steps"]] == ["V", "X"]
+    assert [tmpl(s) for s in back["data"]["steps"]] == ["V", "X"]
     assert back["images"] == {"V": b"V1", "X": b"XX"}
     assert back["pos"] == {"V": [1, 2]}
 
@@ -481,8 +573,7 @@ def test_匯入舊流程包_未被引用的範本不進新存檔(tmp_path):
 # ---------- 匯入換算三分支 (ADR 0005) ----------
 
 def _steps_with_offsets():
-    return [{"type": "find_click", "template": "a", "offsetX": 10,
-             "offsetY": -8},
+    return [find_step("a", offsetX=10, offsetY=-8),
             {"type": "click", "x": 30, "y": 40},
             {"type": "drag", "x1": 4, "y1": 4, "x2": 40, "y2": 80,
              "mode": "prev"}]
