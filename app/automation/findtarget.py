@@ -11,7 +11,7 @@
 
 缺欄位＝不限定 / 分數最高 / 不比色。找圖步驟的找圖目標在 `target`, `確認圖`在
 `confirmTarget`; 「點到下一步的圖出現」沿用下一步的 `target`。像素欄位 (原點
-矩形、指定點) 與步驟偏移一樣存「當前基準機器」的尺度, 執行期 ×`畫面倍率`。
+矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率` (ADR 0009)。
 
 本模組維持輕量 (不 import cv2/numpy): 編輯器、執行器、影片轉流程都經這裡的
 存取函式讀寫步驟上的找圖目標, 解析並執行一個找圖目標的邏輯也在這裡 (三處行為
@@ -54,29 +54,11 @@ def uses_confirm_target(step):
 
 
 def step_targets(step):
-    """步驟上存在的找圖目標 [(鍵, 目標), ...] (改名/換算時走訪用)."""
+    """步驟上存在的找圖目標 [(鍵, 目標), ...] (改名時走訪用)."""
     if step.get("type") != "find_click":
         return []
     return [(k, step[k]) for k in (TARGET, CONFIRM_TARGET)
             if isinstance(step.get(k), dict)]
-
-
-def scale_target(tgt, k):
-    """把找圖目標的像素設定 (原點矩形、指定點) 就地 ×k 四捨五入.
-
-    `重定基準`與匯入換算經 `calibration.scale_steps` 呼叫; 九宮格是比例、
-    挑選規則的 N 不是像素, 都不動。
-    """
-    limit = tgt.get("limit")
-    if isinstance(limit, dict) and limit.get("kind") == "origin":
-        for key in ("x", "y", "w", "h"):
-            if key in limit:
-                limit[key] = flowfmt.scale_px(limit[key], k)
-    pick = tgt.get("pick")
-    if isinstance(pick, dict) and pick.get("kind") == "near":
-        for key in ("x", "y"):
-            if key in pick:
-                pick[key] = flowfmt.scale_px(pick[key], k)
 
 
 # ================= 執行一個找圖目標 =================
@@ -300,30 +282,18 @@ def make_target(template, limit=None, pick=None, color=False):
 
 
 def offset_from_screen(xy, base, k):
-    """拾取到的螢幕位置 → 相對基準點的偏移, 反除`畫面倍率`歸一到基準尺度
+    """拾取到的螢幕位置 → 相對基準點的偏移, 反除`畫面倍率`換回流程尺度
     (與相對座標拾取同一套換算)."""
     return (flowfmt.scale_px(xy[0] - base[0], 1.0 / k),
             flowfmt.scale_px(xy[1] - base[1], 1.0 / k))
 
 
 def rect_from_screen(box, origin, k):
-    """框選到的螢幕矩形 → 以原點為基準的限定範圍 (基準尺度)."""
+    """框選到的螢幕矩形 → 以原點為基準的限定範圍 (流程尺度)."""
     x, y = offset_from_screen(box[:2], origin, k)
     return {"kind": "origin", "x": x, "y": y,
             "w": flowfmt.scale_px(box[2], 1.0 / k),
             "h": flowfmt.scale_px(box[3], 1.0 / k)}
-
-
-def tag_text(tgt):
-    """步驟清單/交付報告用的標記字串 〔限定、由上到下第3、比色〕; 沒有特別設定＝空."""
-    t = tags(tgt)
-    return f"〔{'、'.join(t)}〕" if t else ""
-
-
-def tag_text(tgt):
-    """步驟清單/交付報告用的標記字串 〔限定、由上到下第3、比色〕; 沒有特別設定＝空."""
-    t = tags(tgt)
-    return f"〔{'、'.join(t)}〕" if t else ""
 
 
 def tag_text(tgt):

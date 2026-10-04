@@ -58,7 +58,7 @@ class EngineHub:
                          if "subject_detection" in (w.filename or "")]
         self._engine = engine
 
-    def load(self, root, config_dir=None, extra=None):
+    def load(self, root, config_dir=None):
         """引擎＋範本探索一氣呵成 (背景執行緒用): 全部成功才轉 READY,
         中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有範本清單」。
 
@@ -73,7 +73,7 @@ class EngineHub:
         applog.log("engine.load.start")
         try:
             self._build_engine()
-            library = self.discover(root, config_dir, extra)
+            library = self.discover(root, config_dir)
             if self.profile is None:
                 # 背景載入期間 refresh() 可能已放入更新的快照 (切換
                 # profile/增刪範本), 不能拿這份較舊的探索結果覆蓋
@@ -91,14 +91,13 @@ class EngineHub:
 
     # ---------- 範本清單 ----------
 
-    def discover(self, root, config_dir=None, extra=None):
+    def discover(self, root, config_dir=None):
         """輕量探索範本 (不需引擎、不讀登錄產物, 只掃目錄與設定).
 
         `root` 是放著 `templates/` 與 `registered/` 的目錄——app 交的是當前
         流程的**工作區**; `config_dir` 是引擎參數設定所在的 profile 目錄
-        (省略＝同 root); `extra` 是要一併交給引擎、但不住在 root 裡的
-        `範本清單` (app 用它帶入 profile 自存的`校準對`圖)。掃出來的清單組成
-        引擎的模板庫, 引擎自己不掃目錄 (ADR 0006)。
+        (省略＝同 root)。掃出來的清單組成引擎的模板庫, 引擎自己不掃目錄
+        (ADR 0006); 校準對就是流程的範本, 已在工作區裡 (ADR 0009)。
 
         回傳模板庫供 UI 立即使用, 不觸碰生命週期狀態與 hub.profile
         (背景載入中的 load() 才擁有它們)。
@@ -111,17 +110,16 @@ class EngineHub:
         if not os.path.isdir(templates_dir):
             raise FileNotFoundError(f"沒有範本目錄可掃: {templates_dir}")
         templates = flowfile.scan_templates(templates_dir)
-        templates.update(extra or {})
         return make_library(templates,
                             load_config(config_dir if config_dir is not None
                                         else root),
                             os.path.join(str(root), "registered"))
 
-    def refresh(self, root, config_dir=None, extra=None):
+    def refresh(self, root, config_dir=None):
         """重新探索並綁定範本清單 (失效標記的落實): 範本增刪改後呼叫,
         清單立即反映、所有登錄產物失效 (artifacts 歸零), 下次
         `範本預載`/單張載入時重載。不需引擎, 任何狀態都可呼叫。"""
-        self.profile = self.discover(root, config_dir, extra)
+        self.profile = self.discover(root, config_dir)
         return self.profile
 
     # ---------- 查詢 / 載入 (runner 偵測接縫的超集) ----------

@@ -17,7 +17,6 @@ import video_to_flow
 from vtf_synth import (ROOT, VIDEO_H, VIDEO_W, box, demo_plan, demo_video,
                        make_profile, read_frame, snapshot)
 
-FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
 REGION = [100, 50, VIDEO_W, VIDEO_H]   # 搜尋範圍與影片同尺寸
 
 
@@ -69,17 +68,17 @@ def test_範本取自指定影格且保持裁切框原尺寸(demo, engine):
         assert np.array_equal(img, want)
 
 
-def test_存檔帶草稿的搜尋範圍且不寫校準資料(demo, engine):
+def test_存檔帶草稿的搜尋範圍_不讀profile校準(demo, engine):
     video, profile = demo
     with open(profile / "calibration.json", "w", encoding="utf-8") as f:
         json.dump({"pair": ["a", "b"], "baseline": 100.0, "scale": 1.0,
-                   "fingerprint": FP}, f)
+                   "fingerprint": None}, f)
     res = run(demo_plan(video, profile), engine)
 
     r = flowfile.read(res["flow_path"])
     assert r["data"]["scanRegion"] == REGION
     assert r["data"]["coordSpace"] == "region"
-    assert r["cal"] is None
+    assert "calibration" not in r["data"], "計畫沒指定校準對＝流程沒有校準對"
 
 
 def test_目標檔名已存在時另取不撞名的檔名且原檔不變(demo, engine):
@@ -112,7 +111,7 @@ def test_profile既有資料一律不動只多出存檔與報告(demo, engine):
     (profile / "flows" / ("其他" + flowfile.EXT)).write_bytes(b"other")
     with open(profile / "calibration.json", "w", encoding="utf-8") as f:
         json.dump({"pair": ["a", "b"], "baseline": 100.0, "scale": 1.0,
-                   "fingerprint": FP}, f)
+                   "fingerprint": None}, f)
     before = snapshot(profile)
 
     res = run(demo_plan(video, profile), engine)

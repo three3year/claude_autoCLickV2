@@ -9,7 +9,6 @@ import video_to_flow
 from vtf_synth import (VIDEO_H, VIDEO_W, demo_plan, demo_video, find,
                        make_profile, snapshot)
 
-FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
 REGION = [0, 0, VIDEO_W, VIDEO_H]
 
 

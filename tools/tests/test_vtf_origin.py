@@ -11,7 +11,6 @@ from automation import flowfmt
 from vtf_synth import (FRAME, VIDEO_H, VIDEO_W, center, demo_plan, demo_video,
                        find, make_profile, snapshot)
 
-FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
 # 搜尋範圍比影片大: 偏移仍是影片像素原樣 (影片與實際畫面同尺度)
 REGION = [0, 0, round(VIDEO_W * 1.5), round(VIDEO_H * 1.5)]
 

@@ -4,8 +4,8 @@
 
 每份舊流程 JSON 變成一個 `.autoclickpack`, 收進它引用到的每一張範本圖 (含
 `確認圖`); 多截圖範本取`登錄基準張` (排序後第一張), 其餘丟棄; 範本名拉平
-(去掉子路徑前綴), 撞名加序號並同步改寫步驟引用。`校準對`的兩張圖落到 profile
-自存的位置。轉換完成後刪掉舊的範本庫與登錄產物目錄。
+(去掉子路徑前綴), 撞名加序號並同步改寫步驟引用。轉換完成後刪掉舊的範本庫與
+登錄產物目錄。(profile 層級的校準已退場, ADR 0009: 轉出來的流程沒有校準對。)
 
 步驟草稿 (`flows/_autosave.json`) 也一起轉: 引用改寫之後, 它引用到的圖解進
 工作區——當機重開時草稿與工作區的圖一起復原, 未存檔的編輯不會白做。
@@ -32,7 +32,6 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "app"))
 sys.path.insert(0, str(ROOT / "src"))
 
-import calibration  # noqa: E402
 import flowfile  # noqa: E402
 
 
@@ -66,13 +65,12 @@ def convert_profile(profile: Path, library_dir: Path, dry_run=False) -> dict:
     """轉換一個 profile; 回傳報告 dict (不寫任何報告檔)."""
     lib = flowfile.scan_templates(library_dir)
     pos_in = flowfile.legacy_meta_pos(str(library_dir))
-    cal = calibration.load(str(profile))
 
     report = {
         "profile": profile.name, "library": str(library_dir),
         "library_templates": len(lib), "flows": [], "draft": None,
         "downgraded": {}, "renamed": {}, "orphans": [], "missing": {},
-        "calibration": None, "removed": [],
+        "removed": [],
     }
     referenced: set[str] = set()
     draft = _load(profile / flowfile.DRAFT_NAME) or _load(
@@ -94,10 +92,8 @@ def convert_profile(profile: Path, library_dir: Path, dry_run=False) -> dict:
         pos = {new: pos_in[old] for old, new in r["mapping"].items()
                if old in pos_in}
         dest = profile / "flows" / (src.stem + flowfile.EXT)
-        cal_payload, cal_images = flowfile.flat_calibration(cal, lib)
         if not dry_run:
-            flowfile.write(str(dest), data, r["images"], pos,
-                           cal=cal_payload, cal_images=cal_images)
+            flowfile.write(str(dest), data, r["images"], pos)
             src.unlink()
         if steps_before == draft_steps_before and draft_twin is None:
             draft_twin = dest
@@ -133,15 +129,6 @@ def convert_profile(profile: Path, library_dir: Path, dry_run=False) -> dict:
         report["renamed"].update(r["renamed"])
     elif not dry_run:
         ws.ensure()
-
-    if cal is not None:
-        flat, images = flowfile.flat_calibration(cal, lib)
-        if not dry_run:
-            flowfile.store_calibration_images(str(profile), images)
-            calibration.save(str(profile), flat)
-        report["calibration"] = {
-            "pair": flat["pair"], "baseline": cal["baseline"],
-            "scale": cal.get("scale"), "images_found": sorted(images)}
 
     report["orphans"] = sorted(set(lib) - referenced)
 
@@ -193,11 +180,6 @@ def format_report(reports: list[dict]) -> str:
             out.append("- **被引用卻在範本庫裡找不到的範本**：")
             for fn, names in sorted(r["missing"].items()):
                 out.append(f"  - {fn}: " + "、".join(f"`{n}`" for n in names))
-        if r["calibration"]:
-            c = r["calibration"]
-            out.append(f"- 校準：校準對 `{c['pair'][0]}` × `{c['pair'][1]}`、"
-                       f"基準距離 {c['baseline']}、倍率 {c['scale']}；"
-                       f"自存圖 {len(c['images_found'])}/2 張")
         if r["removed"]:
             out.append("- 已刪除的舊目錄：" +
                        "、".join(f"`{n}/`" for n in r["removed"]))

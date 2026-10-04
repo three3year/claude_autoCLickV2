@@ -1,7 +1,8 @@
-"""校準的 UI 薄殼接線: 執行警告與倍率 (票 03)、拾取守門/歸一與存檔重定 (票 04).
+"""校準的 UI 薄殼接線 (ADR 0009): 執行時交校準資料、拾取換算、編輯器的校準對
+與「校準」按鈕.
 
-判斷本身是 calibration 模組純函式 (test_calibration.py); 這裡只驗 UI 薄殼
-把警告、倍率、換算接對——沿用 test_engine_gating 的最小 App 子類手法。
+量測本身是 calibration 模組純函式 (test_calibration.py); 這裡只驗 UI 薄殼
+接對——沿用 test_engine_gating 的最小 App 子類手法。
 """
 import json
 import os
@@ -102,7 +103,7 @@ def test_校準對的範本不在本流程_不執行(tkroot, monkeypatch, tmp_pa
     assert any("關閉（校準對）" in m for m in rec)
 
 
-# ---------- 拾取守門與歸一 (票 04) ----------
+# ---------- 拾取換算與預設原點 (flow-scale 票 04) ----------
 
 def _dlg_warnings(monkeypatch):
     rec = []
@@ -141,201 +142,6 @@ def test_預設原點推算_倍率1沿用原值(tmp_path):
     got = ui_dialogs._resolve_prev_origin(app, {"_index": 1}, None, 1.0)
     assert got == (30, 40)
 
-
-# ---------- 存檔時重定基準 (票 04) ----------
-
-class _RebaseApp(app_mod.App):
-    """只建 _maybe_rebase 需要的欄位; 重繪/自動存檔以記錄樁取代."""
-
-    def __init__(self, root, profile_dir, steps):
-        self.root = root
-        self.profile_dir = str(profile_dir)
-        self.steps = steps
-        self.rendered = 0
-        self.cal_ui_updated = 0
-
-    def render_steps(self, keep=None):
-        self.rendered += 1
-
-    def _update_cal_ui(self):
-        self.cal_ui_updated += 1
-
-    def log_ui(self, msg, level="info"):
-        pass
-
-
-OTHER_FLOW = "other" + flowfile.EXT
-
-
-def _write_flow(profile_dir, name, steps):
-    """一份流程＝一個自包自足的存檔 (ADR 0006)."""
-    os.makedirs(os.path.join(str(profile_dir), "flows"), exist_ok=True)
-    flowfile.write(os.path.join(str(profile_dir), "flows", name),
-                   {"steps": steps, "coordSpace": "region"}, {})
-
-
-def _read_steps(profile_dir, name):
-    return flowfile.read(os.path.join(str(profile_dir), "flows",
-                                      name))["data"]["steps"]
-
-
-def test_倍率不為1時存檔自動重定並告知(tkroot, monkeypatch, tmp_path):
-    infos = []
-    monkeypatch.setattr(app_mod.messagebox, "showinfo",
-                        lambda title, msg, **kw: infos.append(msg))
-    calibration.save(str(tmp_path), {
-        "pair": ["a", "b"], "baseline": 200.0, "scale": 1.25,
-        "fingerprint": calibration.current_fingerprint()})
-    _write_flow(tmp_path, OTHER_FLOW, [{"type": "click", "x": 100, "y": 40}])
-    a = _RebaseApp(tkroot, tmp_path, [{"type": "click", "x": 8, "y": 8}])
-
-    a._maybe_rebase()
-
-    assert _read_steps(tmp_path, OTHER_FLOW)[0]["x"] == 125, \
-        "profile 內其他流程檔一併改寫 (漏一份=混尺度)"
-    assert (a.steps[0]["x"], a.steps[0]["y"]) == (10, 10), "記憶體同步跟上新基準"
-    cal = calibration.load(str(tmp_path))
-    assert cal["scale"] == 1.0 and cal["baseline"] == 250.0
-    assert infos and "重定" in infos[0]
-    assert a.rendered == 1 and a.cal_ui_updated == 1
-
-
-def test_倍率為1時存檔不觸發重定(tkroot, monkeypatch, tmp_path):
-    infos = []
-    monkeypatch.setattr(app_mod.messagebox, "showinfo",
-                        lambda title, msg, **kw: infos.append(msg))
-    calibration.save(str(tmp_path), {
-        "pair": ["a", "b"], "baseline": 200.0, "scale": 1.0,
-        "fingerprint": calibration.current_fingerprint()})
-    _write_flow(tmp_path, OTHER_FLOW, [{"type": "click", "x": 100, "y": 40}])
-    a = _RebaseApp(tkroot, tmp_path, [{"type": "click", "x": 8, "y": 8}])
-
-    a._maybe_rebase()
-
-    assert _read_steps(tmp_path, OTHER_FLOW)[0]["x"] == 100, "不改寫任何流程檔"
-    assert a.steps[0]["x"] == 8
-    assert infos == [] and a.rendered == 0
-
-
-def test_未校準時存檔不觸發重定(tkroot, monkeypatch, tmp_path):
-    """倍率未知 (指紋不符) 時亂乘會毀掉座標, 必須完全不動."""
-    infos = []
-    monkeypatch.setattr(app_mod.messagebox, "showinfo",
-                        lambda title, msg, **kw: infos.append(msg))
-    calibration.save(str(tmp_path), {
-        "pair": ["a", "b"], "baseline": 200.0, "scale": 1.25,
-        "fingerprint": {"x": 0, "y": 0, "w": 1, "h": 1}})  # 別台機器量的
-    _write_flow(tmp_path, OTHER_FLOW, [{"type": "click", "x": 100, "y": 40}])
-    a = _RebaseApp(tkroot, tmp_path, [{"type": "click", "x": 8, "y": 8}])
-
-    a._maybe_rebase()
-
-    assert _read_steps(tmp_path, OTHER_FLOW)[0]["x"] == 100
-    assert calibration.load(str(tmp_path))["scale"] == 1.25
-    assert infos == []
-
-
-# ---------- 來源基準標記的存檔守門 (票 06) ----------
-
-MARKER = {"pair": ["srcA", "srcB"], "baseline": 60.0}
-
-
-class _SaveApp(app_mod.App):
-    """只建 _resolve_source_baseline 需要的欄位; 量測以樁取代."""
-
-    def __init__(self, root, profile_dir, steps, marker, dist=None):
-        self.root = root
-        self.profile_dir = str(profile_dir)
-        self.steps = steps
-        self._source_baseline = marker
-        self.hub = enginehub.EngineHub()
-        self.hub.state = enginehub.READY
-        self._dist = dist
-        self.measured = []
-        self.autosaved = 0
-
-    def _measure_pair(self, pair, title):
-        self.measured.append(list(pair))
-        return self._dist
-
-    def render_steps(self, keep=None):
-        pass
-
-    def _autosave(self):
-        self.autosaved += 1
-
-    def log_ui(self, msg, level="info"):
-        pass
-
-
-def test_無標記流程的存檔路徑不受影響(tkroot, tmp_path):
-    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}], None)
-    assert a._resolve_source_baseline() is True
-    assert a.measured == []
-
-
-def test_守門路徑一_量測成功依比值換算並移除標記(tkroot, monkeypatch, tmp_path):
-    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
-                        lambda *a, **kw: True)
-    # 本機已校準 (倍率 1): 量得 120 ÷ 來源基準 60 → 比值 2
-    calibration.save(str(tmp_path), {
-        "pair": ["x", "y"], "baseline": 100.0, "scale": 1.0,
-        "fingerprint": calibration.current_fingerprint()})
-    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
-                 dict(MARKER), dist=120.0)
-    assert a._resolve_source_baseline() is True
-    assert a.measured == [["srcA", "srcB"]], "量測對象是 pack 的校準對"
-    assert (a.steps[0]["x"], a.steps[0]["y"]) == (60, 80)
-    assert a._source_baseline is None
-
-
-def test_守門路徑一_量測失敗中止存檔且標記保留(tkroot, monkeypatch, tmp_path):
-    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
-                        lambda *a, **kw: True)
-    calibration.save(str(tmp_path), {
-        "pair": ["x", "y"], "baseline": 100.0, "scale": 1.0,
-        "fingerprint": calibration.current_fingerprint()})
-    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
-                 dict(MARKER), dist=None)  # 量測失敗 (缺圖)
-    assert a._resolve_source_baseline() is False
-    assert a._source_baseline == MARKER
-    assert a.steps[0]["x"] == 30
-
-
-def test_守門路徑一_本機未校準時擋下(tkroot, monkeypatch, tmp_path):
-    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
-                        lambda *a, **kw: True)
-    rec = _warnings(monkeypatch)
-    calibration.save(str(tmp_path), {"pair": ["x", "y"], "baseline": 100.0,
-                                     "scale": None, "fingerprint": None})
-    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
-                 dict(MARKER), dist=120.0)
-    assert a._resolve_source_baseline() is False
-    assert any("校準" in m for m in rec)
-    assert a._source_baseline == MARKER and a.measured == []
-
-
-def test_守門路徑二_明確確認以匯入基準存檔(tkroot, monkeypatch, tmp_path):
-    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
-                        lambda *a, **kw: False)
-    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
-                 dict(MARKER))
-    assert a._resolve_source_baseline() is True
-    assert a._source_baseline is None, "確認後移除標記"
-    assert a.steps[0]["x"] == 30, "座標不換算"
-    assert a.autosaved == 1, "標記移除要落地"
-
-
-def test_守門取消則不存檔(tkroot, monkeypatch, tmp_path):
-    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
-                        lambda *a, **kw: None)
-    a = _SaveApp(tkroot, tmp_path, [{"type": "click", "x": 30, "y": 40}],
-                 dict(MARKER))
-    assert a._resolve_source_baseline() is False
-    assert a._source_baseline == MARKER
-
-
-# ---------- 校準圖由 profile 自存 (ADR 0006) ----------
 
 # ---------- 編輯器: 校準對與「校準」按鈕 (flow-scale 票 03) ----------
 
@@ -512,7 +318,6 @@ def test_開流程或切換流程時編輯器倍率回到1(tkroot, monkeypatch, 
     a._mode_ui = lambda: None
     a.render_steps = lambda keep=None: None
     a._update_region_preview = lambda: None
-    a._source_baseline = None
     a._apply_flow({"steps": [], "coordSpace": "region",
                    "calibration": {"pair": ["x", "y"], "baseline": 50.0}})
     assert a.editor_scale == 1.0

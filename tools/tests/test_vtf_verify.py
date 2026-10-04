@@ -11,7 +11,6 @@ from vtf_synth import (BLANK, BUTTONS, FRAME, VIDEO_H, VIDEO_W, box, center,
                        demo_plan, demo_templates, demo_video, find, make_profile,
                        screen, timeline, write_video)
 
-FP = {"x": 0, "y": 0, "w": 1920, "h": 1080}
 REGION = [0, 0, VIDEO_W, VIDEO_H]
 RETAKE = "待重拍_"
 

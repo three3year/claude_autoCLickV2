@@ -43,7 +43,6 @@ class _FlowApp(app_mod.App):
         self.profile = None
         self.steps = []
         self.scan_region = None
-        self._source_baseline = None
         self._pending_templates = set()
         self._rereg_after = None
         self._collapsed = set()
@@ -144,22 +143,41 @@ def test_刪掉引用它的步驟後再存檔_那張圖離開存檔(tkroot, tmp_
     assert flowfile.template_names(str(dest)) == ["a"]
 
 
-def test_存檔攜帶profile的校準資料與那兩張圖(tkroot, tmp_path, monkeypatch):
+def test_存檔帶著流程的校準對與那兩張範本(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, tmp_path)
-    imgio.imwrite(a.ws.path_of("btn"), _img(90))
+    for n in ("btn", "c1", "c2"):
+        imgio.imwrite(a.ws.path_of(n), _img(90))
     a.steps = [_find("btn")]
-    calibration.save(a.profile_dir, {"pair": ["c1", "c2"], "baseline": 150.0,
-                                     "scale": 1.0, "fingerprint": None})
-    flowfile.store_calibration_images(a.profile_dir,
-                                      {"c1": b"C1", "c2": b"C2"})
+    a.flow_cal = {"pair": ["c1", "c2"], "baseline": 150.0}
     dest = tmp_path / "p" / "flows" / ("f" + flowfile.EXT)
     _stub_save(monkeypatch, dest)
 
     a.save_flow()
 
     r = flowfile.read(str(dest))
-    assert r["cal"] == {"pair": ["c1", "c2"], "baseline": 150.0}
-    assert r["cal_images"] == {"c1": b"C1", "c2": b"C2"}
+    assert calibration.flow_pair(r["data"]) == {"pair": ["c1", "c2"],
+                                                "baseline": 150.0}
+    assert sorted(r["images"]) == ["btn", "c1", "c2"]
+    assert sorted(os.listdir(a.profile_dir)) == ["flows", "workspace"], \
+        "存檔不在 profile 留下校準資料"
+
+
+def test_存檔不改寫profile裡的其他流程(tkroot, tmp_path, monkeypatch):
+    a = _app(tkroot, tmp_path)
+    other = os.path.join(a.flows_dir, "other" + flowfile.EXT)
+    flowfile.write(other, {"steps": [{"type": "click", "x": 30, "y": 40}],
+                           "coordSpace": "region"}, {})
+    before = open(other, "rb").read()
+    imgio.imwrite(a.ws.path_of("btn"), _img(90))
+    a.steps = [_find("btn")]
+    a.flow_cal = {"pair": ["btn", "btn2"], "baseline": 150.0}
+    a.editor_scale = 0.8
+    dest = tmp_path / "p" / "flows" / ("f" + flowfile.EXT)
+    _stub_save(monkeypatch, dest)
+
+    a.save_flow()
+
+    assert open(other, "rb").read() == before
 
 
 def test_被引用卻缺圖的範本在紀錄裡如實回報(tkroot, tmp_path, monkeypatch):
@@ -231,11 +249,12 @@ def test_工作區被手動刪掉後重新載入能自動重建(tkroot, tmp_path
 
 # ---------- 讀檔: 外來存檔 ----------
 
-def _foreign(tmp_path, steps, images, cal=None, cal_images=None,
-             stem="foreign"):
+def _foreign(tmp_path, steps, images, cal=None, stem="foreign"):
     path = tmp_path / (stem + flowfile.EXT)
-    flowfile.write(str(path), {"steps": steps, "coordSpace": "region"},
-                   images, cal=cal, cal_images=cal_images)
+    data = {"steps": steps, "coordSpace": "region"}
+    if cal:
+        data["calibration"] = cal
+    flowfile.write(str(path), data, images)
     return path
 
 
@@ -257,38 +276,24 @@ def test_開啟外來存檔_複製副本進profile_原始檔不被動到(tkroot,
     assert any("原始檔未被修改" in m for m in a.logged)
 
 
-def test_開啟外來存檔_匯入換算三分支如實回報(tkroot, tmp_path, monkeypatch):
-    cal = {"pair": ["c1", "c2"], "baseline": 100.0, "scale": 1.0,
-           "fingerprint": None}
-    cal_imgs = {"c1": b"1", "c2": b"2"}
-
-    # (1) 目標無校準資料 → 採用
-    a = _app(tkroot, tmp_path, "p1")
-    src = _foreign(tmp_path, [{"type": "click", "x": 30, "y": 40}], {},
-                   cal=cal, cal_images=cal_imgs, stem="s1")
+def test_開啟外來存檔_原樣使用不換算_校準對跟著走(tkroot, tmp_path, monkeypatch):
+    cal = {"pair": ["c1", "c2"], "baseline": 100.0}
+    a = _app(tkroot, tmp_path)
+    src = _foreign(tmp_path, [{"type": "click", "x": 30, "y": 40}],
+                   {"c1": b"1", "c2": b"2"}, cal=cal)
     _stub_open(monkeypatch, src)
     a.open_flow()
-    assert any("已採用來源存檔的校準對" in m for m in a.logged)
-    assert calibration.load(a.profile_dir)["scale"] is None
+    assert a.steps[0]["x"] == 30 and a.steps[0]["y"] == 40
+    assert a.flow_cal == cal
+    assert a.ws.names() == ["c1", "c2"]
 
-    # (2) 同一對 → 依基準距離比值換算
-    b = _app(tkroot, tmp_path, "p2")
-    calibration.save(b.profile_dir, {"pair": ["c2", "c1"], "baseline": 200.0,
-                                     "scale": 1.0, "fingerprint": None})
-    _stub_open(monkeypatch, src)
-    b.open_flow()
-    assert b.steps[0]["x"] == 60 and b.steps[0]["y"] == 80
-    assert any("×2.000" in m for m in b.logged)
 
-    # (3) 不同對 → 照來源尺度落地並標記`來源基準`
-    c = _app(tkroot, tmp_path, "p3")
-    calibration.save(c.profile_dir, {"pair": ["x", "y"], "baseline": 300.0,
-                                     "scale": 1.0, "fingerprint": None})
+def test_舊格式流程可以開可以看_沒有校準對(tkroot, tmp_path, monkeypatch):
+    a = _app(tkroot, tmp_path)
+    src = _foreign(tmp_path, [_find("gear")], {"gear": b"GEAR"})
     _stub_open(monkeypatch, src)
-    c.open_flow()
-    assert c.steps[0]["x"] == 30, "無共同比例尺, 座標原樣落地"
-    assert c._source_baseline == {"pair": ["c1", "c2"], "baseline": 100.0}
-    assert any("標記來源基準" in m for m in c.logged)
+    a.open_flow()
+    assert len(a.steps) == 1 and a.flow_cal is None
 
 
 # ---------- 讀檔: 舊格式單向轉換 ----------

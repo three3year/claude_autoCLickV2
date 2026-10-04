@@ -367,7 +367,6 @@ class App:
         self.scan_region = None  # 全域搜尋範圍 [x,y,w,h]; None = 全螢幕
         self._mini = None  # 執行中的迷你狀態視窗
         self._region_prev = None  # 搜尋範圍預覽框
-        self._source_baseline = None  # 目前流程的`來源基準`標記 (票 06)
         self._root_shown = False  # 主視窗是否已首次顯示 (Map 過)
         self._collapsed = set()  # 已收合的區段起點 (以 step dict 的 id 記錄)
         self._view = []  # 清單列 → steps 索引的映射 (收合時兩者不一致)
@@ -490,15 +489,12 @@ class App:
         return flowfile.flows_dir(self.profile_dir)
 
     def _engine_source(self):
-        """交給引擎的範本來源: (工作區, 引擎參數所在的 profile, 校準圖清單).
+        """交給引擎的範本來源: (工作區, 引擎參數所在的 profile).
 
-        引擎看得到的是「本流程的範本 (工作區) ＋ profile 自存的`校準對`圖」;
-        校準圖不算本流程的範本 (面板不列), 但辨識只有一條路徑, 所以它們也得
-        在引擎的`範本清單`裡。
+        引擎看得到的就是本流程的範本 (校準對也是本流程的範本, ADR 0009)。
         """
         self.ws.ensure()   # 工作區只是快取, 被刪掉就重建
-        return (self.ws.root, self.profile_dir,
-                flowfile.calibration_template_list(self.profile_dir))
+        return (self.ws.root, self.profile_dir)
 
     def reload_profile(self):
         """重新探索當前工作區 (輕量, 不讀登錄產物): 新增/修改範本後呼叫.
@@ -1689,9 +1685,6 @@ class App:
             "avoidHover": self.avoid_hover.get(),
             flowfmt.COORD_SPACE: flowfmt.REGION,
         })
-        if self._source_baseline:
-            # `來源基準`標記跟著流程走 (含自動存檔), 存檔守門才擋得住
-            data[calibration.SOURCE_BASELINE] = self._source_baseline
         return data
 
     def referenced_templates(self):
@@ -1706,10 +1699,6 @@ class App:
     def _apply_flow(self, data):
         # 舊存檔一律先遷移: 座標空間換算、範本名去副檔名、每步 threshold 丟棄
         self._log_notes(flowfile.migrate_flow(data))
-        self._source_baseline = calibration.source_baseline(data)
-        if self._source_baseline:
-            self.log_ui("此流程帶有來源基準標記（以不同校準對的存檔開啟、"
-                        "尚未歸位），存檔前需先量測換算或明確確認", "warn")
         self.steps = data.get("steps", [])
         self.flow_cal = calibration.flow_pair(data)
         self.editor_scale = 1.0   # 編輯器倍率屬於「這次編輯這份流程」
@@ -1728,85 +1717,6 @@ class App:
         self._update_region_preview()
 
     # ---- 流程存檔住在所屬 profile 的 flows/ 之下, 一份流程一個自包自足的檔 ----
-
-    def _maybe_rebase(self):
-        """存檔時倍率≠1 → 自動`重定基準`並告知 (ADR 0005).
-
-        profile 內全部流程存檔 (含步驟草稿) 座標 ×現行倍率改寫、基準距離改為
-        本機量值、倍率歸 1、指紋更新; 記憶體中的步驟同步跟上新基準。
-        未校準 (倍率未知) 或倍率＝1 時不觸發、不改寫任何檔案。
-        """
-        cal = calibration.load(self.profile_dir)
-        fp = calibration.current_fingerprint()
-        if cal is None or calibration.is_uncalibrated(cal, fp):
-            return
-        k = float(cal["scale"])
-        if k == 1.0:
-            return
-        files = calibration.rebase(self.profile_dir, fp)
-        calibration.scale_steps(self.steps, k)  # 記憶體同步跟上新基準
-        self._update_cal_ui()
-        self.render_steps()  # 內含 _autosave: 以新基準覆寫自動存檔
-        self.log_ui(f"已重定基準：{len(files)} 份流程存檔座標 ×{k:.3f} 改寫，"
-                    "基準距離更新、倍率歸 1", "ok")
-        messagebox.showinfo(
-            "重定基準",
-            f"本機畫面倍率為 ×{k:.3f}，存檔時已自動把 profile 內全部流程存檔"
-            f"（{len(files)} 份）重定為本機尺度：\n"
-            f"座標 ×{k:.3f} 改寫、基準距離更新、倍率歸 1。\n"
-            "流程存檔因此永遠維持單一尺度，不會雙重縮放。", parent=self.root)
-
-    def _resolve_source_baseline(self):
-        """`來源基準`標記的存檔守門 (票 06); 回傳 False = 中止存檔.
-
-        兩條出路: 對來源校準對量測一次、依比值換算座標 (歸位, 建議);
-        或使用者明確確認以匯入的基準存檔 (座標不換算)。兩者都移除標記。
-        """
-        marker = self._source_baseline
-        if not marker:
-            return True
-        ans = messagebox.askyesnocancel(
-            "儲存流程",
-            "此流程來自「不同校準對」的存檔，座標仍是來源機器的"
-            "尺度，尚未歸位。\n\n"
-            "是＝現在量測來源校準對，把座標換算成本 profile 的尺度（建議）\n"
-            "否＝維持原座標、以匯入的基準存檔\n"
-            "取消＝先不存檔",
-            parent=self.root)
-        if ans is None:
-            return False
-        if not ans:  # 明確確認以匯入基準存檔
-            self._source_baseline = None
-            self.log_ui("已確認以匯入的基準存檔（標記移除，座標未換算）", "warn")
-            self._autosave()
-            return True
-        # 量測換算: 需要引擎與有效倍率 (未校準時換算結果無法歸一)
-        if not self.engine_gate():
-            return False
-        cal = calibration.load(self.profile_dir)
-        fp = calibration.current_fingerprint()
-        if cal is not None and calibration.is_uncalibrated(cal, fp):
-            messagebox.showwarning(
-                "儲存流程", "本機尚未校準，請先按「校準」按鈕再進行換算",
-                parent=self.root)
-            return False
-        dist = self._measure_pair(marker["pair"], "量測來源校準對")
-        if dist is None:
-            return False
-        ratio = calibration.foreign_ratio(
-            dist, marker["baseline"], calibration.effective_scale(cal, fp))
-        calibration.scale_steps(self.steps, ratio)
-        self._source_baseline = None
-        self.render_steps()  # 內含 _autosave: 標記移除與換算一起落地
-        self.log_ui(f"已依來源基準完成換算（×{ratio:.3f}），標記移除", "ok")
-        return True
-
-    def _calibration_payload(self):
-        """存檔要攜帶的校準資料與那兩張圖 (沒有校準對時回 (None, {}))."""
-        cal = calibration.load(self.profile_dir)
-        if cal is None:
-            return None, {}
-        return cal, flowfile.calibration_images(self.profile_dir)
 
     def new_flow(self):
         """開一份新流程: 步驟清空、**工作區整個清空** (圖與登錄產物都刪).
@@ -1855,15 +1765,9 @@ class App:
             filetypes=[("AutoClick 流程", "*" + flowfile.EXT)])
         if not path:
             return
-        # `來源基準`守門在檔名確定「之後」: 取消存檔就不該動到標記 (ADR 0005)
-        if not self._resolve_source_baseline():
-            return
-        self._maybe_rebase()  # 倍率≠1 的機器上存檔 → 先重定基準 (ADR 0005)
         self.ensure_registered()  # 延後中的新範本先進清單, 圖才帶得齊
-        cal, cal_images = self._calibration_payload()
         try:
-            missing = self.ws.put_flow(self._flow_data(), cal=cal,
-                                       cal_images=cal_images, path=path)
+            missing = self.ws.put_flow(self._flow_data(), path=path)
         except OSError as e:
             messagebox.showerror("儲存流程", f"儲存失敗: {e}", parent=self.root)
             return
@@ -1879,8 +1783,8 @@ class App:
         """載入流程存檔; 舊格式與外來檔一律先落地成本 profile 的存檔再開.
 
         - 本 profile 內的存檔: 直接解到工作區
-        - 不在本 profile 內的存檔: 複製一份副本進來再開 (原始檔不被動到),
-          `匯入換算`只在這一刻做一次
+        - 不在本 profile 內的存檔: 原樣複製一份副本進來再開 (原始檔不被動到;
+          不換算——流程自帶尺度與校準對)
         - 舊 autoClick flow JSON / 舊流程包: 單向轉換成新存檔後開啟
         """
         path = filedialog.askopenfilename(
@@ -1899,14 +1803,13 @@ class App:
                                 f"（{len(self.ws.names())} 個範本）", "ok")
                     self._apply_flow(r["data"])
                     return
-                # 外來存檔: 複製副本進 profile, `匯入換算`只在此刻做一次
+                # 外來存檔: 原樣複製副本進 profile
                 a = flowfile.adopt_foreign_flow(path, self.profile_dir)
                 r = self._switch_workspace(a["flow_path"])
                 self._log_notes(a["notes"])
                 self.log_ui(
                     f"已把外來存檔 {os.path.basename(path)} 複製進本 profile → "
                     f"{os.path.basename(a['flow_path'])}（原始檔未被修改）", "ok")
-                self._log_import_calibration(a["calibration"])
                 self._apply_flow(a["data"])
                 return
             # 舊格式: 單向轉換 (ADR 0002)
@@ -1918,7 +1821,6 @@ class App:
                    f"（收進 {len(r['templates'])} 個範本）")
             self.log_ui(msg, "ok")
             self._log_conversion(r)
-            self._log_import_calibration(r["calibration"])
             self._apply_flow(r["data"])
         except Exception as e:
             messagebox.showerror("載入流程", f"載入失敗: {e}", parent=self.root)
@@ -1935,22 +1837,6 @@ class App:
         if r.get("missing"):
             self.log_ui("找不到這些被引用的範本，沒有帶進存檔："
                         + "、".join(r["missing"]), "warn")
-
-    def _log_import_calibration(self, calr):
-        """`匯入換算`三分支結果進執行紀錄 (ADR 0005)."""
-        if not calr:
-            return  # 來源沒有校準資料: 行為與現狀相同
-        if calr["kind"] == "adopted":
-            self._update_cal_ui()
-            self.log_ui("已採用來源存檔的校準對與基準距離（本機尚未校準，"
-                        "請按「校準」量測本機倍率）", "warn")
-        elif calr["kind"] == "converted":
-            self.log_ui("流程座標已依基準距離比值換算落地"
-                        f"（×{calr['ratio']:.3f}）", "ok")
-        else:  # foreign
-            self.log_ui("來源存檔的校準對與本 profile 不同（無共同比例尺），"
-                        "流程照來源尺度落地並標記來源基準——"
-                        "存檔前需先量測換算或明確確認", "warn")
 
     def _autosave(self):
         """自動存檔**只寫步驟草稿**: 圖留在工作區, 不重壓整包 zip.

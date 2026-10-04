@@ -5,8 +5,6 @@
     flow.json               步驟與流程層級設定 (含 coordSpace、`校準對`與`基準距離`)
     templates/<名稱>.png    本流程引用到的範本圖 (一範本一張圖, 名稱平面無層級)
     templates/_meta.json    範本元資料: {"pos": {範本名: [x, y]}}
-    calibration.json        校準資料: {"pair": [兩個範本名], "baseline": 基準距離}
-    calibration/<名稱>.png  `校準對`的兩張圖 (與 templates/ 分開放, 見下)
 
 存檔**只寫入被引用的**範本 (步驟的找圖目標含`確認圖`, 以及流程的`校準對`,
 見 `flow_refs`): 刪掉引用它的步驟再存檔, 那張圖就離開存檔——檔案內容永遠等於
@@ -18,7 +16,9 @@
 
 舊格式的單向匯入 (舊 autoClick flow JSON、舊流程包) 與一次性轉換所需的規則
 (多截圖取`登錄基準張`、範本名拉平、撞名加序號並改寫引用) 都在本模組, 不另立
-門戶: 格式規則只有一個地方說得上話。
+門戶: 格式規則只有一個地方說得上話。存檔原樣搬到哪台機器、哪個 profile 都一樣
+(尺度與比例尺跟著流程走, ADR 0009), 所以開外來檔與匯入都不換算座標。
+(更早版本存檔裡的 calibration.json / calibration/ 項目讀檔時安靜忽略。)
 """
 import json
 import os
@@ -36,8 +36,6 @@ DRAFT_NAME = "_autosave.json"   # 步驟草稿 (自動存檔; 輕量 JSON, 圖�
 FLOW_ENTRY = "flow.json"
 TMPL_PREFIX = "templates/"
 META_ENTRY = "templates/_meta.json"
-CAL_ENTRY = "calibration.json"
-CAL_PREFIX = "calibration/"
 
 # 自包自足存檔的格式標記: 舊流程包同樣是「zip 內含 flow.json」, 沒有標記就無從
 # 分辨「直接開得起來的存檔」與「要走單向轉換的舊流程包」
@@ -46,11 +44,6 @@ FORMAT = 4                 # 寫檔一律蓋這個版本 (3: 範本收進`找圖
                            # 4: 流程自帶`校準對`與`基準距離`, ADR 0009)
 SELF_CONTAINED_SINCE = 2   # 2 起就是自包自足存檔; 2 → 3 只是步驟結構遷移;
                            # 3 以前沒有校準對 (讀進來＝沒有校準對, 不能執行)
-
-# `校準對`的圖交給引擎時用的範本名前綴: 校準圖由 profile 自存、與流程解耦, 但
-# 辨識只有一條路徑 (query(範本名, 搜尋區域)), 所以它們也得在引擎的`範本清單`裡。
-# 前綴含 `/`, 流程範本名一律被 `clean_name` 擋掉斜線 → 永遠不會撞名。
-CAL_NAME_PREFIX = "_cal/"
 
 _IMG_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
 
@@ -191,6 +184,8 @@ def migrate_flow(data):
     note = flowfmt.to_region_space(data)
     if note:
         notes.append(note)
+    # 退場的`來源基準`標記 (ADR 0009 前的匯入換算): 帶著的舊存檔安靜忽略
+    data.pop("sourceBaseline", None)
     for s in data.get("steps") or []:
         s.pop("threshold", None)
         _migrate_step(s)
@@ -255,11 +250,11 @@ def _blob(src):
     return Path(src).read_bytes()
 
 
-def write(path, data, images, pos=None, cal=None, cal_images=None):
+def write(path, data, images, pos=None):
     """寫出一份自包自足的流程存檔; 回傳被引用卻缺圖的範本名 list.
 
-    images / cal_images: {範本名: bytes 或圖檔路徑}。只有 `data` 的步驟引用到
-    的範本會進存檔 (未被引用的圖不進去, 存檔才不會囤積用不到的圖)。缺圖不是
+    images: {範本名: bytes 或圖檔路徑}。只有 `data` 引用到的範本 (步驟與校準對,
+    `flow_refs`) 會進存檔 (未被引用的圖不進去, 存檔才不會囤積用不到的圖)。缺圖不是
     致命錯誤 (使用者可能剛刪掉範本, 步驟由既有機制標示為有問題), 回報給呼叫端
     寫進執行紀錄即可。
     """
@@ -278,14 +273,6 @@ def write(path, data, images, pos=None, cal=None, cal_images=None):
         for n in refs:
             if n in images:
                 z.writestr(f"{TMPL_PREFIX}{n}.png", _blob(images[n]))
-        if cal and calibration.valid(cal):
-            z.writestr(CAL_ENTRY, json.dumps(
-                {"pair": list(cal["pair"]), "baseline": float(cal["baseline"])},
-                ensure_ascii=False))
-            for n in cal["pair"]:
-                blob = (cal_images or {}).get(n)
-                if blob is not None:
-                    z.writestr(f"{CAL_PREFIX}{n}.png", _blob(blob))
     os.replace(tmp, path)   # 寫壞的存檔不會取代舊的那份
     return missing
 
@@ -337,9 +324,8 @@ def template_bytes(path, name):
 def read(path):
     """讀一份流程存檔, 回傳資料進資料出的 dict.
 
-    keys: data (已過 migrate_flow 的流程資料)、notes (遷移提示)、
-    images ({範本名: bytes})、pos、cal (存檔攜帶的校準資料或 None)、
-    cal_images ({範本名: bytes})。
+    keys: data (已過 migrate_flow 的流程資料, 校準對在 data 裡)、notes (遷移
+    提示)、images ({範本名: bytes})、pos。
     """
     with zipfile.ZipFile(path) as z:
         data = json.loads(z.read(FLOW_ENTRY).decode("utf-8"))
@@ -349,50 +335,10 @@ def read(path):
         except (KeyError, ValueError):
             meta = {}
         pos = meta.get("pos", meta) if isinstance(meta, dict) else {}
-        try:
-            cal = json.loads(z.read(CAL_ENTRY).decode("utf-8"))
-        except (KeyError, ValueError):
-            cal = None
-        if cal is not None and not calibration.valid(cal):
-            cal = None
         images = {n: z.read(f"{TMPL_PREFIX}{n}.png")
                   for n in _entry_names(z, TMPL_PREFIX)}
-        cal_images = {n: z.read(f"{CAL_PREFIX}{n}.png")
-                      for n in _entry_names(z, CAL_PREFIX)}
     return {"data": data, "notes": notes, "images": images,
-            "pos": {k: v for k, v in pos.items() if k in images},
-            "cal": cal, "cal_images": cal_images}
-
-
-def update_flow_data(path, fn):
-    """就地改寫存檔內的 `flow.json` (其餘項目原樣搬過去), 回傳新的流程資料.
-
-    `fn(data)` 收已遷移的流程資料、就地修改 (`重定基準`就是這樣改座標);
-    回傳 None 表示不必改寫。zip 無法單獨替換一個項目, 所以整包重寫——
-    範本圖的內容一個 byte 都不動。
-    """
-    with zipfile.ZipFile(path) as z:
-        items = [(i, z.read(i.filename)) for i in z.infolist()
-                 if not i.filename.endswith("/")]
-    data = None
-    for info, blob in items:
-        if info.filename == FLOW_ENTRY:
-            data = json.loads(blob.decode("utf-8"))
-            migrate_flow(data)
-    if data is None:
-        return None
-    if fn(data) is False:
-        return None
-    data[FORMAT_KEY] = FORMAT   # 已遷移成 v3 結構, 標記一併更新
-    tmp = str(path) + ".tmp"
-    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
-        for info, blob in items:
-            if info.filename == FLOW_ENTRY:
-                blob = json.dumps(data, ensure_ascii=False,
-                                  indent=2).encode("utf-8")
-            z.writestr(info.filename, blob)
-    os.replace(tmp, path)
-    return data
+            "pos": {k: v for k, v in pos.items() if k in images}}
 
 
 # ================= profile 內的流程存檔 =================
@@ -458,62 +404,6 @@ def is_inside_profile(path, profile_dir):
     """這份存檔是否就住在本 profile 的 flows/ 裡 (外來檔要先複製副本進來)."""
     return (os.path.normcase(os.path.dirname(os.path.abspath(path)))
             == os.path.normcase(os.path.abspath(flows_dir(profile_dir))))
-
-
-# ================= profile 自存的校準對圖 =================
-# `校準對`的兩張圖由 profile 自己存一份 (指定校準對時複製進來), 與流程存檔解耦:
-# 刪掉任何一份流程都不會弄壞校準。
-
-def calibration_dir(profile_dir):
-    return os.path.join(profile_dir, "calibration")
-
-
-def cal_template_name(name):
-    """校準圖交給引擎時的範本名 (加前綴, 與本流程的範本永不撞名)."""
-    return CAL_NAME_PREFIX + name
-
-
-def calibration_images(profile_dir):
-    """profile 自存的校準圖 {範本名: 圖檔路徑} (缺目錄＝空)."""
-    d = calibration_dir(profile_dir)
-    try:
-        entries = sorted(os.listdir(d))
-    except OSError:
-        return {}
-    return {strip_ext(fn): os.path.join(d, fn) for fn in entries
-            if fn.lower().endswith(".png")}
-
-
-def calibration_template_list(profile_dir):
-    """校準圖的`範本清單`片段, 併進引擎的模板庫 (辨識只有一條路徑)."""
-    return {cal_template_name(n): p
-            for n, p in calibration_images(profile_dir).items()}
-
-
-def store_calibration_images(profile_dir, images):
-    """把`校準對`的兩張圖存進 profile (整批取代舊的一對).
-
-    images: {範本名: bytes 或圖檔路徑}。回傳落地的範本名 list。
-    """
-    shutil.rmtree(calibration_dir(profile_dir), ignore_errors=True)
-    return add_calibration_images(profile_dir, images)
-
-
-def add_calibration_images(profile_dir, images):
-    """把校準圖併進 profile 自存的那一疊 (不清掉既有的).
-
-    `來源基準`流程要歸位時得量來源那一對, 但本 profile 自己的那一對不能被
-    蓋掉——兩對圖並存, 由 `calibration.json` 的 `pair` 與流程的 `sourceBaseline`
-    各自指名要用哪兩張。回傳落地的範本名 list。
-    """
-    d = calibration_dir(profile_dir)
-    os.makedirs(d, exist_ok=True)
-    out = []
-    for name, blob in (images or {}).items():
-        with open(os.path.join(d, name + ".png"), "wb") as f:
-            f.write(_blob(blob))
-        out.append(name)
-    return sorted(out)
 
 
 # ================= 工作區 =================
@@ -700,11 +590,7 @@ class Workspace:
     # ---- 與存檔之間 ----
 
     def load_flow(self, path):
-        """把一份存檔解到工作區 (先整個清空), 回傳 `read()` 的結果.
-
-        校準對的兩張圖不落進工作區 (它們由 profile 自存, 與流程解耦);
-        呼叫端從回傳值裡取用。
-        """
+        """把一份存檔解到工作區 (先整個清空), 回傳 `read()` 的結果."""
         r = read(path)
         self.clear()
         for name, blob in r["images"].items():
@@ -714,11 +600,10 @@ class Workspace:
         self.set_flow_path(path)
         return r
 
-    def put_flow(self, data, cal=None, cal_images=None, path=None):
+    def put_flow(self, data, path=None):
         """把工作區的圖與 `data` 一起寫成存檔; 回傳缺圖的範本名 list."""
         path = path or self.flow_path()
-        missing = write(path, data, self.images(), self.pos(),
-                        cal=cal, cal_images=cal_images)
+        missing = write(path, data, self.images(), self.pos())
         self.set_flow_path(path)
         return missing
 
@@ -755,26 +640,6 @@ def collect_flow_templates(steps, library, taken=()):
             "downgraded": sorted(downgraded), "missing": sorted(missing)}
 
 
-def flat_calibration(cal, library):
-    """一次性轉換用: 把舊校準資料的`校準對`拉平, 並取出那兩張圖.
-
-    與流程引用同一條拉平規則 (`flatten_name` + 撞名加序號); 校準對與流程的
-    範本是兩套獨立的名字空間 (校準圖由 profile 自存), 所以只要這一對彼此
-    不撞名就夠。回傳 (新的校準資料 dict, {新名稱: 圖檔路徑}); cal 為 None
-    時回 (None, {})。
-    """
-    if cal is None:
-        return None, {}
-    pair, images = [], {}
-    for old_name in cal["pair"]:
-        new_name = free_name(flatten_name(old_name), pair)
-        pair.append(new_name)
-        caps = library.get(old_name)
-        if caps:
-            images[new_name] = baseline_capture(caps)
-    return dict(cal, pair=pair), images
-
-
 # ================= 舊格式匯入 =================
 
 def _pack_library(z, refs):
@@ -802,22 +667,15 @@ def import_legacy(path, profile_dir, stem=None):
 
     單向轉換 (ADR 0002): 舊格式進得來、出不去。回傳 dict:
     flow_path (落地的新存檔)、data、notes、templates (帶進來的範本名)、
-    renamed、downgraded、missing、calibration (校準三分支結果或 None)。
+    renamed、downgraded、missing。舊格式沒有流程層級的`校準對`: 匯入後的流程
+    可以開、可以看, 設定校準對之前不能執行。
     """
     stem = stem or os.path.splitext(os.path.basename(path))[0]
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as z:
             data = json.loads(z.read(FLOW_ENTRY).decode("utf-8"))
             notes = migrate_flow(data)
-            try:
-                pack_cal = json.loads(z.read(CAL_ENTRY).decode("utf-8"))
-            except (KeyError, ValueError):
-                pack_cal = None
-            if pack_cal is not None and not calibration.valid(pack_cal):
-                pack_cal = None
             refs = set(used_templates(data.get("steps") or []))
-            if pack_cal:
-                refs |= set(pack_cal["pair"])
             lib = _pack_library(z, refs)
             try:
                 meta = json.loads(z.read(META_ENTRY).decode("utf-8"))
@@ -826,23 +684,6 @@ def import_legacy(path, profile_dir, stem=None):
             pos_in = meta.get("pos", meta) if isinstance(meta, dict) else {}
             r = collect_flow_templates(data.get("steps") or [], lib)
             images = {n: z.read(entry) for n, entry in r["images"].items()}
-            # 校準對的圖: 名稱同樣拉平, 且要與已收進來的範本名對齊 (校準對
-            # 也被步驟引用時, 兩邊指向同一個新名稱)
-            cal, cal_images = None, {}
-            if pack_cal:
-                pair = []
-                for old in pack_cal["pair"]:
-                    new = r["mapping"].get(old)
-                    caps = lib.get(old)
-                    if new is None:
-                        new = free_name(flatten_name(old),
-                                        set(images) | set(cal_images))
-                    pair.append(new)
-                    if new in images:
-                        cal_images[new] = images[new]
-                    elif caps:
-                        cal_images[new] = z.read(baseline_capture(caps))
-                cal = {"pair": pair, "baseline": float(pack_cal["baseline"])}
     else:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
@@ -852,21 +693,18 @@ def import_legacy(path, profile_dir, stem=None):
         r = collect_flow_templates(data.get("steps") or [], lib)
         images = dict(r["images"])
         pos_in = legacy_meta_pos(os.path.join(profile_dir, "templates"))
-        cal, cal_images = None, {}
 
     pos = {}
     for old, new in r["mapping"].items():
         p = pos_in.get(old) or pos_in.get(old + ".png")
         if p:
             pos[new] = p
-    cal_result = _apply_import_calibration(data, cal, cal_images, profile_dir)
     os.makedirs(flows_dir(profile_dir), exist_ok=True)
     flow_path = free_path(flows_dir(profile_dir), stem, EXT)
-    write(flow_path, data, images, pos, cal=cal, cal_images=cal_images)
+    write(flow_path, data, images, pos)
     return {"flow_path": flow_path, "data": data, "notes": notes,
             "templates": sorted(r["images"]), "renamed": r["renamed"],
-            "downgraded": r["downgraded"], "missing": r["missing"],
-            "calibration": cal_result}
+            "downgraded": r["downgraded"], "missing": r["missing"]}
 
 
 def legacy_meta_pos(templates_dir):
@@ -882,60 +720,15 @@ def legacy_meta_pos(templates_dir):
     return meta.get("pos", {})
 
 
-def _apply_import_calibration(data, src_cal, src_images, profile_dir):
-    """匯入/開啟外來存檔時的校準三分支 (ADR 0005); 回傳說明 dict 或 None.
-
-    - 目標 profile 無校準資料 → 採用來源的 (倍率留空＝未校準) → adopted
-    - 同一對校準圖 (以範本名判定, 不論順序) → 流程座標 ×(目標基準 ÷ 來源
-      基準) 換算落地 → converted
-    - 不同對 → 流程照來源尺度落地、附`來源基準`標記 → foreign
-      (帶標記的流程存檔前必須先歸位, 守門在 app.save_flow)
-
-    **來源攜帶的校準圖一併落進 profile 自存位置**: 少了這一步, 採用分支叫使用者
-    去按「校準」會找不到圖、`來源基準`流程也永遠歸不了位 (量測取的是 profile
-    自存的圖)。回傳值的 `images` 是實際落地的範本名, 空的代表來源沒帶圖
-    (舊流程包可能如此), 呼叫端據此提醒使用者重新指定校準對。
-    """
-    if src_cal is None:
-        return None
-    target = calibration.load(profile_dir)
-    if target is None:
-        calibration.save(profile_dir, {
-            "pair": list(src_cal["pair"]),
-            "baseline": float(src_cal["baseline"]),
-            "scale": None, "fingerprint": None})
-        # 本 profile 原本沒有校準資料 → 整批取代 (沒有別人的圖要保護)
-        landed = store_calibration_images(profile_dir, src_images)
-        return {"kind": "adopted", "pair": list(src_cal["pair"]),
-                "images": landed}
-    if set(target["pair"]) == set(src_cal["pair"]):
-        ratio = float(target["baseline"]) / float(src_cal["baseline"])
-        calibration.scale_steps(data.get("steps") or [], ratio)
-        return {"kind": "converted", "ratio": ratio,
-                "images": sorted(calibration_images(profile_dir))}
-    data[calibration.SOURCE_BASELINE] = {
-        "pair": list(src_cal["pair"]),
-        "baseline": float(src_cal["baseline"])}
-    # 併進來 (不清掉本 profile 自己那一對): 歸位要量的是**來源**那一對
-    landed = add_calibration_images(profile_dir, src_images)
-    return {"kind": "foreign", "pair": list(src_cal["pair"]),
-            "images": landed}
-
-
 def adopt_foreign_flow(path, profile_dir):
-    """開啟不在本 profile 裡的存檔: 複製副本進 profile 再開 (原檔不被動到).
+    """開啟不在本 profile 裡的存檔: 原樣複製副本進 profile 再開 (原檔不被動到).
 
-    `匯入換算`只在這一刻做一次: 之後這份副本就是本 profile 的流程, 與其他
-    流程一視同仁。回傳 dict: flow_path (副本)、data、notes、calibration。
+    不換算: 流程自帶尺度與校準對 (ADR 0009), 搬到哪裡都一樣, 執行開頭自己量。
+    回傳 dict: flow_path (副本)、data、notes。
     """
     r = read(path)
-    data = r["data"]
-    cal_result = _apply_import_calibration(data, r["cal"], r["cal_images"],
-                                          profile_dir)
     os.makedirs(flows_dir(profile_dir), exist_ok=True)
     stem = os.path.splitext(os.path.basename(path))[0]
     dest = free_path(flows_dir(profile_dir), stem, EXT)
-    write(dest, data, r["images"], r["pos"],
-          cal=r["cal"], cal_images=r["cal_images"])
-    return {"flow_path": dest, "data": data, "notes": r["notes"],
-            "calibration": cal_result}
+    write(dest, r["data"], r["images"], r["pos"])
+    return {"flow_path": dest, "data": r["data"], "notes": r["notes"]}

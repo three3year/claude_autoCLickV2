@@ -22,8 +22,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   匹配的唯一實作——執行器、編輯器比對測試、影片轉流程自我驗證三處共用，行為一致由此保證；
   舊格式遷移仍只在 flowfile)
 - **辨識單一路徑走主體偵測引擎**（ADR 0002）：runner 建構時注入偵測器
-  （`query(範本名, 搜尋區域影像, color_check) → QueryResult`，`matches` 是所有匹配，
-  範本不存在丟 KeyError；ADR 0007）。每個找圖點都經 `findtarget.find` 執行一個找圖目標，
+  （`query(範本名, 搜尋區域影像, color_check, expected_scale) → QueryResult`，`matches`
+  是所有匹配，範本不存在丟 KeyError；ADR 0007）。每個找圖點都經 `findtarget.find` 執行一個找圖目標，
   判定結束時寫一筆 `find.target` 到 `autoclick.log`（實跑回報點錯時先查它）。
   舊 matcher 已移除，**不要再加備援比對路徑**
 - **啟動契約（ADR 0004，取代舊的「啟動建 Engine＋整庫登錄」）**：視窗先開、
@@ -43,12 +43,11 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - **匹配門檻在 profile `config.yaml`**（match/verify 兩關），步驟層級沒有 threshold；
   讀舊檔時 `flowfile.migrate_flow()` 會把每步 threshold 安靜丟棄、範本引用去 .png
 - **一份流程＝一個自包自足的存檔（ADR 0006）**：`flows/<名稱>.autoclickpack` 是
-  zip，裡面同時裝著步驟、**這份流程引用到的每一張範本圖**、校準資料與範本元資料。
+  zip，裡面同時裝著步驟、`校準對`與`基準距離`、**這份流程引用到的每一張範本圖**與範本元資料。
   格式規則／打包範圍（只包被引用的）／撞名加序號並改寫引用／`工作區`生命週期／
   舊格式單向匯入／一次性轉換規則**全部只在 `flowfile.py`**，UI 與 runner 只呼叫它。
   - **本機沒有範本庫**：profile 只剩 `config.yaml`、`flows/`（含步驟草稿
-    `_autosave.json`）、`calibration.json` + `calibration/`（校準對兩張圖，
-    profile 自存、與流程解耦）、`workspace/`（可重建快取）。
+    `_autosave.json`）、`workspace/`（可重建快取）。
     profile 判定看的是 `config.yaml` 在不在，不是目錄
   - **範本名是平面名稱**（沒有資料夾層級），一份流程內唯一；**一範本一張圖**
     （多截圖範本已退場，引擎的 `multi_capture` 能力保留但 app 不再產生）
@@ -58,37 +57,33 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     刻意不留非當前流程的圖 → 切回去要重新登錄，這是刻意的取捨
   - **自動存檔只寫步驟草稿**（`flowfile.write_draft`），圖留在工作區——拖曳排序
     不能因為重寫幾十張圖而卡頓；按存檔才 `ws.put_flow()` 打包 zip
-  - **校準圖交給引擎時加 `_cal/` 前綴**（`flowfile.cal_template_name`）：辨識只有
-    一條路徑，所以校準圖也得在引擎的`範本清單`裡，但它不算本流程的範本（面板不列）。
-    前綴含 `/` 而流程範本名一律被 `clean_name` 擋掉斜線 → 永不撞名
+  - **「被引用的範本」只有 `flowfile.flow_refs` 一份定義**（步驟的找圖目標＋校準對）：
+    打包、範本預載、對話框收回未使用新圖、改名（`rename_flow_refs`）都照它。
+    新增流程層級的找圖設定時要一併納入，否則存檔一整理那張圖就不見
   - **匯出動作已移除**（存檔本身就是可搬移的檔）；開啟不在本 profile 內的存檔＝
-    `adopt_foreign_flow()` 複製副本進來再開，原始檔不動、`匯入換算`只做一次
+    `adopt_foreign_flow()` 原樣複製副本進來再開，原始檔不動、不換算
 - 流程存檔有 `coordSpace` 標記：**沒有這個鍵＝舊格式**（絕對座標是螢幕座標），載入時由
   `flowfile.migrate_flow()`（內含 `flowfmt.to_region_space()`）換算成範圍座標。
   任何讀存檔的新路徑都要記得先過這一關，否則舊檔的座標會被當成新格式而整批偏掉。
   另有 `flowFormat` 標記分辨「自包自足存檔」與「舊流程包」（兩者都是含 flow.json
   的 zip，沒有標記就分不出該直接開還是該走單向轉換）。`flowFormat` ≥ 2＝自包自足；
-  寫檔一律蓋 3（範本名收進`找圖目標` `target`/`confirmTarget`，2 的存檔與步驟草稿讀入時由
-  `migrate_flow` 遷移）——讀範本名一律經 `findtarget.template()` 等存取函式
-- **校準與畫面倍率（ADR 0005，詞彙見 app/CONTEXT.md）**：純邏輯全部在
-  `calibration.py`（資料存取、未校準判定、量測、重定改寫）；存檔攜帶校準資料與
-  `匯入換算`三分支在 `flowfile`（那是存檔格式的事）。UI 與 runner 只呼叫它們。
-  慣例與坑：
-  - 流程座標永遠是「當前基準機器」的尺度；倍率≠1 存檔會自動重定基準
-    （`App._maybe_rebase` → `calibration.rebase`：profile 內**每一份**
-    `.autoclickpack`（只改 zip 裡的 flow.json，圖不動）＋步驟草稿 ×倍率改寫，
-    漏一份＝混尺度）。新增「寫流程」的路徑時要想清楚是否該先重定
-  - 執行期倍率經 `runner.start(scale=…)` 傳入，runner 不讀檔；只換算三類步驟
-    **偏移**（找圖偏移、相對/絕對座標、拖曳兩端點），搜尋範圍與原點等螢幕座標不換算。
-    進位統一走 `flowfmt.scale_px`（執行期與檔案改寫共用，別各寫一份捨入）
-  - 未校準（有校準對但 scale 為 null 或機器指紋不符）＝執行警告後以 1 代入、
-    **拾取擋下**（`ui_dialogs._cal_state`，新增拾取入口要沿用這道門＋`_unscale` 反除歸一）、
-    存檔不重定。沒有校準對的 profile 一切照舊（最重要的回歸線）
-  - 帶 `sourceBaseline` 標記（以不同校準對的存檔開啟）的流程：可執行、存檔被
-    `_resolve_source_baseline` 守門，且**不隨 profile 重定基準**
-  - 校準量測走辨識單一路徑（query 接縫）＋清場截圖；量測入口一樣要過
-    engine_gate 與 ensure_registered。範本取自 **profile 自存的校準圖**
-    （`_cal/` 前綴），不是本流程的範本——刪掉任何一份流程都不影響校準
+  寫檔一律蓋 4（3：範本名收進`找圖目標` `target`/`confirmTarget`，2 的存檔與步驟草稿讀入時由
+  `migrate_flow` 遷移——讀範本名一律經 `findtarget.template()` 等存取函式；4：flow.json
+  帶 `calibration`，3 以前讀進來＝沒有校準對）
+- **一份流程一個尺度（ADR 0009，取代 0005；詞彙見 app/CONTEXT.md「尺度與畫面倍率」）**：
+  座標與範本圖都是`流程尺度`；`校準對`＋`基準距離`在 flow.json 的 `calibration`
+  （`calibration.flow_pair`），profile 不存任何校準資料。量測純邏輯在 `calibration.py`
+  （`measure`，執行器、編輯器、影片轉流程共用）。慣例與坑：
+  - **一個倍率兩個用途**：座標 ×倍率（`flowfmt.scale_px` 統一捨入），找圖時同一個倍率經
+    `findtarget.find(scale=…)` 當`預期尺度`交給引擎（只掃它附近 5 格）。新增找圖入口一律走
+    `findtarget.find`，倍率才不會只用到一半
+  - 執行器開頭自己校準（`runner.start(calibration=…)` → `_calibrate`，延遲之後、第一個動作
+    之前）：校準查詢**不帶**預期尺度；量不到或沒有校準對＝零輸入結束，寫 `calibrate` 日誌。
+    抖動內貼齊 1（`snap_identity`）——倍率 1 時座標原樣、網格對準 1.0
+  - 編輯器倍率 `App.editor_scale`：開流程/切流程歸 1，按「校準」才更新；拾取座標
+    （`_unscale`）與截下的範本（`App.flow_scale_image`）都除以它，上傳的圖不縮放。
+    新增拾取或截圖入口要照做，流程裡才只有一種尺度
+  - 換校準對要先用舊對量倍率（`App.designate_pair`），否則流程尺度會被改掉
 - `Runner` 可注入舞台；**不注入時完全走原本的單流程路徑**，改 runner 時務必保住這條回歸線
 - 範本元資料只有 `pos` 鍵：各範本截圖當下的中心螢幕座標（相對座標預設原點的備援）。
   住在工作區的 `workspace/_meta.json`，存檔時寫進 zip 的 `templates/_meta.json`。
@@ -117,7 +112,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   對較高權限視窗注入的滑鼠事件會被系統無聲丟棄；部署後的自動啟動測試會被 UAC 擋住——
   自動化冒煙改用同包的 `AutoClick-noUAC.exe`（共用 `_internal`；點擊會被高權限視窗
   丟棄，不作正式使用）
-- 使用者資料＝`profiles/`（每個 profile 自帶 config.yaml/flows/calibration/workspace），
+- 使用者資料＝`profiles/`（每個 profile 自帶 config.yaml/flows/workspace），
   位置依 `sys.frozen`：exe 用 exe 旁的 `profiles/`＝使用者正式資料；從原始碼跑用 repo
   根目錄的 `profiles/`。**範本圖住在流程存檔裡**，所以 `flows/` 不進版控；
   `workspace/`、`calibration*`、`app_state.json`、`benchmark/_registered/` 也已 gitignore。
@@ -133,9 +128,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - **步驟裡的座標一律是「偏移量」，沒有一個是螢幕座標**：`相對座標`相對原點、`絕對座標`相對搜尋範圍左上角。
   螢幕座標只出現在三個地方：搜尋範圍本身、`templates/_meta.json` 的 `pos`、
   以及執行期換算後送進 `win.click` 的最終落點。改動座標相關程式碼前先確認自己在哪一個座標系
-- 步驟偏移量存的是「當前基準機器」的尺度（ADR 0005）：偏移量 → 螢幕像素要
-  ×`畫面倍率`（runner `_sc`、預設原點推算）；螢幕像素 → 偏移量要反除倍率
-  （拾取 `_unscale`）。倍率 1（含無校準對）時兩者都是恆等，與舊行為完全一致
+- 步驟偏移量是`流程尺度`（ADR 0009）：偏移量 → 螢幕像素要 ×`畫面倍率`（runner `_sc`、
+  預設原點推算）；螢幕像素 → 偏移量要反除倍率（拾取 `_unscale`）。倍率 1 時兩者都是恆等
 
 ## 踩過的坑（不要再犯）
 

@@ -141,16 +141,6 @@ def test_寫出的存檔蓋章目前版本(tmp_path):
         assert json.loads(z.read("flow.json"))["flowFormat"] == flowfile.FORMAT
 
 
-def test_v2存檔改寫流程資料後成為目前版本(tmp_path):
-    path = str(tmp_path / ("old" + flowfile.EXT))
-    write_v2_file(path, v2_steps(), {"btn": b"B", "ok": b"O", "next": b"N"})
-    flowfile.update_flow_data(path, lambda d: None)
-    with zipfile.ZipFile(path) as z:
-        raw = json.loads(z.read("flow.json"))
-    assert raw["flowFormat"] == flowfile.FORMAT
-    assert raw["steps"][0]["target"] == {"template": "btn"}
-
-
 def test_步驟草稿讀入同樣遷移(tmp_path):
     profile = make_profile(tmp_path)
     flowfile.write_draft(str(profile), {"steps": v2_steps(),
@@ -283,7 +273,6 @@ def test_存檔讀回等價的流程資料與範本(tmp_path):
     assert r["data"]["avoidHover"] is True
     assert r["images"] == {"btn": b"IMG"}
     assert r["pos"] == {"btn": [11, 22]}
-    assert r["cal"] is None
 
 
 def test_被引用卻缺圖的範本如實回報(tmp_path):
@@ -302,42 +291,24 @@ def test_只讀索引取得範本清單與單張圖(tmp_path):
     assert flowfile.template_bytes(str(path), "nope") is None
 
 
-def test_存檔攜帶校準對兩張圖與基準距離(tmp_path):
-    path = tmp_path / ("f" + flowfile.EXT)
-    cal = {"pair": ["calA", "calB"], "baseline": 123.5,
-           "scale": 1.0, "fingerprint": None}
-    flowfile.write(str(path), flow([find_step("btn")]), {"btn": b"B"},
-                   cal=cal, cal_images={"calA": b"A", "calB": b"BB"})
-    r = flowfile.read(str(path))
-    assert r["cal"] == {"pair": ["calA", "calB"], "baseline": 123.5}
-    assert r["cal_images"] == {"calA": b"A", "calB": b"BB"}
-    # 校準對的圖不混進本流程的範本清單 (它不被步驟引用)
-    assert flowfile.template_names(str(path)) == ["btn"]
-
-
-def test_沒有校準對時存檔不帶校準資料(tmp_path):
-    path = tmp_path / ("f" + flowfile.EXT)
+def test_更早版本存檔裡的校準檔安靜忽略(tmp_path):
+    """ADR 0009 前的存檔帶 calibration.json 與 calibration/ 圖: 不當範本、不當校準對."""
+    path = tmp_path / ("old" + flowfile.EXT)
     flowfile.write(str(path), flow([find_step("btn")]), {"btn": b"B"})
-    with zipfile.ZipFile(path) as z:
-        assert flowfile.CAL_ENTRY not in z.namelist()
-
-
-def test_改寫存檔內的流程資料_範本圖原樣不動(tmp_path):
-    path = tmp_path / ("f" + flowfile.EXT)
-    flowfile.write(str(path), flow([{"type": "click", "x": 30, "y": 40}]),
-                   {"btn": b"KEEPME"})
-    flowfile.write(str(path), flow([find_step("btn"),
-                                    {"type": "click", "x": 30, "y": 40}]),
-                   {"btn": b"KEEPME"})
-
-    def double(data):
-        calibration.scale_steps(data["steps"], 2.0)
-
-    data = flowfile.update_flow_data(str(path), double)
-    assert (data["steps"][1]["x"], data["steps"][1]["y"]) == (60, 80)
+    with zipfile.ZipFile(path, "a") as z:
+        z.writestr("calibration.json", json.dumps({"pair": ["p", "q"],
+                                                   "baseline": 100.0}))
+        z.writestr("calibration/p.png", b"P")
     r = flowfile.read(str(path))
-    assert r["data"]["steps"][1]["x"] == 60
-    assert r["images"] == {"btn": b"KEEPME"}
+    assert sorted(r["images"]) == ["btn"]
+    assert calibration.flow_pair(r["data"]) is None
+
+
+def test_來源基準標記讀進來安靜忽略(tmp_path):
+    data = flow([find_step("btn")])
+    data["sourceBaseline"] = {"pair": ["p", "q"], "baseline": 100.0}
+    flowfile.migrate_flow(data)
+    assert "sourceBaseline" not in data
 
 
 def test_列舉profile內的流程存檔_草稿不算一份流程(tmp_path):
@@ -607,7 +578,7 @@ def test_匯入舊流程包_未被引用的範本不進新存檔(tmp_path):
     assert r["templates"] == ["a"]
 
 
-# ---------- 匯入換算三分支 (ADR 0005) ----------
+# ---------- 開啟外來檔: 原樣複製, 不換算 (ADR 0009) ----------
 
 def _steps_with_offsets():
     return [find_step("a", offsetX=10, offsetY=-8),
@@ -616,174 +587,38 @@ def _steps_with_offsets():
              "mode": "prev"}]
 
 
-def _foreign_flow(tmp_path, cal, stem="src"):
-    """另一個 profile 的存檔 (帶校準資料), 供「開啟外來檔」測試."""
+CAL = {"pair": ["圖示", "關閉"], "baseline": 1696.0}
+
+
+def _foreign_flow(tmp_path, cal=None, stem="src"):
+    """另一個 profile 的存檔, 供「開啟外來檔」測試."""
     other = make_profile(tmp_path, "other")
     path = str(other / "flows" / (stem + flowfile.EXT))
-    flowfile.write(path, flow(_steps_with_offsets()), {"a": b"A"},
-                   cal=cal, cal_images={"calA": b"CA", "calB": b"CB"})
+    data = flow(_steps_with_offsets())
+    images = {"a": b"A"}
+    if cal:
+        data[calibration.FLOW_KEY] = dict(cal)
+        images.update({n: n.encode() for n in cal["pair"]})
+    flowfile.write(path, data, images)
     return path
 
 
-def test_開啟外來檔_目標無校準資料則採用來源的且倍率留空(tmp_path):
+def test_開啟外來檔_原樣複製不換算_校準對跟著走(tmp_path):
     profile = make_profile(tmp_path)
-    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 200.0,
-                                   "scale": 1.0, "fingerprint": None})
+    src = _foreign_flow(tmp_path, CAL)
     r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["calibration"]["kind"] == "adopted"
-    assert r["calibration"]["pair"] == ["calA", "calB"]
-    cal = calibration.load(str(profile))
-    assert (cal["pair"], cal["baseline"]) == (["calA", "calB"], 200.0)
-    assert cal["scale"] is None, "倍率留空＝未校準"
-    assert r["data"]["steps"][1]["x"] == 30, "座標原樣落地"
-
-
-def test_開啟外來檔_同一對依基準比值換算落地(tmp_path):
-    profile = make_profile(tmp_path)
-    calibration.save(str(profile), {"pair": ["calB", "calA"],  # 順序無關
-                                    "baseline": 200.0, "scale": 1.0,
-                                    "fingerprint": None})
-    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 100.0,
-                                   "scale": 1.0, "fingerprint": None})
-    r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["calibration"]["kind"] == "converted"
-    assert r["calibration"]["ratio"] == 2.0
-    s = r["data"]["steps"]
-    assert (s[0]["offsetX"], s[0]["offsetY"]) == (20, -16)
-    assert (s[1]["x"], s[1]["y"]) == (60, 80)
-    assert (s[2]["x1"], s[2]["x2"], s[2]["y2"]) == (8, 80, 160)
-    assert calibration.SOURCE_BASELINE not in r["data"]
-    assert calibration.load(str(profile))["baseline"] == 200.0
-
-
-def test_開啟外來檔_不同對照來源尺度落地並附來源基準標記(tmp_path):
-    profile = make_profile(tmp_path)
-    calibration.save(str(profile), {"pair": ["x", "y"], "baseline": 300.0,
-                                    "scale": 1.0, "fingerprint": None})
-    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 100.0,
-                                   "scale": 1.0, "fingerprint": None})
-    r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["calibration"]["kind"] == "foreign"
-    assert r["calibration"]["pair"] == ["calA", "calB"]
-    assert r["data"]["steps"][1]["x"] == 30
-    assert r["data"][calibration.SOURCE_BASELINE] == {
-        "pair": ["calA", "calB"], "baseline": 100.0}
-    assert calibration.load(str(profile))["pair"] == ["x", "y"]
+    assert r["data"]["steps"] == _steps_with_offsets()
+    assert calibration.flow_pair(r["data"]) == CAL
+    assert flowfile.template_names(r["flow_path"]) == sorted(["a", "圖示", "關閉"])
+    assert sorted(os.listdir(str(profile))) == ["flows"], \
+        "profile 不多出任何校準資料"
 
 
 def test_開啟外來檔_複製副本進profile_原檔不被動到(tmp_path):
     profile = make_profile(tmp_path)
-    src = _foreign_flow(tmp_path, None)
+    src = _foreign_flow(tmp_path)
     before = open(src, "rb").read()
     r = flowfile.adopt_foreign_flow(src, str(profile))
     assert flowfile.is_inside_profile(r["flow_path"], str(profile))
     assert open(src, "rb").read() == before
     assert flowfile.template_names(r["flow_path"]) == ["a"]
-
-
-def test_開啟外來檔_無校準資料時不產生校準資料(tmp_path):
-    profile = make_profile(tmp_path)
-    src = _foreign_flow(tmp_path, None)
-    r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["calibration"] is None
-    assert calibration.load(str(profile)) is None
-
-
-# ---------- profile 自存的校準圖 ----------
-
-def test_校準圖存在profile_與流程存檔解耦(tmp_path):
-    profile = make_profile(tmp_path)
-    names = flowfile.store_calibration_images(str(profile),
-                                              {"calA": b"A", "calB": b"B"})
-    assert names == ["calA", "calB"]
-    imgs = flowfile.calibration_images(str(profile))
-    assert sorted(imgs) == ["calA", "calB"]
-    assert open(imgs["calA"], "rb").read() == b"A"
-    # 工作區被整個清空 (切流程) 也不影響校準圖
-    ws = flowfile.Workspace(str(profile))
-    ws.clear()
-    assert sorted(flowfile.calibration_images(str(profile))) == ["calA", "calB"]
-
-
-def test_重新指定校準對會整批取代舊的一對(tmp_path):
-    profile = make_profile(tmp_path)
-    flowfile.store_calibration_images(str(profile), {"old1": b"1", "old2": b"2"})
-    flowfile.store_calibration_images(str(profile), {"new1": b"3", "new2": b"4"})
-    assert sorted(flowfile.calibration_images(str(profile))) == ["new1", "new2"]
-
-
-def test_校準圖交給引擎的範本名永不與本流程的範本撞名(tmp_path):
-    profile = make_profile(tmp_path)
-    flowfile.store_calibration_images(str(profile), {"btn": b"CAL"})
-    ws = flowfile.Workspace(str(profile))
-    ws.add("btn", b"FLOW")   # 本流程剛好也有一個叫 btn 的範本
-    lst = flowfile.calibration_template_list(str(profile))
-    assert list(lst) == [flowfile.CAL_NAME_PREFIX + "btn"]
-    assert set(lst) & set(ws.names()) == set(), "兩邊的鍵不重疊"
-    # 前綴含 `/`, 使用者輸入的名稱一律被清成平面名稱 → 撞不到
-    assert "/" not in flowfile.clean_name("_cal/btn")
-
-
-# ---------- 匯入換算落地後校準必須真的能用 ----------
-
-def test_採用分支把來源的校準圖落進profile(tmp_path):
-    """不落地的話,「請按校準量測本機倍率」這句建議根本做不到 (量測取的是
-    profile 自存的圖)——採用分支等於死路."""
-    profile = make_profile(tmp_path)
-    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 200.0,
-                                   "scale": 1.0, "fingerprint": None})
-    r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["calibration"]["kind"] == "adopted"
-    imgs = flowfile.calibration_images(str(profile))
-    assert sorted(imgs) == ["calA", "calB"], "校準圖要在 profile 自存位置"
-    assert open(imgs["calA"], "rb").read() == b"CA"
-    # 也要進得了引擎的範本清單, 量測才查得到
-    assert sorted(flowfile.calibration_template_list(str(profile))) == [
-        flowfile.cal_template_name("calA"), flowfile.cal_template_name("calB")]
-
-
-def test_不同對分支併進來源校準圖_本profile自己那對不被蓋掉(tmp_path):
-    """`來源基準`流程要歸位就得量**來源**那一對; 本 profile 自己那一對還要留著
-    給一般校準用——兩對並存."""
-    profile = make_profile(tmp_path)
-    calibration.save(str(profile), {"pair": ["mine1", "mine2"],
-                                    "baseline": 300.0, "scale": 1.0,
-                                    "fingerprint": None})
-    flowfile.store_calibration_images(str(profile),
-                                      {"mine1": b"M1", "mine2": b"M2"})
-    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 100.0,
-                                   "scale": 1.0, "fingerprint": None})
-
-    r = flowfile.adopt_foreign_flow(src, str(profile))
-
-    assert r["calibration"]["kind"] == "foreign"
-    imgs = flowfile.calibration_images(str(profile))
-    assert sorted(imgs) == ["calA", "calB", "mine1", "mine2"]
-    assert open(imgs["mine1"], "rb").read() == b"M1", "本 profile 那對沒被蓋掉"
-    assert open(imgs["calA"], "rb").read() == b"CA", "來源那對也在 (歸位要量)"
-
-
-def test_同一對分支不動既有的校準圖(tmp_path):
-    profile = make_profile(tmp_path)
-    calibration.save(str(profile), {"pair": ["calA", "calB"], "baseline": 200.0,
-                                    "scale": 1.0, "fingerprint": None})
-    flowfile.store_calibration_images(str(profile),
-                                      {"calA": b"KEEP", "calB": b"KEEP2"})
-    src = _foreign_flow(tmp_path, {"pair": ["calA", "calB"], "baseline": 100.0,
-                                   "scale": 1.0, "fingerprint": None})
-    r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["calibration"]["kind"] == "converted"
-    imgs = flowfile.calibration_images(str(profile))
-    assert open(imgs["calA"], "rb").read() == b"KEEP", "既有的圖不被來源覆蓋"
-
-
-def test_來源沒帶校準圖時如實回報(tmp_path):
-    """舊流程包可能沒帶圖: 採用了 pair/baseline 但沒有圖可量, 要讓呼叫端知道."""
-    profile = make_profile(tmp_path)
-    path = str(tmp_path / ("noimg" + flowfile.EXT))
-    flowfile.write(path, flow([find_step("a")]), {"a": b"A"},
-                   cal={"pair": ["c1", "c2"], "baseline": 100.0,
-                        "scale": 1.0, "fingerprint": None})   # 沒給 cal_images
-    r = flowfile.adopt_foreign_flow(path, str(profile))
-    assert r["calibration"]["kind"] == "adopted"
-    assert r["calibration"]["images"] == []
