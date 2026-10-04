@@ -201,7 +201,10 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
     # suppressed by extra peaks: on a busy screen a small template's coarse
     # scores are noisy, so a wrong-scale peak can outscore and overlap the
     # true match before refinement. Duplicates merge in the NMS after it.
-    kept = _nms(best, _BEST_K) + _nms(best + extra, top_k)
+    # The two pools mostly hold the same candidates: refine each one once
+    # (refinement is deterministic, so dropping a duplicate changes nothing).
+    pool = _nms(best, _BEST_K) + _nms(best + extra, top_k)
+    kept = list({id(c): c for c in pool}.values())
 
     # --- refinement at full resolution -------------------------------------
     refined = [_refine(scene_grad_full, tpl_gray, mask, c, aspect_jitter)
