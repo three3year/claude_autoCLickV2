@@ -31,7 +31,7 @@ class _FakeRunner:
 class _CalApp(app_mod.App):
     """只建 start_run 需要的欄位 (引擎一律就緒)."""
 
-    def __init__(self, root, profile_dir):
+    def __init__(self, root, profile_dir, cal=None, names=None):
         self.root = root
         self.hub = enginehub.EngineHub()
         self.hub.state = enginehub.READY
@@ -43,12 +43,15 @@ class _CalApp(app_mod.App):
         self.start_delay = SimpleNamespace(get=lambda: "無")
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")
         self.avoid_hover = SimpleNamespace(get=lambda: False)
+        self.flow_cal = cal
+        self._names = (list(cal["pair"]) if cal else []) if names is None \
+            else names
 
     def _run_count(self):
         return 1
 
     def list_template_names(self):
-        return []
+        return self._names
 
     def _show_mini(self):
         pass
@@ -64,34 +67,39 @@ def _warnings(monkeypatch):
     return rec
 
 
-def test_沒有校準對_無警告_倍率1(tkroot, monkeypatch, tmp_path):
+FLOW_CAL = {"pair": ["圖示", "關閉"], "baseline": 1696.0}
+
+
+def test_沒有校準對的流程不能執行_並說明要先設定(tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
     a = _CalApp(tkroot, tmp_path)
+    a.start_run()
+    assert a.runner.started == []
+    assert any("校準對" in m for m in rec)
+
+
+def test_執行時把流程的校準資料交給執行器(tkroot, monkeypatch, tmp_path):
+    rec = _warnings(monkeypatch)
+    a = _CalApp(tkroot, tmp_path, cal=FLOW_CAL)
     a.start_run()
     assert rec == []
-    assert a.runner.started[0][1]["scale"] == 1.0
+    assert a.runner.started[0][1]["calibration"] == FLOW_CAL
+    assert "scale" not in a.runner.started[0][1], "倍率由執行器開頭自己量"
 
 
-def test_未校準_警告後照跑_倍率1(tkroot, monkeypatch, tmp_path):
-    calibration.save(str(tmp_path), {"pair": ["a", "b"], "baseline": 100.0,
-                                     "scale": None, "fingerprint": None})
+def test_測試選取也把校準資料交給執行器(tkroot, monkeypatch, tmp_path):
+    _warnings(monkeypatch)
+    a = _CalApp(tkroot, tmp_path, cal=FLOW_CAL)
+    a.start_run(steps=list(a.steps), test=True)
+    assert a.runner.started[0][1]["calibration"] == FLOW_CAL
+
+
+def test_校準對的範本不在本流程_不執行(tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
-    a = _CalApp(tkroot, tmp_path)
+    a = _CalApp(tkroot, tmp_path, cal=FLOW_CAL, names=["圖示"])
     a.start_run()
-    assert any("尚未校準" in m for m in rec)
-    assert len(a.runner.started) == 1, "警告後仍可執行"
-    assert a.runner.started[0][1]["scale"] == 1.0
-
-
-def test_已校準_無警告_倍率傳進runner(tkroot, monkeypatch, tmp_path):
-    calibration.save(str(tmp_path), {
-        "pair": ["a", "b"], "baseline": 100.0, "scale": 1.5,
-        "fingerprint": calibration.current_fingerprint()})
-    rec = _warnings(monkeypatch)
-    a = _CalApp(tkroot, tmp_path)
-    a.start_run()
-    assert rec == []
-    assert a.runner.started[0][1]["scale"] == 1.5
+    assert a.runner.started == []
+    assert any("關閉（校準對）" in m for m in rec)
 
 
 # ---------- 拾取守門與歸一 (票 04) ----------

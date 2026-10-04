@@ -3,8 +3,8 @@
 名單收集是純函式直測; 執行路徑用 harness 驗「預載恰在流程動作前發生
 一次、失敗報明錯誤且不開跑」。
 """
-from harness import (branch_end, branch_or, branch_start, click, find, loop, tgt,
-                     loop_end, wait)
+from harness import (CAL_PAIR, branch_end, branch_or, branch_start, click, find,
+                     loop, tgt, loop_end, wait)
 
 from automation.runner import flow_templates
 
@@ -49,13 +49,13 @@ def test_執行前預載一次_名單含確認圖(harness):
     harness.vision.plan("ok", [(600, 300)])
     r = harness.run([find("a", confirm="appear", confirmTarget=tgt("ok"))])
     assert r.ended == "done"
-    assert harness.vision.preloads == [["a", "ok"]]
+    assert harness.vision.preloads == [["a", "ok", *CAL_PAIR]],         "流程引用的範本＋校準對"
     assert harness.clicks()  # 預載後流程照常執行
 
-def test_沒有找圖步驟_不預載(harness):
+def test_沒有找圖步驟_只預載校準對(harness):
     r = harness.run([click(10, 20), wait(5)])
     assert r.ended == "done"
-    assert harness.vision.preloads == []
+    assert harness.vision.preloads == [list(CAL_PAIR)]
 
 
 def test_預載缺範本_報明錯誤且不開跑(harness):

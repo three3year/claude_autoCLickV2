@@ -180,7 +180,8 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
     範本不存在丟 KeyError——原樣往外拋; 開了`比色`時顏色不符的不是匹配,
     挑選規則根本看不到它們); screen: 整個`搜尋範圍`的截圖, screen_origin 是它
     左上角的螢幕座標; origin: 目前的`原點` (螢幕座標, 可能 None); scale:
-    `畫面倍率` (找圖目標的像素設定 ×它)。
+    `畫面倍率`——一個倍率兩個用途 (ADR 0009): 找圖目標的像素設定 ×它, 查詢時
+    當`預期尺度`交給偵測器 (範本是流程尺度, 畫面上大約是它的 scale 倍)。
     """
     if origin is None and needs_origin(tgt):
         return Found(tgt, reason="origin")
@@ -196,7 +197,8 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
         image = screen[y0:y0 + limit[3], x0:x0 + limit[2]]
         ox, oy = limit[0], limit[1]
     r = detector.query(tgt.get("template", ""), image,
-                       color_check=bool(tgt.get("colorCheck")))
+                       color_check=bool(tgt.get("colorCheck")),
+                       expected_scale=scale)
     def screen_match(m):
         return Match((m.box[0] + ox, m.box[1] + oy, m.box[2], m.box[3]),
                      m.score, m.color)

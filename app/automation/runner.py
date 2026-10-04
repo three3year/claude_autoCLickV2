@@ -7,9 +7,15 @@
 threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分支條件) 都是
 執行一個`找圖目標` (automation/findtarget.py): 多個匹配時由挑選規則決定
 點哪一個, 「消失」只看先前挑中的那個位置 (ADR 0007)。
+
+每次執行開頭先`校準` (ADR 0009): 流程自帶`校準對`與`基準距離`, 執行器在畫面上
+找到兩張圖、以中心距離 ÷ 基準距離得出這次的`畫面倍率`——座標乘上它, 每次找圖
+把它當`預期尺度`交給偵測器。量不到 (或流程沒有校準對) 就一個輸入都不送。
 """
 import threading
 import time
+
+import calibration as calib
 
 from . import capture, findtarget, flowfmt, win
 
@@ -151,7 +157,7 @@ class Runner:
 
     # ---------- 控制 ----------
     def start(self, steps, run_mode="count", run_count=1, start_delay=3,
-              scan_region=None, avoid_hover=False, scale=1.0):
+              scan_region=None, avoid_hover=False, calibration=None):
         if self.running:
             raise RuntimeError("已在執行中")
         self._stop.clear()
@@ -160,9 +166,9 @@ class Runner:
         self.total_rounds = 0 if run_mode == "infinite" else max(1, int(run_count))
         self.scan_region = scan_region  # 全域搜尋範圍 [x,y,w,h]; 步驟未自設範圍時套用
         self.avoid_hover = avoid_hover  # 找圖截圖前先把滑鼠移開, 避免 hover 反白干擾
-        # `畫面倍率`: 步驟偏移換算落點時乘上它 (由校準模組算出, runner 不讀檔);
-        # 1 (含未校準代入值) = 恆等換算, 與原路徑等價
-        self.scale = float(scale)
+        # 流程的校準資料 {pair, baseline}; `畫面倍率`由開頭校準得出 (_calibrate)
+        self.calibration = calibration
+        self.scale = 1.0
         self._last_click = None  # 上一次點擊的螢幕座標, 供相對座標步驟使用
         self._step = (0, 0)
         self._preparing = False
@@ -221,6 +227,7 @@ class Runner:
                 self._sleep(start_delay)
 
             self._take_stage()  # 第一個動作之前先上台
+            self._calibrate()   # 量不到就拋錯: 一個輸入都不送
             i = 0
             while not self._stop.is_set():
                 i += 1
@@ -296,6 +303,10 @@ class Runner:
         跑到一半才炸。每次執行都重掃 (登錄快取有效性由引擎那層把關)。
         """
         names = flow_templates(steps)
+        cal = calib.flow_pair({calib.FLOW_KEY: self.calibration})
+        for n in (cal["pair"] if cal else ()):
+            if n not in names:
+                names.append(n)   # 校準對是被引用的範本 (開頭校準要查)
         if not names:
             return
         self._preparing = True
@@ -310,6 +321,53 @@ class Runner:
         finally:
             self._preparing = False
         self.log("範本就緒", "ok")
+
+    # ---------- 開頭`校準` ----------
+    def _calibrate(self):
+        """用流程的`校準對`量這次的`畫面倍率` (ADR 0009).
+
+        依搜尋範圍截一張圖, 兩張校準圖用**全範圍**查 (不帶預期尺度——倍率差很多
+        也量得到); 中心距離 ÷ 基準距離＝倍率, 是這次執行唯一的倍率。沒有校準
+        資料、任一張找不到、兩張重疊＝拋錯 (流程一個輸入都不送), 都寫一筆
+        `calibrate` 檔案日誌。
+        """
+        cal = calib.flow_pair({calib.FLOW_KEY: self.calibration})
+        if cal is None:
+            self._log_calibrate(result="no_pair")
+            raise RuntimeError("這份流程沒有校準對（舊格式或尚未設定）→ 不執行；"
+                               "請先在編輯器設定校準對")
+        region = getattr(self, "scan_region", None)
+        screen, org = self._grab(region)
+        m = calib.measure(self.detector.query, screen, cal["pair"])
+        if m.missing:
+            self._log_calibrate(
+                result="missing", pair=",".join(cal["pair"]),
+                missing=",".join(m.missing),
+                best=",".join(f"{m.scores[n]:.3f}" for n in m.missing))
+            names = "、".join(f"「{n}」（最高分數 {m.scores[n]:.3f}）"
+                             for n in m.missing)
+            raise RuntimeError(f"開頭校準失敗：畫面上找不到校準圖{names}"
+                               " → 不執行；請確認遊戲畫面上看得到校準對")
+        centers = ";".join(f"({x + org[0]},{y + org[1]})"
+                           for x, y in (m.centers[n] for n in cal["pair"]))
+        if m.too_close:
+            self._log_calibrate(result="too_close", pair=",".join(cal["pair"]),
+                                centers=centers)
+            raise RuntimeError("開頭校準失敗：兩張校準圖重疊在同一處，"
+                               "不能當比例尺 → 不執行")
+        self.scale = m.scale(cal["baseline"])
+        self._log_calibrate(result="ok", pair=",".join(cal["pair"]),
+                            centers=centers, distance=f"{m.distance:.1f}",
+                            baseline=f"{float(cal['baseline']):.1f}",
+                            scale=f"{self.scale:.3f}")
+        self.log(f"開頭校準：畫面倍率 ×{self.scale:.3f}（距離 {m.distance:.1f}px"
+                 f" ÷ 基準 {float(cal['baseline']):.1f}px）", "ok")
+
+    def _log_calibrate(self, **fields):
+        try:
+            self.filelog("calibrate", **fields)
+        except Exception:
+            pass   # 日誌絕不能反過來影響執行
 
     # ---------- 步驟 ----------
     def _abs_origin(self):

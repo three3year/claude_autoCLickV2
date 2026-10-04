@@ -355,6 +355,9 @@ class SegListbox(tk.Text):
 
 
 class App:
+    # 目前流程的`校準對`與`基準距離` {pair, baseline}; None＝沒有 (不能執行)
+    flow_cal = None
+
     def __init__(self, root):
         self.root = root
         self.steps = []
@@ -616,7 +619,8 @@ class App:
             self.root.update()
             time.sleep(0.12)
             screen, _ = capture.grab(self.scan_region)
-        dist, missing = calibration.measure(self.detector.query, screen, keys)
+        m = calibration.measure(self.detector.query, screen, keys)
+        dist, missing = m.distance, m.missing
         if missing:
             plain = [n for n, k in zip(pair, keys) if k in missing]
             messagebox.showwarning(
@@ -1587,7 +1591,7 @@ class App:
             messagebox.showwarning("重新命名", f"找不到範本「{old}」的圖",
                                    parent=self.root)
             return
-        changed = flowfile.rename_refs(self.steps, old, final)
+        changed = flowfile.rename_flow_refs(self._ref_data(), old, final)
         self.reload_profile()
         self.refresh_templates()
         self.render_steps()
@@ -1603,12 +1607,14 @@ class App:
         name = self._sel_template()
         if not name:
             return
-        used = [i + 1 for i, s in enumerate(self.steps)
+        used = [f"步驟 {i + 1}" for i, s in enumerate(self.steps)
                 if name in flowfile.used_templates([s])]
-        # 沒有步驟使用時直接刪除, 不打擾
+        if self.flow_cal and name in self.flow_cal["pair"]:
+            used.append("校準對")
+        # 沒有人使用時直接刪除, 不打擾
         if used and not messagebox.askyesno(
                 "刪除範本",
-                f"刪除範本「{name}」？\n（步驟 {', '.join(map(str, used))} 正在使用它）",
+                f"刪除範本「{name}」？\n（{'、'.join(used)} 正在使用它）",
                 parent=self.root):
             return
         self.ws.remove(name)
@@ -1643,19 +1649,33 @@ class App:
 
     # ================= 流程存檔 =================
 
+    def _ref_data(self):
+        """引用範本的那部分流程資料: 步驟＋流程層級設定 (不讀介面元件).
+
+        回傳的是同一批物件 (不是副本): `rename_flow_refs` 就地改它就改到本流程。
+        """
+        data = {"steps": self.steps}
+        if self.flow_cal:
+            data[calibration.FLOW_KEY] = self.flow_cal
+        return data
+
     def _flow_data(self):
-        data = {
-            "steps": self.steps,
+        data = self._ref_data()
+        data.update({
             "runMode": "count" if self.run_mode.get() == "執行次數" else "infinite",
             "runCount": self._run_count(),
             "scanRegion": self.scan_region,
             "avoidHover": self.avoid_hover.get(),
             flowfmt.COORD_SPACE: flowfmt.REGION,
-        }
+        })
         if self._source_baseline:
             # `來源基準`標記跟著流程走 (含自動存檔), 存檔守門才擋得住
             data[calibration.SOURCE_BASELINE] = self._source_baseline
         return data
+
+    def referenced_templates(self):
+        """本流程引用的全部範本名 (步驟 + 校準對; 見 flowfile.flow_refs)."""
+        return flowfile.flow_refs(self._ref_data())
 
     def _log_notes(self, notes):
         """把遷移提示寫進執行紀錄 (換算失敗的提示以警告等級顯示)."""
@@ -1670,6 +1690,7 @@ class App:
             self.log_ui("此流程帶有來源基準標記（以不同校準對的存檔開啟、"
                         "尚未歸位），存檔前需先量測換算或明確確認", "warn")
         self.steps = data.get("steps", [])
+        self.flow_cal = calibration.flow_pair(data)
         self.run_mode.set("直到停止" if data.get("runMode") == "infinite" else "執行次數")
         self.run_count.set(data.get("runCount", 1))
         self.scan_region = data.get("scanRegion")
@@ -1823,7 +1844,7 @@ class App:
         except OSError as e:
             messagebox.showerror("儲存流程", f"儲存失敗: {e}", parent=self.root)
             return
-        names = flowfile.used_templates(self.steps)
+        names = self.referenced_templates()
         self.log_ui(f"已儲存流程 {os.path.basename(path)}"
                     f"（{len(self.steps)} 步、{len(names) - len(missing)} 個範本）",
                     "ok")
@@ -1987,8 +2008,17 @@ class App:
                     and findtarget.confirm_template(s) not in names):
                 missing.append((findtarget.confirm_template(s) or "(未選擇)")
                                + "（確認圖）")
+        if self.flow_cal is None:
+            # 執行器開頭也會擋 (沒有校準對＝量不了倍率); 這裡先講清楚下一步
+            messagebox.showwarning(
+                "執行", "這份流程沒有校準對（舊格式或尚未設定），不能執行。\n"
+                "請先在「畫面校準」設定校準對（例：遊戲視窗標題列的圖示與關閉鈕）",
+                parent=self.root)
+            return
+        missing += [f"{n}（校準對）" for n in self.flow_cal["pair"]
+                    if n not in names]
         if missing:
-            messagebox.showwarning("執行", "找圖步驟的範本不存在：\n" + "\n".join(missing),
+            messagebox.showwarning("執行", "範本不存在：\n" + "\n".join(missing),
                                    parent=self.root)
             return
         err = self._flow_error(steps)
@@ -2013,13 +2043,6 @@ class App:
                 f"用到絕對座標的步驟：{', '.join(map(str, abs_no))}",
                 parent=self.root)
             return
-        # `未校準`警告 (票 03): 警告一次後照跑、以倍率 1 代入;
-        # 沒有校準對的 profile 完全無警告、無換算
-        cal = calibration.load(self.profile_dir)
-        fp = calibration.current_fingerprint()
-        warn = calibration.run_warning(cal, fp)
-        if warn:
-            messagebox.showwarning("執行", warn, parent=self.root)
         delay = {"無": 0, "3 秒": 3, "5 秒": 5, "10 秒": 10}[self.start_delay.get()]
         if test:
             mode, count = "count", 1
@@ -2030,7 +2053,7 @@ class App:
             self.runner.start(steps, mode, count, delay,
                               scan_region=self.scan_region,
                               avoid_hover=self.avoid_hover.get(),
-                              scale=calibration.effective_scale(cal, fp))
+                              calibration=self.flow_cal)
         except RuntimeError as e:
             messagebox.showwarning("執行", str(e), parent=self.root)
             return

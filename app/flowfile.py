@@ -2,15 +2,15 @@
 
 **一份`流程`＝一個自包自足的存檔** (副檔名 `.autoclickpack`, zip)::
 
-    flow.json               步驟與流程層級設定 (含 coordSpace / sourceBaseline)
+    flow.json               步驟與流程層級設定 (含 coordSpace、`校準對`與`基準距離`)
     templates/<名稱>.png    本流程引用到的範本圖 (一範本一張圖, 名稱平面無層級)
     templates/_meta.json    範本元資料: {"pos": {範本名: [x, y]}}
     calibration.json        校準資料: {"pair": [兩個範本名], "baseline": 基準距離}
     calibration/<名稱>.png  `校準對`的兩張圖 (與 templates/ 分開放, 見下)
 
-存檔**只寫入被步驟引用的**範本 (含`確認圖`): 刪掉引用它的步驟再存檔, 那張圖就
-離開存檔——檔案內容永遠等於流程真正需要的東西。`校準對`的圖不在此列 (它由
-校準資料指名、不被步驟引用), 所以另放 `calibration/`。
+存檔**只寫入被引用的**範本 (步驟的找圖目標含`確認圖`, 以及流程的`校準對`,
+見 `flow_refs`): 刪掉引用它的步驟再存檔, 那張圖就離開存檔——檔案內容永遠等於
+流程真正需要的東西。
 
 **工作區** (`<profile>/workspace/`) 是 profile 底下可重建的快取: 當前流程解出來
 的範本圖與引擎的`登錄產物`都放這。**存檔是真相來源, 工作區只是快取**——被刪或
@@ -42,8 +42,10 @@ CAL_PREFIX = "calibration/"
 # 自包自足存檔的格式標記: 舊流程包同樣是「zip 內含 flow.json」, 沒有標記就無從
 # 分辨「直接開得起來的存檔」與「要走單向轉換的舊流程包」
 FORMAT_KEY = "flowFormat"
-FORMAT = 3                 # 寫檔一律蓋這個版本 (3: 範本收進`找圖目標`, ADR 0007)
-SELF_CONTAINED_SINCE = 2   # 2 起就是自包自足存檔; 2 → 3 只是步驟結構遷移
+FORMAT = 4                 # 寫檔一律蓋這個版本 (3: 範本收進`找圖目標`, ADR 0007;
+                           # 4: 流程自帶`校準對`與`基準距離`, ADR 0009)
+SELF_CONTAINED_SINCE = 2   # 2 起就是自包自足存檔; 2 → 3 只是步驟結構遷移;
+                           # 3 以前沒有校準對 (讀進來＝沒有校準對, 不能執行)
 
 # `校準對`的圖交給引擎時用的範本名前綴: 校準圖由 profile 自存、與流程解耦, 但
 # 辨識只有一條路徑 (query(範本名, 搜尋區域)), 所以它們也得在引擎的`範本清單`裡。
@@ -110,6 +112,33 @@ def rename_refs(steps, old, new):
         for _, t in findtarget.step_targets(s):
             if t.get("template") == old:
                 t["template"] = new
+                changed += 1
+    return changed
+
+
+def flow_refs(data):
+    """一份流程引用的全部範本名 (已排序): 步驟的`找圖目標` + 流程層級設定
+    (`校準對`).
+
+    「被引用的範本」只有這一份定義: 存檔只打包它們、範本預載載它們、對話框
+    收回未使用的新圖時保留它們——校準對不被步驟引用, 漏了它, 存檔一整理
+    流程就不能執行。
+    """
+    refs = set(used_templates(data.get("steps") or []))
+    cal = calibration.flow_pair(data)
+    if cal:
+        refs.update(cal["pair"])
+    return sorted(refs)
+
+
+def rename_flow_refs(data, old, new):
+    """把整份流程對 `old` 的引用 (步驟 + 校準對) 就地改成 `new`; 回傳改動筆數."""
+    changed = rename_refs(data.get("steps") or [], old, new)
+    cal = calibration.flow_pair(data)
+    if cal:
+        for i, n in enumerate(cal["pair"]):
+            if n == old:
+                cal["pair"][i] = new
                 changed += 1
     return changed
 
@@ -238,7 +267,7 @@ def write(path, data, images, pos=None, cal=None, cal_images=None):
     stamped = json.loads(json.dumps(data))  # 深拷貝: 不改呼叫端的資料
     _migrate_steps(stamped.get("steps"))     # 寫出的步驟一律是 v3 結構
     stamped[FORMAT_KEY] = FORMAT
-    refs = used_templates(stamped.get("steps") or [])
+    refs = flow_refs(stamped)
     pos = pos or {}
     missing = [n for n in refs if n not in images]
     tmp = str(path) + ".tmp"

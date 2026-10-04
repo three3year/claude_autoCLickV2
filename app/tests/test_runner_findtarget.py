@@ -119,7 +119,7 @@ def test_以原點為基準卻沒有原點_步驟無法執行而跳過(harness):
     r = harness.run([find("card", target=near, onNotFound="stop")])
     assert r.ended == "done", "與相對座標同處理: 跳過, 不走找不到時"
     assert harness.clicks() == []
-    assert harness.vision.lookups == []
+    assert harness.lookups() == []
     assert "尚無原點" in harness.log_text()
 
 

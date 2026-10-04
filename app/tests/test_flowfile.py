@@ -134,20 +134,20 @@ def test_v2存檔讀入後範本在找圖目標裡(tmp_path):
         assert "template" not in s and "confirmTemplate" not in s
 
 
-def test_寫出的存檔蓋章3(tmp_path):
+def test_寫出的存檔蓋章目前版本(tmp_path):
     path = str(tmp_path / ("f" + flowfile.EXT))
     flowfile.write(path, flow([find_step("a")]), {"a": b"A"})
     with zipfile.ZipFile(path) as z:
-        assert json.loads(z.read("flow.json"))["flowFormat"] == 3
+        assert json.loads(z.read("flow.json"))["flowFormat"] == flowfile.FORMAT
 
 
-def test_v2存檔改寫流程資料後成為v3(tmp_path):
+def test_v2存檔改寫流程資料後成為目前版本(tmp_path):
     path = str(tmp_path / ("old" + flowfile.EXT))
     write_v2_file(path, v2_steps(), {"btn": b"B", "ok": b"O", "next": b"N"})
     flowfile.update_flow_data(path, lambda d: None)
     with zipfile.ZipFile(path) as z:
         raw = json.loads(z.read("flow.json"))
-    assert raw["flowFormat"] == 3
+    assert raw["flowFormat"] == flowfile.FORMAT
     assert raw["steps"][0]["target"] == {"template": "btn"}
 
 
@@ -201,6 +201,43 @@ def test_範本名拉平掉子路徑前綴():
 def test_使用者輸入的名稱沒有資料夾層級():
     assert flowfile.clean_name("zh/按鈕") == "zh_按鈕"
     assert flowfile.clean_name("a:b?c") == "a_b_c"
+
+
+# ---------- 校準對 (flow-scale 票 02: 存檔格式 4) ----------
+
+CAL = {"pair": ["圖示", "關閉"], "baseline": 1696.0}
+
+
+def test_校準資料存檔往返(tmp_path):
+    path = str(tmp_path / ("f" + flowfile.EXT))
+    data = flow([find_step("a")])
+    data[calibration.FLOW_KEY] = dict(CAL)
+    flowfile.write(path, data, {"a": b"A", "圖示": b"I", "關閉": b"X"})
+    r = flowfile.read(path)
+    assert calibration.flow_pair(r["data"]) == CAL
+
+
+def test_校準對是被引用的範本_存檔帶著它們的圖(tmp_path):
+    path = str(tmp_path / ("f" + flowfile.EXT))
+    data = flow([find_step("a")])
+    data[calibration.FLOW_KEY] = dict(CAL)
+    flowfile.write(path, data, {"a": b"A", "圖示": b"I", "關閉": b"X",
+                                "沒人用": b"U"})
+    assert flowfile.template_names(path) == sorted(["a", "關閉", "圖示"])
+    assert flowfile.flow_refs(data) == sorted(["a", "關閉", "圖示"])
+
+
+def test_舊版存檔讀進來沒有校準對(tmp_path):
+    path = str(tmp_path / ("old" + flowfile.EXT))
+    write_v2_file(path, v2_steps(), {"btn": b"B", "ok": b"O", "next": b"N"})
+    assert calibration.flow_pair(flowfile.read(path)["data"]) is None
+
+
+def test_改名跟著改校準對():
+    data = {"steps": [find_step("圖示")], calibration.FLOW_KEY: dict(CAL, pair=list(CAL["pair"]))}
+    assert flowfile.rename_flow_refs(data, "圖示", "標題列") == 2
+    assert data[calibration.FLOW_KEY]["pair"] == ["標題列", "關閉"]
+    assert tmpl(data["steps"][0]) == "標題列"
 
 
 def test_改寫引用含確認圖():

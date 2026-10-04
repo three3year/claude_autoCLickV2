@@ -523,6 +523,18 @@ def test_已被其他步驟引用的絕不誤刪(picker):
     assert app.ws.names() == ["shared"]
 
 
+def test_校準對的範本絕不誤刪(picker):
+    """flow-scale 票 02: 校準對是被引用的範本, 不被步驟引用也要留著."""
+    app = picker
+    app.ws.add("圖示", b"I")
+    app.ws.add("關閉", b"X")
+    app.flow_cal = {"pair": ["圖示", "關閉"], "baseline": 1696.0}
+
+    ui_dialogs._discard_unused(app, ["圖示", "關閉"], None)
+
+    assert app.ws.names() == sorted(["圖示", "關閉"])
+
+
 def test_沒有新增範本時是空操作(picker):
     app = picker
     app.ws.add("a", b"A")

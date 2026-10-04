@@ -135,7 +135,7 @@ def test_急停時交還舞台且不再回頭搶(harness):
             r.stop()
 
     harness.clock.on_sleep = interrupt
-    r.start([wait(60000), click(9, 9)], start_delay=0)
+    harness.start(r, [wait(60000), click(9, 9)])
     r._thread.join(10)
     harness.runner = r
 
@@ -150,7 +150,7 @@ def test_排隊等舞台時被急停也能收工(harness):
     """卡在 acquire 的流程必須被喚醒, 否則連 leave 都執行不到, 其他流程陪葬."""
     st = harness.make_stage(block=True)
     r = harness.make_runner(st)
-    r.start([click(1, 1)], start_delay=0)
+    harness.start(r, [click(1, 1)])
     harness.runner = r
 
     assert st.blocked.wait(3), "測試前提: 執行器應該卡在 acquire 排隊"

@@ -131,27 +131,75 @@ def snap_identity(scale):
     return 1.0 if abs(scale - 1.0) < IDENTITY_EPS else scale
 
 
-def measure(query, screen, pair):
-    """量`校準對`兩張圖的匹配框中心直線距離.
+# 兩張圖中心距離小於這個值 (px) 就不能當比例尺 (重疊在同一處)
+MIN_DISTANCE = 1.0
 
-    query: runner 同款偵測接縫 (query(範本名, 搜尋區域) → QueryResult);
-    screen: 已截好的搜尋區域影像 (找圖語意與一般找圖一致, 由呼叫端決定
-    範圍內或全螢幕)。回傳 (距離, 找不到的範本名 list); 任一張找不到時
-    距離為 None——失敗結果指明缺哪一張, 呼叫端不得寫入任何校準資料。
+# 流程層級的校準資料鍵 (flow.json, flowFormat 4 起; ADR 0009):
+# {"pair": [兩個範本名], "baseline": 基準距離}——兩張都是這份流程自己的範本
+FLOW_KEY = "calibration"
+
+
+def flow_pair(data):
+    """流程資料上的校準資料 {pair, baseline}; 沒有或不成形回傳 None."""
+    cal = (data or {}).get(FLOW_KEY)
+    return cal if valid(cal) else None
+
+
+def make(pair, baseline):
+    """組一份流程層級的校準資料."""
+    return {"pair": [str(pair[0]), str(pair[1])], "baseline": float(baseline)}
+
+
+class Measurement:
+    """一次`校準`量測: 校準對兩張圖在截圖上的匹配框中心與分數.
+
+    centers: {範本名: (x, y)} (截圖內座標, 找到的才有); scores: {範本名:
+    查詢的最高分}; missing: 找不到的範本名 (依校準對順序)。
     """
-    centers = []
-    missing = []
+
+    def __init__(self, pair, centers, scores, missing):
+        self.pair = list(pair)
+        self.centers = centers
+        self.scores = scores
+        self.missing = missing
+
+    @property
+    def distance(self):
+        """兩張圖中心的直線距離; 任一張找不到時 None."""
+        if self.missing:
+            return None
+        (x1, y1), (x2, y2) = (self.centers[n] for n in self.pair)
+        return math.hypot(x2 - x1, y2 - y1)
+
+    @property
+    def too_close(self):
+        """兩張都找到、但中心幾乎重疊 (不能當比例尺)."""
+        d = self.distance
+        return d is not None and d < MIN_DISTANCE
+
+    def scale(self, baseline):
+        """這次量到的`畫面倍率` (量測抖動內貼齊 1)."""
+        return snap_identity(self.distance / float(baseline))
+
+
+def measure(query, screen, pair):
+    """量`校準對`兩張圖的匹配框中心 (回傳 `Measurement`).
+
+    query: 偵測接縫 (query(範本名, 搜尋區域) → QueryResult)——**不帶預期
+    尺度**: 校準就是為了得出倍率, 倍率差很多 (視窗縮到一半) 也要量得到;
+    screen: 已截好的搜尋區域影像 (呼叫端決定範圍內或全螢幕)。任一張找不到
+    時 distance 為 None——結果指明缺哪一張, 呼叫端不得寫入任何校準資料。
+    """
+    centers, scores, missing = {}, {}, []
     for name in pair:
         r = query(name, screen)
+        scores[name] = float(r.score)
         if not r.found:
             missing.append(name)
             continue
         x, y, w, h = r.box
-        centers.append((x + w // 2, y + h // 2))
-    if missing:
-        return None, missing
-    (x1, y1), (x2, y2) = centers
-    return math.hypot(x2 - x1, y2 - y1), []
+        centers[name] = (x + w // 2, y + h // 2)
+    return Measurement(pair, centers, scores, missing)
 
 
 def scale_steps(steps, k):

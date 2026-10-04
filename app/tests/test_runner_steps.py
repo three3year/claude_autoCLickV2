@@ -21,7 +21,7 @@ def test_等待可被急停中斷(harness):
 
     harness.clock.on_sleep = interrupt
     t0 = harness.clock.t
-    r.start([wait(60000), click(1, 1)], start_delay=0)
+    harness.start(r, [wait(60000), click(1, 1)])
     r._thread.join(10)
     harness.runner = r
 
@@ -131,7 +131,7 @@ def test_按鍵送出組合鍵(harness):
 def test_找圖只擷取指定的搜尋範圍(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.run([find("a.png")], scan_region=[100, 50, 800, 600])
-    assert harness.vision.grabs == [(100, 50, 800, 600)]
+    assert harness.grabs() == [(100, 50, 800, 600)]
 
 
 def test_找到位置以擷取原點換算成螢幕座標(harness):

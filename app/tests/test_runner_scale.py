@@ -41,7 +41,7 @@ def test_拖曳兩端點都乘上倍率_相對(harness):
 def test_搜尋範圍本身不乘倍率(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.run([find("a.png")], scan_region=[100, 50, 800, 600], scale=2.0)
-    assert harness.vision.grabs == [(100, 50, 800, 600)], \
+    assert harness.grabs() == [(100, 50, 800, 600)], \
         "搜尋範圍是本機量測的螢幕座標, 不換算"
 
 

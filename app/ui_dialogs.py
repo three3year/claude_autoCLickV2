@@ -1588,16 +1588,16 @@ def _discard_unused(app, added, step):
     """把這次對話框加進來、最後卻沒被用到的範本收回去.
 
     取消整個對話框＝這次加的圖全部丟棄; 按確定則只留這一步真的引用到的
-    (中途換過幾張的那幾張同樣不留)。已被**其他步驟**引用的絕不動。
+    (中途換過幾張的那幾張同樣不留)。已被**其他步驟**或流程層級設定 (校準對)
+    引用的絕不動。
     """
-    import flowfile
     if not added:
         return
     keep = set()
     if step:
         keep = {findtarget.template(step),
                 findtarget.confirm_template(step)} - {None, ""}
-    others = set(flowfile.used_templates(getattr(app, "steps", []) or []))
+    others = set(app.referenced_templates())
     dropped = [n for n in dict.fromkeys(added)
                if n not in keep and n not in others]
     if not dropped:

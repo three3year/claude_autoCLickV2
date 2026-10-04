@@ -15,6 +15,9 @@
   (見 app/CLAUDE.md「測 runner 點擊邏輯時 monkeypatch
   automation.runner.win.click」)。
 - 時間用虛擬時鐘, `等待` 不真的睡, 整份測試在數秒內跑完。
+- 每次執行開頭都會`校準` (ADR 0009): `run()` 預設交一對校準圖 (CAL_PAIR) 給
+  執行器, 並在畫面上擺好讓量出來的`畫面倍率`剛好是 `scale` (預設 1)——
+  不在意校準的測試照舊寫; 要測校準本身就自己給 `calibration=` 與 plan。
 - 斷言對象是「事件序列」——誰在什麼順序做了什麼——不是內部欄位。
 """
 import os
@@ -28,6 +31,17 @@ from subject_detection.engine import Match, QueryResult  # noqa: E402
 import enginehub  # noqa: E402
 from automation import runner as runner_mod  # noqa: E402
 from automation import stage as stage_mod  # noqa: E402
+
+
+# ---------- 校準 ----------
+
+CAL_PAIR = ("cal_left", "cal_right")   # run() 預設交給執行器的`校準對`
+CAL_BASELINE = 100.0                    # 它的`基準距離` (流程尺度)
+
+
+def cal(pair=CAL_PAIR, baseline=CAL_BASELINE):
+    """流程的校準資料 (校準對兩張範本名 + 基準距離)."""
+    return {"pair": list(pair), "baseline": float(baseline)}
 
 
 # ---------- 步驟建構器 ----------
@@ -348,16 +362,31 @@ class Harness:
         return runner_mod.Runner(self.vision, stage=stage,
                                  filelog=self.filelog)
 
-    def run(self, steps, timeout=10.0, stage=None, **kw):
-        """跑完一份流程並回傳執行器 (已結束).
+    def place_calibration(self, scale, region):
+        """在搜尋範圍左上附近擺好 CAL_PAIR, 中心距離＝基準距離×scale."""
+        x, y = int(region[0]) + 10, int(region[1]) + 10
+        self.vision.plan(CAL_PAIR[0], [(x, y)])
+        self.vision.plan(CAL_PAIR[1], [(x + round(CAL_BASELINE * scale), y)])
+
+    def start(self, runner, steps, scale=1.0, **kw):
+        """以測試預設值啟動執行器 (不等它結束).
 
         start_delay 預設 0; `搜尋範圍`預設原點 (0,0)，這樣`絕對座標`的數字
         就等於螢幕座標，測試好讀 (絕對座標＝相對範圍左上角的偏移)。
+        沒給 `calibration` 時交 CAL_PAIR, 開頭量出來的倍率＝scale。
         """
-        r = self.make_runner(stage)
         kw.setdefault("start_delay", 0)
         kw.setdefault("scan_region", [0, 0, 1920, 1080])
-        r.start(steps, **kw)
+        if "calibration" not in kw:
+            kw["calibration"] = cal()
+            self.place_calibration(scale, kw["scan_region"] or (0, 0))
+        self.runner = runner
+        runner.start(steps, **kw)
+
+    def run(self, steps, timeout=10.0, stage=None, **kw):
+        """跑完一份流程並回傳執行器 (已結束); 預設值見 `start`."""
+        r = self.make_runner(stage)
+        self.start(r, steps, **kw)
         r._thread.join(timeout)
         assert not r._thread.is_alive(), "執行緒逾時未結束"
         self.runner = r
@@ -369,6 +398,24 @@ class Harness:
 
     def kinds(self):
         return [e[0] for e in self.events]
+
+    def _cal_names(self):
+        cal = getattr(getattr(self, "runner", None), "calibration", None)
+        return set(cal["pair"]) if cal else set()
+
+    def lookups(self):
+        """步驟的查詢 (範本名序列), 不含開頭校準查校準對的那兩次."""
+        skip = self._cal_names()
+        return [n for n in self.vision.lookups if n not in skip]
+
+    def grabs(self):
+        """步驟的擷取 (搜尋範圍序列), 不含開頭校準的那一次."""
+        return self.vision.grabs[1:] if self._cal_names() else self.vision.grabs
+
+    def expected_scales(self):
+        """步驟查詢收到的`預期尺度`, 不含開頭校準 (那兩次不帶預期尺度)."""
+        skip = self._cal_names()
+        return [(n, s) for n, s in self.vision.expected_scales if n not in skip]
 
     def logs(self, runner=None):
         r = runner or self.runner

@@ -41,7 +41,8 @@ class _GateApp(app_mod.App):
         self.runner = _FakeRunner()
         self.steps = [{"type": "wait", "ms": 10}]
         self.scan_region = None
-        self.profile_dir = "_no_such_profile"  # 無校準資料 (行為與現狀相同)
+        self.profile_dir = "_no_such_profile"
+        self.flow_cal = {"pair": ["a", "b"], "baseline": 100.0}  # 流程可執行
         self._pending_templates = set()
         self.start_delay = SimpleNamespace(get=lambda: "無")
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")
@@ -51,7 +52,7 @@ class _GateApp(app_mod.App):
         return 1
 
     def list_template_names(self):
-        return []
+        return ["a", "b"]
 
     def _show_mini(self):
         pass

@@ -51,7 +51,7 @@ def test_產出存檔能被app既有的讀取打開且步驟與計畫一致(demo
     import json
     import zipfile
     with zipfile.ZipFile(res["flow_path"]) as z:
-        assert json.loads(z.read("flow.json"))["flowFormat"] == 3
+        assert json.loads(z.read("flow.json"))["flowFormat"] == flowfile.FORMAT
     assert set(r["images"]) == {"開始", "確定", "下一步"}
 
 

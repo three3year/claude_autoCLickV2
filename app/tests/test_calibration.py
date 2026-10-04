@@ -99,7 +99,8 @@ def test_量測回傳兩匹配框中心的直線距離():
     v = Vision()
     v.plan("a", [(100, 100)])
     v.plan("b", [(400, 500)])  # 距離 = hypot(300, 400) = 500
-    dist, missing = calibration.measure(v.query, _grab(v), ("a", "b"))
+    m = calibration.measure(v.query, _grab(v), ("a", "b"))
+    dist, missing = m.distance, m.missing
     assert missing == []
     assert dist == 500.0
 
@@ -108,7 +109,8 @@ def test_量測失敗指明哪一張沒找到():
     v = Vision()
     v.plan("a", [None])
     v.plan("b", [(400, 500)])
-    dist, missing = calibration.measure(v.query, _grab(v), ("a", "b"))
+    m = calibration.measure(v.query, _grab(v), ("a", "b"))
+    dist, missing = m.distance, m.missing
     assert dist is None
     assert missing == ["a"]
 
@@ -117,7 +119,8 @@ def test_量測兩張都沒找到全部列出():
     v = Vision()
     v.plan("a", [None])
     v.plan("b", [None])
-    dist, missing = calibration.measure(v.query, _grab(v), ("a", "b"))
+    m = calibration.measure(v.query, _grab(v), ("a", "b"))
+    dist, missing = m.distance, m.missing
     assert dist is None
     assert missing == ["a", "b"]
 
@@ -127,8 +130,8 @@ def test_量測在搜尋範圍內找時距離不受範圍原點影響():
     v = Vision()
     v.plan("a", [(300, 300)])
     v.plan("b", [(600, 700)])
-    dist, _ = calibration.measure(v.query, _grab(v, [200, 250, 800, 600]),
-                                  ("a", "b"))
+    dist = calibration.measure(v.query, _grab(v, [200, 250, 800, 600]),
+                               ("a", "b")).distance
     assert dist == 500.0
 
 
