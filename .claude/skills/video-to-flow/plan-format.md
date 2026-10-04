@@ -34,7 +34,7 @@
 
 | `type` | 位置欄位 | 其他可寫欄位（未寫＝預設） |
 |---|---|---|
-| `find_click` | `template`（必填）、`frame`（引擎在這一幀找範本；預設＝範本取材幀）、`at`（點擊位置；預設＝找到的中心） | `action` click/none/wait_gone、`confirm` none/gone/appear/next、`confirmTemplate`（appear 才寫）、`onNotFound` skip/break/stop、`timeout`、`interval`、`button`、`clicks`、`updateOrigin` |
+| `find_click` | `template`（必填）、`frame`（照找圖目標在這一幀挑範本；預設＝範本取材幀）、`at`（點擊位置；預設＝挑中的中心） | `colorCheck`、`pick`、`limit`（見下節）、`action` click/none/wait_gone、`confirm` none/gone/appear/next、`confirmTemplate` 或 `confirmTarget`（appear 才寫）、`onNotFound` skip/break/stop、`timeout`、`interval`、`button`、`clicks`、`updateOrigin` |
 | `click` | `at`（必填） | `button`、`clicks`、`updateOrigin` |
 | `drag` | `from`、`to`（必填） | `button`、`ms`、`holdMs` |
 | `key` | — | `keys`（必填，例如 `"esc"`、`"ctrl+a"`） |
@@ -46,6 +46,29 @@
 組裝補的預設：找圖 `action` click、`timeout` 10、`onNotFound` stop；點擊的找圖下一步是
 找圖 → `confirm: next`，否則 → `gone`；不點擊的找圖 → `none`。
 明寫 `confirm: next` 但下一步不是找圖（`找圖相連`不成立）會報錯。
+
+## 找圖目標屬性
+
+找圖步驟與確認圖都是一個`找圖目標`：範本＋下面三個屬性（都不寫＝整個搜尋範圍、分數最高、
+不比色）。何時用哪個見 SKILL.md 第 5 節。
+
+| 欄位 | 寫法 | 組裝存成 |
+|---|---|---|
+| `colorCheck` | `true` | 比色：顏色不符的不算匹配 |
+| `pick` | `{"kind": "top", "n": 3}`／`{"kind": "left", "n": 2}`（由上到下／由左到右第 N 個，N 從 1 起） | 原樣 |
+| `pick` | `{"kind": "near", "base": "origin", "at": [x, y]}`（最接近指定點；`base: "region"`＝以搜尋範圍為基準） | `at` 換成相對原點（region：相對影片左上） |
+| `limit` | `{"kind": "origin", "rect": [x, y, w, h]}`（只在這個矩形裡找） | 矩形換成相對原點 |
+| `limit` | `{"kind": "grid", "cells": [6, 9]}`（搜尋範圍 3×3 九宮格，格號由左上起逐列 1–9；多格＝包住它們的最小矩形） | 原樣 |
+
+- `rect`／`at` 一律寫**影片像素的畫面位置**，跟 `at` 一樣；相對值由組裝依原點規則推算。
+  找圖步驟用**這一步之前**的原點，確認圖用**點擊後**的原點。以原點為基準、這一步之前卻
+  沒有原點 → 組裝報錯（同相對座標點擊）。
+- 確認圖要設屬性時寫 `"confirmTarget": {"template": "確定", "colorCheck": true, ...}`；
+  只有範本時 `confirmTemplate` 是它的簡寫，兩者擇一。
+- 驗證照同一套找圖目標邏輯：步驟的 `frame` 上**挑中**的那個要在 `at` 附近（沒寫 `at` 而
+  `frame` 是取材幀時，挑中的要是取材的那一個），不是就標待重拍。範本的取材幀／`present`
+  只要求預期位置有匹配（同款別處也有匹配不算錯）；`absent` 幀要求**整張畫面沒有任何匹配**
+  （照引用它的找圖目標用到的比色設定查），所以同款在別處仍看得到的幀不要列進 `absent`。
 
 ## 小範例
 

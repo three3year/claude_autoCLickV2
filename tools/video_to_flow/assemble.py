@@ -17,7 +17,7 @@ import cv2
 
 import calibration
 import flowfile
-from automation import findtarget, flowfmt
+from automation import flowfmt
 from subject_detection.library import load_config
 
 from . import defaults
@@ -107,19 +107,14 @@ def assemble(plan, engine=None, fingerprint=None, report_path=None):
     crops = {n: _crop(frames, n, t, info) for n, t in p["templates"].items()}
 
     engine = engine or verify_mod.make_engine()
-    checked = verify_mod.verify(engine, crops, p["templates"], p["steps"],
-                                frames, load_config(profile))
+    # 範本層級的檢查先跑; 找圖步驟照它的找圖目標挑, 要知道那一步之前的原點,
+    # 所以逐步驗證在原點推算時進行 (挑中的框＝原點推算用的框)
+    checker = verify_mod.Checker(engine, crops, p["templates"], p["steps"],
+                                 frames, load_config(profile))
+    steps = defaults.apply(origin_mod.derive(p["steps"], p["templates"],
+                                             checker.locate))
+    checked = checker.finish()
     found = {n: r["boxes"] for n, r in checked.items()}
-
-    def located(i, step):
-        # 引擎在該幀實際找到的框; 找不到 (範本會標待重拍) 時退回取材的裁切框
-        t = p["templates"][step["template"]]
-        return (found[step["template"]].get(verify_mod.step_frame(step, p["templates"]))
-                or t["box"])
-
-    steps = defaults.apply(origin_mod.derive(p["steps"], p["templates"], located))
-    for s in steps:   # 計畫的範本欄位 → 存檔的`找圖目標` (flowFormat 3)
-        findtarget.migrate_step(s)
     # 驗證沒過的範本: 名稱加`待重拍`前綴、步驟引用 (含確認圖) 同步改寫
     images = {n: _png(img) for n, img in crops.items()}
     # 範本元資料 pos＝取材當下的中心螢幕座標 (編輯器推算預設原點的備援):

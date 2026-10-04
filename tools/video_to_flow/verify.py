@@ -4,15 +4,18 @@
 其他張), 再以 `Engine.query` 在指定影格上查詢; 搜尋區域就是整張影格
 (影片＝遊戲畫面＝搜尋範圍)。
 
-每張範本要通過的檢查:
+每張範本要通過的檢查 (以引用它的找圖目標用到的每一種`比色`設定各查一次):
 
-- 取材幀與 present 幀: 找得到, 且中心落在預期位置附近 (預設＝裁切框中心,
-  present 可寫明新位置)
-- 引用它的每個找圖步驟的 frame (該點的那一幀): 找得到, 且步驟的點擊位置
-  `at` 落在找到的框附近 (框外最多再一個框寬高)——引擎在這一幀實際找到的
-  框就是原點推算用的框, 找錯同款圖偏移就全錯
-- absent 幀 (還沒出現的那幾幀): 找不到
+- 取材幀與 present 幀: 有匹配落在預期位置附近 (預設＝裁切框中心,
+  present 可寫明新位置)——同款多張時其他位置也有匹配不算錯
+- absent 幀 (還沒出現的那幾幀): 整張影格上沒有任何匹配
 - 計畫標示 clean: false (找不到乾淨影格): 不論結果都待重拍
+
+引用它的每個找圖步驟, 在該步驟的 frame 上照**步驟的`找圖目標`**完整執行一次
+(與執行器同一個模組: 裁限定範圍 → 查詢 → 比色 → 挑選規則, 原點用組裝推算的
+那一步之前的原點): 要挑得到, 且步驟的點擊位置 `at` 落在挑中的框附近 (框外最多
+再一個框寬高; 沒寫 at 而該幀就是取材幀時, 挑中的要是取材的那一個)——挑中的框就是
+原點推算用的框, 挑錯同款圖偏移就全錯。驗證通過＝執行時會挑到同一個。
 """
 from __future__ import annotations
 
@@ -20,6 +23,8 @@ import os
 import tempfile
 
 import cv2
+
+from automation import findtarget
 
 from .errors import ToolError
 from .geom import center as _center
@@ -58,80 +63,156 @@ def step_frame(step, templates):
     return step.get("frame", templates[step["template"]]["frame"])
 
 
-def verify(engine, crops, templates, steps, frames, config):
-    """驗證全部範本; 回傳 {範本名: {"reasons": [...], "boxes": {幀: 框或 None}}}.
+def _color_modes(name, steps):
+    """引用這張範本的找圖目標用到的`比色`設定 (沒人引用＝只查不比色)."""
+    modes = set()
+    for s in steps:
+        if s["type"] != "find_click":
+            continue
+        if s["template"] == name:
+            modes.add(bool(s.get("colorCheck")))
+        cfm = s.get("confirmTarget")
+        if cfm and cfm.get("template") == name:
+            modes.add(bool(cfm.get("colorCheck")))
+    return sorted(modes) or [False]
 
-    reasons 為空＝通過。boxes 是引擎在各檢查幀實際找到的框 (影片像素)。
+
+class _Detector:
+    """找圖目標模組要的偵測接縫 (query(範本名, 影像, color_check))."""
+
+    def __init__(self, engine, lib):
+        self.engine, self.lib = engine, lib
+
+    def query(self, name, image, color_check=False):
+        return self.engine.query(self.lib, name, image, color_check=color_check)
+
+
+class Checker:
+    """自我驗證: 建構時登錄範本並跑範本層級的檢查; `locate` 在原點推算時
+    逐步驗證找圖步驟 (要知道那一步之前的原點, 才能照找圖目標挑).
+
+    results: {範本名: {"reasons": [...], "boxes": {幀: 框或 None}}}; reasons
+    為空＝通過。boxes 是各檢查幀實際用到的框 (影片像素; 步驟幀＝挑中的那個)。
     """
-    from subject_detection import make_library
 
-    results = {n: {"reasons": [], "boxes": {}} for n in templates}
-    with tempfile.TemporaryDirectory(prefix="vtf_verify_") as tmp:
-        paths = {}
-        for i, (name, img) in enumerate(crops.items()):
-            p = os.path.join(tmp, f"t{i:03d}.png")
-            ok, buf = cv2.imencode(".png", img)
-            if not ok:
-                raise ToolError(f"範本「{name}」無法編碼成 PNG")
-            buf.tofile(p)
-            paths[name] = p
-        lib = make_library(paths, config, os.path.join(tmp, "registered"))
+    def __init__(self, engine, crops, templates, steps, frames, config):
+        from subject_detection import make_library
+
+        self.engine, self.templates, self.frames = engine, templates, frames
+        self.results = {n: {"reasons": [], "boxes": {}} for n in templates}
+        self._registered = set()
+        with tempfile.TemporaryDirectory(prefix="vtf_verify_") as tmp:
+            paths = {}
+            for i, (name, img) in enumerate(crops.items()):
+                p = os.path.join(tmp, f"t{i:03d}.png")
+                ok, buf = cv2.imencode(".png", img)
+                if not ok:
+                    raise ToolError(f"範本「{name}」無法編碼成 PNG")
+                buf.tofile(p)
+                paths[name] = p
+            self.lib = make_library(paths, config, os.path.join(tmp, "registered"))
+            for name in templates:
+                try:   # 登錄產物載進記憶體, 暫存目錄刪掉後照樣能查
+                    engine.register(self.lib, name)
+                    self._registered.add(name)
+                except Exception as e:  # 純色/無結構的框連登錄都過不了
+                    self.results[name]["reasons"].append(
+                        f"引擎無法登錄這張範本（{e}）")
+        self.detector = _Detector(engine, self.lib)
+        self._cache = {}
         for name, t in templates.items():
-            res = results[name]
-            try:
-                engine.register(lib, name)
-            except Exception as e:  # 純色/無結構的框連登錄都過不了
-                res["reasons"].append(f"引擎無法登錄這張範本（{e}）")
-                continue
-
-            def query(frame):
-                if frame not in res["boxes"]:
-                    r = engine.query(lib, name, frames[frame])
-                    res["boxes"][frame] = tuple(int(v) for v in r.box) if r.found else None
-                return res["boxes"][frame]
-
-            checks = [(t["frame"], _center(t["box"]), "取材幀")]
-            checks += [(p["frame"], tuple(p["at"]) if p["at"] else _center(t["box"]),
-                        "出現幀") for p in t["present"]]
-            tol = position_tolerance(t["box"])
-            for frame, want, label in checks:
-                got = query(frame)
-                if got is None:
-                    res["reasons"].append(f"{label}（第 {frame} 幀）找不到")
-                    continue
-                gx, gy = _center(got)
-                if ((gx - want[0]) ** 2 + (gy - want[1]) ** 2) ** 0.5 > tol:
-                    res["reasons"].append(
-                        f"位置不符（第 {frame} 幀：預期中心 {want[0]},{want[1]}、"
-                        f"找到 {gx},{gy}）")
-            for no, s in enumerate(steps, 1):
-                if s["type"] != "find_click" or s["template"] != name:
-                    continue
-                frame = step_frame(s, templates)
-                got = query(frame)
-                if got is None:
-                    res["reasons"].append(f"步驟 {no} 該點的那一幀（第 {frame} 幀）找不到")
-                elif "at" in s:
-                    gx, gy = _center(got)
-                    if abs(s["at"][0] - gx) > got[2] or abs(s["at"][1] - gy) > got[3]:
-                        res["reasons"].append(
-                            f"位置不符（步驟 {no} 第 {frame} 幀：點擊位置 "
-                            f"{s['at'][0]},{s['at'][1]} 離找到的框 {gx},{gy} 太遠）")
-            for frame in t["absent"]:
-                if query(frame) is not None:
-                    res["reasons"].append(f"出現前就匹配（第 {frame} 幀不該找得到）")
+            if name in self._registered:
+                for color in _color_modes(name, steps):
+                    self._check_template(name, t, color)
             if not t["clean"]:
-                res["reasons"].append("找不到乾淨影格（計畫標示）")
-    for res in results.values():
-        res["reasons"] = list(dict.fromkeys(res["reasons"]))  # 去重、保序
-    return results
+                self.results[name]["reasons"].append("找不到乾淨影格（計畫標示）")
+
+    def _matches(self, name, frame, color):
+        key = (name, frame, color)
+        if key not in self._cache:
+            r = self.engine.query(self.lib, name, self.frames[frame],
+                                  color_check=color)
+            self._cache[key] = [tuple(int(v) for v in m.box) for m in r.matches]
+        return self._cache[key]
+
+    def _check_template(self, name, t, color):
+        res = self.results[name]
+        tol = position_tolerance(t["box"])
+        checks = [(t["frame"], _center(t["box"]), "取材幀")]
+        checks += [(p["frame"], tuple(p["at"]) if p["at"] else _center(t["box"]),
+                    "出現幀") for p in t["present"]]
+        for frame, want, label in checks:
+            boxes = self._matches(name, frame, color)
+            if not boxes:
+                res["reasons"].append(f"{label}（第 {frame} 幀）找不到")
+                continue
+            near = min(boxes, key=lambda b: (_center(b)[0] - want[0]) ** 2
+                       + (_center(b)[1] - want[1]) ** 2)
+            gx, gy = _center(near)
+            if ((gx - want[0]) ** 2 + (gy - want[1]) ** 2) ** 0.5 > tol:
+                res["reasons"].append(
+                    f"位置不符（第 {frame} 幀：預期中心 {want[0]},{want[1]}、"
+                    f"找到 {gx},{gy}）")
+            else:
+                res["boxes"].setdefault(frame, near)
+        for frame in t["absent"]:
+            if self._matches(name, frame, color):
+                res["reasons"].append(f"出現前就匹配（第 {frame} 幀不該找得到）")
+
+    def locate(self, i, step, target, origin):
+        """照找圖步驟的找圖目標在它那一幀挑一次; 回傳挑中的框 (影片像素),
+        挑不到或範本登錄失敗時回傳取材的裁切框 (範本會標待重拍).
+
+        target: 該步驟的找圖目標 (像素設定已換成相對原點/搜尋範圍的影片像素);
+        origin: 這一步之前的原點 (影片像素)。
+        """
+        name = step["template"]
+        t = self.templates[name]
+        res = self.results[name]
+        if name not in self._registered:
+            return t["box"]
+        no, frame = i + 1, step_frame(step, self.templates)
+        f = findtarget.find(target, self.detector, self.frames[frame], (0, 0),
+                            origin=origin, scale=1.0)
+        if f.picked is None:
+            why = {"count": f"（挑選規則挑不到：只有 {len(f.matches)} 個匹配）",
+                   "none": "（限定範圍內沒有）" if f.limit else ""}.get(f.reason, "")
+            res["reasons"].append(
+                f"步驟 {no} 該點的那一幀（第 {frame} 幀）找不到{why}")
+            res["boxes"].setdefault(frame, None)
+            return t["box"]
+        got = f.picked.box
+        res["boxes"][frame] = got
+        gx, gy = _center(got)
+        if "at" in step:
+            if abs(step["at"][0] - gx) > got[2] or abs(step["at"][1] - gy) > got[3]:
+                res["reasons"].append(
+                    f"位置不符（步驟 {no} 第 {frame} 幀：點擊位置 "
+                    f"{step['at'][0]},{step['at'][1]} 離挑中的框 {gx},{gy} 太遠）")
+        elif frame == t["frame"]:
+            want = _center(t["box"])
+            if ((gx - want[0]) ** 2 + (gy - want[1]) ** 2) ** 0.5 \
+                    > position_tolerance(t["box"]):
+                res["reasons"].append(
+                    f"位置不符（步驟 {no} 第 {frame} 幀：挑中的是 {gx},{gy}，"
+                    f"不是取材的 {want[0]},{want[1]}）")
+        return got
+
+    def finish(self):
+        """原點推算 (逐步 locate) 跑完後的最終結果 (原因去重、保序)."""
+        for res in self.results.values():
+            res["reasons"] = list(dict.fromkeys(res["reasons"]))
+        return self.results
 
 
 RETAKE_ADVICE = {
     "找不到乾淨影格": "在遊戲裡停在這個畫面、游標移開後，用編輯器的範本面板重新拾取",
-    "出現前就匹配": "範本框到了畫面上本來就有的東西；重新框只屬於這個按鈕的部分（文字、圖示）",
-    "位置不符": "畫面上可能有長得一樣的東西；框大一點把周邊有辨識度的部分包進來",
-    "找不到": "範本可能框到空白處或被游標/特效污染；換一幀或重新框按鈕本體",
+    "出現前就匹配": "範本框到了畫面上本來就有的東西；重新框只屬於這個按鈕的部分（文字、圖示）；"
+               "只差顏色時開比色",
+    "位置不符": "畫面上可能有長得一樣的東西；框大一點把周邊有辨識度的部分包進來，"
+            "或用挑選規則／限定範圍指定是哪一個",
+    "找不到": "範本可能框到空白處或被游標/特效污染；換一幀或重新框按鈕本體；"
+           "有設限定範圍或挑選規則時確認設定",
     "引擎無法登錄": "範本沒有可辨識的結構（純色）；改框有文字或圖示的地方",
 }
 

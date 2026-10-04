@@ -18,6 +18,8 @@
 """
 from __future__ import annotations
 
+from automation import findtarget
+
 from .errors import ToolError
 from .geom import center as _center
 
@@ -29,6 +31,43 @@ def _no_origin(no, step, why):
         "定位找圖（動作「僅等待出現」、更新原點），用畫面上有辨識度的東西當原點")
 
 
+def _target_no_origin(no, what, why):
+    raise ToolError(
+        f"轉換計畫有誤：步驟 {no}：{what}以原點為基準，但這一步之前沒有原點{why}——"
+        "請在它前面補一個定位找圖（動作「僅等待出現」、更新原點），或改以搜尋範圍"
+        "為基準（九宮格、base: region）")
+
+
+def _target(no, name, attrs, origin, why, what):
+    """計畫的找圖目標屬性 (影片像素的畫面位置) → 存檔的`找圖目標`.
+
+    以原點為基準的矩形/指定點換成相對 origin 的偏移; 以搜尋範圍為基準的指定點
+    原樣 (影片左上角＝搜尋範圍左上角); 九宮格是比例。仍是影片像素, 換回基準
+    尺度由組裝統一做 (calibration.scale_steps)。
+    """
+    lim, pick = attrs.get("limit"), attrs.get("pick")
+    limit = p = None
+    if lim and lim["kind"] == "origin":
+        if origin is None:
+            _target_no_origin(no, f"{what}的限定範圍", why)
+        x, y, w, h = lim["rect"]
+        limit = {"kind": "origin", "x": x - origin[0], "y": y - origin[1],
+                 "w": w, "h": h}
+    elif lim:
+        limit = dict(lim)
+    if pick and pick["kind"] == "near":
+        x, y = pick["at"]
+        if pick["base"] == "origin":
+            if origin is None:
+                _target_no_origin(no, f"{what}的指定點", why)
+            x, y = x - origin[0], y - origin[1]
+        p = {"kind": "near", "base": pick["base"], "x": x, "y": y}
+    elif pick:
+        p = dict(pick)
+    return findtarget.make_target(name, limit=limit, pick=p,
+                                  color=attrs.get("colorCheck", False))
+
+
 _IN_LOOP = "（位於重複區段內：第二輪起原點會變成上一輪的結尾，原點必須來自區段內）"
 _AFTER_BRANCH = "（分岔結束後走了哪一支不確定，原點必須在分岔之後重新取得）"
 
@@ -36,9 +75,10 @@ _AFTER_BRANCH = "（分岔結束後走了哪一支不確定，原點必須在分
 def derive(steps, templates, located):
     """推算偏移; 回傳新的步驟清單 (位置詞彙換成偏移欄位).
 
-    located(i, step) → 找圖步驟在它那一幀被找到的框 (影片像素); 呼叫端決定
-    找不到時退回什麼框。located 為 None 時只做「有沒有原點」的檢查,
-    偏移不可信 (組裝前的結構檢查用)。
+    located(i, step, target, origin) → 找圖步驟照它的找圖目標在它那一幀挑中的
+    框 (影片像素; target 已換成相對值, origin 是這一步之前的原點); 呼叫端決定
+    挑不到時退回什麼框。located 為 None 時只做「有沒有原點」的檢查, 偏移不可信
+    (組裝前的結構檢查用)。找圖步驟輸出存檔的`找圖目標` (target/confirmTarget)。
     """
     origin, why = None, ""
     stack = []   # [(種類, 進入區段時的原點, 沒有原點的原因)]
@@ -62,12 +102,23 @@ def derive(steps, templates, located):
             stack.pop()
             origin, why = None, _AFTER_BRANCH
         elif t == "find_click":
-            box = located(i, s) if located else templates[s["template"]]["box"]
+            plan_step = dict(s)
+            tgt = _target(no, s["template"], s, origin, why, "找圖目標")
+            box = (located(i, plan_step, tgt, origin) if located
+                   else templates[s["template"]]["box"])
             cx, cy = _center(box)
             at = s.pop("at", None) or [cx, cy]
             s.update(offsetX=at[0] - cx, offsetY=at[1] - cy)
             if s.get("updateOrigin", True):
-                origin = tuple(at)
+                origin, why = tuple(at), ""
+            # 確認圖的找圖目標以點擊後的原點為基準
+            cfm = s.pop("confirmTarget", None)
+            if cfm:
+                s["confirmTarget"] = _target(no, cfm["template"], cfm, origin,
+                                             why, "確認圖")
+            for k in ("template", "colorCheck", "pick", "limit"):
+                s.pop(k, None)
+            s["target"] = tgt
         elif t == "click":
             at = s.pop("at")
             if origin is None:

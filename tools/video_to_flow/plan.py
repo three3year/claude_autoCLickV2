@@ -10,7 +10,9 @@
                      "absent": [100], "clean": true}
       },
       "steps": [
-        {"type": "find_click", "template": "開始行動", "frame": 130, "at": [x, y]},
+        {"type": "find_click", "template": "開始行動", "frame": 130, "at": [x, y],
+         "colorCheck": true, "pick": {"kind": "top", "n": 3},
+         "limit": {"kind": "origin", "rect": [x, y, w, h]}},
         {"type": "click", "at": [x, y]},
         {"type": "drag", "from": [x, y], "to": [x, y]},
         {"type": "key", "keys": "esc"},
@@ -21,9 +23,15 @@
 
 步驟用流程既有的步驟種類與欄位詞彙; 位置一律寫**影片像素的畫面位置**
 (`at` / `from` / `to`), 不寫偏移、不寫相對座標——那由組裝依`原點`規則推算。
-`frame` 是「這一步在影片裡看的是哪一幀」: 找圖步驟在這一幀上讓引擎實際找到
-範本框 (預設＝範本的取材幀)。偏移欄位 (offsetX/Y、x/y、x1…y2) 與座標模式
+`frame` 是「這一步在影片裡看的是哪一幀」: 找圖步驟在這一幀上照它的`找圖目標`
+實際挑到範本框 (預設＝範本的取材幀)。偏移欄位 (offsetX/Y、x/y、x1…y2) 與座標模式
 (mode) 由組裝產生, 計畫寫了就報錯。
+
+找圖步驟 (與確認圖 `confirmTarget`) 的`找圖目標`屬性: `colorCheck` (比色)、
+`pick` (挑選規則: {kind: top/left, n} 或 {kind: near, base: origin/region,
+at: [x, y]})、`limit` (限定範圍: {kind: origin, rect: [x, y, w, h]} 或
+{kind: grid, cells: [1..9]})。矩形與指定點同樣寫影片像素的畫面位置, 組裝依該步的
+原點換成相對值 (確認圖用點擊後的原點)。`confirmTemplate` 是只有範本的確認圖簡寫。
 """
 from __future__ import annotations
 
@@ -45,7 +53,8 @@ _POS_KEYS = {"frame", "at", "from", "to"}
 STEP_FIELDS = {
     "find_click": {"template", "frame", "at", "action", "button", "clicks",
                    "timeout", "interval", "onNotFound", "confirm",
-                   "confirmTemplate", "updateOrigin"},
+                   "confirmTemplate", "confirmTarget", "updateOrigin",
+                   "colorCheck", "pick", "limit"},
     "click": {"at", "frame", "button", "clicks", "updateOrigin"},
     "drag": {"from", "to", "frame", "button", "ms", "holdMs"},
     "wait": {"ms"},
@@ -86,6 +95,60 @@ def _frame(where, v):
     if not isinstance(v, int) or isinstance(v, bool) or v < 0:
         _err(where, f"影格編號要是非負整數，收到 {v!r}")
     return v
+
+
+_TARGET_ATTRS = {"colorCheck", "pick", "limit"}
+
+
+def _target_attrs(where, d):
+    """驗證並正規化找圖目標的屬性 (比色、挑選規則、限定範圍), 就地改寫 d."""
+    if "colorCheck" in d and not isinstance(d["colorCheck"], bool):
+        _err(where, f"colorCheck 要是 true/false，收到 {d['colorCheck']!r}")
+    if "pick" in d:
+        p = d["pick"]
+        kind = p.get("kind") if isinstance(p, dict) else None
+        if kind not in ("top", "left", "near"):
+            _err(where, "pick（挑選規則）的 kind 只能是 top（由上到下第 N 個）、"
+                 f"left（由左到右第 N 個）、near（最接近指定點），收到 {p!r}")
+        if kind in ("top", "left"):
+            if set(p) - {"kind", "n"}:
+                _err(where, f"pick 的 {kind} 只有 n 欄位，收到 {p!r}")
+            n = p.get("n")
+            if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+                _err(where, f"pick 的第 N 個（n）要是從 1 起算的整數，收到 {n!r}")
+            d["pick"] = {"kind": kind, "n": n}
+        else:
+            if set(p) - {"kind", "base", "at"} or p.get("base") not in (
+                    "origin", "region") or "at" not in p:
+                _err(where, "pick 的 near 要寫 base（origin＝以原點為基準 / "
+                     "region＝以搜尋範圍為基準）與 at（影片像素的指定點畫面位置），"
+                     f"收到 {p!r}")
+            d["pick"] = {"kind": "near", "base": p["base"],
+                         "at": _xy(where + " pick.at", p["at"])}
+    if "limit" in d:
+        lim = d["limit"]
+        kind = lim.get("kind") if isinstance(lim, dict) else None
+        if kind == "origin":
+            r = lim.get("rect")
+            if (set(lim) - {"kind", "rect"} or not isinstance(r, (list, tuple))
+                    or len(r) != 4
+                    or not all(isinstance(c, int) and not isinstance(c, bool)
+                               for c in r) or r[2] <= 0 or r[3] <= 0):
+                _err(where, "limit 的 rect 要寫成 [x, y, w, h] 整數（影片像素的畫面"
+                     f"位置）且寬高 > 0，收到 {lim!r}")
+            d["limit"] = {"kind": "origin", "rect": list(r)}
+        elif kind == "grid":
+            cells = lim.get("cells")
+            if (set(lim) - {"kind", "cells"} or not isinstance(cells, list)
+                    or not cells
+                    or not all(isinstance(c, int) and not isinstance(c, bool)
+                               and 1 <= c <= 9 for c in cells)):
+                _err(where, "limit 的九宮格 cells 要是 1–9 的格號清單（由左上起逐列），"
+                     f"至少一格，收到 {lim!r}")
+            d["limit"] = {"kind": "grid", "cells": sorted(set(cells))}
+        else:
+            _err(where, "limit（限定範圍）的 kind 只能是 origin（以原點為基準的矩形）"
+                 f"或 grid（搜尋範圍九宮格），收到 {lim!r}")
 
 
 def load(plan):
@@ -230,16 +293,33 @@ def _steps(raw, templates):
                 _err(where, f"引用的範本「{s.get('template')}」不在計畫的範本清單裡")
             if "at" in s:
                 s["at"] = _xy(where + " at", s["at"])
-            if s.get("action", "click") != "click" and (
-                    s.get("confirm", "none") != "none" or s.get("confirmTemplate")):
-                _err(where, "點擊後確認 (confirm/confirmTemplate) 只有動作為點擊的"
-                     "找圖才有意義，不點擊的找圖不要寫")
-            if s.get("confirm") == "appear":
-                if s.get("confirmTemplate") not in templates:
-                    _err(where, f"確認圖「{s.get('confirmTemplate')}」"
-                         "不在計畫的範本清單裡")
+            _target_attrs(where, s)
+            if "confirmTarget" in s:
+                if "confirmTemplate" in s:
+                    _err(where, "confirmTemplate 與 confirmTarget 只能擇一"
+                         "（confirmTemplate 是只有範本的確認圖簡寫）")
+                ct = s["confirmTarget"]
+                if not isinstance(ct, dict) or set(ct) - (_TARGET_ATTRS | {"template"}):
+                    _err(where, "confirmTarget 要是 {template, colorCheck, pick, limit}"
+                         f" 物件，收到 {ct!r}")
+                ct = dict(ct)
+                _target_attrs(where + " confirmTarget", ct)
+                s["confirmTarget"] = ct
             elif s.get("confirmTemplate"):
-                _err(where, "只有 confirm 為 appear 時才能指定 confirmTemplate")
+                s["confirmTarget"] = {"template": s.pop("confirmTemplate")}
+            else:
+                s.pop("confirmTemplate", None)
+            if s.get("action", "click") != "click" and (
+                    s.get("confirm", "none") != "none" or s.get("confirmTarget")):
+                _err(where, "點擊後確認 (confirm/confirmTemplate/confirmTarget) 只有"
+                     "動作為點擊的找圖才有意義，不點擊的找圖不要寫")
+            if s.get("confirm") == "appear":
+                cname = (s.get("confirmTarget") or {}).get("template")
+                if cname not in templates:
+                    _err(where, f"確認圖「{cname}」不在計畫的範本清單裡")
+            elif s.get("confirmTarget"):
+                _err(where, "只有 confirm 為 appear 時才能指定確認圖"
+                     "（confirmTemplate/confirmTarget）")
         elif t == "click":
             if "at" not in s:
                 _err(where, "座標點擊要寫 at（影片像素的點擊位置）")

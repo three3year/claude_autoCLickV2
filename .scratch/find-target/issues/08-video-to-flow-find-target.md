@@ -10,10 +10,20 @@ skill 與計畫格式文件加上欄位說明與判斷規則:何時開比色(形
 
 **Blocked by:** 04、05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 合成影片測試:同款多張時「由上到下第 N」驗證通過且點對;規則設錯被標待重拍
-- [ ] 合成影片測試:限定範圍與指定點從影片像素換算正確(含畫面倍率≠1)
-- [ ] 合成影片測試:只差顏色的 absent 幀,開比色後不再被匹配
-- [ ] 組裝拒絕不完整設定且 profile 不多任何檔案
-- [ ] skill 與計畫格式文件更新
+- [x] 合成影片測試:同款多張時「由上到下第 N」驗證通過且點對;規則設錯被標待重拍
+- [x] 合成影片測試:限定範圍與指定點從影片像素換算正確(含畫面倍率≠1)
+- [x] 合成影片測試:只差顏色的 absent 幀,開比色後不再被匹配
+- [x] 組裝拒絕不完整設定且 profile 不多任何檔案
+- [x] skill 與計畫格式文件更新
+
+## Comments
+
+- 計畫寫法: `colorCheck`、`pick` ({kind: top/left, n} 或 {kind: near, base, at})、
+  `limit` ({kind: origin, rect} 或 {kind: grid, cells}); 確認圖用 `confirmTarget`
+  (`confirmTemplate` 仍是只有範本的簡寫)。rect/at 是影片像素畫面位置, 組裝在原點推算時
+  換成相對值 (確認圖用點擊後原點), 再由 calibration.scale_steps 換回基準尺度。
+- 自我驗證改成 `verify.Checker`: 範本層級檢查 (取材/present: 預期位置有匹配; absent:
+  整張沒有匹配) 以引用它的找圖目標用到的每種比色設定各查一次; 找圖步驟在原點推算時
+  照它的找圖目標用 `findtarget.find` 挑, 挑中的要在 `at` 附近, 挑中的框就是原點用的框。
