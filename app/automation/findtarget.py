@@ -126,10 +126,21 @@ class Found:
     原始結果 (最高分與未過的關卡, 供紀錄), 沒有查詢時為 None。
     """
 
+    @property
+    def failed(self):
+        """沒挑到時未過的那一關: match / verify / color (引擎的門檻)、
+        count (數不到 N 個)、origin (沒有原點)、limit (限定範圍在搜尋範圍外)."""
+        if self.picked is not None:
+            return None
+        if self.reason in ("count", "origin"):
+            return self.reason
+        return self.query.failed if self.query is not None else "limit"
+
     def __init__(self, target, matches=(), picked=None, reason=None,
-                 query=None, limit=None):
+                 query=None, limit=None, rejected=()):
         self.target = target
         self.limit = limit
+        self.rejected = list(rejected)   # 比色不符而淘汰的 (螢幕座標, 供紀錄)
         self.matches = list(matches)
         self.picked = picked
         self.reason = reason
@@ -199,12 +210,18 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
         ox, oy = limit[0], limit[1]
     r = detector.query(tgt.get("template", ""), image,
                        color_check=bool(tgt.get("colorCheck")))
-    matches = [Match((m.box[0] + ox, m.box[1] + oy, m.box[2], m.box[3]),
-                     m.score, m.color) for m in r.matches]
+    def screen_match(m):
+        return Match((m.box[0] + ox, m.box[1] + oy, m.box[2], m.box[3]),
+                     m.score, m.color)
+
+    matches = [screen_match(m) for m in r.matches]
+    rejected = [screen_match(m) for m in getattr(r, "rejected", ())]
     if not matches:
-        return Found(tgt, reason="none", query=r, limit=limit)
+        return Found(tgt, reason="none", query=r, limit=limit,
+                     rejected=rejected)
     chosen = _pick(matches, tgt.get("pick") or {}, origin, screen_origin, scale)
-    return Found(tgt, matches, chosen, None if chosen else "count", r, limit)
+    return Found(tgt, matches, chosen, None if chosen else "count", r, limit,
+                 rejected)
 
 
 def _ordered(matches, axis):
@@ -251,3 +268,27 @@ def still_there(box, matches):
             if abs(m.center[0] - cx) <= w / 2 and abs(m.center[1] - cy) <= h / 2]
     return min(near, key=lambda m: (m.center[0] - cx) ** 2
                + (m.center[1] - cy) ** 2, default=None)
+
+
+# ================= 給人看的描述 (執行紀錄、比對測試) =================
+
+def fmt_box(box):
+    return "({},{},{},{})".format(*box)
+
+
+def fmt_match(m):
+    """`(x,y,w,h) 分數[ c比色分數]`."""
+    text = f"{fmt_box(m.box)} {m.score:.3f}"
+    return text if m.color is None else text + f" c{m.color:.3f}"
+
+
+def pick_text(tgt):
+    """挑選規則的短代號: score / top:N / left:N / near:origin(+x,+y)."""
+    pick = tgt.get("pick") or {}
+    kind = pick.get("kind", "score")
+    if kind in ("top", "left"):
+        return f"{kind}:{pick.get('n', 1)}"
+    if kind == "near":
+        return (f"near:{pick.get('base', 'region')}"
+                f"({int(pick.get('x', 0)):+d},{int(pick.get('y', 0)):+d})")
+    return "score"

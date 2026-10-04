@@ -310,9 +310,23 @@ class FakeStage(stage_mod.Stage):
         self.events.append(("leave",))
 
 
+class FileLog:
+    """假的檔案日誌 (`applog.log` 的形狀): 記下每一筆 (事件, 欄位)."""
+
+    def __init__(self):
+        self.records = []
+
+    def __call__(self, event, **fields):
+        self.records.append((event, fields))
+
+    def of(self, event):
+        return [f for e, f in self.records if e == event]
+
+
 class Harness:
     def __init__(self, monkeypatch):
         self.clock = Clock()
+        self.filelog = FileLog()
         self.vision = Vision()
         self.events = []
         self.lock = threading.Lock()
@@ -328,7 +342,8 @@ class Harness:
         return self.stage
 
     def make_runner(self, stage=None):
-        return runner_mod.Runner(self.vision, stage=stage)
+        return runner_mod.Runner(self.vision, stage=stage,
+                                 filelog=self.filelog)
 
     def run(self, steps, timeout=10.0, stage=None, **kw):
         """跑完一份流程並回傳執行器 (已結束).

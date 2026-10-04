@@ -18,6 +18,12 @@ class StopRequested(Exception):
     pass
 
 
+def _applog(event, **fields):
+    """預設的檔案日誌: app 旁的 autoclick.log (延後匯入, 測試可另行注入)."""
+    import applog
+    applog.log(event, **fields)
+
+
 def branch_layout(steps, start):
     """解析 start (branch_start 索引) 的分岔結構.
 
@@ -91,9 +97,11 @@ def _matching_branch_end(steps, i):
 
 
 class Runner:
-    def __init__(self, detector, stage=None):
+    def __init__(self, detector, stage=None, filelog=None):
         self.detector = detector  # 偵測查詢接縫 (見模組 docstring)
         self.stage = stage  # 並行執行時注入; None = 單流程, 完全走原本的路徑
+        # 檔案日誌 (applog.log 的形狀): 每個找圖目標的判定結束寫一筆
+        self.filelog = filelog or _applog
         self.ended = None   # 結束原因: done / error / stopped
         self._thread = None
         self._stop = threading.Event()
@@ -464,6 +472,37 @@ class Runner:
             raise RuntimeError(
                 f"[{no}] 找不到{kind}圖片: {tgt.get('template', '')}") from None
 
+    def _record(self, no, role, f, result, **extra):
+        """一個`找圖目標`的判定結束 → 檔案日誌一筆 `find.target`.
+
+        不逐次輪詢地寫: 呼叫端只在判定結束 (找到、逾時、無法執行) 時呼叫,
+        f 是最後一次的結果。實跑回報點錯後, 靠它分辨「點錯哪個」與「沒找到」。
+        """
+        tgt = f.target
+        fields = {
+            "step": no, "role": role, "template": tgt.get("template", ""),
+            "result": result,
+            "limit": findtarget.fmt_box(f.limit) if f.limit else "all",
+            "pick": findtarget.pick_text(tgt),
+            "color": "on" if tgt.get("colorCheck") else "off",
+            "matches": "[" + "; ".join(map(findtarget.fmt_match,
+                                           f.matches)) + "]",
+        }
+        if f.rejected:
+            fields["rejected"] = "[" + "; ".join(
+                map(findtarget.fmt_match, f.rejected)) + "]"
+        if f.picked is not None:
+            fields["picked"] = findtarget.fmt_box(f.picked.box)
+        if result in ("timeout", "cannot_run"):
+            fields["best"] = (f"{f.query.score:.3f}" if f.query is not None
+                              else "-")
+            fields["failed"] = f.failed
+        fields.update(extra)
+        try:
+            self.filelog("find.target", **fields)
+        except Exception:
+            pass   # 日誌絕不能反過來影響執行
+
     def _exec_branch(self, idx, steps):
         """分岔: 輪詢各分支開頭找圖步驟的找圖目標, 先挑到誰就走誰.
 
@@ -493,17 +532,23 @@ class Runner:
                 self.log(f"[{segs[k] + 1}] 分支條件以原點為基準: 尚無原點 → "
                          "這個分支不成立", "warn")
         deadline = time.monotonic() + timeout
+        polls = 0
+        last = [findtarget.Found(t, reason="origin") for t in tgts]
         while True:
             self._check_stop()
             screen, org = self._grab(region)
+            polls += 1
             for k, t in enumerate(tgts):
-                f = self._find(segs[k] + 1, t, screen, org, origin)
+                f = last[k] = self._find(segs[k] + 1, t, screen, org, origin)
                 if f.picked is not None:
                     self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{f.template}）", "ok")
+                    self._record(segs[k] + 1, "branch", f, "found", polls=polls)
                     return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
             if time.monotonic() >= deadline:
                 break
             self._sleep(interval)
+        for k, f in enumerate(last):
+            self._record(segs[k] + 1, "branch", f, "timeout", polls=polls)
         if any(c.get("onNotFound") == "stop" for c in conds):
             raise RuntimeError(
                 f"[{idx + 1}] 分岔逾時 {timeout}s, 沒有任何分支條件成立 → 停止執行")
@@ -543,6 +588,8 @@ class Runner:
         if origin is None and findtarget.needs_origin(tgt):
             # 與`相對座標`同處理: 無法執行 → 跳過 (不走找不到時)
             self.log(f"[{no}] 找圖目標以原點為基準: 尚無原點 → 跳過", "warn")
+            self._record(no, "wait_gone" if action == "wait_gone" else "find",
+                         findtarget.Found(tgt, reason="origin"), "cannot_run")
             return None
 
         # ---- 等待消失: 必須先看到圖至少一次, 之後消失才算通過 ----
@@ -551,9 +598,11 @@ class Runner:
         if action == "wait_gone":
             deadline = time.monotonic() + timeout
             tracked = None
+            polls = 0
             while True:
                 self._check_stop()
                 screen, org = self._grab(region)
+                polls += 1
                 f = self._find(no, tgt, screen, org, origin)
                 hit = (f.picked if tracked is None
                        else findtarget.still_there(tracked, f.matches))
@@ -565,22 +614,29 @@ class Runner:
                         self._last_click = (cx + off[0], cy + off[1])
                 elif tracked is not None:
                     self.log(f"[{no}] 「{name}」已消失", "ok")
+                    self._record(no, "wait_gone", f, "gone", polls=polls,
+                                 picked=findtarget.fmt_box(tracked))
                     return None
                 if time.monotonic() >= deadline:
                     break
                 self._sleep(interval)
             if tracked is not None:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」仍未消失"
+                self._record(no, "wait_gone", f, "not_gone", polls=polls,
+                             picked=findtarget.fmt_box(tracked))
             else:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」從未出現"
+                self._record(no, "wait_gone", f, "timeout", polls=polls)
             return self._on_not_found(no, msg, on_nf)
 
         # ---- 找圖階段 (等待出現) ----
         deadline = time.monotonic() + timeout
         best = 0.0
+        polls = 0
         while True:
             self._check_stop()
             screen, org = self._grab(region)
+            polls += 1
             f = self._find(no, tgt, screen, org, origin)
             if f.query is not None:
                 best = max(best, f.query.score)
@@ -595,11 +651,14 @@ class Runner:
             msg = f"[{no}] 逾時 {timeout}s 未找到「{name}」(最高相似度 {best:.3f})"
             if f.reason == "count":
                 msg += f"（找到 {len(f.matches)} 個，挑選規則挑不到）"
+            self._record(no, "find", f, "timeout", polls=polls)
             return self._on_not_found(no, msg, on_nf)
 
         cx, cy = hit.center
         sx, sy = cx + off[0], cy + off[1]
         many = f"，共 {len(f.matches)} 個匹配" if len(f.matches) > 1 else ""
+        self._record(no, "find", f, "found", polls=polls,
+                     **({"click": f"({sx},{sy})"} if do_click else {}))
         if not do_click:
             if step.get("updateOrigin", True):
                 # 不點擊也記錄找到的位置 (含偏移), 供相對座標步驟當原點
@@ -660,37 +719,55 @@ class Runner:
             cname = ctgt.get("template", "")
             kind = "確認"
             label, done = f"確認圖「{cname}」出現", f"確認圖「{cname}」已出現"
+        role = "confirm_" + mode
         if (ctgt is not None and self._last_click is None
                 and findtarget.needs_origin(ctgt)):
             self.log(f"[{no}] {label}的判定以原點為基準: 尚無原點 → "
                      "以「不確認」執行（點一次就走）", "warn")
+            self._record(no, role, findtarget.Found(ctgt, reason="origin"),
+                         "cannot_run")
             return None
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")
         deadline = time.monotonic() + timeout
+        n_clicks, polls = 1, 0
         while True:
             self._sleep(interval)  # 先給應用程式反應時間
             self._check_stop()
             screen, org = self._grab(region)
-            still = findtarget.still_there(
-                box, self._find(no, tgt, screen, org, origin).matches)
+            polls += 1
+            fm = self._find(no, tgt, screen, org, origin)
+            still = findtarget.still_there(box, fm.matches)
             if mode == "gone":
                 if still is None:
                     self.log(f"[{no}] 點擊已生效（{done}）", "ok")
+                    self._record(no, role, fm, "gone", polls=polls,
+                                 clicks=n_clicks,
+                                 picked=findtarget.fmt_box(box))
                     return None
-            elif self._find(no, ctgt, screen, org, self._last_click,
-                            kind=kind).picked is not None:  # appear / next
-                self.log(f"[{no}] 點擊已生效（{done}）", "ok")
-                return None
+            else:  # appear / next: 照確認圖/下一步自己的找圖目標
+                fc = self._find(no, ctgt, screen, org, self._last_click,
+                                kind=kind)
+                if fc.picked is not None:
+                    self.log(f"[{no}] 點擊已生效（{done}）", "ok")
+                    self._record(no, role, fc, "found", polls=polls,
+                                 clicks=n_clicks)
+                    return None
             # 尚未生效 → 被點的位置還有匹配就補點它 (位置以最新一次查詢為準)
             if still is not None:
                 box = still.box
                 cx, cy = still.center
                 sx, sy = cx + off[0], cy + off[1]
                 win.click(sx, sy, button, clicks)
+                n_clicks += 1
                 if step.get("updateOrigin", True):
                     self._last_click = (sx, sy)
             if time.monotonic() >= deadline:
                 break
+        if mode == "gone":
+            self._record(no, role, fm, "not_gone", polls=polls,
+                         clicks=n_clicks, picked=findtarget.fmt_box(box))
+        else:
+            self._record(no, role, fc, "timeout", polls=polls, clicks=n_clicks)
         return self._on_not_found(no, fail, on_nf)
 
 
