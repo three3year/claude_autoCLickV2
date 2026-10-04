@@ -99,24 +99,18 @@ _CONFIRM = {"none": "", "gone": "，點到目標圖消失", "next": "，點到�
 _NF = {"stop": "停止", "skip": "跳過", "break": "跳出區段"}
 
 
-def _tags(tgt):
-    """找圖目標有特別設定時的簡短標記 (與編輯器步驟清單同一套)."""
-    t = findtarget.tags(tgt)
-    return f"〔{'、'.join(t)}〕" if t else ""
-
-
 def _describe(s):
     """步驟一行摘要 (偏移已是存檔裡的基準尺度數值)."""
     t = s["type"]
     if t == "find_click":
-        text = f"「{findtarget.template(s)}」{_tags(findtarget.target(s))}" \
+        text = f"「{findtarget.template(s)}」{findtarget.tag_text(findtarget.target(s))}" \
             f"{_ACTION[s['action']]}"
         if s["offsetX"] or s["offsetY"]:
             text += f"，偏移 {s['offsetX']:+d},{s['offsetY']:+d}"
         text += _CONFIRM[s["confirm"]]
         if s["confirm"] == "appear":
             text += (f"「{findtarget.confirm_template(s)}」"
-                     f"{_tags(findtarget.confirm_target(s))}")
+                     f"{findtarget.tag_text(findtarget.confirm_target(s))}")
         text += f"；逾時 {s['timeout']}s 找不到時{_NF[s['onNotFound']]}"
         if not s["updateOrigin"]:
             text += "；不更新原點"

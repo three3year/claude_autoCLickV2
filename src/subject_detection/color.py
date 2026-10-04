@@ -37,16 +37,20 @@ def color_score(scene_bgr: np.ndarray, tpl_bgr: np.ndarray,
             continue
         interp = cv2.INTER_AREA if sw_ < tw else cv2.INTER_LINEAR
         tpl = cv2.resize(tpl_bgr, (sw_, sh_), interpolation=interp)
-        x0 = int(max(0, cx - sw_ / 2 - _MARGIN))
-        y0 = int(max(0, cy - sh_ / 2 - _MARGIN))
-        x1 = int(min(sw, cx + sw_ / 2 + _MARGIN + 1))
-        y1 = int(min(sh, cy + sh_ / 2 + _MARGIN + 1))
+        wx0 = int(cx - sw_ / 2 - _MARGIN)
+        wy0 = int(cy - sh_ / 2 - _MARGIN)
+        wx1 = int(cx + sw_ / 2 + _MARGIN + 1)
+        wy1 = int(cy + sh_ / 2 + _MARGIN + 1)
+        x0, y0, x1, y1 = max(0, wx0), max(0, wy0), min(sw, wx1), min(sh, wy1)
+        if x1 <= x0 or y1 <= y0:
+            continue
         window = scene_bgr[y0:y1, x0:x1].astype(np.float32)
-        # a box clipped by the scene edge: pad so the template still fits
-        pad_h = max(0, sh_ - window.shape[0])
-        pad_w = max(0, sw_ - window.shape[1])
-        if pad_h or pad_w:
-            window = cv2.copyMakeBorder(window, 0, pad_h, 0, pad_w,
+        # a box clipped by the scene edge: pad the missing side(s) so the
+        # window stays aligned with where the template should sit
+        top, left = y0 - wy0, x0 - wx0
+        bottom, right = wy1 - y1, wx1 - x1
+        if top or left or bottom or right:
+            window = cv2.copyMakeBorder(window, top, bottom, left, right,
                                         cv2.BORDER_REPLICATE)
         res = cv2.matchTemplate(window, tpl.astype(np.float32),
                                 cv2.TM_CCOEFF_NORMED)

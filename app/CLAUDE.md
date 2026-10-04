@@ -18,8 +18,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   `capture.py`(mss 截圖)、`win.py`(ctypes 滑鼠/DPI/視窗資訊)、`runner.py`(步驟執行緒)、
   `hotkey.py`(F12 急停)、`imgio.py`(中文路徑圖片讀寫)、
   `stage.py`(舞台介面，並行執行未移植、接縫保留)、`flowfmt.py`(存檔格式版本與遷移)、
-  `findtarget.py`(`找圖目標`：存檔欄位、限定範圍/挑選規則/位置是否仍有匹配的唯一實作——
-  執行器、編輯器比對測試、影片轉流程自我驗證三處共用，行為一致由此保證)
+  `findtarget.py`(`找圖目標`：步驟上找圖目標的存取函式，與限定範圍/挑選規則/位置是否仍有
+  匹配的唯一實作——執行器、編輯器比對測試、影片轉流程自我驗證三處共用，行為一致由此保證；
+  舊格式遷移仍只在 flowfile)
 - **辨識單一路徑走主體偵測引擎**（ADR 0002）：runner 建構時注入偵測器
   （`query(範本名, 搜尋區域影像, color_check) → QueryResult`，`matches` 是所有匹配，
   範本不存在丟 KeyError；ADR 0007）。每個找圖點都經 `findtarget.find` 執行一個找圖目標，

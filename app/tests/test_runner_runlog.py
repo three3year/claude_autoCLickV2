@@ -145,3 +145,14 @@ def test_寫進真的檔案日誌(tmp_path, monkeypatch):
     runner_mod._applog("find.target", step=3, template="a", result="found")
     text = path.read_text(encoding="utf-8")
     assert "find.target" in text and "step=3" in text and "template=a" in text
+
+
+def test_分岔條件沒有原點_紀錄寫無法執行(harness):
+    near = {"pick": {"kind": "near", "base": "origin", "x": 0, "y": 0}}
+    harness.vision.plan("y", [None])
+    harness.run([branch_start(), find("x", target=near), click(1, 1),
+                 branch_or(), find("y"), click(2, 2), branch_end()])
+    by_step = {r["step"]: r for r in records(harness, "branch")}
+    assert (by_step[2]["result"], by_step[2]["failed"]) == ("cannot_run",
+                                                             "origin")
+    assert by_step[5]["result"] == "timeout"

@@ -13,8 +13,9 @@
 `confirmTarget`; 「點到下一步的圖出現」沿用下一步的 `target`。像素欄位 (原點
 矩形、指定點) 與步驟偏移一樣存「當前基準機器」的尺度, 執行期 ×`畫面倍率`。
 
-本模組維持輕量 (不 import cv2/numpy): 存檔格式、編輯器、執行器、影片轉流程
-都從這裡讀寫找圖目標, 解析並執行一個找圖目標的邏輯也在這裡 (三處行為一致)。
+本模組維持輕量 (不 import cv2/numpy): 編輯器、執行器、影片轉流程都經這裡的
+存取函式讀寫步驟上的找圖目標, 解析並執行一個找圖目標的邏輯也在這裡 (三處行為
+一致)。舊格式的遷移是存檔格式的事, 在 flowfile。
 """
 
 from . import flowfmt
@@ -22,8 +23,6 @@ from . import flowfmt
 TARGET = "target"
 CONFIRM_TARGET = "confirmTarget"
 
-# flowFormat 2 的步驟欄位: 範本名直接掛在步驟上 (讀檔時單向遷移)
-_V2_KEYS = (("template", TARGET), ("confirmTemplate", CONFIRM_TARGET))
 
 
 # ================= 步驟上的找圖目標 =================
@@ -78,22 +77,6 @@ def scale_target(tgt, k):
         for key in ("x", "y"):
             if key in pick:
                 pick[key] = flowfmt.scale_px(pick[key], k)
-
-
-def migrate_step(step):
-    """flowFormat 2 → 3: 範本名與確認圖範本名搬進對應的找圖目標 (就地, 冪等).
-
-    空的確認圖範本名不留空目標。回傳是否有改動。
-    """
-    changed = False
-    for old, new in _V2_KEYS:
-        if old not in step:
-            continue
-        name = step.pop(old)
-        changed = True
-        if isinstance(name, str) and name and not isinstance(step.get(new), dict):
-            step[new] = {"template": name}
-    return changed
 
 
 # ================= 執行一個找圖目標 =================
@@ -174,9 +157,13 @@ def limit_rect(tgt, region, origin, scale=1.0):
         y = origin[1] + flowfmt.scale_px(lim.get("y", 0), scale)
         x1 = x + flowfmt.scale_px(lim.get("w", 0), scale)
         y1 = y + flowfmt.scale_px(lim.get("h", 0), scale)
-    elif kind == "grid" and lim.get("cells"):
-        cols = [(c - 1) % 3 for c in lim["cells"]]
-        rows = [(c - 1) // 3 for c in lim["cells"]]
+    elif kind == "grid":
+        cells = [c for c in lim.get("cells") or ()
+                 if isinstance(c, int) and 1 <= c <= 9]
+        if not cells:   # 沒有有效格號 (手改壞的存檔): 不找, 絕不退成整個範圍
+            return (rx, ry, 0, 0)
+        cols = [(c - 1) % 3 for c in cells]
+        rows = [(c - 1) // 3 for c in cells]
         x, x1 = rx + rw * min(cols) // 3, rx + rw * (max(cols) + 1) // 3
         y, y1 = ry + rh * min(rows) // 3, ry + rh * (max(rows) + 1) // 3
     else:
@@ -323,6 +310,24 @@ def rect_from_screen(box, origin, k):
     return {"kind": "origin", "x": x, "y": y,
             "w": flowfmt.scale_px(box[2], 1.0 / k),
             "h": flowfmt.scale_px(box[3], 1.0 / k)}
+
+
+def tag_text(tgt):
+    """步驟清單/交付報告用的標記字串 〔限定、由上到下第3、比色〕; 沒有特別設定＝空."""
+    t = tags(tgt)
+    return f"〔{'、'.join(t)}〕" if t else ""
+
+
+def tag_text(tgt):
+    """步驟清單/交付報告用的標記字串 〔限定、由上到下第3、比色〕; 沒有特別設定＝空."""
+    t = tags(tgt)
+    return f"〔{'、'.join(t)}〕" if t else ""
+
+
+def tag_text(tgt):
+    """步驟清單/交付報告用的標記字串 〔限定、由上到下第3、比色〕; 沒有特別設定＝空."""
+    t = tags(tgt)
+    return f"〔{'、'.join(t)}〕" if t else ""
 
 
 def tags(tgt):

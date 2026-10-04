@@ -584,9 +584,13 @@ def _region_origin(app, parent):
     return int(region[0]), int(region[1])
 
 
-def _find_template_now(app, dlg, prev):
-    """隱藏視窗後在搜尋範圍內即時找一次 prev 的找圖目標, 回傳挑中的中心或 None."""
-    return _find_target_now(app, dlg, findtarget.target(prev))
+def _find_template_now(app, dlg, prev, origin=None, k=1.0):
+    """隱藏視窗後在搜尋範圍內即時找一次 prev 的找圖目標, 回傳挑中的中心或 None.
+
+    origin: prev 判定時的原點 (它的找圖目標以原點為基準時才需要); k: 現行
+    `畫面倍率` (找圖目標的像素設定 ×它, 同執行器)。
+    """
+    return _find_target_now(app, dlg, findtarget.target(prev), origin, k)
 
 
 def _find_target_now(app, dlg, tgt, origin=None, k=1.0):
@@ -661,8 +665,12 @@ def _resolve_prev_origin(app, step, dlg, k=1.0):
             if via_rel:
                 pos = app.template_pos(findtarget.template(prev))
             else:
-                pos = _find_template_now(app, dlg, prev) or app.template_pos(
-                    findtarget.template(prev))
+                # 前一步的找圖目標以原點為基準時, 先推算它自己的原點 (再往上找)
+                before = (_resolve_prev_origin(app, {"_index": i}, dlg, k)
+                          if findtarget.needs_origin(findtarget.target(prev))
+                          else None)
+                pos = _find_template_now(app, dlg, prev, before, k) \
+                    or app.template_pos(findtarget.template(prev))
             if pos:
                 return pos[0] + off[0] + dx, pos[1] + off[1] + dy
             return None  # 找圖位置無法推算, 中斷
@@ -728,8 +736,10 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
 
     找圖步驟與`確認圖`共用。回傳表單值 {"limit", "pick", "color"} (交給
     `findtarget.make_target` 組回找圖目標), 取消回 None。
+
     origin_fn(k): 這個找圖目標判定時的預設原點 (螢幕座標) 或 None——框選
-    原點矩形與點選指定點時預先標出 (◎); test_fn(表單值): 以這組設定比對測試。
+    原點矩形與點選指定點時預先標出 (◎); test_fn(表單值, 子對話框): 以這組
+    設定比對測試 (提示以子對話框為 parent, 才不會被壓在它後面)。
     像素類拾取 (原點矩形、指定點) 未校準時擋下, 拾取值反除`畫面倍率`歸一。
     """
     root = app.root
@@ -924,7 +934,7 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     def on_test():
         opts = checked()
         if opts is not None and test_fn is not None:
-            test_fn(opts)
+            test_fn(opts, sub)
 
     def on_ok():
         opts = checked()
@@ -1333,9 +1343,10 @@ def edit_step(app, step):
                 lbl_.configure(text="　" + findtarget.summary(target_of(key)))
 
         def set_opts(key, title):
-            def test(o):
+            def test(o, parent):
                 if not tmpl_var[key].get():
-                    messagebox.showwarning("測試", "請先選擇範本圖片", parent=dlg)
+                    messagebox.showwarning("測試", "請先選擇範本圖片",
+                                           parent=parent)
                     return
                 show_match_test(app, findtarget.make_target(
                     tmpl_var[key].get(), **o), hide=(dlg,),
@@ -1552,8 +1563,6 @@ def edit_step(app, step):
                 )
                 s.pop("region", None)  # 舊版步驟範圍 (已廢除; 限定範圍在找圖目標裡)
                 s.pop("rotate", None)  # 舊版執行期旋轉比對已移除
-                s.pop("template", None)          # flowFormat 2 的欄位
-                s.pop("confirmTemplate", None)
         except (tk.TclError, ValueError) as e:
             msg = str(e) if isinstance(e, ValueError) else "請確認數值欄位皆已正確填寫"
             messagebox.showwarning("輸入錯誤", msg, parent=dlg)

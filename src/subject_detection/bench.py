@@ -127,7 +127,7 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     if expected == "present" and "centers" in expect:
-        # 同款多張: 每個列出的中心都要被某個匹配命中, 且沒有沒列的匹配
+        # 同款多張: 每個列出的中心都要有匹配對上, 且沒有沒列的匹配
         got = [(x + w / 2, y + h / 2) for x, y, w, h in
                (m.box for m in res.matches)]
 

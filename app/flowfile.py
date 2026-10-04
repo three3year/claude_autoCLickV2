@@ -127,10 +127,28 @@ def used_templates(steps):
     return sorted(used)
 
 
+# flowFormat 2 的步驟欄位: 範本名直接掛在步驟上 → 3 的`找圖目標`
+_V2_KEYS = (("template", findtarget.TARGET),
+            ("confirmTemplate", findtarget.CONFIRM_TARGET))
+
+
+def _migrate_step(step):
+    """flowFormat 2 → 3: 範本名與確認圖範本名搬進對應的找圖目標 (就地, 冪等).
+
+    空的確認圖範本名不留空目標。
+    """
+    for old, new in _V2_KEYS:
+        if old not in step:
+            continue
+        name = step.pop(old)
+        if isinstance(name, str) and name and not isinstance(step.get(new), dict):
+            step[new] = {"template": name}
+
+
 def _migrate_steps(steps):
     """flowFormat 2 → 3 的步驟結構遷移 (冪等): 範本名搬進`找圖目標`."""
     for s in steps or []:
-        findtarget.migrate_step(s)
+        _migrate_step(s)
 
 
 def migrate_flow(data):
@@ -146,7 +164,7 @@ def migrate_flow(data):
         notes.append(note)
     for s in data.get("steps") or []:
         s.pop("threshold", None)
-        findtarget.migrate_step(s)
+        _migrate_step(s)
         for _, t in findtarget.step_targets(s):
             if t.get("template"):
                 t["template"] = strip_ext(t["template"])

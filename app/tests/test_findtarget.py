@@ -244,3 +244,13 @@ def test_設定摘要():
                                "limit": {"kind": "grid", "cells": [3, 6]},
                                "pick": {"kind": "left", "n": 2}}) == \
         "九宮格 3,6；由左到右第 2 個；不比色"
+
+
+def test_手改壞的九宮格格號_不找也不退成整個範圍():
+    r, vision = run([(300, 300)], target={"limit": {"kind": "grid",
+                                                    "cells": [0, 10]}})
+    assert r.picked is None and r.matches == []
+    assert vision.lookups == []
+    r, _ = run([(700, 500)], target={"limit": {"kind": "grid",
+                                               "cells": [5, 12]}})
+    assert r.limit == (500, 350, 400, 300), "無效格號略過, 有效的照算"

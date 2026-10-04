@@ -548,7 +548,9 @@ class Runner:
                 break
             self._sleep(interval)
         for k, f in enumerate(last):
-            self._record(segs[k] + 1, "branch", f, "timeout", polls=polls)
+            self._record(segs[k] + 1, "branch", f,
+                         "cannot_run" if f.reason == "origin" else "timeout",
+                         polls=polls)
         if any(c.get("onNotFound") == "stop" for c in conds):
             raise RuntimeError(
                 f"[{idx + 1}] 分岔逾時 {timeout}s, 沒有任何分支條件成立 → 停止執行")

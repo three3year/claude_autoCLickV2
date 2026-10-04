@@ -223,7 +223,7 @@ class Vision:
             matches.append(m)
         matches.sort(key=lambda m: m.score, reverse=True)
         if not matches:
-            failed = "color" if rejected else ("verify" if hits else "match")
+            failed = "color" if rejected else "match"
             return QueryResult(found=False, box=None, score=0.0,
                                failed=failed, rejected=rejected)
         return QueryResult(found=True, box=matches[0].box,
