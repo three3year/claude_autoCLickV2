@@ -1,0 +1,12 @@
+# real frame (find-target): all 4 identical 製造站 cards are matches; the 發電站 cards are not. (Identical cards are told apart by pick rule / limit area, not by color: the template's animated 生產中 arrows keep their color score at 0.90-0.94.)
+centers:
+- - 264
+  - 188
+- - 491
+  - 188
+- - 717
+  - 188
+- - 151
+  - 75
+expected: present
+tolerance: 15

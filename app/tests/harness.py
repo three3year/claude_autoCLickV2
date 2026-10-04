@@ -124,6 +124,9 @@ class Screen:
                       (max(0, x1 - x0), max(0, y1 - y0)))
 
 
+COLOR_THRESHOLD = 0.95   # 假偵測器的比色門檻 (同明日方舟 profile)
+
+
 class Vision:
     """假的螢幕擷取與偵測查詢 (形狀＝引擎的 query, 回 QueryResult).
 
@@ -133,7 +136,8 @@ class Vision:
         plan("card", [[(100, 50), (300, 50, 0.95)]])  # 一次查詢兩個匹配
 
     None = 沒找到; (x, y) = 在該絕對座標 (框中心) 找到; 一串位置 = 畫面上同時
-    有這幾個匹配 (可帶第三個值當分數, 預設 0.99)。只有中心落在這次查詢的
+    有這幾個匹配 (可帶第三個值當分數, 預設 0.99; 第四個值當比色分數, 預設
+    0.99——要求比色時低於 COLOR_THRESHOLD 的不算匹配, 同引擎)。只有中心落在這次查詢的
     畫面 (含`限定範圍`裁切) 內的匹配才會被回報。未安排的`範本`一律在 default
     座標找到。
     """
@@ -147,6 +151,7 @@ class Vision:
         self._lock = threading.Lock()
         self.grabs = []      # 每次擷取用的搜尋範圍
         self.lookups = []    # 每次查詢的範本名稱
+        self.color_checks = []   # 每次查詢的 (範本名稱, 是否要求比色)
         # ---- 生命週期假件 (enginehub.EngineHub 的形狀, 票 01) ----
         self.state = enginehub.READY   # 測試可撥成 LOADING / FAILED
         self.preloads = []         # 每次`範本預載`收到的名單
@@ -191,29 +196,39 @@ class Vision:
         return Screen((0, 0)), (0, 0)
 
     # ---- runner 的偵測查詢接縫 (同 Engine.query 的形狀) ----
-    def query(self, name, search_region):
+    def query(self, name, search_region, color_check=False):
         if name in self._missing:
             raise KeyError(f"unknown template: {name!r}")
         with self._lock:
             self.lookups.append(name)
+            self.color_checks.append((name, bool(color_check)))
             hit = self._next(name)
         w, h = self.size
         hits = [] if hit is None else (
             [hit] if isinstance(hit[0], (int, float)) else list(hit))
         ox, oy = search_region.origin
         sw, sh = search_region.size
-        matches = []
+        matches, rejected = [], []
         for p in hits:
             box = (int(p[0]) - ox - w // 2, int(p[1]) - oy - h // 2, w, h)
             cx, cy = int(p[0]) - ox, int(p[1]) - oy
-            if 0 <= cx < sw and 0 <= cy < sh:
-                matches.append(Match(box, float(p[2]) if len(p) > 2 else 0.99))
+            if not (0 <= cx < sw and 0 <= cy < sh):
+                continue
+            m = Match(box, float(p[2]) if len(p) > 2 else 0.99)
+            if color_check:
+                m.color = float(p[3]) if len(p) > 3 else 0.99
+                if m.color < COLOR_THRESHOLD:
+                    rejected.append(m)
+                    continue
+            matches.append(m)
         matches.sort(key=lambda m: m.score, reverse=True)
         if not matches:
+            failed = "color" if rejected else ("verify" if hits else "match")
             return QueryResult(found=False, box=None, score=0.0,
-                               failed="verify" if hits else "match")
+                               failed=failed, rejected=rejected)
         return QueryResult(found=True, box=matches[0].box,
-                           score=matches[0].score, matches=matches)
+                           score=matches[0].score, matches=matches,
+                           rejected=rejected)
 
     def _next(self, name):
         if name not in self._plans:

@@ -1,0 +1,7 @@
+# real frame: only the 製造站1 row (製造站2 differs by one digit)
+centers:
+- - 114
+  - 708
+color_check: true
+expected: present
+tolerance: 15

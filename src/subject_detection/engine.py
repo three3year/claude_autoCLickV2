@@ -8,7 +8,9 @@ Query pipeline: gradient-domain multiscale coarse matching produces ranked
 candidates; every candidate above match_threshold goes to the embedding
 verification stage, and every candidate that passes it is a **match**. A query
 reports all matches (zero or more); which one to use is the caller's business
-(ADR 0007).
+(ADR 0007). A caller may additionally request the **color check** for a single
+query (`color_check=True`): verified candidates whose color comparison falls
+under the profile's `color_threshold` are not matches (see color.py).
 """
 from __future__ import annotations
 
@@ -37,8 +39,9 @@ class QueryResult:
 
     found / box / score describe the best-scoring match. With no match,
     score is the best score at the stage that rejected everything and
-    `failed` names that stage: "match" (coarse, match_threshold) or
-    "verify" (verify_threshold).
+    `failed` names that stage: "match" (coarse, match_threshold), "verify"
+    (verify_threshold) or "color" (color_threshold). `rejected` lists the
+    verified candidates the color check turned down (with their color score).
     """
     found: bool
     box: tuple[int, int, int, int] | None  # (x, y, w, h) in search-region coords
@@ -46,6 +49,7 @@ class QueryResult:
     debug: dict = field(default_factory=dict)
     matches: list[Match] = field(default_factory=list)
     failed: str | None = None
+    rejected: list[Match] = field(default_factory=list)
 
 
 class Engine:
@@ -93,7 +97,8 @@ class Engine:
                                            embed_fn=embed_fn)
 
     def query(self, library: Library, template_name: str,
-              search_region: np.ndarray) -> QueryResult:
+              search_region: np.ndarray,
+              color_check: bool = False) -> QueryResult:
         if template_name not in library.templates:
             raise KeyError(f"unknown template: {template_name!r}")
         template = library.templates[template_name]
@@ -129,7 +134,7 @@ class Engine:
 
         if self._verifier is None or art.embedding is None:
             return self._result([Match(c.box, c.score) for c in passing],
-                                debug)
+                                debug, search_region, art, cfg, color_check)
 
         # verification: embed every passing candidate crop (masked) in one
         # batch and compare with the registered subject embedding
@@ -158,13 +163,28 @@ class Engine:
         if not verified:
             return QueryResult(found=False, box=None, score=max(sims),
                                debug=debug, failed="verify")
-        return self._result(verified, debug)
+        return self._result(verified, debug, search_region, art, cfg,
+                            color_check)
 
     @staticmethod
-    def _result(matches: list[Match], debug: dict) -> QueryResult:
+    def _result(matches: list[Match], debug: dict, scene: np.ndarray,
+                art: Artifacts, cfg: dict, color_check: bool) -> QueryResult:
         matches = sorted(matches, key=lambda m: m.score, reverse=True)
+        rejected: list[Match] = []
+        if color_check:
+            from .color import color_score
+            threshold = float(cfg.get("color_threshold", 0.95))
+            for m in matches:
+                m.color = color_score(scene, art.ref_bgr, m.box)
+            debug["color_scores"] = [round(m.color, 4) for m in matches]
+            rejected = [m for m in matches if m.color < threshold]
+            matches = [m for m in matches if m.color >= threshold]
         debug["matches"] = [{"box": m.box, "score": round(m.score, 4)}
                             for m in matches]
+        if not matches:
+            return QueryResult(found=False, box=None,
+                               score=rejected[0].score, debug=debug,
+                               failed="color", rejected=rejected)
         best = matches[0]
         return QueryResult(found=True, box=best.box, score=best.score,
-                           debug=debug, matches=matches)
+                           debug=debug, matches=matches, rejected=rejected)

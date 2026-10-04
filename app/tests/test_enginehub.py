@@ -31,8 +31,8 @@ class FakeEngine:
     def register(self, profile, name):
         self.registered.append(name)
 
-    def query(self, profile, name, search_region):
-        self.queries.append((profile, name, search_region))
+    def query(self, profile, name, search_region, color_check=False):
+        self.queries.append((profile, name, search_region, color_check))
         return "RESULT"
 
 
@@ -77,7 +77,9 @@ def test_query委派引擎與當前profile(tmp_path):
     hub.profile = p
     r = hub.query("a", "SCREEN")
     assert r == "RESULT"
-    assert engine.queries == [(p, "a", "SCREEN")]
+    hub.query("a", "SCREEN", color_check=True)
+    assert engine.queries == [(p, "a", "SCREEN", False),
+                              (p, "a", "SCREEN", True)]
 
 
 def test_preload逐一登錄(tmp_path):

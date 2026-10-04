@@ -142,14 +142,16 @@ def needs_origin(tgt):
 def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
     """執行一個找圖目標: 查詢 → 座標換回螢幕 → 依挑選規則挑.
 
-    detector: 偵測接縫 (`query(範本名, 影像) → QueryResult`, 範本不存在丟
-    KeyError——原樣往外拋); screen: 整個`搜尋範圍`的截圖, screen_origin 是它
+    detector: 偵測接縫 (`query(範本名, 影像, color_check) → QueryResult`,
+    範本不存在丟 KeyError——原樣往外拋; 開了`比色`時顏色不符的不是匹配,
+    挑選規則根本看不到它們); screen: 整個`搜尋範圍`的截圖, screen_origin 是它
     左上角的螢幕座標; origin: 目前的`原點` (螢幕座標, 可能 None); scale:
     `畫面倍率` (找圖目標的像素設定 ×它)。
     """
     if origin is None and needs_origin(tgt):
         return Found(tgt, reason="origin")
-    r = detector.query(tgt.get("template", ""), screen)
+    r = detector.query(tgt.get("template", ""), screen,
+                       color_check=bool(tgt.get("colorCheck")))
     ox, oy = screen_origin
     matches = [Match((m.box[0] + ox, m.box[1] + oy, m.box[2], m.box[3]),
                      m.score, m.color) for m in r.matches]

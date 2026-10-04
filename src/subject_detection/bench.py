@@ -14,6 +14,8 @@ Case folder contract (adding a case = dropping files, no code change):
                          centers: [[x, y], ...]  (present, repeated subject:
                                   every listed center matched, nothing else)
                          tolerance: 15       (px, optional)
+                         color_check: true   (optional: query with the color
+                                             check, ADR 0007)
                          template: <file>    (optional, defaults template.png)
                          screenshot: <file>  (optional, defaults screenshot.png)
 
@@ -120,7 +122,8 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
     scene = imread(case.screenshot_path)
 
     t0 = time.perf_counter()
-    res = engine.query(library, case.name, scene)
+    res = engine.query(library, case.name, scene,
+                       color_check=bool(expect.get("color_check", False)))
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     if expected == "present" and "centers" in expect:

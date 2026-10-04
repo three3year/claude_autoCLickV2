@@ -121,3 +121,29 @@ def test_以原點為基準卻沒有原點_步驟無法執行而跳過(harness):
     assert harness.clicks() == []
     assert harness.vision.lookups == []
     assert "尚無原點" in harness.log_text()
+
+
+# ---------- 比色 (票 04) ----------
+
+def test_開比色的點擊步驟_按鈕變灰就判定目標圖消失(harness):
+    orange, grey = (500, 400, 0.99, 0.99), (500, 400, 0.99, 0.88)
+    harness.vision.plan("btn", [[orange], [grey]])
+    harness.run([find("btn", target={"colorCheck": True}, confirm="gone",
+                      interval=0.1)])
+    assert harness.clicks() == [(500, 400)], "灰掉＝不再是匹配＝已消失, 不補點"
+    assert "已生效" in harness.log_text()
+
+
+def test_不開比色時灰色按鈕仍算在_會一直補點(harness):
+    orange, grey = (500, 400, 0.99, 0.99), (500, 400, 0.99, 0.88)
+    harness.vision.plan("btn", [[orange], [grey]])
+    harness.run([find("btn", confirm="gone", interval=0.2, timeout=1,
+                      onNotFound="skip")])
+    assert len(harness.clicks()) > 1
+
+
+def test_灰色按鈕開比色時不會被點(harness):
+    harness.vision.plan("btn", [[(500, 400, 0.99, 0.88)]])
+    harness.run([find("btn", target={"colorCheck": True}, timeout=1,
+                      interval=0.2, onNotFound="skip")])
+    assert harness.clicks() == []

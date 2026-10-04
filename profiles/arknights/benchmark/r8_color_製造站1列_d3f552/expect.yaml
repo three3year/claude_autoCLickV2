@@ -1,0 +1,4 @@
+# real frame: 製造站2/3/4 and 貿易站1 rows only
+color_check: true
+expected: absent
+tolerance: 15

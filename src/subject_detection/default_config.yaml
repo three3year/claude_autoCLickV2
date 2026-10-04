@@ -4,4 +4,5 @@ scale_range: [0.5, 2.0]     # template-to-screen scale factors swept by the coar
 aspect_jitter: 0.1          # +/- relative width distortion tolerated
 match_threshold: 0.6        # coarse-stage acceptance (loose: favors recall)
 verify_threshold: 0.8       # verification-stage acceptance (strict: favors precision)
+color_threshold: 0.95       # color-check acceptance (only queries that request it; ADR 0007)
 mask_strategy: multi_capture  # multi_capture | single

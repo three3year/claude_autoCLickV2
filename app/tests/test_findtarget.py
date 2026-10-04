@@ -114,3 +114,23 @@ def test_位置是否仍有匹配_容差約半個框():
     assert center(findtarget.still_there(box, moved.matches)) == (315, 205)
     gone, _ = run([(330, 200), (700, 600)])       # 偏 30 > 半框寬 20
     assert findtarget.still_there(box, gone.matches) is None
+
+
+# ---------- 比色 (票 04) ----------
+
+def test_比色開關傳到偵測器():
+    _, vision = run([(300, 200)], target={"colorCheck": True})
+    assert vision.color_checks == [("t", True)]
+    _, vision = run([(300, 200)])
+    assert vision.color_checks == [("t", False)]
+
+
+def test_比色不符的不算進第N個():
+    # 第三個值是分數, 第四個是比色分數 (假偵測器以 0.95 為門檻)
+    hits = [(200, 300, 0.99, 0.99), (400, 300, 0.99, 0.80),
+            (600, 300, 0.99, 0.98), (800, 300, 0.99, 0.97)]
+    second = {"pick": {"kind": "left", "n": 2}, "colorCheck": True}
+    assert picked(hits, target=second) == (600, 300)
+    r, _ = run(hits, target={"colorCheck": True})
+    assert len(r.matches) == 3
+    assert all(m.color >= 0.95 for m in r.matches)

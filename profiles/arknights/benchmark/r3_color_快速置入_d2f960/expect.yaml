@@ -1,0 +1,7 @@
+# real frame: orange 快速置入 (clickable)
+center:
+- 330
+- 243
+color_check: true
+expected: present
+tolerance: 15

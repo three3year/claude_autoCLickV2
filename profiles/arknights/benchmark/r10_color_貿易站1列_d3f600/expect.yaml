@@ -1,0 +1,7 @@
+# real frame: only the 貿易站1 row (貿易站2 differs by one digit; 發電站 rows are green)
+centers:
+- - 114
+  - 297
+color_check: true
+expected: present
+tolerance: 15

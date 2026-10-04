@@ -1,0 +1,4 @@
+# real frame: the 貿易站 cards (blue) share the 製造站 card shape (verify 0.88-0.89); under color check they are not matches
+color_check: true
+expected: absent
+tolerance: 15

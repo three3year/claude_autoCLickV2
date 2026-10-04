@@ -1,0 +1,4 @@
+# real frame: grey (disabled) 快速置入 is not a match under color check
+color_check: true
+expected: absent
+tolerance: 15
