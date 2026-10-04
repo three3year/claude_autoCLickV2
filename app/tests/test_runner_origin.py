@@ -61,3 +61,13 @@ def test_找圖偏移後的位置才是原點(harness):
     harness.run([find("a.png", action="none", offsetX=10, offsetY=10),
                  click(0, 0, mode="prev")])
     assert harness.clicks() == [(510, 410)]
+
+
+def test_測試選取片段_以原點為基準的找圖目標在原點來源之前就擋下():
+    import app as app_mod
+    near = {"pick": {"kind": "near", "base": "origin", "x": 0, "y": 0}}
+    limit = {"limit": {"kind": "origin", "x": 0, "y": 0, "w": 9, "h": 9}}
+    check = app_mod.App._fragment_origin_error
+    assert check(None, [find("a", target=near)], 4) == [5]
+    assert check(None, [find("a", target=limit), find("b")], 0) == [1]
+    assert check(None, [find("b"), find("a", target=near)], 0) == []

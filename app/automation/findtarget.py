@@ -63,11 +63,16 @@ def step_targets(step):
 
 
 def scale_target(tgt, k):
-    """把找圖目標的像素設定 (指定點) 就地 ×k 四捨五入.
+    """把找圖目標的像素設定 (原點矩形、指定點) 就地 ×k 四捨五入.
 
-    `重定基準`與匯入換算經 `calibration.scale_steps` 呼叫; 挑選規則的 N
-    不是像素, 不動。
+    `重定基準`與匯入換算經 `calibration.scale_steps` 呼叫; 九宮格是比例、
+    挑選規則的 N 不是像素, 都不動。
     """
+    limit = tgt.get("limit")
+    if isinstance(limit, dict) and limit.get("kind") == "origin":
+        for key in ("x", "y", "w", "h"):
+            if key in limit:
+                limit[key] = flowfmt.scale_px(limit[key], k)
     pick = tgt.get("pick")
     if isinstance(pick, dict) and pick.get("kind") == "near":
         for key in ("x", "y"):
@@ -114,6 +119,7 @@ class Match:
 class Found:
     """一次找圖目標判定的結果.
 
+    limit: 實際的限定矩形 (螢幕座標, 已裁到搜尋範圍內; None＝整個搜尋範圍);
     matches: 全部匹配 (螢幕座標, 分數高者在前); picked: 挑選規則挑中的那個或
     None; reason: 沒挑到的原因——"none" 沒有匹配、"count" 匹配不足 N 個、
     "origin" 以原點為基準卻沒有原點 (無法執行, 沒有查詢); query: 引擎的
@@ -121,8 +127,9 @@ class Found:
     """
 
     def __init__(self, target, matches=(), picked=None, reason=None,
-                 query=None):
+                 query=None, limit=None):
         self.target = target
+        self.limit = limit
         self.matches = list(matches)
         self.picked = picked
         self.reason = reason
@@ -136,11 +143,40 @@ class Found:
 def needs_origin(tgt):
     """找圖目標的設定是否以`原點`為基準 (沒有原點時無法執行)."""
     pick = tgt.get("pick") or {}
-    return pick.get("kind") == "near" and pick.get("base") == "origin"
+    limit = tgt.get("limit") or {}
+    return ((pick.get("kind") == "near" and pick.get("base") == "origin")
+            or limit.get("kind") == "origin")
+
+
+def limit_rect(tgt, region, origin, scale=1.0):
+    """`限定範圍`的螢幕矩形 (x, y, w, h), 已裁到搜尋範圍 region 內.
+
+    None＝不限定 (整個搜尋範圍); 裁完沒有交集時寬高為 0。以原點為基準的
+    矩形 ×`畫面倍率`; 九宮格是搜尋範圍的比例 (格號 1–9 由左上起逐列),
+    勾多格取包住它們的最小矩形。呼叫端保證以原點為基準時 origin 不是 None。
+    """
+    lim = tgt.get("limit") or {}
+    kind = lim.get("kind")
+    rx, ry, rw, rh = region
+    if kind == "origin":
+        x = origin[0] + flowfmt.scale_px(lim.get("x", 0), scale)
+        y = origin[1] + flowfmt.scale_px(lim.get("y", 0), scale)
+        x1 = x + flowfmt.scale_px(lim.get("w", 0), scale)
+        y1 = y + flowfmt.scale_px(lim.get("h", 0), scale)
+    elif kind == "grid" and lim.get("cells"):
+        cols = [(c - 1) % 3 for c in lim["cells"]]
+        rows = [(c - 1) // 3 for c in lim["cells"]]
+        x, x1 = rx + rw * min(cols) // 3, rx + rw * (max(cols) + 1) // 3
+        y, y1 = ry + rh * min(rows) // 3, ry + rh * (max(rows) + 1) // 3
+    else:
+        return None
+    x0, y0 = max(x, rx), max(y, ry)
+    x1, y1 = min(x1, rx + rw), min(y1, ry + rh)
+    return (x0, y0, max(0, x1 - x0), max(0, y1 - y0))
 
 
 def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
-    """執行一個找圖目標: 查詢 → 座標換回螢幕 → 依挑選規則挑.
+    """執行一個找圖目標: 算限定矩形 → 裁圖 → 查詢 → 座標換回螢幕 → 依挑選規則挑.
 
     detector: 偵測接縫 (`query(範本名, 影像, color_check) → QueryResult`,
     範本不存在丟 KeyError——原樣往外拋; 開了`比色`時顏色不符的不是匹配,
@@ -150,15 +186,25 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
     """
     if origin is None and needs_origin(tgt):
         return Found(tgt, reason="origin")
-    r = detector.query(tgt.get("template", ""), screen,
+    sh, sw = screen.shape[:2]
+    limit = limit_rect(tgt, (screen_origin[0], screen_origin[1], sw, sh),
+                       origin, scale)
+    image, (ox, oy) = screen, screen_origin
+    if limit is not None:
+        if limit[2] <= 0 or limit[3] <= 0:
+            return Found(tgt, reason="none", limit=limit)
+        # 先裁圖再查詢: 限定範圍外的東西引擎根本看不到
+        x0, y0 = limit[0] - screen_origin[0], limit[1] - screen_origin[1]
+        image = screen[y0:y0 + limit[3], x0:x0 + limit[2]]
+        ox, oy = limit[0], limit[1]
+    r = detector.query(tgt.get("template", ""), image,
                        color_check=bool(tgt.get("colorCheck")))
-    ox, oy = screen_origin
     matches = [Match((m.box[0] + ox, m.box[1] + oy, m.box[2], m.box[3]),
                      m.score, m.color) for m in r.matches]
     if not matches:
-        return Found(tgt, reason="none", query=r)
+        return Found(tgt, reason="none", query=r, limit=limit)
     chosen = _pick(matches, tgt.get("pick") or {}, origin, screen_origin, scale)
-    return Found(tgt, matches, chosen, None if chosen else "count", r)
+    return Found(tgt, matches, chosen, None if chosen else "count", r, limit)
 
 
 def _ordered(matches, axis):

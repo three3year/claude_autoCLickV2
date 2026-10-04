@@ -171,6 +171,18 @@ def test_改寫涵蓋找圖目標的指定點_含確認圖():
     assert steps[1]["target"]["pick"] == {"kind": "top", "n": 3}, "N 不是像素"
 
 
+def test_改寫涵蓋原點矩形_九宮格是比例不動():
+    rect = {"kind": "origin", "x": -40, "y": 10, "w": 200, "h": 60}
+    grid = {"kind": "grid", "cells": [3, 6]}
+    steps = [{"type": "find_click",
+              "target": {"template": "a", "limit": dict(rect)},
+              "confirm": "appear",
+              "confirmTarget": {"template": "b", "limit": dict(grid)}}]
+    calibration.scale_steps(steps, 1.5)
+    assert steps[0]["target"]["limit"] == dict(rect, x=-60, y=15, w=300, h=90)
+    assert steps[0]["confirmTarget"]["limit"] == grid
+
+
 def test_匯入換算同樣換算指定點(tmp_path):
     """同一對校準圖、基準距離不同 → 流程座標 ×比值, 指定點一起換算."""
     import flowfile

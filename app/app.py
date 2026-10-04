@@ -2049,8 +2049,9 @@ class App:
     def _fragment_origin_error(self, steps, base):
         """片段內「執行到時必然沒有原點」的相對座標步驟編號 (完整清單編號).
 
-        原點來源: 絕對座標點擊/拖曳、找圖步驟; 相對步驟在原點出現前執行
-        只會被 runner 跳過, 測試片段時直接在執行前擋下.
+        原點來源: 絕對座標點擊/拖曳、找圖步驟; 相對步驟 (含以原點為基準的
+        `找圖目標`) 在原點出現前執行只會被 runner 跳過, 測試片段時直接在
+        執行前擋下.
         """
         have = False
         bad = []
@@ -2062,7 +2063,9 @@ class App:
                 elif t == "drag" or s.get("updateOrigin", True):
                     have = True
             elif t == "find_click":
-                if s.get("updateOrigin", True):
+                if not have and findtarget.needs_origin(findtarget.target(s)):
+                    bad.append(base + k + 1)
+                elif s.get("updateOrigin", True):
                     have = True
         return bad
 

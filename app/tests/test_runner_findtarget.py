@@ -147,3 +147,38 @@ def test_灰色按鈕開比色時不會被點(harness):
     harness.run([find("btn", target={"colorCheck": True}, timeout=1,
                       interval=0.2, onNotFound="skip")])
     assert harness.clicks() == []
+
+
+# ---------- 限定範圍 (票 05) ----------
+# harness 的搜尋範圍預設 (0, 0, 1920, 1080): 九宮格每格 640×360
+
+def test_限定範圍外的同款不被找到也不被點(harness):
+    harness.vision.plan("btn", [[(100, 100, 0.99), (1800, 1000, 0.90)]])
+    harness.run([find("btn", target={"limit": {"kind": "grid", "cells": [9]}})])
+    assert harness.clicks() == [(1800, 1000)]
+
+
+def test_目標不在限定範圍內時逾時走找不到時(harness):
+    harness.vision.plan("btn", [[(100, 100)]])
+    r = harness.run([find("btn", target={"limit": {"kind": "grid",
+                                                   "cells": [9]}},
+                          timeout=1, interval=0.2, onNotFound="stop")])
+    assert harness.clicks() == []
+    assert r.ended == "error"
+
+
+def test_下一步的限定範圍以點擊後的原點計算(harness):
+    below = {"limit": {"kind": "origin", "x": -50, "y": 150, "w": 200,
+                       "h": 100}}
+    harness.vision.plan("a", [(100, 100)])
+    harness.vision.plan("card", [[(600, 300)], [(600, 300), (200, 300)]])
+    harness.run([find("a", confirm="next", interval=0.1),
+                 find("card", target=below, interval=0.1)])
+    # 點擊後原點 (100,100) → 限定 (50,250)-(250,350): 只有 (200,300) 在裡面
+    assert harness.clicks() == [(100, 100), (100, 100), (200, 300)]
+
+
+def test_以原點為基準的限定範圍卻沒有原點_步驟跳過(harness):
+    lim = {"limit": {"kind": "origin", "x": 0, "y": 0, "w": 100, "h": 100}}
+    r = harness.run([find("btn", target=lim, onNotFound="stop")])
+    assert r.ended == "done" and harness.clicks() == []
