@@ -1,6 +1,6 @@
 # ADR 0005：流程檔座標以「當前基準機器」尺度儲存，存檔時重定基準
 
-Status: accepted（2026-08-16）
+Status: superseded by ADR 0009（2026-10-05）；原 accepted（2026-08-16）
 
 ## 背景
 
