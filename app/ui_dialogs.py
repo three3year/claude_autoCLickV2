@@ -167,29 +167,35 @@ def ask_string(root, title, prompt, initialvalue=""):
 def pick_cal_pair(app):
     """選擇`校準對`: 從本流程的範本挑兩個. 取消回傳 None.
 
-    兩張圖必須會同時出現在同一畫面 (作為畫面縮放的比例尺); 選中的兩張由
-    呼叫端複製一份進 profile 自存 (與流程存檔解耦), 並立刻校準一次。
+    兩張圖必須在執行開頭的畫面上同時看得到 (作為這份流程的比例尺); 選好後由
+    呼叫端立刻量一次距離 (見 App.designate_pair)。
     """
     root = app.root
     names = app.list_template_names()
     if len(names) < 2:
-        messagebox.showinfo("指定校準對",
+        messagebox.showinfo("設定校準對",
                             "至少需要兩個範本才能作為比例尺，"
                             "請先用「截圖框選」建立範本", parent=root)
         return None
 
     dlg = tk.Toplevel(root)
-    dlg.title("指定校準對")
+    dlg.title("設定校準對")
     dlg.configure(bg=C["panel"])
     dlg.resizable(False, False)
     dlg.transient(root)
 
     body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
     body.pack(fill="both", expand=True)
-    ttk.Label(body, text="從本流程選兩個「會同時出現在同一畫面」的範本作為比例尺；\n"
-                         "按確定後兩張圖會複製進 profile 自存，並立刻校準一次\n"
-                         "（量基準距離、本機倍率記 1）。",
-              style="Muted.TLabel", justify="left").pack(anchor="w", pady=(0, 10))
+    cur = app.flow_cal
+    how = ("已有校準對：會先用原本那一對量出目前的倍率，再換算新那一對的基準距離"
+           "（流程尺度不變）。" if cur else
+           "這份流程還沒有校準對：目前的畫面大小就是這份流程的尺度，"
+           "量到的距離就是基準距離。")
+    ttk.Label(body, text="從本流程選兩個「執行開頭一定同時出現在畫面上」的範本"
+                         "作為比例尺\n（例：遊戲視窗標題列的圖示與關閉鈕）；"
+                         "按確定後立刻量一次。\n" + how,
+              style="Muted.TLabel", justify="left", wraplength=460).pack(
+        anchor="w", pady=(0, 10))
     vars_ = []
     for label in ("範本一", "範本二"):
         fr = ttk.Frame(body, style="Panel.TFrame")
@@ -206,10 +212,10 @@ def pick_cal_pair(app):
     def on_ok():
         a, b = vars_[0].get(), vars_[1].get()
         if not a or not b:
-            messagebox.showwarning("指定校準對", "請選滿兩個範本", parent=dlg)
+            messagebox.showwarning("設定校準對", "請選滿兩個範本", parent=dlg)
             return
         if a == b:
-            messagebox.showwarning("指定校準對", "兩個範本不能相同", parent=dlg)
+            messagebox.showwarning("設定校準對", "兩個範本不能相同", parent=dlg)
             return
         result[0] = (a, b)
         dlg.destroy()
@@ -218,7 +224,7 @@ def pick_cal_pair(app):
     foot.pack(fill="x")
     ttk.Button(foot, text="取消", command=dlg.destroy).pack(side="right",
                                                            padx=(8, 0))
-    ttk.Button(foot, text="確定並校準", style="Run.TButton",
+    ttk.Button(foot, text="確定並量測", style="Run.TButton",
                command=on_ok).pack(side="right")
     dlg.bind("<Return>", lambda e: on_ok())
     dlg.bind("<Escape>", lambda e: dlg.destroy())

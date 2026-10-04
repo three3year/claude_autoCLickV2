@@ -358,32 +358,47 @@ def test_守門取消則不存檔(tkroot, monkeypatch, tmp_path):
 
 # ---------- 校準圖由 profile 自存 (ADR 0006) ----------
 
-class _MeasureApp(app_mod.App):
-    """只建 _measure_pair / designate_pair 需要的欄位; 清場與擷取以樁取代."""
+# ---------- 編輯器: 校準對與「校準」按鈕 (flow-scale 票 03) ----------
 
-    def __init__(self, root, profile_dir, vision):
+class _Btn:
+    """記下 configure(text=...) 的按鈕/標籤樁."""
+
+    def __init__(self):
+        self.text = ""
+
+    def configure(self, **kw):
+        self.text = kw.get("text", self.text)
+
+
+class _EditorApp(app_mod.App):
+    """只建校準對/校準按鈕需要的欄位; 清場與擷取以樁取代."""
+
+    def __init__(self, root, profile_dir, vision, cal=None):
         self.root = root
         self.profile_dir = str(profile_dir)
         self.ws = flowfile.Workspace(self.profile_dir)
+        self.ws.ensure()
         self.hub = vision
         self.detector = vision
-        self.profile = SimpleNamespace(templates={})
         self.scan_region = None
         self._pending_templates = set()
         self._rereg_after = None
         self.logged = []
+        self.autosaved = 0
+        self.flow_cal = cal
+        self.cal_btn, self.cal_info = _Btn(), _Btn()
+        for n in (cal["pair"] if cal else ()):
+            self.ws.add(n, b"P")
+
+    @property
+    def profile(self):
+        return SimpleNamespace(templates={n: object() for n in self.ws.names()})
 
     def ensure_registered(self):
         pass
 
-    def reload_profile(self):
-        """引擎看得到的＝本流程的範本 (工作區) ＋ profile 自存的校準圖."""
-        templates = {n: object() for n in self.ws.names()}
-        templates.update(flowfile.calibration_template_list(self.profile_dir))
-        self.profile = SimpleNamespace(templates=templates)
-
-    def _update_cal_ui(self):
-        pass
+    def _autosave(self):
+        self.autosaved += 1
 
     def log_ui(self, msg, level="info"):
         self.logged.append(msg)
@@ -400,103 +415,127 @@ def _stub_capture(monkeypatch):
     monkeypatch.setattr(app_mod.time, "sleep", lambda s: None)
 
 
-def test_指定校準對把兩張圖複製進profile自存(tkroot, monkeypatch, tmp_path):
+def _editor(tkroot, monkeypatch, tmp_path, cal=None, pick=None):
     from harness import Vision
     _stub_capture(monkeypatch)
-    monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app: ("a", "b"))
+    if pick is not None:
+        monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app: pick)
     vision = Vision()
-    vision.plan("a", [(100, 100)])     # 量的是本流程的範本 (量成功才複製)
-    vision.plan("b", [(400, 100)])
-    a = _MeasureApp(tkroot, tmp_path, vision)
-    a.ws.add("a", b"AAA")
-    a.ws.add("b", b"BBB")
-    a.reload_profile()
+    a = _EditorApp(tkroot, tmp_path, vision, cal)
+    for n in (pick or ()):
+        a.ws.add(n, b"N")
+    return a, vision
 
+
+OLD = {"pair": ["舊圖示", "舊關閉"], "baseline": 1000.0}
+
+
+def test_編輯器倍率預設1_介面顯示目前倍率(tkroot, monkeypatch, tmp_path):
+    a, _ = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
+    assert a.editor_scale == 1.0
+    a._update_cal_ui()
+    assert "×1.00" in a.cal_btn.text
+    assert "舊圖示" in a.cal_info.text and "1000" in a.cal_info.text
+
+
+def test_新流程設定校準對_當下畫面就是流程尺度(tkroot, monkeypatch, tmp_path):
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, pick=("圖示", "關閉"))
+    vision.plan("圖示", [(100, 100)])
+    vision.plan("關閉", [(400, 100)])
     a.designate_pair()
-
-    stored = flowfile.calibration_images(str(tmp_path))
-    assert sorted(stored) == ["a", "b"], "兩張圖複製進 profile 自存"
-    assert open(stored["a"], "rb").read() == b"AAA"
-    cal = calibration.load(str(tmp_path))
-    assert cal["pair"] == ["a", "b"]
-    assert cal["baseline"] == 300.0 and cal["scale"] == 1.0
+    assert a.flow_cal == {"pair": ["圖示", "關閉"], "baseline": 300.0}
+    assert a.editor_scale == 1.0
+    assert a.autosaved == 1, "校準對跟著步驟草稿走"
 
 
-def test_量測取profile自存的校準圖_不是本流程的範本(tkroot, monkeypatch, tmp_path):
-    """刪掉或搬走任何一份流程後校準仍可量測——工作區裡沒有那兩張圖也要行."""
-    from harness import Vision
-    _stub_capture(monkeypatch)
-    flowfile.store_calibration_images(str(tmp_path), {"a": b"A", "b": b"B"})
-    vision = Vision()
-    vision.plan(flowfile.cal_template_name("a"), [(0, 0)])
-    vision.plan(flowfile.cal_template_name("b"), [(0, 60)])
-    a = _MeasureApp(tkroot, tmp_path, vision)
-    a.reload_profile()
-    assert a.ws.names() == [], "工作區是空的 (流程被刪掉了)"
-
-    dist = a._measure_pair(["a", "b"], "校準")
-
-    assert dist == 60.0
-    assert vision.lookups == [flowfile.cal_template_name("a"),
-                              flowfile.cal_template_name("b")], \
-        "查的是 profile 自存的校準圖, 不是本流程的範本"
+def test_更換校準對_先用舊對量倍率_新基準距離換回流程尺度(tkroot, monkeypatch,
+                                         tmp_path):
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD),
+                        pick=("圖示", "關閉"))
+    vision.plan("舊圖示", [(100, 50)])
+    vision.plan("舊關閉", [(1000, 50)])   # 900 ÷ 1000 → 倍率 0.9
+    vision.plan("圖示", [(100, 100)])
+    vision.plan("關閉", [(550, 100)])     # 450 ÷ 0.9 = 500
+    a.designate_pair()
+    assert a.flow_cal == {"pair": ["圖示", "關閉"], "baseline": 500.0}
+    assert a.editor_scale == 0.9
+    assert "×0.90" in a.cal_btn.text
 
 
-def test_profile缺校準圖時量測失敗並提示重新指定(tkroot, monkeypatch, tmp_path):
-    from harness import Vision
-    _stub_capture(monkeypatch)
+def test_更換校準對時舊對量不到_拒絕且原資料不變(tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
-    a = _MeasureApp(tkroot, tmp_path, Vision())
-    a.reload_profile()
-    assert a._measure_pair(["a", "b"], "校準") is None
-    assert any("校準圖" in m for m in rec)
-
-
-def test_指定校準對量測失敗時舊校準圖不被砍掉(tkroot, monkeypatch, tmp_path):
-    """先複製再量測的話,量測失敗就留下「calibration.json 指名一對圖、圖已被刪」
-    的殘局——指定失敗必須完全不動舊校準."""
-    from harness import Vision
-    _stub_capture(monkeypatch)
-    _warnings(monkeypatch)
-    monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app: ("a", "b"))
-    # 既有校準: 一對圖 + calibration.json
-    calibration.save(str(tmp_path), {"pair": ["old1", "old2"],
-                                     "baseline": 111.0, "scale": 1.0,
-                                     "fingerprint": None})
-    flowfile.store_calibration_images(str(tmp_path),
-                                      {"old1": b"O1", "old2": b"O2"})
-    vision = Vision()
-    vision.plan("a", [(100, 100)])       # b 找不到 → 量測失敗
-    vision.plan("b", [None])
-    a = _MeasureApp(tkroot, tmp_path, vision)
-    a.ws.add("a", b"AAA")
-    a.ws.add("b", b"BBB")
-    a.reload_profile()
-
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD),
+                        pick=("圖示", "關閉"))
+    vision.plan("舊圖示", [None])
+    vision.plan("圖示", [(100, 100)])
+    vision.plan("關閉", [(550, 100)])
     a.designate_pair()
-
-    assert sorted(flowfile.calibration_images(str(tmp_path))) == \
-        ["old1", "old2"], "舊校準圖原封不動"
-    cal = calibration.load(str(tmp_path))
-    assert cal["pair"] == ["old1", "old2"] and cal["baseline"] == 111.0
+    assert a.flow_cal == OLD and a.editor_scale == 1.0
+    assert any("舊圖示" in m for m in rec)
+    assert a.autosaved == 0
 
 
-def test_指定校準對用本流程的範本量測(tkroot, monkeypatch, tmp_path):
-    """量的是工作區裡那兩張 (量成功才複製進 profile), 不是 profile 自存的圖
-    ——否則第一次指定時 profile 還沒有圖, 根本量不起來."""
-    from harness import Vision
-    _stub_capture(monkeypatch)
-    monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app: ("a", "b"))
-    vision = Vision()
-    vision.plan("a", [(0, 0)])
-    vision.plan("b", [(0, 50)])
-    a = _MeasureApp(tkroot, tmp_path, vision)
-    a.ws.add("a", b"AAA")
-    a.ws.add("b", b"BBB")
-    a.reload_profile()
-
+def test_兩張中心距離太近_拒絕(tkroot, monkeypatch, tmp_path):
+    rec = _warnings(monkeypatch)
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, pick=("圖示", "關閉"))
+    vision.plan("圖示", [(100, 100)])
+    vision.plan("關閉", [(100, 100)])
     a.designate_pair()
+    assert a.flow_cal is None
+    assert any("重疊" in m for m in rec)
 
-    assert vision.lookups == ["a", "b"], "查的是本流程的範本名, 沒有 _cal/ 前綴"
-    assert calibration.load(str(tmp_path))["baseline"] == 50.0
-    assert sorted(flowfile.calibration_images(str(tmp_path))) == ["a", "b"]
+
+def test_按校準成功更新編輯器倍率(tkroot, monkeypatch, tmp_path):
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
+    vision.plan("舊圖示", [(100, 50)])
+    vision.plan("舊關閉", [(1300, 50)])
+    a.calibrate_now()
+    assert a.editor_scale == 1.2
+    assert "×1.20" in a.cal_btn.text
+    assert a.flow_cal == OLD, "校準只量倍率, 不動校準資料"
+
+
+def test_按校準失敗保留原倍率並說明(tkroot, monkeypatch, tmp_path):
+    rec = _warnings(monkeypatch)
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
+    a.editor_scale = 0.8
+    vision.plan("舊關閉", [None])
+    a.calibrate_now()
+    assert a.editor_scale == 0.8
+    assert any("舊關閉" in m for m in rec)
+
+
+def test_校準量測查詢不帶預期尺度(tkroot, monkeypatch, tmp_path):
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
+    vision.plan("舊圖示", [(100, 50)])
+    vision.plan("舊關閉", [(1000, 50)])
+    a.calibrate_now()
+    assert vision.expected_scales == [("舊圖示", None), ("舊關閉", None)]
+
+
+def test_沒有校準對時按校準_提示先設定(tkroot, monkeypatch, tmp_path):
+    rec = []
+    monkeypatch.setattr(app_mod.messagebox, "showinfo",
+                        lambda title, msg, **kw: rec.append(msg))
+    a, vision = _editor(tkroot, monkeypatch, tmp_path)
+    a.calibrate_now()
+    assert any("設定校準對" in m for m in rec)
+    assert vision.lookups == []
+
+
+def test_開流程或切換流程時編輯器倍率回到1(tkroot, monkeypatch, tmp_path):
+    a, _ = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
+    a.editor_scale = 0.9
+    a.steps = []
+    for attr in ("run_mode", "run_count", "avoid_hover"):
+        setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))
+    a.scan_lbl = _Btn()
+    a._mode_ui = lambda: None
+    a.render_steps = lambda keep=None: None
+    a._update_region_preview = lambda: None
+    a._source_baseline = None
+    a._apply_flow({"steps": [], "coordSpace": "region",
+                   "calibration": {"pair": ["x", "y"], "baseline": 50.0}})
+    assert a.editor_scale == 1.0
+    assert a.flow_cal == {"pair": ["x", "y"], "baseline": 50.0}
+    assert "×1.00" in a.cal_btn.text and "x × y" in a.cal_info.text

@@ -357,6 +357,8 @@ class SegListbox(tk.Text):
 class App:
     # 目前流程的`校準對`與`基準距離` {pair, baseline}; None＝沒有 (不能執行)
     flow_cal = None
+    # 編輯器的`畫面倍率`: 開流程/切換流程時為 1, 按「校準」才更新
+    editor_scale = 1.0
 
     def __init__(self, root):
         self.root = root
@@ -546,7 +548,6 @@ class App:
         self._load_autosave()  # 該 profile 的流程草稿隨 profile 走
         self.refresh_templates()
         self.render_steps()
-        self._update_cal_ui()  # 校準資料隨 profile 走, 按鈕顯示跟著切換
         self.log_ui(f"已切換 profile →「{name}」"
                     f"（本流程 {len(self.ws.names())} 個範本）", "ok")
 
@@ -577,40 +578,39 @@ class App:
         self.switch_profile(name.strip())
         self.log_ui(f"已建立 profile「{name.strip()}」（預設 config 已帶入）", "ok")
 
-    # ================= 校準 (`校準對` / `畫面倍率`) =================
-    # 該擋/該警告/該換算的判斷都在 calibration 模組的純函式, 這裡只是薄殼
+    # ================= 校準 (`校準對` / `畫面倍率`, ADR 0009) =================
+    # 校準對與基準距離住在流程存檔裡 (self.flow_cal)。編輯器的倍率只屬於「這次
+    # 編輯這份流程」: 開流程/切換流程時回到 1, 使用者按「校準」才更新——拾取的
+    # 座標與截下的範本都除以它換回`流程尺度`。量測的純邏輯在 calibration 模組。
 
     def _update_cal_ui(self):
-        """校準按鈕常駐顯示當前`畫面倍率`或「未校準」; 無校準對只可指定."""
-        cal = calibration.load(self.profile_dir)
-        if cal is None:
-            self.cal_btn.configure(text="校準", state="disabled")
-        elif calibration.is_uncalibrated(cal, calibration.current_fingerprint()):
-            self.cal_btn.configure(text="校準（未校準）", state="normal")
+        """校準按鈕常駐顯示目前的編輯器倍率; 旁邊寫出這份流程的校準對."""
+        if getattr(self, "cal_btn", None) is None:
+            return
+        self.cal_btn.configure(text=f"校準　×{self.editor_scale:.2f}")
+        cal = self.flow_cal
+        if cal:
+            text = (f"校準對：{cal['pair'][0]} × {cal['pair'][1]}"
+                    f"（基準距離 {float(cal['baseline']):.0f}px）")
         else:
-            self.cal_btn.configure(text=f"校準　×{cal['scale']:.2f}",
-                                   state="normal")
+            text = "這份流程還沒有校準對（不能執行）"
+        self.cal_info.configure(text=text)
 
-    def _measure_pair(self, pair, title, keys=None):
-        """清場截圖後量`校準對`中心距離; 失敗彈窗指明缺哪一張並回傳 None.
+    def _calibration_screen(self, names, title):
+        """校準量測用的截圖: 範本就位 → 清場 → 依搜尋範圍截圖.
 
-        範本預設取自 **profile 自存的校準圖** (不是本流程的範本): 刪掉任何一份
-        流程都不影響校準。`keys` 可指定改用別的引擎範本名——指定校準對時量的是
-        本流程工作區裡的那兩張, 量成功了才複製進 profile (量測失敗不能把舊的
-        校準圖砍掉)。找圖語意與一般找圖一致: 有`搜尋範圍`就在範圍內找, 否則
-        全螢幕; 截圖前照常清場。量測前先確保登錄完成 (單張隨用載入)。
+        範本是本流程的範本 (校準對就是流程的範本); 有不在本流程裡的就提示並
+        回傳 None。量測前的提示都在清場「之前」彈 (清場中彈窗會隱形卡死)。
         """
         self.ensure_registered()
-        if keys is None:
-            keys = [flowfile.cal_template_name(n) for n in pair]
-        for name, key in zip(pair, keys):
-            if key not in self.profile.templates:
+        for name in dict.fromkeys(names):
+            if name not in self.profile.templates:
                 messagebox.showwarning(
-                    title, f"找不到校準圖：{name}\n"
-                    "請重新按「指定校準對」", parent=self.root)
+                    title, f"找不到校準圖：{name}\n（這張範本已不在本流程裡）",
+                    parent=self.root)
                 return None
             try:
-                self.hub.ensure_template(key)
+                self.hub.ensure_template(name)
             except Exception as e:
                 messagebox.showwarning(title, f"校準圖載入失敗：{name}（{e}）",
                                        parent=self.root)
@@ -619,74 +619,87 @@ class App:
             self.root.update()
             time.sleep(0.12)
             screen, _ = capture.grab(self.scan_region)
-        m = calibration.measure(self.detector.query, screen, keys)
-        dist, missing = m.distance, m.missing
-        if missing:
-            plain = [n for n, k in zip(pair, keys) if k in missing]
+        return screen
+
+    def _pair_distance(self, screen, pair, title):
+        """在截圖上量一對圖的中心距離; 量不到或重疊時提示並回傳 None.
+
+        查詢不帶預期尺度 (`calibration.measure`): 倍率差很多也量得到。
+        """
+        m = calibration.measure(self.detector.query, screen, pair)
+        if m.missing:
             messagebox.showwarning(
-                title,
-                "畫面上找不到：" + "、".join(plain) +
-                "\n請切換到兩張圖同時出現的畫面後重試（舊倍率維持不動）",
+                title, "畫面上找不到：" + "、".join(m.missing) +
+                "\n請切換到兩張圖同時出現的畫面後重試（原本的設定維持不動）",
                 parent=self.root)
             return None
-        if dist < 1.0:
+        if m.too_close:
             messagebox.showwarning(
                 title, "兩張圖的位置重疊，無法作為比例尺，"
                 "請改用一對距離較遠的範本", parent=self.root)
             return None
-        return dist
+        return m.distance
 
     def designate_pair(self):
-        """指定`校準對`並立刻完成第一次`校準`.
+        """設定 (或更換) 這份流程的`校準對`.
 
-        **先用本流程工作區裡的那兩張量**, 量成功了才把圖複製一份進 profile 自存
-        (與流程存檔解耦)。順序很要緊: 先複製會清掉 profile 原本自存的那一對,
-        接著量測失敗就留下「calibration.json 指名一對圖、圖卻已被刪掉」的殘局。
-        量得`基準距離`、本機倍率記 1、附`機器指紋`; 任一張找不到＝指定失敗,
-        不留下部分寫入的校準資料。
+        還沒有校準對: 當下的畫面就是`流程尺度` (倍率 1), 量到的距離＝基準距離。
+        已有校準對: 先用舊的那對量出倍率, 新的基準距離＝新距離 ÷ 倍率——換對
+        不改變流程尺度; 舊對量不到就拒絕 (寫進錯的基準距離, 整份流程就點偏)。
+        兩對在同一張截圖上量。任何一步失敗都不改動原本的校準資料。
         """
         if not self.engine_gate():
             return
         pair = ui_dialogs.pick_cal_pair(self)
         if not pair:
             return
-        # keys=pair: 這兩張就是本流程的範本, 已經在引擎的範本清單裡
-        dist = self._measure_pair(pair, "指定校準對", keys=list(pair))
+        title = "設定校準對"
+        old = self.flow_cal
+        screen = self._calibration_screen(
+            [*pair, *(old["pair"] if old else ())], title)
+        if screen is None:
+            return
+        k = 1.0
+        if old:
+            d_old = self._pair_distance(screen, old["pair"], "設定校準對"
+                                        "（先用原本的校準對量倍率）")
+            if d_old is None:
+                return
+            k = calibration.snap_identity(d_old / float(old["baseline"]))
+        dist = self._pair_distance(screen, list(pair), title)
         if dist is None:
             return
-        flowfile.store_calibration_images(
-            self.profile_dir, {n: self.ws.path_of(n) for n in pair})
-        calibration.save(self.profile_dir, {
-            "pair": list(pair), "baseline": dist, "scale": 1.0,
-            "fingerprint": calibration.current_fingerprint()})
-        self.reload_profile()   # 自存的校準圖進引擎的範本清單
+        self.flow_cal = calibration.make(pair, dist / k)
+        self.editor_scale = k
+        self._autosave()
         self._update_cal_ui()
-        self.log_ui(f"已指定校準對「{pair[0]}」×「{pair[1]}」，"
-                    f"基準距離 {dist:.1f}px，本機倍率 ×1.00", "ok")
+        self.log_ui(f"已設定校準對「{pair[0]}」×「{pair[1]}」，"
+                    f"基準距離 {dist / k:.1f}px（目前畫面倍率 ×{k:.3f}）", "ok")
 
     def calibrate_now(self):
-        """`校準`: 量當前距離 ÷ `基準距離`, 更新本機倍率與指紋 (票 03).
+        """`校準`: 用這份流程的校準對量一次, 更新編輯器倍率.
 
-        失敗時舊倍率與指紋維持不動 (切到正確畫面重試即可)。
+        失敗時保留原本的倍率 (切到兩張圖都看得到的畫面重試即可)。
         """
-        cal = calibration.load(self.profile_dir)
+        cal = self.flow_cal
         if cal is None:
-            messagebox.showinfo("校準", "尚未指定校準對，請先按「指定校準對」",
-                                parent=self.root)
+            messagebox.showinfo("校準", "這份流程還沒有校準對，"
+                                "請先按「設定校準對」", parent=self.root)
             return
         if not self.engine_gate():
             return
-        dist = self._measure_pair(cal["pair"], "校準")
+        screen = self._calibration_screen(cal["pair"], "校準")
+        if screen is None:
+            return
+        dist = self._pair_distance(screen, cal["pair"], "校準")
         if dist is None:
             return
-        # 抖動容差內貼齊 1: 同機重校不因 1px 量測差觸發存檔時的重定基準
-        cal["scale"] = calibration.snap_identity(dist / float(cal["baseline"]))
-        cal["fingerprint"] = calibration.current_fingerprint()
-        calibration.save(self.profile_dir, cal)
+        self.editor_scale = calibration.snap_identity(
+            dist / float(cal["baseline"]))
         self._update_cal_ui()
-        self.log_ui(f"校準完成：本機畫面倍率 ×{cal['scale']:.3f}"
-                    f"（當前距離 {dist:.1f}px ÷ 基準 {cal['baseline']:.1f}px）",
-                    "ok")
+        self.log_ui(f"校準完成：畫面倍率 ×{self.editor_scale:.3f}"
+                    f"（目前距離 {dist:.1f}px ÷ 基準 {float(cal['baseline']):.1f}px）"
+                    "；拾取的座標與截下的範本會換回流程尺度", "ok")
 
     # ================= UI 建構 =================
 
@@ -748,21 +761,20 @@ class App:
         ttk.Label(bar2, text="（所有找圖步驟與比對測試都只在此範圍內找圖）",
                   foreground=C["muted"]).pack(side="left", padx=(12, 0))
 
-        # 第三列: `校準`常駐按鈕區 (票 02/03)。前兩列在預設視窗寬度下已無
-        # 剩餘空間 (塞進去會被裁掉), 校準自成一列才保得住「常駐顯示」
+        # 第三列: `校準`常駐按鈕區。前兩列在預設視窗寬度下已無剩餘空間
+        # (塞進去會被裁掉), 校準自成一列才保得住「常駐顯示」
         bar3 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         bar3.pack(fill="x")
         ttk.Label(bar3, text="畫面校準").pack(side="left")
-        ttk.Button(bar3, text="指定校準對", style="Small.TButton",
+        ttk.Button(bar3, text="設定校準對", style="Small.TButton",
                    takefocus=False,
                    command=self.designate_pair).pack(side="left", padx=(8, 6))
-        # 校準按鈕顯示當前`畫面倍率`或「未校準」; 沒有校準對時停用
+        # 校準按鈕常駐顯示目前的編輯器倍率 (執行時開頭會自動再量一次)
         self.cal_btn = ttk.Button(bar3, text="校準", style="Small.TButton",
                                   takefocus=False, command=self.calibrate_now)
         self.cal_btn.pack(side="left")
-        ttk.Label(bar3, text="（換電腦或螢幕後按「校準」量出本機倍率，"
-                            "執行時落點自動換算）",
-                  foreground=C["muted"]).pack(side="left", padx=(12, 0))
+        self.cal_info = ttk.Label(bar3, text="", foreground=C["muted"])
+        self.cal_info.pack(side="left", padx=(12, 0))
 
         ttk.Button(bar2, text="＋建立", style="Small.TButton", takefocus=False,
                    command=self.create_profile_ui).pack(side="right")
@@ -1691,6 +1703,8 @@ class App:
                         "尚未歸位），存檔前需先量測換算或明確確認", "warn")
         self.steps = data.get("steps", [])
         self.flow_cal = calibration.flow_pair(data)
+        self.editor_scale = 1.0   # 編輯器倍率屬於「這次編輯這份流程」
+        self._update_cal_ui()
         self.run_mode.set("直到停止" if data.get("runMode") == "infinite" else "執行次數")
         self.run_count.set(data.get("runCount", 1))
         self.scan_region = data.get("scanRegion")
