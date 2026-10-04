@@ -608,7 +608,7 @@ class App:
         cal = self.flow_cal
         if cal:
             text = (f"校準對：{cal['pair'][0]} × {cal['pair'][1]}"
-                    f"（基準距離 {float(cal['baseline']):.0f}px）")
+                    f"（{float(cal['baseline']):.0f}px）")
         else:
             text = "這份流程還沒有校準對（不能執行）"
         self.cal_info.configure(text=text)
@@ -853,6 +853,18 @@ class App:
         self.cal_btn.pack(side="left")
         self.cal_info = ttk.Label(bar3, text="", foreground=C["muted"])
         self.cal_info.pack(side="left", padx=(12, 0))
+        # 流程層級的`補做`設定 (ADR 0008): 補做間隔 + 忙碌指示 (步驟面板太窄放不下)
+        self.busy_lbl = ttk.Label(bar3, text="", foreground=C["muted"])
+        self.busy_lbl.pack(side="right", padx=(6, 0))
+        ttk.Button(bar3, text="忙碌指示…", style="Small.TButton",
+                   takefocus=False,
+                   command=self.edit_busy_indicator).pack(side="right")
+        ttk.Label(bar3, text="ms").pack(side="right", padx=(2, 12))
+        self.retry_var = tk.StringVar(value=str(self.retry_interval_ms))
+        ttk.Spinbox(bar3, from_=0, to=10000, increment=100, width=6,
+                    textvariable=self.retry_var).pack(side="right")
+        ttk.Label(bar3, text="補做間隔").pack(side="right", padx=(16, 4))
+        self.retry_var.trace_add("write", lambda *_: self._on_retry_change())
 
         ttk.Button(bar2, text="＋建立", style="Small.TButton", takefocus=False,
                    command=self.create_profile_ui).pack(side="right")
@@ -1006,21 +1018,6 @@ class App:
         self.avoid_hover = tk.BooleanVar(value=False)
         ui_dialogs._check(opts, "找圖前移開滑鼠（避免 hover 干擾）",
                           self.avoid_hover).pack(side="left")
-        # 流程層級的`補做`設定 (ADR 0008): 補做間隔 + 忙碌指示
-        ttk.Label(opts, text="補做間隔", style="Panel.TLabel").pack(
-            side="left", padx=(16, 4))
-        self.retry_var = tk.StringVar(value=str(self.retry_interval_ms))
-        ttk.Spinbox(opts, from_=0, to=10000, increment=100, width=6,
-                    textvariable=self.retry_var).pack(side="left")
-        ttk.Label(opts, text="ms", style="Panel.TLabel").pack(
-            side="left", padx=(2, 12))
-        self.retry_var.trace_add("write", lambda *_: self._on_retry_change())
-        ttk.Button(opts, text="忙碌指示…", style="Small.TButton",
-                   takefocus=False,
-                   command=self.edit_busy_indicator).pack(side="left")
-        self.busy_lbl = ttk.Label(opts, text="", style="Muted.TLabel")
-        self.busy_lbl.pack(side="left", padx=(6, 0))
-
         self.step_list = SegListbox(
             left, bg=C["bg"], fg=C["text"], selectbackground=C["sel"],
             font=FONT, bd=0,
