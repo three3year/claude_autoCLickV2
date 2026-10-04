@@ -8,7 +8,6 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-import calibration
 import ui_grab
 import ui_overlay
 import ui_theme
@@ -495,8 +494,9 @@ def pick_template(app, title="選擇範本", initial=None):
         r = app.pick_region_raw(hide=(dlg,))
         if not r:
             return
+        # 截下的圖除以編輯器倍率換回流程尺度 (倍率 1 原圖照存)
         _stage(app.next_template_name(taken=pending),
-               imgio.encode_png(r["img"]),
+               imgio.encode_png(app.flow_scale_image(r["img"])),
                pos=[r["screenX"] + r["w"] // 2, r["screenY"] + r["h"] // 2])
 
     tools = ttk.Frame(body, style="Panel.TFrame")
@@ -548,26 +548,10 @@ def pick_template(app, title="選擇範本", initial=None):
     return result[0]
 
 
-def _cal_state(app, parent):
-    """拾取座標前的校準判定 (票 04): 回傳 (放行與否, 現行`畫面倍率`).
-
-    `未校準`(有校準對但無有效倍率) 時擋下並要求先校準——未知倍率下拾取
-    的本機像素事後無法歸一到基準尺度。沒有校準對的 profile 不擋、倍率 1。
-    必須在進入清場「之前」呼叫 (清場中彈 messagebox 會隱形卡死)。
-    """
-    cal = calibration.load(app.profile_dir)
-    fp = calibration.current_fingerprint()
-    msg = calibration.pick_gate_message(cal, fp)
-    if msg:
-        messagebox.showwarning("拾取座標", msg, parent=parent)
-        return False, 1.0
-    return True, calibration.effective_scale(cal, fp)
-
-
 def _unscale(v, k):
-    """拾取到的本機像素反除現行`畫面倍率`, 歸一到現行基準尺度暫存 (票 04).
+    """拾取到的螢幕像素反除編輯器的`畫面倍率`, 換回`流程尺度` (ADR 0009).
 
-    存檔時再整體`重定基準`; 檔內與記憶體中任一時刻都只有單一尺度。
+    流程裡只有流程尺度: 編輯器倍率 1 (預設) 時原值照存。
     """
     return flowfmt.scale_px(v, 1.0 / k)
 
@@ -593,8 +577,8 @@ def _region_origin(app, parent):
 def _find_template_now(app, dlg, prev, origin=None, k=1.0):
     """隱藏視窗後在搜尋範圍內即時找一次 prev 的找圖目標, 回傳挑中的中心或 None.
 
-    origin: prev 判定時的原點 (它的找圖目標以原點為基準時才需要); k: 現行
-    `畫面倍率` (找圖目標的像素設定 ×它, 同執行器)。
+    origin: prev 判定時的原點 (它的找圖目標以原點為基準時才需要); k: 編輯器的
+    `畫面倍率` (找圖目標的像素設定 ×它, 也是預期尺度——同執行器)。
     """
     return _find_target_now(app, dlg, findtarget.target(prev), origin, k)
 
@@ -627,8 +611,8 @@ def _find_target_now(app, dlg, tgt, origin=None, k=1.0):
 def _resolve_prev_origin(app, step, dlg, k=1.0):
     """推算相對座標拾取的預設原點 (螢幕座標), 無法推算回傳 None.
 
-    步驟裡存的都是基準尺度的偏移量, 換算成螢幕座標時一律乘上現行
-    `畫面倍率` k (與 runner 執行期同一套換算, 票 04)。
+    步驟裡存的都是流程尺度的偏移量, 換算成螢幕座標時一律乘上編輯器的
+    `畫面倍率` k (與 runner 執行期同一套換算, ADR 0009)。
 
     從本步驟往上找「有座標的動作」(跳過等待/按鍵):
     - 絕對座標點擊 → `搜尋範圍`左上角 + 偏移×k (沒有範圍時無從推算)
@@ -728,15 +712,6 @@ def _origin_or_click(root, origin_fn, k, hide):
     return base
 
 
-def _scale_now(app):
-    """比對測試代入的`畫面倍率` (與執行時同一套判定; 未校準＝1)."""
-    try:
-        cal = calibration.load(app.profile_dir)
-        return calibration.effective_scale(cal, calibration.current_fingerprint())
-    except Exception:
-        return 1.0
-
-
 def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     """`找圖目標`的設定子對話框: 限定範圍、挑選規則、比色.
 
@@ -746,7 +721,7 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     origin_fn(k): 這個找圖目標判定時的預設原點 (螢幕座標) 或 None——框選
     原點矩形與點選指定點時預先標出 (◎); test_fn(表單值, 子對話框): 以這組
     設定比對測試 (提示以子對話框為 parent, 才不會被壓在它後面)。
-    像素類拾取 (原點矩形、指定點) 未校準時擋下, 拾取值反除`畫面倍率`歸一。
+    像素類拾取 (原點矩形、指定點) 的值反除編輯器的`畫面倍率`, 換回流程尺度。
     """
     root = app.root
     sub = tk.Toplevel(root)
@@ -809,9 +784,7 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
         entry(rect_fr, rect[k_], label)
 
     def pick_rect():
-        ok, k = _cal_state(app, sub)   # 守門在清場「前」(清場中彈窗會隱形)
-        if not ok:
-            return
+        k = app.editor_scale
         r = base = None
         with ui_overlay.screen_clear(root, extra=(sub,)):
             base = _origin_or_click(root, origin_fn, k, (sub,))
@@ -827,7 +800,7 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
 
     ttk.Button(rect_fr, text="框選", style="Accent.TButton",
                command=pick_rect).pack(side="left")
-    rect_note = add_note("矩形左上角相對原點的偏移與大小（基準尺度，隨畫面倍率縮放）；"
+    rect_note = add_note("矩形左上角相對原點的偏移與大小（流程尺度，隨畫面倍率縮放）；"
                          "框選時畫面上的 ◎ 是推算出的預設原點")
     grid_fr = add_row("")
     for c in range(1, 10):
@@ -857,9 +830,7 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     entry(near_fr, v_py, "Y")
 
     def pick_point():
-        ok, k = _cal_state(app, sub)
-        if not ok:
-            return
+        k = app.editor_scale
         r = base = None
         with ui_overlay.screen_clear(root, extra=(sub,)):
             if _key_of(BASE_ZH, v_base.get()) == "origin":
@@ -1066,11 +1037,8 @@ def edit_step(app, step):
             # 整段包進同一個 screen_clear: 找圖預查與拾取之間視窗保持隱藏,
             # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
             mode = MODE_KEY[v["mode"].get()]
-            # 校準守門與倍率取得在清場「前」做 (清場中彈 messagebox 會隱形);
-            # 拾取值一律反除倍率歸一到基準尺度 (票 04)
-            ok, k = _cal_state(app, dlg)
-            if not ok:
-                return
+            # 拾取值一律反除編輯器倍率, 換回流程尺度 (ADR 0009)
+            k = app.editor_scale
             if mode != "prev":
                 # 基準檢查在清場「前」做: 清場中彈 messagebox 會隱形 (票 07)
                 org = _region_origin(app, dlg)
@@ -1157,10 +1125,8 @@ def edit_step(app, step):
         def pick_drag():
             # 整段包進同一個 screen_clear: 預查/兩段拾取之間視窗保持隱藏,
             # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
-            # 校準守門與倍率取得在清場「前」做; 拾取值反除倍率歸一 (票 04)
-            ok, k = _cal_state(app, dlg)
-            if not ok:
-                return
+            # 拾取值反除編輯器倍率, 換回流程尺度 (ADR 0009)
+            k = app.editor_scale
             if MODE_KEY[v["mode"].get()] != "prev":
                 # 基準檢查在清場「前」做: 清場中彈 messagebox 會隱形 (票 07)
                 org = _region_origin(app, dlg)
@@ -1691,7 +1657,7 @@ def show_match_test(app, target, region=None, hide=(), delay=0.0,
         return
 
     scan = region or getattr(app, "scan_region", None)
-    k = _scale_now(app)
+    k = app.editor_scale   # 比對測試與執行一致: 也當`預期尺度`交給引擎
     origin = None
     with ui_overlay.screen_clear(root, extra=hide):
         if findtarget.needs_origin(target):

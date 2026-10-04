@@ -254,3 +254,9 @@ def test_手改壞的九宮格格號_不找也不退成整個範圍():
     r, _ = run([(700, 500)], target={"limit": {"kind": "grid",
                                                "cells": [5, 12]}})
     assert r.limit == (500, 350, 400, 300), "無效格號略過, 有效的照算"
+
+
+def test_畫面倍率同時當預期尺度交給偵測器():
+    """flow-scale: 一個倍率兩個用途——像素設定 ×它, 查詢時當`預期尺度`."""
+    _, vision = run([(300, 200)], scale=0.9)
+    assert vision.expected_scales == [("t", 0.9)]

@@ -1495,13 +1495,22 @@ class App:
         return ui_overlay.pick(self.root, "region", "拖曳框選要辨識的圖片區域",
                                hide=hide)
 
+    def flow_scale_image(self, img):
+        """截下的範本圖換回`流程尺度`: 除以編輯器倍率 (倍率 1 原圖照存).
+
+        上傳的圖不經這裡——不知道它的來源尺度, 照原樣存。
+        """
+        return imgio.to_flow_scale(img, self.editor_scale)
+
     def save_captured(self, r):
         """把 pick_region_raw 的結果存成本流程的新範本, 回傳範本名.
 
-        圖落在工作區 (存檔時才進 zip); 記下`pos`＝截圖當下的中心螢幕座標。
+        圖落在工作區 (存檔時才進 zip), 先換回流程尺度; 記下`pos`＝截圖當下的
+        中心螢幕座標 (螢幕座標, 不換算)。
         """
         name = self.ws.reserve(self.next_template_name())
-        imgio.imwrite(self.ws.path_of(name), r["img"])
+        img = self.flow_scale_image(r["img"])
+        imgio.imwrite(self.ws.path_of(name), img)
         self.ws.set_pos(name, [r["screenX"] + r["w"] // 2,
                                r["screenY"] + r["h"] // 2])
         # 重新探索卡主執行緒 → 延後到視窗還原、畫面喘口氣之後,
@@ -1509,7 +1518,7 @@ class App:
         self._pending_templates.add(name)
         self._schedule_reregister()
         self.refresh_templates()
-        self.log_ui(f"已新增範本「{name}」({r['w']}×{r['h']})"
+        self.log_ui(f"已新增範本「{name}」({img.shape[1]}×{img.shape[0]})"
                     "；建議跑一次「比對測試」確認畫面上找得到", "ok")
         return name
 

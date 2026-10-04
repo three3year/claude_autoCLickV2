@@ -111,28 +111,7 @@ def _dlg_warnings(monkeypatch):
     return rec
 
 
-def test_未校準時拾取被擋下並提示先校準(monkeypatch, tmp_path):
-    calibration.save(str(tmp_path), {"pair": ["a", "b"], "baseline": 100.0,
-                                     "scale": None, "fingerprint": None})
-    rec = _dlg_warnings(monkeypatch)
-    app = SimpleNamespace(profile_dir=str(tmp_path))
-    ok, k = ui_dialogs._cal_state(app, None)
-    assert not ok
-    assert any("校準" in m for m in rec)
-
-
-def test_已校準或無校準對時拾取放行(monkeypatch, tmp_path):
-    rec = _dlg_warnings(monkeypatch)
-    app = SimpleNamespace(profile_dir=str(tmp_path))
-    assert ui_dialogs._cal_state(app, None) == (True, 1.0), "無校準對: 放行、倍率 1"
-    calibration.save(str(tmp_path), {
-        "pair": ["a", "b"], "baseline": 100.0, "scale": 1.25,
-        "fingerprint": calibration.current_fingerprint()})
-    assert ui_dialogs._cal_state(app, None) == (True, 1.25)
-    assert rec == []
-
-
-def test_拾取值反除倍率歸一到基準尺度():
+def test_拾取值反除倍率換回流程尺度():
     assert ui_dialogs._unscale(150, 1.5) == 100
     assert ui_dialogs._unscale(-75, 1.5) == -50
     assert ui_dialogs._unscale(33, 1.0) == 33, "倍率 1 與現狀等價"

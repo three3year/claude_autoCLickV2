@@ -45,6 +45,20 @@ def imdecode(blob):
     return img
 
 
+def to_flow_scale(img, k):
+    """螢幕上截下的圖 → `流程尺度` (除以`畫面倍率` k, ADR 0009).
+
+    k＝1 時原物件照回 (一個像素都不動); 其餘以 1/k 等比縮放, 縮小用 INTER_AREA。
+    """
+    if k == 1:
+        return img
+    import cv2
+    h, w = img.shape[:2]
+    size = (max(1, round(w / k)), max(1, round(h / k)))
+    interp = cv2.INTER_AREA if k > 1 else cv2.INTER_LINEAR
+    return cv2.resize(img, size, interpolation=interp)
+
+
 def encode_png(img):
     """把影像編成 PNG 位元組 (現場截圖在按下確定前只存在記憶體裡)."""
     import cv2
