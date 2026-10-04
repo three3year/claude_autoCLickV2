@@ -11,6 +11,8 @@ Case folder contract (adding a case = dropping files, no code change):
         screenshot.png   the search-region image handed to query()
         expect.yaml      expected: present | absent
                          center: [x, y]      (required when present)
+                         centers: [[x, y], ...]  (present, repeated subject:
+                                  every listed center matched, nothing else)
                          tolerance: 15       (px, optional)
                          template: <file>    (optional, defaults template.png)
                          screenshot: <file>  (optional, defaults screenshot.png)
@@ -121,7 +123,21 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
     res = engine.query(library, case.name, scene)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
-    if expected == "present":
+    if expected == "present" and "centers" in expect:
+        # 同款多張: 每個列出的中心都要被某個匹配命中, 且沒有沒列的匹配
+        got = [(x + w / 2, y + h / 2) for x, y, w, h in
+               (m.box for m in res.matches)]
+
+        def hit(c, e):
+            return abs(c[0] - e[0]) <= tolerance and abs(c[1] - e[1]) <= tolerance
+
+        if not all(any(hit(c, e) for c in got) for e in expect["centers"]):
+            verdict = "miss"
+        elif not all(any(hit(c, e) for e in expect["centers"]) for c in got):
+            verdict = "false_alarm"
+        else:
+            verdict = "correct"
+    elif expected == "present":
         if not res.found:
             verdict = "miss"
         else:

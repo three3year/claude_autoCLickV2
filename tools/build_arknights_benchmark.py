@@ -11,6 +11,9 @@ own inputs and depends on no template library (see ADR 0006).
 Every case gets its own `template.png` (the referenced template's registration
 baseline capture = sorted-first), so cases stay self-contained.
 
+Cases whose name starts with `r` are hand-added real-frame cases (crops of
+real demo-video frames); regeneration leaves them alone.
+
 Run:  python tools/build_arknights_benchmark.py
 """
 from __future__ import annotations
@@ -124,7 +127,9 @@ def gamma_up(img):
 def main() -> None:
     if BENCH.exists():
         for child in BENCH.iterdir():
-            if child.is_dir() and not child.name.startswith("_"):
+            # `r` 開頭＝手動加入的真實影格 case (不是本程式產生的), 保留
+            if (child.is_dir() and not child.name.startswith("_")
+                    and not child.name.startswith("r")):
                 shutil.rmtree(child)
 
     # A. same-set positives (cn capture, cn template) — skeleton-passable

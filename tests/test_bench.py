@@ -110,3 +110,28 @@ def test_case_may_name_its_own_template_and_screenshot_files(tmp_path):
 
     report = run_bench(tmp_path / "profile")
     assert [c.verdict for c in report.cases] == ["correct"]
+
+
+def test_centers列出每個同款_全部匹配到且沒有多的才算對(tmp_path):
+    """同款多張的 case: expect 的 centers 列出每一個, 查詢要剛好回報這些匹配."""
+    tpl = make_template(seed=15)
+    th, tw = tpl.shape[:2]
+    profile_dir = tmp_path / "profile"
+    scene = make_scene(w=800, h=360, seed=69)
+    for x in (60, 360, 660):
+        scene = paste(scene, tpl, x, 150)
+    all3 = [[x + tw // 2, 150 + th // 2] for x in (60, 360, 660)]
+
+    for name, centers in (("all", all3), ("too_few", all3[:2]),
+                          ("wrong", all3[:2] + [[400, 40]])):
+        case_dir = profile_dir / "benchmark" / name
+        imwrite(case_dir / "screenshot.png", scene)
+        imwrite(case_dir / "template.png", tpl)
+        (case_dir / "expect.yaml").write_text(yaml.safe_dump(
+            {"expected": "present", "tolerance": 15, "centers": centers}),
+            encoding="utf-8")
+
+    by_name = {c.name: c for c in run_bench(profile_dir).cases}
+    assert by_name["all"].verdict == "correct"
+    assert by_name["too_few"].verdict == "false_alarm", "多出沒列的匹配"
+    assert by_name["wrong"].verdict == "miss", "列了卻沒匹配到"

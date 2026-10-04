@@ -5,8 +5,10 @@ config and the artifacts directory; the engine never scans a directory and
 holds no assumptions about the caller's storage layout (see `library.py`).
 
 Query pipeline: gradient-domain multiscale coarse matching produces ranked
-candidates; the best candidate above match_threshold is the answer, then the
-embedding verification stage decides.
+candidates; every candidate above match_threshold goes to the embedding
+verification stage, and every candidate that passes it is a **match**. A query
+reports all matches (zero or more); which one to use is the caller's business
+(ADR 0007).
 """
 from __future__ import annotations
 
@@ -22,11 +24,28 @@ from .registration import Artifacts, load_or_register
 
 
 @dataclass
+class Match:
+    """One place the subject was found."""
+    box: tuple[int, int, int, int]   # (x, y, w, h) in search-region coords
+    score: float                     # verification score (coarse when coarse-only)
+    color: float | None = None       # color-check score; None = not requested
+
+
+@dataclass
 class QueryResult:
+    """All matches of one query, best first.
+
+    found / box / score describe the best-scoring match. With no match,
+    score is the best score at the stage that rejected everything and
+    `failed` names that stage: "match" (coarse, match_threshold) or
+    "verify" (verify_threshold).
+    """
     found: bool
     box: tuple[int, int, int, int] | None  # (x, y, w, h) in search-region coords
     score: float
     debug: dict = field(default_factory=dict)
+    matches: list[Match] = field(default_factory=list)
+    failed: str | None = None
 
 
 class Engine:
@@ -84,11 +103,12 @@ class Engine:
         tpl_gray = art.ref_gray
 
         cfg = library.config
+        match_threshold = float(cfg["match_threshold"])
         candidates = find_candidates(
             scene_gray, tpl_gray,
             scale_range=tuple(cfg["scale_range"]),
             aspect_jitter=float(cfg["aspect_jitter"]),
-            mask=art.mask)
+            mask=art.mask, peak_threshold=match_threshold)
         debug = {
             "candidates": [{"box": c.box, "score": round(c.score, 4),
                             "scale": round(c.scale, 3),
@@ -97,19 +117,19 @@ class Engine:
         }
         if not candidates:
             debug["match_score"] = 0.0
-            return QueryResult(found=False, box=None, score=0.0, debug=debug)
+            return QueryResult(found=False, box=None, score=0.0, debug=debug,
+                               failed="match")
 
         debug["match_score"] = round(candidates[0].score, 4)
-        passing = [c for c in candidates
-                   if c.score >= float(cfg["match_threshold"])]
+        passing = [c for c in candidates if c.score >= match_threshold]
         if not passing:
             return QueryResult(found=False, box=None,
-                               score=candidates[0].score, debug=debug)
+                               score=candidates[0].score, debug=debug,
+                               failed="match")
 
         if self._verifier is None or art.embedding is None:
-            best = passing[0]
-            return QueryResult(found=True, box=best.box, score=best.score,
-                               debug=debug)
+            return self._result([Match(c.box, c.score) for c in passing],
+                                debug)
 
         # verification: embed every passing candidate crop (masked) in one
         # batch and compare with the registered subject embedding
@@ -129,11 +149,22 @@ class Engine:
                             round((x0 - x) / w * mw):round((x1 - x) / w * mw)]
             crops.append(masked_fill(search_region[y0:y1, x0:x1], mask))
         embs = self._verifier.embed(crops)
-        sims = embs @ art.embedding
-        order = int(np.argmax(sims))
-        best, verify_score = passing[order], float(sims[order])
-        debug["verify_scores"] = [round(float(s), 4) for s in sims]
-        debug["verify_score"] = round(verify_score, 4)
-        found = verify_score >= float(cfg["verify_threshold"])
-        return QueryResult(found=found, box=best.box if found else None,
-                           score=verify_score, debug=debug)
+        sims = [float(s) for s in embs @ art.embedding]
+        debug["verify_scores"] = [round(s, 4) for s in sims]
+        debug["verify_score"] = round(max(sims), 4)
+        verify_threshold = float(cfg["verify_threshold"])
+        verified = [Match(c.box, s) for c, s in zip(passing, sims)
+                    if s >= verify_threshold]
+        if not verified:
+            return QueryResult(found=False, box=None, score=max(sims),
+                               debug=debug, failed="verify")
+        return self._result(verified, debug)
+
+    @staticmethod
+    def _result(matches: list[Match], debug: dict) -> QueryResult:
+        matches = sorted(matches, key=lambda m: m.score, reverse=True)
+        debug["matches"] = [{"box": m.box, "score": round(m.score, 4)}
+                            for m in matches]
+        best = matches[0]
+        return QueryResult(found=True, box=best.box, score=best.score,
+                           debug=debug, matches=matches)

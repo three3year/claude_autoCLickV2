@@ -16,7 +16,9 @@ import numpy as np
 _SCALE_STEP = 1.09          # geometric step of the coarse scale grid
 _COARSE_MAX_DIM = 640       # scene is downscaled to about this for the sweep
 _MIN_TPL_PX = 8             # scaled template may not drop below this
-_TOP_K = 5                  # candidates handed to refinement / verification
+_TOP_K = 20                 # candidates handed to refinement / verification:
+                            # enough for a row of a dozen identical subjects
+_PEAKS_PER_SCALE = 64       # local peaks examined per scale (before NMS)
 _NMS_IOU = 0.3
 
 
@@ -112,11 +114,53 @@ def _scale_grid(lo: float, hi: float) -> list[float]:
     return scales
 
 
+def _local_peaks(res: np.ndarray, w: int, h: int,
+                 threshold: float | None) -> list[tuple[int, int, float]]:
+    """(x, y, score) of the result map's peaks at one scale.
+
+    The global maximum always counts (the single-instance behavior); with a
+    threshold, every other local maximum at or above it counts too, so
+    several identical subjects at the same scale all survive. Peaks closer
+    than half a template are one peak (same-scale NMS).
+    """
+    _, val, _, loc = cv2.minMaxLoc(res)
+    peaks = [(loc[0], loc[1], float(val))]
+    if threshold is None or val < threshold:
+        return peaks
+    k = cv2.getStructuringElement(cv2.MORPH_RECT,
+                                  (max(3, w // 2) | 1, max(3, h // 2) | 1))
+    ys, xs = np.nonzero((res >= cv2.dilate(res, k)) & (res >= threshold))
+    order = np.argsort(-res[ys, xs])[:_PEAKS_PER_SCALE]
+    for i in order:
+        x, y = int(xs[i]), int(ys[i])
+        if all(_iou((x, y, w, h), (px, py, w, h)) < _NMS_IOU
+               for px, py, _ in peaks):
+            peaks.append((x, y, float(res[y, x])))
+    return peaks
+
+
+def _nms(cands: list[Candidate], limit: int | None = None) -> list[Candidate]:
+    """Greedy non-maximum suppression by score (input order irrelevant)."""
+    kept: list[Candidate] = []
+    for c in sorted(cands, key=lambda c: c.score, reverse=True):
+        if all(_iou(c.box, k.box) < _NMS_IOU for k in kept):
+            kept.append(c)
+            if limit is not None and len(kept) >= limit:
+                break
+    return kept
+
+
 def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
                     scale_range: tuple[float, float], aspect_jitter: float,
                     mask: np.ndarray | None = None,
-                    top_k: int = _TOP_K) -> list[Candidate]:
-    """Sweep scales/aspect and return the best-scoring candidate boxes."""
+                    top_k: int = _TOP_K,
+                    peak_threshold: float | None = None) -> list[Candidate]:
+    """Sweep scales/aspect and return candidate boxes, best first.
+
+    Every scale contributes its best peak plus — given `peak_threshold` —
+    every other local peak at or above it, so repeated identical subjects
+    are all candidates. Refined candidates that converge on the same spot
+    are merged (NMS)."""
     sh, sw = scene_gray.shape
     th, tw = tpl_gray.shape
     lo, hi = float(scale_range[0]), float(scale_range[1])
@@ -143,27 +187,18 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
             continue
         tpl_s = _resize(tpl_gray, w, h)
         res = _match(scene_grad_small, gradient_map(tpl_s), None)
-        _, val, _, loc = cv2.minMaxLoc(res)
-        raw.append(Candidate(
-            box=(round(loc[0] / down), round(loc[1] / down),
-                 round(tw * s), round(th * s)),
-            score=float(val), scale=s, aspect=1.0))
+        for px, py, val in _local_peaks(res, w, h, peak_threshold):
+            raw.append(Candidate(
+                box=(round(px / down), round(py / down),
+                     round(tw * s), round(th * s)),
+                score=val, scale=s, aspect=1.0))
 
-    raw.sort(key=lambda c: c.score, reverse=True)
-    kept: list[Candidate] = []
-    for c in raw:
-        if all(_iou(c.box, k.box) < _NMS_IOU for k in kept):
-            kept.append(c)
-        if len(kept) >= top_k:
-            break
+    kept = _nms(raw, top_k)
 
     # --- refinement at full resolution -------------------------------------
-    refined: list[Candidate] = []
-    for c in kept:
-        refined.append(_refine(scene_grad_full, tpl_gray, mask, c,
-                               aspect_jitter))
-    refined.sort(key=lambda c: c.score, reverse=True)
-    return refined
+    refined = [_refine(scene_grad_full, tpl_gray, mask, c, aspect_jitter)
+               for c in kept]
+    return _nms(refined)
 
 
 def _refine(scene_grad: np.ndarray, tpl_gray: np.ndarray,
