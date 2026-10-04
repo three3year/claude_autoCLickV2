@@ -27,6 +27,15 @@ def _calibration_line(res):
     return f"**沒有**——這份流程不能執行；請{how}"
 
 
+def _busy_line(res):
+    """`忙碌指示`與`補做間隔`一行."""
+    b = res["busy"]
+    retry = f"補做間隔 {res['retry_interval_ms']}ms"
+    if b:
+        return f"「{b['template']}」{findtarget.tag_text(b)}（{retry}）"
+    return f"沒有（補做只看{retry}）"
+
+
 def render(res, plan):
     """把組裝結果與計畫寫的說明排成報告文字."""
     lines = [f"# 交付報告：{os.path.splitext(os.path.basename(res['flow_path']))[0]}", ""]
@@ -37,6 +46,7 @@ def render(res, plan):
         f"- 搜尋範圍：[{_fmt_region(res['region'])}]",
         "- 影片與實際畫面同尺度：影片像素＝螢幕像素，偏移與範本圖都不縮放",
         f"- 校準對：{_calibration_line(res)}",
+        f"- 忙碌指示：{_busy_line(res)}",
         f"- 步驟數：{res['steps']}",
         f"- 範本數：{res['templates']}",
     ]
@@ -99,6 +109,8 @@ _LABELS = {"find_click": "找圖點擊", "click": "座標點擊", "drag": "滑�
 _ACTION = {"click": "點擊", "none": "僅等待出現", "wait_gone": "等待消失"}
 _CONFIRM = {"none": "", "gone": "，點到目標圖消失", "next": "，點到下一步的圖出現",
             "appear": "，點到確認圖出現"}
+_POINTER_CONFIRM = {"gone": "，做到原點的圖離開", "next": "，做到下一步的圖出現",
+                    "appear": "，做到確認圖出現"}
 _NF = {"stop": "停止", "skip": "跳過", "break": "跳出區段"}
 
 
@@ -118,10 +130,17 @@ def _describe(s):
         if not s["updateOrigin"]:
             text += "；不更新原點"
         return text
-    if t == "click":
-        return f"相對原點 {s['x']:+d},{s['y']:+d}"
-    if t == "drag":
-        return f"相對原點 {s['x1']:+d},{s['y1']:+d} → {s['x2']:+d},{s['y2']:+d}"
+    if t in ("click", "drag"):
+        text = (f"相對原點 {s['x']:+d},{s['y']:+d}" if t == "click" else
+                f"相對原點 {s['x1']:+d},{s['y1']:+d} → {s['x2']:+d},{s['y2']:+d}")
+        mode = s.get("confirm", "none")
+        if mode != "none":
+            text += _POINTER_CONFIRM[mode]
+            if mode == "appear":
+                text += (f"「{findtarget.confirm_template(s)}」"
+                         f"{findtarget.tag_text(findtarget.confirm_target(s))}")
+            text += f"；逾時 {s['timeout']}s 確認不到時{_NF[s['onNotFound']]}"
+        return text
     if t == "wait":
         return f"{s['ms']} ms"
     if t == "key":

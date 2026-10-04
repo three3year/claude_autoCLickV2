@@ -20,7 +20,7 @@ import cv2
 
 import calibration
 import flowfile
-from automation import flowfmt
+from automation import findtarget, flowfmt
 from subject_detection.library import load_config
 
 from . import defaults
@@ -117,7 +117,8 @@ def assemble(plan, engine=None, report_path=None):
     # 範本層級的檢查先跑; 找圖步驟照它的找圖目標挑, 要知道那一步之前的原點,
     # 所以逐步驗證在原點推算時進行 (挑中的框＝原點推算用的框)
     checker = verify_mod.Checker(engine, crops, p["templates"], p["steps"],
-                                 frames, load_config(profile))
+                                 frames, load_config(profile),
+                                 extra_targets=[p["busy"]] if p["busy"] else [])
     steps = defaults.apply(origin_mod.derive(p["steps"], p["templates"],
                                              checker.locate))
     checked = checker.finish()
@@ -136,6 +137,13 @@ def assemble(plan, engine=None, report_path=None):
             flowfmt.COORD_SPACE: flowfmt.REGION}
     if cal:
         data[calibration.FLOW_KEY] = cal
+    if p["retry_interval_ms"] is not None:
+        data[flowfile.RETRY_KEY] = p["retry_interval_ms"]
+    if p["busy"]:
+        b = p["busy"]
+        data[flowfile.BUSY_KEY] = findtarget.make_target(
+            b["template"], limit=b.get("limit"), pick=b.get("pick"),
+            color=b.get("colorCheck", False))
     retake = {}
     for name, r in checked.items():
         if r["reasons"]:
@@ -161,6 +169,8 @@ def assemble(plan, engine=None, report_path=None):
         "calibration": data.get(calibration.FLOW_KEY),
         "calibration_frame": (p["calibration"] or {}).get("frame"),
         "calibration_problem": cal_problem,
+        "busy": flowfile.busy_target(data),
+        "retry_interval_ms": flowfile.retry_interval_ms(data),
         "steps": len(steps),
         "templates": len(used),
         "verification": "coarse" if engine.coarse_only else "full",

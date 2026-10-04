@@ -1385,7 +1385,7 @@ def edit_step(app, step):
         ttk.Entry(fr, textvariable=v["offsetY"], width=6).pack(side="left")
         add_note("預設點在找到圖片的中心；偏移可點在圖片周圍的相對位置")
 
-        # 點擊後確認生效: 對付「圖找到也點了, 但畫面轉場中吃不到點擊」(只有點擊時才有意義)
+        # `生效確認`: 對付「圖找到也點了, 但遊戲還不接受輸入」(只有點擊時才有意義)
         CFM_ZH = {"none": "不確認（點一次）",
                   "gone": "點到目標圖消失為止",
                   "appear": "點到確認圖出現為止",
@@ -1395,8 +1395,8 @@ def edit_step(app, step):
             value=CFM_ZH.get(step.get("confirm", "none"), CFM_ZH["none"]))
         v["confirmTemplate"] = tk.StringVar(value=findtarget.confirm_template(step))
 
-        # 「點擊後確認」整列自建 label 方便隨「不點擊」整列隱藏
-        cfm_mode_lbl = ttk.Label(body, text="點擊後確認", style="Muted.TLabel")
+        # 「生效確認」整列自建 label 方便隨「不點擊」整列隱藏
+        cfm_mode_lbl = ttk.Label(body, text="生效確認", style="Muted.TLabel")
         cfm_mode_lbl.grid(row=row_i[0], column=0, sticky="w", pady=5, padx=(0, 12))
         cfm_mode_fr = ttk.Frame(body, style="Panel.TFrame")
         cfm_mode_fr.grid(row=row_i[0], column=1, sticky="w", pady=5)
@@ -1452,7 +1452,7 @@ def edit_step(app, step):
                  "後面的相對座標步驟沿用更早的位置")
 
         def sync_click_opts(*_):
-            # 「不點擊」時整個「點擊後確認」都無意義 → 隱藏; 確認圖再依 appear 決定
+            # 「不點擊」時整個「生效確認」都無意義 → 隱藏; 確認圖再依 appear 決定
             is_click = ACT_KEY[v["action"].get()] == "click"
             for w in (cfm_mode_lbl, cfm_mode_fr, cfm_main_note):
                 w.grid() if is_click else w.grid_remove()

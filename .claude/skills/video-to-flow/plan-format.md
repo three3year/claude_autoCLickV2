@@ -13,6 +13,8 @@
 | `templates` | ✓ | `{範本名: 範本}` |
 | `steps` | ✓ | 步驟清單 |
 | `calibration` |  | `{"pair": [範本名, 範本名], "frame": N}`：`校準對`（兩張都要在 `templates` 裡）與量`基準距離`的幀（預設＝第一張的取材幀）。沒寫＝流程不能執行 |
+| `retryIntervalMs` |  | `補做間隔`（毫秒，預設 1000）：生效確認沒過時，距上次輸入至少隔這麼久才重送 |
+| `busyTarget` |  | `忙碌指示`：`{"template": 範本名, "colorCheck": bool, "limit": {"kind": "grid", "cells": [...]}}`（只能九宮格）。補做前畫面上有它就先不送 |
 | `report` |  | `{branches, unexplained, keys, notes}`，各為字串清單，原樣寫進交付報告 |
 | `reportPath` |  | 報告位置（預設與存檔同名並排在 `flows/`） |
 
@@ -35,9 +37,9 @@
 
 | `type` | 位置欄位 | 其他可寫欄位（未寫＝預設） |
 |---|---|---|
-| `find_click` | `template`（必填）、`frame`（照找圖目標在這一幀挑範本；預設＝範本取材幀）、`at`（點擊位置；預設＝挑中的中心） | `colorCheck`、`pick`、`limit`（見下節）、`action` click/none/wait_gone、`confirm` none/gone/appear/next、`confirmTemplate` 或 `confirmTarget`（appear 才寫）、`onNotFound` skip/break/stop、`timeout`、`interval`、`button`、`clicks`、`updateOrigin` |
-| `click` | `at`（必填） | `button`、`clicks`、`updateOrigin` |
-| `drag` | `from`、`to`（必填） | `button`、`ms`、`holdMs` |
+| `find_click` | `template`（必填）、`frame`（照找圖目標在這一幀挑範本；預設＝範本取材幀）、`at`（點擊位置；預設＝挑中的中心） | `colorCheck`、`pick`、`limit`（見下節）、`action` click/none/wait_gone、`confirm` none/gone/appear/next、`confirmTemplate` 或 `confirmTarget`（appear 才寫）、`onNotFound` skip/break/stop、`timeout`、`interval`、`button`、`clicks`、`updateOrigin`、`appearLimitMs`（wait_gone 才寫：`出現等候上限`毫秒，上限內沒看到＝通過） |
+| `click` | `at`（必填） | `button`、`clicks`、`updateOrigin`、`生效確認`（見下） |
+| `drag` | `from`、`to`（必填） | `button`、`ms`、`holdMs`、`生效確認`（見下） |
 | `key` | — | `keys`（必填，例如 `"esc"`、`"ctrl+a"`） |
 | `wait` | — | `ms` |
 | `loop_start` | — | `count`（必填） |
@@ -64,6 +66,10 @@
 - `rect`／`at` 一律寫**影片像素的畫面位置**，跟 `at` 一樣；相對值由組裝依原點規則推算。
   找圖步驟用**這一步之前**的原點，確認圖用**點擊後**的原點。以原點為基準、這一步之前卻
   沒有原點 → 組裝報錯（同相對座標點擊）。
+- 座標點擊／拖曳的`生效確認`：`confirm` gone（`原點的圖離開`：產生原點的那個找圖目標離開
+  原位＝生效，原點要來自找圖）／appear（`confirmTemplate`/`confirmTarget`）／next（下一步要是
+  找圖），另可寫 `timeout`、`interval`、`onNotFound`（預設停止）；沒寫 `confirm` 就不要寫這三個。
+  拖曳的原點來自找圖、又沒寫 `confirm` 時，組裝補 `gone`。
 - 確認圖要設屬性時寫 `"confirmTarget": {"template": "確定", "colorCheck": true, ...}`；
   只有範本時 `confirmTemplate` 是它的簡寫，兩者擇一。
 - 驗證照同一套找圖目標邏輯：步驟的 `frame` 上**挑中**的那個要在 `at` 附近（沒寫 `at` 而

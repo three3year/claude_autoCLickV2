@@ -19,6 +19,8 @@
         {"type": "loop_start", "count": 5}, ..., {"type": "loop_end"}
       ],
       "calibration": {"pair": ["標題列圖示", "關閉鈕"], "frame": 120},
+      "retryIntervalMs": 1000,
+      "busyTarget": {"template": "提交中", "limit": {"kind": "grid", "cells": [8]}},
       "report": {"branches": ["…"], "unexplained": ["…"], "keys": ["…"]}
     }
 
@@ -38,6 +40,11 @@ at: [x, y]})、`limit` (限定範圍: {kind: origin, rect: [x, y, w, h]} 或
 圖示＋關閉鈕) 與量基準距離的那一幀 (預設＝第一張的取材幀)。影片尺度就是流程
 尺度 (ADR 0009): 組裝在那一幀上量兩張的中心距離當`基準距離`。沒寫＝產出的
 流程沒有校準對, 不能執行 (交付報告會寫明)。
+
+`生效確認` (ADR 0008): 座標點擊與拖曳也可寫 confirm (gone＝`原點的圖離開`、
+appear、next) 與 confirmTemplate/confirmTarget、timeout、interval、onNotFound;
+流程層級的`補做間隔` (retryIntervalMs) 與`忙碌指示` (busyTarget: 範本＋比色＋
+九宮格限定範圍); 等待消失的`出現等候上限` (appearLimitMs)。
 """
 from __future__ import annotations
 
@@ -45,7 +52,8 @@ import json
 import os
 
 import flowfile
-from automation.runner import confirm_next_connected, uses_confirm_next
+from automation.runner import (POINTER_TYPES, confirm_next_connected,
+                               origin_source, uses_confirm_next)
 
 from . import origin
 from .errors import ToolError
@@ -60,9 +68,13 @@ STEP_FIELDS = {
     "find_click": {"template", "frame", "at", "action", "button", "clicks",
                    "timeout", "interval", "onNotFound", "confirm",
                    "confirmTemplate", "confirmTarget", "updateOrigin",
-                   "colorCheck", "pick", "limit"},
-    "click": {"at", "frame", "button", "clicks", "updateOrigin"},
-    "drag": {"from", "to", "frame", "button", "ms", "holdMs"},
+                   "colorCheck", "pick", "limit", "appearLimitMs"},
+    "click": {"at", "frame", "button", "clicks", "updateOrigin", "confirm",
+              "confirmTemplate", "confirmTarget", "timeout", "interval",
+              "onNotFound"},
+    "drag": {"from", "to", "frame", "button", "ms", "holdMs", "confirm",
+             "confirmTemplate", "confirmTarget", "timeout", "interval",
+             "onNotFound"},
     "wait": {"ms"},
     "key": {"keys"},
     "loop_start": {"count"},
@@ -80,7 +92,8 @@ ENUMS = {
     "onBreak": ("continue", "break"),
 }
 
-_NUMBERS = {"clicks", "timeout", "interval", "ms", "holdMs", "count", "frame"}
+_NUMBERS = {"clicks", "timeout", "interval", "ms", "holdMs", "count", "frame",
+            "appearLimitMs"}
 
 TEMPLATE_FIELDS = {"frame", "box", "present", "absent", "clean"}
 
@@ -178,7 +191,7 @@ def load(plan):
         raise ToolError("轉換計畫的最外層要是 JSON 物件")
 
     known = {"video", "profile", "name", "templates", "steps", "report",
-             "reportPath", "calibration"}
+             "reportPath", "calibration", "retryIntervalMs", "busyTarget"}
     extra = sorted(set(plan) - known)
     if extra:
         _err("最外層", f"不認得的欄位 {', '.join(extra)}")
@@ -202,6 +215,8 @@ def load(plan):
     }
     out["steps"] = _steps(plan.get("steps"), out["templates"])
     out["calibration"] = _calibration(plan.get("calibration"), out["templates"])
+    out["retry_interval_ms"] = _retry_interval(plan.get("retryIntervalMs"))
+    out["busy"] = _busy(plan.get("busyTarget"), out["templates"])
     origin.derive(out["steps"], out["templates"], None)  # 相對座標前要有原點
     return out
 
@@ -265,6 +280,34 @@ def _calibration(raw, templates):
     frame = (_frame(where + " frame", raw["frame"]) if "frame" in raw
              else templates[pair[0]]["frame"])
     return {"pair": list(pair), "frame": frame}
+
+
+def _retry_interval(raw):
+    """`補做間隔` (毫秒); 沒寫回傳 None (存檔不寫＝預設 1000)."""
+    if raw is None:
+        return None
+    if not isinstance(raw, int) or isinstance(raw, bool) or raw < 0:
+        _err("retryIntervalMs", f"要是非負整數（毫秒），收到 {raw!r}")
+    return raw
+
+
+def _busy(raw, templates):
+    """`忙碌指示`: {template, colorCheck, limit (九宮格)}; 沒寫回傳 None.
+
+    忙碌指示在補做前查, 沒有可依靠的原點——限定範圍只能是九宮格。
+    """
+    if raw is None:
+        return None
+    where = "busyTarget"
+    if not isinstance(raw, dict) or set(raw) - {"template", "colorCheck", "limit"}:
+        _err(where, f"要是 {{template, colorCheck, limit}} 物件，收到 {raw!r}")
+    if raw.get("template") not in templates:
+        _err(where, f"忙碌指示的範本「{raw.get('template')}」不在計畫的範本清單裡")
+    d = dict(raw)
+    _target_attrs(where, d)
+    if (d.get("limit") or {}).get("kind") == "origin":
+        _err(where, "忙碌指示的限定範圍只能用九宮格（grid），沒有原點可依靠")
+    return d
 
 
 def _report(raw):
@@ -337,8 +380,10 @@ def _steps(raw, templates):
                 s.pop("confirmTemplate", None)
             if s.get("action", "click") != "click" and (
                     s.get("confirm", "none") != "none" or s.get("confirmTarget")):
-                _err(where, "點擊後確認 (confirm/confirmTemplate/confirmTarget) 只有"
+                _err(where, "生效確認 (confirm/confirmTemplate/confirmTarget) 只有"
                      "動作為點擊的找圖才有意義，不點擊的找圖不要寫")
+            if "appearLimitMs" in s and s.get("action") != "wait_gone":
+                _err(where, "appearLimitMs（出現等候上限）只有等待消失的找圖才有意義")
             if s.get("confirm") == "appear":
                 cname = (s.get("confirmTarget") or {}).get("template")
                 if cname not in templates:
@@ -346,7 +391,9 @@ def _steps(raw, templates):
             elif s.get("confirmTarget"):
                 _err(where, "只有 confirm 為 appear 時才能指定確認圖"
                      "（confirmTemplate/confirmTarget）")
-        elif t == "click":
+        if t in POINTER_TYPES:
+            _pointer_confirm(where, s, templates)
+        if t == "click":
             if "at" not in s:
                 _err(where, "座標點擊要寫 at（影片像素的點擊位置）")
             s["at"] = _xy(where + " at", s["at"])
@@ -365,9 +412,42 @@ def _steps(raw, templates):
     _check_sections(out)
     for i, s in enumerate(out):
         if uses_confirm_next(s) and not confirm_next_connected(out, i):
-            _err(f"步驟 {i + 1}", "「點到下一步的圖出現」(confirm: next) 需要「找圖相連」："
+            _err(f"步驟 {i + 1}", "「下一步的圖出現」(confirm: next) 需要「找圖相連」："
                  "下一步必須緊接著是找圖步驟（不能是最後一步或區段標記）")
+        if (s["type"] in POINTER_TYPES and s.get("confirm") == "gone"
+                and origin_source(out, i) != "find"):
+            _err(f"步驟 {i + 1}", "「原點的圖離開」(confirm: gone) 需要原點來自找圖："
+                 "前面最近一個更新原點的步驟要是找圖")
     return out
+
+
+def _pointer_confirm(where, s, templates):
+    """座標點擊/拖曳的`生效確認`欄位 (就地正規化確認圖簡寫)."""
+    if "confirmTarget" in s:
+        if "confirmTemplate" in s:
+            _err(where, "confirmTemplate 與 confirmTarget 只能擇一")
+        ct = s["confirmTarget"]
+        if not isinstance(ct, dict) or set(ct) - (_TARGET_ATTRS | {"template"}):
+            _err(where, "confirmTarget 要是 {template, colorCheck, pick, limit}"
+                 f" 物件，收到 {ct!r}")
+        ct = dict(ct)
+        _target_attrs(where + " confirmTarget", ct)
+        s["confirmTarget"] = ct
+    elif s.get("confirmTemplate"):
+        s["confirmTarget"] = {"template": s.pop("confirmTemplate")}
+    else:
+        s.pop("confirmTemplate", None)
+    mode = s.get("confirm", "none")
+    if mode == "appear":
+        cname = (s.get("confirmTarget") or {}).get("template")
+        if cname not in templates:
+            _err(where, f"確認圖「{cname}」不在計畫的範本清單裡")
+    elif s.get("confirmTarget"):
+        _err(where, "只有 confirm 為 appear 時才能指定確認圖"
+             "（confirmTemplate/confirmTarget）")
+    if mode == "none" and set(s) & {"timeout", "interval", "onNotFound"}:
+        _err(where, "timeout/interval/onNotFound 是生效確認的設定，"
+             "沒寫 confirm 的座標點擊/拖曳不要寫")
 
 
 def _check_sections(steps):

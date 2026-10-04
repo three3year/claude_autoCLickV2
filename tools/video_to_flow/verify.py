@@ -63,13 +63,15 @@ def step_frame(step, templates):
     return step.get("frame", templates[step["template"]]["frame"])
 
 
-def _color_modes(name, steps):
-    """引用這張範本的找圖目標用到的`比色`設定 (沒人引用＝只查不比色)."""
-    modes = set()
+def _color_modes(name, steps, extra=()):
+    """引用這張範本的找圖目標用到的`比色`設定 (沒人引用＝只查不比色).
+
+    extra: 流程層級的找圖目標 (忙碌指示)。
+    """
+    modes = {bool(t.get("colorCheck")) for t in extra
+             if t.get("template") == name}
     for s in steps:
-        if s["type"] != "find_click":
-            continue
-        if s["template"] == name:
+        if s["type"] == "find_click" and s["template"] == name:
             modes.add(bool(s.get("colorCheck")))
         cfm = s.get("confirmTarget")
         if cfm and cfm.get("template") == name:
@@ -96,7 +98,8 @@ class Checker:
     為空＝通過。boxes 是各檢查幀實際用到的框 (影片像素; 步驟幀＝挑中的那個)。
     """
 
-    def __init__(self, engine, crops, templates, steps, frames, config):
+    def __init__(self, engine, crops, templates, steps, frames, config,
+                 extra_targets=()):
         from subject_detection import make_library
 
         self.engine, self.templates, self.frames = engine, templates, frames
@@ -124,7 +127,7 @@ class Checker:
         self._cache = {}
         for name, t in templates.items():
             if name in self._registered:
-                for color in _color_modes(name, steps):
+                for color in _color_modes(name, steps, extra_targets):
                     self._check_template(name, t, color)
             if not t["clean"]:
                 self.results[name]["reasons"].append("找不到乾淨影格（計畫標示）")

@@ -68,6 +68,14 @@ def _target(no, name, attrs, origin, why, what):
                                   color=attrs.get("colorCheck", False))
 
 
+def _pointer_confirm_target(no, s, origin, why):
+    """座標點擊/拖曳的確認圖: 以操作後的原點換成相對值 (同找圖的確認圖)."""
+    cfm = s.pop("confirmTarget", None)
+    if cfm:
+        s["confirmTarget"] = _target(no, cfm["template"], cfm, origin, why,
+                                     "確認圖")
+
+
 _IN_LOOP = "（位於重複區段內：第二輪起原點會變成上一輪的結尾，原點必須來自區段內）"
 _AFTER_BRANCH = "（分岔結束後走了哪一支不確定，原點必須在分岔之後重新取得）"
 
@@ -126,6 +134,7 @@ def derive(steps, templates, located):
             s.update(mode="prev", x=at[0] - origin[0], y=at[1] - origin[1])
             if s.get("updateOrigin", True):
                 origin = tuple(at)
+            _pointer_confirm_target(no, s, origin, why)
         elif t == "drag":
             a, b = s.pop("from"), s.pop("to")
             if origin is None:
@@ -133,6 +142,7 @@ def derive(steps, templates, located):
             s.update(mode="prev", x1=a[0] - origin[0], y1=a[1] - origin[1],
                      x2=b[0] - origin[0], y2=b[1] - origin[1])
             origin = tuple(b)
+            _pointer_confirm_target(no, s, origin, why)
         s.pop("frame", None)
         out.append(s)
     return out
