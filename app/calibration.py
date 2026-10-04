@@ -21,7 +21,7 @@ import json
 import math
 import os
 
-from automation import flowfmt
+from automation import findtarget, flowfmt
 
 FILE_NAME = "calibration.json"
 
@@ -155,7 +155,8 @@ def measure(query, screen, pair):
 
 
 def scale_steps(steps, k):
-    """就地把步驟偏移 ×k 四捨五入: 找圖偏移、座標點擊/拖曳 (abs 與 prev).
+    """就地把步驟偏移 ×k 四捨五入: 找圖偏移、座標點擊/拖曳 (abs 與 prev)、
+    `找圖目標`的像素設定 (含確認圖).
 
     `重定基準`與匯入換算共用; 標記/等待/按鍵步驟沒有偏移欄位, 自然不動。
     """
@@ -163,6 +164,8 @@ def scale_steps(steps, k):
         for key in _SCALE_KEYS.get(s.get("type"), ()):
             if key in s:
                 s[key] = flowfmt.scale_px(s[key], k)
+        for _, tgt in findtarget.step_targets(s):
+            findtarget.scale_target(tgt, k)
 
 
 def source_baseline(data):

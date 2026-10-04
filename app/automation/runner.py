@@ -2,9 +2,11 @@
 
 找圖相關步驟 (find_click / wait_gone / confirm / branch) 的辨識走建構時注入
 的偵測器 (detector): `query(範本名, 搜尋區域影像) → QueryResult`——與主體
-偵測引擎的 `Engine.query` 同形狀 (found / box / score; box 為搜尋區域內
-座標), 範本不存在時丟 KeyError。門檻由引擎的 profile config 決定,
-步驟層級沒有 threshold (見 ADR 0002)。
+偵測引擎的 `Engine.query` 同形狀 (matches: 所有匹配, 框為搜尋區域內座標),
+範本不存在時丟 KeyError。門檻由引擎的 profile config 決定, 步驟層級沒有
+threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分支條件) 都是
+執行一個`找圖目標` (automation/findtarget.py): 多個匹配時由挑選規則決定
+點哪一個, 「消失」只看先前挑中的那個位置 (ADR 0007)。
 """
 import threading
 import time
@@ -447,21 +449,23 @@ class Runner:
         win.move(x, y)
         self._sleep(0.08)  # 等 hover 反白消退與重繪
 
-    def _query(self, no, name, screen, kind="範本"):
-        """經偵測接縫查詢一次; 範本不存在 (KeyError) 轉成可讀的執行錯誤."""
-        try:
-            return self.detector.query(name, screen)
-        except KeyError:
-            raise RuntimeError(f"[{no}] 找不到{kind}圖片: {name}") from None
+    def _grab(self, region):
+        """找圖用的截圖 (需要時先把游標移開); 回傳 (影像, 左上角螢幕座標)."""
+        if self.avoid_hover:
+            self._avoid_cursor(region)
+        return capture.grab(region)
 
-    @staticmethod
-    def _box_center(result):
-        """QueryResult.box (搜尋區域內座標) 的中心點."""
-        x, y, w, h = result.box
-        return x + w // 2, y + h // 2
+    def _find(self, no, tgt, screen, org, origin, kind="範本"):
+        """執行一個`找圖目標` (經偵測接縫); 範本不存在轉成可讀的執行錯誤."""
+        try:
+            return findtarget.find(tgt, self.detector, screen, org,
+                                   origin=origin, scale=self.scale)
+        except KeyError:
+            raise RuntimeError(
+                f"[{no}] 找不到{kind}圖片: {tgt.get('template', '')}") from None
 
     def _exec_branch(self, idx, steps):
-        """分岔: 輪詢各分支開頭找圖步驟的條件圖, 先找到誰就走誰.
+        """分岔: 輪詢各分支開頭找圖步驟的找圖目標, 先挑到誰就走誰.
 
         回傳下一個要執行的步驟索引 (選中分支的開頭, 或分岔結束之後).
         """
@@ -480,18 +484,22 @@ class Runner:
         timeout = max(float(c.get("timeout", 10)) for c in conds)
         interval = min(float(c.get("interval", 0.5)) for c in conds)
         region = getattr(self, "scan_region", None)
-        names = " | ".join(findtarget.template(c) or "?" for c in conds)
+        tgts = [findtarget.target(c) for c in conds]
+        names = " | ".join(t.get("template") or "?" for t in tgts)
         self.log(f"[{idx + 1}] 分岔: 等待任一張圖出現（{names}）")
+        origin = self._last_click
+        for k, t in enumerate(tgts):
+            if origin is None and findtarget.needs_origin(t):
+                self.log(f"[{segs[k] + 1}] 分支條件以原點為基準: 尚無原點 → "
+                         "這個分支不成立", "warn")
         deadline = time.monotonic() + timeout
         while True:
             self._check_stop()
-            if self.avoid_hover:
-                self._avoid_cursor(region)
-            screen, _ = capture.grab(region)
-            for k, c in enumerate(conds):
-                r = self._query(idx + 1, findtarget.template(c), screen)
-                if r.found:
-                    self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{findtarget.template(c)}）", "ok")
+            screen, org = self._grab(region)
+            for k, t in enumerate(tgts):
+                f = self._find(segs[k] + 1, t, screen, org, origin)
+                if f.picked is not None:
+                    self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{f.template}）", "ok")
                     return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
             if time.monotonic() >= deadline:
                 break
@@ -518,7 +526,8 @@ class Runner:
     def _exec_find(self, steps, idx):
         step = steps[idx]
         no = idx + 1
-        name = findtarget.template(step)
+        tgt = findtarget.target(step)
+        name = tgt.get("template", "")
         timeout = float(step.get("timeout", 10))
         interval = float(step.get("interval", 0.5))
         region = getattr(self, "scan_region", None)  # 全域搜尋範圍 [x,y,w,h] 或 None
@@ -528,32 +537,39 @@ class Runner:
         off = (self._sc(step.get("offsetX", 0)), self._sc(step.get("offsetY", 0)))
         button = step.get("button", "left")
         clicks = int(step.get("clicks", 1))
+        # 這一步判定所依據的原點 (本步驟執行前的): 點擊/補點更新原點後, 本步
+        # 自己的找圖目標仍以它為準
+        origin = self._last_click
+        if origin is None and findtarget.needs_origin(tgt):
+            # 與`相對座標`同處理: 無法執行 → 跳過 (不走找不到時)
+            self.log(f"[{no}] 找圖目標以原點為基準: 尚無原點 → 跳過", "warn")
+            return None
 
         # ---- 等待消失: 必須先看到圖至少一次, 之後消失才算通過 ----
         # (從未出現不能判定成功: 可能畫面根本沒進到預期狀態)
+        # 「消失」＝先前挑中的那個位置不再有匹配; 別處的同款圖不影響
         if action == "wait_gone":
             deadline = time.monotonic() + timeout
-            seen = False
+            tracked = None
             while True:
                 self._check_stop()
-                if self.avoid_hover:
-                    self._avoid_cursor(region)
-                screen, org = capture.grab(region)
-                r = self._query(no, name, screen)
-                if r.found:
-                    seen = True
+                screen, org = self._grab(region)
+                f = self._find(no, tgt, screen, org, origin)
+                hit = (f.picked if tracked is None
+                       else findtarget.still_there(tracked, f.matches))
+                if hit is not None:
+                    tracked = hit.box
                     if step.get("updateOrigin", True):
                         # 記錄最後看到的位置 (不點擊也算相對座標原點)
-                        cx, cy = self._box_center(r)
-                        self._last_click = (org[0] + cx + off[0],
-                                            org[1] + cy + off[1])
-                elif seen:
+                        cx, cy = hit.center
+                        self._last_click = (cx + off[0], cy + off[1])
+                elif tracked is not None:
                     self.log(f"[{no}] 「{name}」已消失", "ok")
-                    return
+                    return None
                 if time.monotonic() >= deadline:
                     break
                 self._sleep(interval)
-            if seen:
+            if tracked is not None:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」仍未消失"
             else:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」從未出現"
@@ -562,34 +578,35 @@ class Runner:
         # ---- 找圖階段 (等待出現) ----
         deadline = time.monotonic() + timeout
         best = 0.0
-        pos = score = None
         while True:
             self._check_stop()
-            if self.avoid_hover:
-                self._avoid_cursor(region)
-            screen, origin = capture.grab(region)
-            r = self._query(no, name, screen)
-            best = max(best, r.score)
-            if r.found:
-                cx, cy = self._box_center(r)
-                pos = (origin[0] + cx + off[0], origin[1] + cy + off[1])
-                score = r.score
+            screen, org = self._grab(region)
+            f = self._find(no, tgt, screen, org, origin)
+            if f.query is not None:
+                best = max(best, f.query.score)
+            if f.picked is not None:
                 break
             if time.monotonic() >= deadline:
                 break
             self._sleep(interval)
 
-        if pos is None:
+        hit = f.picked
+        if hit is None:
             msg = f"[{no}] 逾時 {timeout}s 未找到「{name}」(最高相似度 {best:.3f})"
+            if f.reason == "count":
+                msg += f"（找到 {len(f.matches)} 個，挑選規則挑不到）"
             return self._on_not_found(no, msg, on_nf)
 
-        sx, sy = pos
+        cx, cy = hit.center
+        sx, sy = cx + off[0], cy + off[1]
+        many = f"，共 {len(f.matches)} 個匹配" if len(f.matches) > 1 else ""
         if not do_click:
             if step.get("updateOrigin", True):
                 # 不點擊也記錄找到的位置 (含偏移), 供相對座標步驟當原點
                 self._last_click = (sx, sy)
-            self.log(f"[{no}] 找到「{name}」(相似度 {score:.3f}) 位置 ({sx}, {sy})", "ok")
-            return
+            self.log(f"[{no}] 找到「{name}」(相似度 {hit.score:.3f}{many}) "
+                     f"位置 ({sx}, {sy})", "ok")
+            return None
 
         win.click(sx, sy, button, clicks)
         if step.get("updateOrigin", True):
@@ -601,60 +618,74 @@ class Runner:
                      "→ 以「不確認」執行（點一次就走）", "warn")
             confirm = "none"
         if confirm == "none":
-            self.log(f"[{no}] 找到「{name}」(相似度 {score:.3f}) → 點擊 ({sx}, {sy})", "ok")
-            return
+            self.log(f"[{no}] 找到「{name}」(相似度 {hit.score:.3f}{many}) → "
+                     f"點擊 ({sx}, {sy})", "ok")
+            return None
         # ---- 點擊後確認生效階段 ----
-        return self._confirm_click(steps, idx, confirm, name, region,
-                                   off, button, clicks, timeout, interval, on_nf)
+        return self._confirm_click(steps, idx, confirm, tgt, origin, hit.box,
+                                   region, off, button, clicks, timeout,
+                                   interval, on_nf)
 
-    def _confirm_click(self, steps, idx, mode, name, region,
+    def _confirm_click(self, steps, idx, mode, tgt, origin, box, region,
                        off, button, clicks, timeout, interval, on_nf):
         """點擊後重試直到「確認生效」: 目標圖消失(gone)、確認圖出現(appear)
         或下一步的圖出現(next)。
 
-        沒生效 (目標圖還在) 就再點一次; 逾時仍未生效 → 依 onNotFound 處置。
-        專治「圖找到也點了, 但畫面還在轉場/載入而吃不到點擊」的失效。
-        next 的確認對象依執行清單位置現算 (下一步的範本圖, 不記名)。
+        「目標圖消失」只看被點的那個位置 (box) 還有沒有匹配——畫面別處的同款
+        圖不算; 沒生效 (那個位置還在) 就再點它一次; 逾時仍未生效 → 依
+        onNotFound 處置。專治「圖找到也點了, 但畫面還在轉場/載入而吃不到點擊」
+        的失效。確認圖與下一步各照自己的`找圖目標`判定, 原點用點擊後的;
+        next 的確認對象依執行清單位置現算 (下一步的找圖目標, 不記名)。
+        origin: 本步驟判定所依據的原點 (點擊前), 重查本步的找圖目標時沿用。
         """
         step = steps[idx]
         no = idx + 1
+        name = tgt.get("template", "")
         # 各模式的措辭一次算齊 (等待中/已生效/逾時); 不用字串替換組完成語,
         # 範本名本身含「出現」等字時會被改壞
         fail = f"[{no}] 點擊「{name}」後 {timeout}s 內未確認生效"
+        ctgt = None
         if mode == "next":
-            cname = findtarget.template(steps[idx + 1])
+            ctgt = findtarget.target(steps[idx + 1])
+            cname = ctgt.get("template", "")
             label = f"下一步的圖「{cname}」出現"
             done = f"下一步的圖「{cname}」已出現"
             kind = "下一步的"
             fail = f"[{no}] 點擊「{name}」後 {timeout}s 內未見下一步的圖「{cname}」"
         elif mode == "gone":
-            cname, kind = "", "範本"
+            kind = "範本"
             label, done = f"「{name}」消失", f"「{name}」已消失"
         else:  # appear
-            cname = findtarget.confirm_template(step)
+            ctgt = findtarget.confirm_target(step)
+            cname = ctgt.get("template", "")
             kind = "確認"
             label, done = f"確認圖「{cname}」出現", f"確認圖「{cname}」已出現"
+        if (ctgt is not None and self._last_click is None
+                and findtarget.needs_origin(ctgt)):
+            self.log(f"[{no}] {label}的判定以原點為基準: 尚無原點 → "
+                     "以「不確認」執行（點一次就走）", "warn")
+            return None
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")
         deadline = time.monotonic() + timeout
         while True:
             self._sleep(interval)  # 先給應用程式反應時間
             self._check_stop()
-            if self.avoid_hover:
-                self._avoid_cursor(region)
-            screen, origin = capture.grab(region)
-            rt = self._query(no, name, screen)
+            screen, org = self._grab(region)
+            still = findtarget.still_there(
+                box, self._find(no, tgt, screen, org, origin).matches)
             if mode == "gone":
-                if not rt.found:
+                if still is None:
                     self.log(f"[{no}] 點擊已生效（{done}）", "ok")
-                    return
-            elif self._query(no, cname, screen, kind=kind).found:  # appear / next
+                    return None
+            elif self._find(no, ctgt, screen, org, self._last_click,
+                            kind=kind).picked is not None:  # appear / next
                 self.log(f"[{no}] 點擊已生效（{done}）", "ok")
-                return
-            # 尚未生效 → 目標圖還在就補點一次 (位置以最新一次查詢為準)
-            if rt.found:
-                cx, cy = self._box_center(rt)
-                sx = origin[0] + cx + off[0]
-                sy = origin[1] + cy + off[1]
+                return None
+            # 尚未生效 → 被點的位置還有匹配就補點它 (位置以最新一次查詢為準)
+            if still is not None:
+                box = still.box
+                cx, cy = still.center
+                sx, sy = cx + off[0], cy + off[1]
                 win.click(sx, sy, button, clicks)
                 if step.get("updateOrigin", True):
                     self._last_click = (sx, sy)

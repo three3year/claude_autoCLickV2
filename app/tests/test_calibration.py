@@ -156,6 +156,42 @@ def test_改寫涵蓋三類偏移含拖曳兩端點():
     assert steps[6] == {"type": "key", "keys": "enter"}
 
 
+def test_改寫涵蓋找圖目標的指定點_含確認圖():
+    near = {"kind": "near", "base": "origin", "x": 40, "y": -10}
+    region_near = {"kind": "near", "base": "region", "x": 300, "y": 200}
+    steps = [{"type": "find_click", "offsetX": 0, "offsetY": 0,
+              "target": {"template": "a", "pick": dict(near)},
+              "confirm": "appear",
+              "confirmTarget": {"template": "b", "pick": dict(region_near)}},
+             {"type": "find_click",
+              "target": {"template": "c", "pick": {"kind": "top", "n": 3}}}]
+    calibration.scale_steps(steps, 1.5)
+    assert steps[0]["target"]["pick"] == dict(near, x=60, y=-15)
+    assert steps[0]["confirmTarget"]["pick"] == dict(region_near, x=450, y=300)
+    assert steps[1]["target"]["pick"] == {"kind": "top", "n": 3}, "N 不是像素"
+
+
+def test_匯入換算同樣換算指定點(tmp_path):
+    """同一對校準圖、基準距離不同 → 流程座標 ×比值, 指定點一起換算."""
+    import flowfile
+    other = tmp_path / "other"
+    (other / "flows").mkdir(parents=True)
+    src = str(other / "flows" / ("f" + flowfile.EXT))
+    steps = [{"type": "find_click", "target": {
+        "template": "a", "pick": {"kind": "near", "base": "region",
+                                  "x": 100, "y": 50}}}]
+    flowfile.write(src, {"steps": steps, "coordSpace": "region"}, {"a": b"A"},
+                   cal={"pair": ["p", "q"], "baseline": 100.0},
+                   cal_images={"p": b"P", "q": b"Q"})
+    target = tmp_path / "target"
+    (target / "flows").mkdir(parents=True)
+    calibration.save(str(target), {"pair": ["p", "q"], "baseline": 200.0,
+                                   "scale": 1.0, "fingerprint": None})
+    r = flowfile.adopt_foreign_flow(src, str(target))
+    pick = r["data"]["steps"][0]["target"]["pick"]
+    assert (pick["x"], pick["y"]) == (200, 100)
+
+
 def test_倍率1改寫等於不動():
     steps = [{"type": "click", "x": 30, "y": 40},
              {"type": "find_click", "target": {"template": "a"}, "offsetX": 7,

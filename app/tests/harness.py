@@ -23,7 +23,7 @@ import threading
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from subject_detection.engine import QueryResult  # noqa: E402
+from subject_detection.engine import Match, QueryResult  # noqa: E402
 
 import enginehub  # noqa: E402
 from automation import runner as runner_mod  # noqa: E402
@@ -101,10 +101,27 @@ class Clock:
 
 
 class Screen:
-    """假畫面: 只帶著這次擷取的原點, 供假的偵測器換算絕對座標."""
+    """假畫面: 只帶著這次擷取的原點與大小, 供假的偵測器換算絕對座標.
 
-    def __init__(self, origin):
+    支援影像式的裁切 `screen[y0:y1, x0:x1]` (裁出的子畫面原點跟著位移),
+    找圖目標的`限定範圍`就是這樣裁圖再查詢。
+    """
+
+    def __init__(self, origin, size=(1920, 1080)):
         self.origin = origin
+        self.size = size   # (w, h)
+
+    @property
+    def shape(self):
+        return (self.size[1], self.size[0], 3)
+
+    def __getitem__(self, key):
+        ys, xs = key[0], key[1]
+        w, h = self.size
+        x0, x1, _ = xs.indices(w)
+        y0, y1, _ = ys.indices(h)
+        return Screen((self.origin[0] + x0, self.origin[1] + y0),
+                      (max(0, x1 - x0), max(0, y1 - y0)))
 
 
 class Vision:
@@ -113,9 +130,12 @@ class Vision:
     每個`範本`名稱可安排一串逐次結果, 一次查詢消耗一項, 最後一項無限重複:
 
         plan("a.png", [None, None, (500, 400)])  # 前兩次沒找到, 第三次起找到
+        plan("card", [[(100, 50), (300, 50, 0.95)]])  # 一次查詢兩個匹配
 
-    None = 沒找到; (x, y) = 在該絕對座標找到。
-    未安排的`範本`一律在 default 座標找到。
+    None = 沒找到; (x, y) = 在該絕對座標 (框中心) 找到; 一串位置 = 畫面上同時
+    有這幾個匹配 (可帶第三個值當分數, 預設 0.99)。只有中心落在這次查詢的
+    畫面 (含`限定範圍`裁切) 內的匹配才會被回報。未安排的`範本`一律在 default
+    座標找到。
     """
 
     def __init__(self, default=(1000, 500), size=(40, 20)):
@@ -165,8 +185,10 @@ class Vision:
     def grab(self, region=None):
         with self._lock:
             self.grabs.append(tuple(region) if region else None)
-        origin = (int(region[0]), int(region[1])) if region else (0, 0)
-        return Screen(origin), origin
+        if region:
+            origin = (int(region[0]), int(region[1]))
+            return Screen(origin, (int(region[2]), int(region[3]))), origin
+        return Screen((0, 0)), (0, 0)
 
     # ---- runner 的偵測查詢接縫 (同 Engine.query 的形狀) ----
     def query(self, name, search_region):
@@ -176,12 +198,22 @@ class Vision:
             self.lookups.append(name)
             hit = self._next(name)
         w, h = self.size
-        if hit is None:
-            return QueryResult(found=False, box=None, score=0.0)
+        hits = [] if hit is None else (
+            [hit] if isinstance(hit[0], (int, float)) else list(hit))
         ox, oy = search_region.origin
-        return QueryResult(found=True, score=0.99,
-                           box=(hit[0] - ox - w // 2, hit[1] - oy - h // 2,
-                                w, h))
+        sw, sh = search_region.size
+        matches = []
+        for p in hits:
+            box = (int(p[0]) - ox - w // 2, int(p[1]) - oy - h // 2, w, h)
+            cx, cy = int(p[0]) - ox, int(p[1]) - oy
+            if 0 <= cx < sw and 0 <= cy < sh:
+                matches.append(Match(box, float(p[2]) if len(p) > 2 else 0.99))
+        matches.sort(key=lambda m: m.score, reverse=True)
+        if not matches:
+            return QueryResult(found=False, box=None, score=0.0,
+                               failed="verify" if hits else "match")
+        return QueryResult(found=True, box=matches[0].box,
+                           score=matches[0].score, matches=matches)
 
     def _next(self, name):
         if name not in self._plans:
