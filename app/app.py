@@ -727,9 +727,8 @@ class App:
         if self.retry_var.get() != str(self.retry_interval_ms):
             self.retry_var.set(str(self.retry_interval_ms))
         tgt = self.busy_target
-        self.busy_lbl.configure(
-            text=(f"{tgt['template']}{findtarget.tag_text(tgt)}" if tgt
-                  else "（不設：補做只看間隔）"))
+        # 第三列空間有限: 只寫範本名 (細節在「忙碌指示…」裡看)
+        self.busy_lbl.configure(text=tgt["template"] if tgt else "（不設）")
 
     def _on_retry_change(self):
         """補做間隔欄位改了 → 流程設定跟著改 (不合法的輸入先不理)."""
