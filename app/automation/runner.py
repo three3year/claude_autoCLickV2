@@ -148,7 +148,10 @@ class Runner:
         self.scale = 1.0
         self._set_origin(None)
         self._step = (0, 0)  # (目前步驟序號, 總步驟數); 0 = 尚未進入步驟
-        self._preparing = False  # `範本預載`進行中 (UI 顯示「準備範本中…」)
+        # 開跑前階段: "countdown"＝`開始延遲`未到期 / "templates"＝已到期仍在
+        # `範本預載` / None＝已開跑 (UI 據此顯示「倒數啟動中…」/「等待準備範本完成…」)
+        self._prerun = None
+        self._due = 0.0  # `開始延遲`到期時刻 (monotonic): 按下執行＋延遲秒數
         self._prev_type = None  # 上一個執行過的步驟型別 (供拖曳後讓出的標註)
         self._loops = []     # 進行中重複區段的 (目前次數, 總次數), 由外到內
         self._loop_stack = []  # 進行中重複區段: [起始索引, 剩餘次數, 總次數]
@@ -173,7 +176,7 @@ class Runner:
     def status(self):
         return {
             "running": self.running,
-            "preparing": self._preparing,  # `範本預載`中 (round 仍為 0)
+            "prerun": self._prerun,  # 開跑前階段 (round 仍為 0 時才有值)
             "round": self.round,
             "totalRounds": self.total_rounds,
             "step": self._step[0],
@@ -184,7 +187,9 @@ class Runner:
     # ---------- 控制 ----------
     def start(self, steps, run_mode="count", run_count=1, start_delay=3,
               scan_region=None, avoid_hover=False, calibration=None,
-              retry_interval=1.0, busy=None):
+              retry_interval=1.0, busy=None, pressed_at=None):
+        """pressed_at: 按下「執行」的時間 (monotonic); `開始延遲`從這時起算,
+        沒給＝現在。"""
         if self.running:
             raise RuntimeError("已在執行中")
         self._stop.clear()
@@ -203,7 +208,11 @@ class Runner:
         self._last_click = None  # 上一次點擊的螢幕座標, 供相對座標步驟使用
         self._origin_src = None  # 原點來自找圖時: {target, box, origin}
         self._step = (0, 0)
-        self._preparing = False
+        # `開始延遲`是時間下限: 到期前`範本預載`同時進行
+        now = time.monotonic()
+        self._due = (now if pressed_at is None else pressed_at) + max(0, start_delay)
+        # 啟動當下就已到期 (延遲「無」) → 一開始就是「等待範本」, 不閃倒數
+        self._prerun = "countdown" if self._due > now else "templates"
         self._prev_type = None
         self._loops = []
         self._thread = threading.Thread(
@@ -253,10 +262,14 @@ class Runner:
     # ---------- 主迴圈 ----------
     def _run(self, steps, start_delay):
         try:
-            self._preload(steps)  # `範本預載`: 開跑前一次載齊, 失敗不開跑
             if start_delay > 0:
                 self.log(f"{start_delay} 秒後開始執行 (按 F12 可隨時停止)")
-                self._sleep(start_delay)
+            # `範本預載`在倒數中進行: 開跑前一次載齊, 失敗立刻不開跑
+            self._preload(steps)
+            # 預載途中按的 F12 在這裡生效 (預載超過延遲時底下沒有剩餘等待)
+            self._check_stop()
+            self._sleep(self._due - time.monotonic())  # 等到`開始延遲`到期
+            self._prerun = None
 
             self._take_stage()  # 第一個動作之前先上台
             self._calibrate()   # 量不到就拋錯: 一個輸入都不送
@@ -325,6 +338,7 @@ class Runner:
             # 任何退出路徑都必須交還舞台, 否則其他流程會永久卡住
             if self.stage is not None:
                 self.stage.leave()
+            self._prerun = None
             self.running = False
 
     # ---------- `範本預載` ----------
@@ -341,18 +355,24 @@ class Runner:
         names = flow_templates(steps, extra)
         if not names:
             return
-        self._preparing = True
         self.log(f"準備範本中…（{len(names)} 張）")
+        if self._prerun == "templates":   # 啟動當下就已到期
+            self.log("等待準備範本完成")
+        self._check_due()
         try:
-            self.detector.preload(names)
+            self.detector.preload(names, on_loaded=self._check_due)
         except KeyError as e:
             raise RuntimeError(f"範本預載失敗: 找不到範本圖片: {e.args[0]}"
                                " → 停止執行") from None
         except Exception as e:
             raise RuntimeError(f"範本預載失敗: {e} → 停止執行") from e
-        finally:
-            self._preparing = False
         self.log("範本就緒", "ok")
+
+    def _check_due(self):
+        """預載途中檢查`開始延遲`: 第一次發現已到期就記一行並切到「等待範本」."""
+        if self._prerun == "countdown" and time.monotonic() >= self._due:
+            self._prerun = "templates"
+            self.log("等待準備範本完成")
 
     # ---------- 開頭`校準` ----------
     def _calibrate(self):

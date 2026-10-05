@@ -156,7 +156,7 @@ class Vision:
     座標找到。
     """
 
-    def __init__(self, default=(1000, 500), size=(40, 20)):
+    def __init__(self, default=(1000, 500), size=(40, 20), clock=None):
         self.default = default
         self.size = size
         self._plans = {}
@@ -172,14 +172,21 @@ class Vision:
         self.preloads = []         # 每次`範本預載`收到的名單
         self.ensured = []          # 單張載入 (ensure_template) 的範本名
         self.preload_error = None  # 預載時要拋的例外 (模擬缺圖/損壞)
+        # 每載一張範本推進虛擬時鐘的秒數 (模擬「預載花 N 秒」); 0＝瞬間載完
+        self.preload_cost = 0.0
+        # 每載完一張 (執行器的回呼之後) 呼叫, 測試觀察用
+        self.after_each_load = None
+        self.clock = clock       # 虛擬時鐘 (None＝不推進時間、不記擷取時間)
+        self.grab_times = []     # 每次擷取當下的虛擬時間
 
     @property
     def ready(self):
         return self.state == enginehub.READY
 
-    def preload(self, names):
+    def preload(self, names, on_loaded=None):
         """`範本預載`假件: 記錄名單; 名單中有 missing 的範本丟
-        KeyError(範本名) (同 enginehub.ensure_template)."""
+        KeyError(範本名) (同 enginehub.ensure_template)。逐張「載入」:
+        推進 preload_cost 秒, 再呼叫 on_loaded (同 enginehub.preload)."""
         names = list(names)
         self.preloads.append(names)
         if self.preload_error is not None:
@@ -187,6 +194,12 @@ class Vision:
         for n in names:
             if n in self._missing:
                 raise KeyError(n)
+            if self.preload_cost and self.clock is not None:
+                self.clock.t += self.preload_cost
+            if on_loaded is not None:
+                on_loaded()
+            if self.after_each_load is not None:
+                self.after_each_load()
 
     def ensure_template(self, name):
         if name in self._missing:
@@ -205,6 +218,8 @@ class Vision:
     def grab(self, region=None):
         with self._lock:
             self.grabs.append(tuple(region) if region else None)
+            if self.clock is not None:
+                self.grab_times.append(self.clock.t)
         if region:
             origin = (int(region[0]), int(region[1]))
             return Screen(origin, (int(region[2]), int(region[3]))), origin
@@ -344,7 +359,7 @@ class Harness:
     def __init__(self, monkeypatch):
         self.clock = Clock()
         self.filelog = FileLog()
-        self.vision = Vision()
+        self.vision = Vision(clock=self.clock)
         self.events = []
         self.lock = threading.Lock()
         self.input = Input(self.events, self.lock)

@@ -2009,6 +2009,7 @@ class App:
 
     def start_run(self, steps=None, test=False):
         """執行流程; steps 給定時只跑該片段 (測試選取), 一律單次."""
+        pressed_at = time.monotonic()  # `開始延遲`從按下執行起算 (含底下的檢查)
         if not self.engine_gate():  # `引擎就緒`前提示並拒絕 (ADR 0004)
             return
         self.ensure_registered()  # 剛存的範本先登錄, runner 查詢才查得到
@@ -2084,7 +2085,8 @@ class App:
                               avoid_hover=self.avoid_hover.get(),
                               calibration=self.flow_cal,
                               retry_interval=self.retry_interval_ms / 1000.0,
-                              busy=self.busy_target)
+                              busy=self.busy_target,
+                              pressed_at=pressed_at)
         except RuntimeError as e:
             messagebox.showwarning("執行", str(e), parent=self.root)
             return
@@ -2294,7 +2296,7 @@ class App:
         if running:
             total = st["totalRounds"]
             if st["round"] == 0:
-                text = ("準備範本中…" if st.get("preparing")
+                text = ("等待準備範本完成…" if st.get("prerun") == "templates"
                         else "倒數啟動中…")
             elif total:
                 text = f"執行中　第 {st['round']}/{total} 輪"

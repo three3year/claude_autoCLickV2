@@ -133,10 +133,15 @@ class EngineHub:
                                   color_check=color_check,
                                   expected_scale=expected_scale)
 
-    def preload(self, names):
-        """`範本預載`: 一次載入這些範本的登錄產物 (缺名丟 KeyError)."""
+    def preload(self, names, on_loaded=None):
+        """`範本預載`: 一次載入這些範本的登錄產物 (缺名丟 KeyError).
+
+        on_loaded: 每載完一張呼叫一次 (無參數)。
+        """
         for name in names:
             self.ensure_template(name)
+            if on_loaded is not None:
+                on_loaded()
 
     def ensure_template(self, name):
         """單一範本的登錄產物就位 (已載入的直接沿用).
