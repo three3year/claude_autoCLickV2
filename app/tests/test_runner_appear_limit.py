@@ -23,6 +23,8 @@ def test_上限內沒看到_通過_後續步驟執行(harness):
     assert harness.clock.t - t0 < 1.5, "網路快: 約 1 秒就放行"
     [rec] = records(harness)
     assert rec["result"] == "not_appeared"
+    # 記最高分與未過原因: 實跑時才分得出「真的沒出現」與「範本/範圍對不上」
+    assert rec["failed"] == "match" and "best" in rec
 
 
 def test_上限內看到_之後消失_通過(harness):

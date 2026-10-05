@@ -759,7 +759,8 @@ class Runner:
                 map(findtarget.fmt_match, f.rejected)) + "]"
         if f.picked is not None:
             fields["picked"] = findtarget.fmt_box(f.picked.box)
-        if result in ("timeout", "cannot_run"):
+        # not_appeared 也記: 分得出「真的沒出現」與「範本/限定範圍對不上」
+        if result in ("timeout", "cannot_run", "not_appeared"):
             fields["best"] = (f"{f.query.score:.3f}" if f.query is not None
                               else "-")
             fields["failed"] = f.failed
