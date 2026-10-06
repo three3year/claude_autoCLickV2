@@ -48,10 +48,11 @@ def step_table(steps):
     return lines
 
 
-def tail_text(steps):
-    base, tail = common.buy_tail(steps[slice(*common.purchase_span(steps))])
+def buy_parts(steps):
+    """(條件步驟, 其後購買步驟的一行描述): 取區塊裡第一個商品分支 (各分支相同)."""
     import app
-    return "；".join(app.step_desc(s) for s in tail)
+    cond, tail = common.buy_tail(steps[slice(*common.purchase_span(steps))])
+    return cond, "；".join(app.step_desc(s) for s in tail)
 
 
 def sim_lines(sim):
@@ -96,27 +97,31 @@ def frame_lines(fr):
 def section(lang, steps, dropped, sim, fr):
     label = common.LANGS[lang]["label"]
     lo, hi = block_span(steps)
+    cond, tail = buy_parts(steps)
+    n = len(PRIORITY)
+    no_color = "、".join(sorted(NO_COLOR))
     lines = [HEADING, "",
              f"規格：`.scratch/credit-store-switch/spec.md`；票 `.scratch/credit-store-switch/issues/{TICKET[lang]}`。", "",
              f"- **新結構**（第 {lo}–{hi} 步）：收取信用照舊 → **重複區段 ×{common.ROUNDS}**"
              f"｛**分岔 {len(PRIORITY)} 個分支**，分岔結尾「跳出到此 → 再往外跳一層」｝→ 導航 → 公開招募。",
              f"  - 每個分支：找圖 `採購_X`〔由上到下第 1、比色〕→ 點擊，點到確認圖（購買物品）出現，"
-             "逾時 1.5 秒 → **跳出**；之後的購買步驟照原本的寫法原樣複製："
-             f"{tail_text(steps)}。",
-             "  - 分岔每輪截一張圖、23 張依序找（本機一輪約 3.2–3.5 秒，所以每輪實際只比對一張截圖）；"
+             f"逾時 {cond['timeout']:g} 秒 → **跳出**；之後的購買步驟照原本的寫法原樣複製："
+             f"{tail}。",
+             f"  - 分岔每輪截一張圖、{n} 張依序找（本機一輪約 3.2–3.5 秒，所以每輪實際只比對一張截圖）；"
              "畫面上同時有好幾種商品時走排在最前面的分支。買完一件回到下一輪重看畫面。"
              "同一種商品有好幾格時一格一格買，固定先買由上到下第 1 個（同列取左邊）。",
              "  - **結束購買**（跳出整個重複區段，接著導航 → 公開招募）：畫面上已沒有還沒售罄的白名單商品"
-             "（分岔逾時，這一輪約 3.3 秒）、點了商品沒出現購買物品（買不起）、獲得物資等不到。最多 10 輪（一頁 10 張卡）。",
+             "（分岔逾時，這一輪約 3.3 秒）、點了商品沒出現購買物品（買不起）、獲得物資等不到。"
+             f"最多 {common.ROUNDS} 輪（一頁 10 張卡）。",
              "  - 已售罄的卡不會被點：新範本在自己的售完卡上都不匹配（粗篩就擋掉）；售罄斜帶在獲得物資彈窗消失前就蓋上，"
              "剛買的卡不會被當成還能買。",
              "- **優先順序**（分支順序，繁中、簡中相同）："
              + "、".join(f"{i}. {n}" for i, n in enumerate(PRIORITY, 1)) + "。",
-             "- **比色**：商品全部開比色（只差顏色的初級／基礎作戰記錄才分得開）；**例外：技巧概要·卷2 不開**"
-             "——它在 demo6 上比色 0.94，差門檻 0.95 一點會找不到；卷1 範本在卷2 卡上粗篩只有 0.49，不開比色也不會認錯。",
+             "- **比色**：商品全部開比色（只差顏色的初級／基礎作戰記錄才分得開）；"
+             f"**例外：{no_color} 不開**——它在 demo6 上比色 0.94，差門檻 0.95 一點會找不到；卷1 範本在卷2 卡上粗篩只有 0.49，不開比色也不會認錯。",
              "- **代價：買不起就結束**。排前面的商品買不起時，後面便宜的也不會買（分岔記不住「這件買不起」，"
              "要做得另外設計）。使用者接受這個代價換取結構簡單。",
-             f"- **範本**：新增採購中心範本 23 張（`oCam Video/採購中心範本/{common.LANGS[lang]['folder']}/`，"
+             f"- **範本**：新增採購中心範本 {n} 張（`oCam Video/採購中心範本/{common.LANGS[lang]['folder']}/`，"
              "名稱一律 `採購_X`、去掉 `待重拍_` 前綴"
              + ("，簡中流程也用繁體名" if lang == "cn" else "") + "）。"
              f"不再有步驟引用而移出存檔的舊商品範本：{'、'.join(dropped) or '無'}。"

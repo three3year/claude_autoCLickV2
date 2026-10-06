@@ -6,7 +6,7 @@
 影格與標註沿用採購中心範本的驗證 (`.scratch/credit-store-templates/frames/`、
 `annotations.json`; 影格由那邊的 extract_frames.py 抽出)。
 
-走 app 的真實偵測路徑: 存檔裡的範本放進暫存工作區 → EngineHub 載入 (arknights
+走 app 的真實偵測路徑: 存檔裡的範本解到臨時 profile 的工作區 (flowfile.Workspace) → EngineHub 載入 (arknights
 profile 的 config.yaml 門檻) → 依分岔的分支順序對整張影格執行各分支條件步驟的
 找圖目標 (automation.findtarget.find, 畫面倍率 1); 第一個挑到的＝分岔會走的分支
 (同執行器 _exec_branch 每輪的判定)。
@@ -75,22 +75,28 @@ def expected(frame, sizes):
     return name, want, vtf_verify.position_tolerance((0, 0, w, h))
 
 
-def card_at(frame, pt, sizes_any):
+def _dist(a, b):
+    return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+
+
+def card_at(frame, pt):
     """點擊位置落在哪張卡 (最近的圓心, 半個格距以內)."""
-    best = min(frame["cards"], key=lambda c: (c["center"][0] - pt[0]) ** 2
-               + (c["center"][1] - pt[1]) ** 2)
-    d = ((best["center"][0] - pt[0]) ** 2 + (best["center"][1] - pt[1]) ** 2) ** 0.5
-    return best if d < 130 else None
+    best = min(frame["cards"], key=lambda c: _dist(c["center"], pt))
+    return best if _dist(best["center"], pt) < 130 else None
+
+
+def card_text(card):
+    return None if card is None else card["name"] + ("（售完）" if card["soldOut"] else "")
 
 
 def make_hub(images, names, tmp):
-    os.makedirs(os.path.join(tmp, "templates"))
+    """臨時 profile 目錄 tmp: 範本寫進它的工作區 (flowfile.Workspace 的版面), 引擎照 app 的方式載入."""
+    ws = flowfile.Workspace(tmp)
     for n in names:
-        with open(os.path.join(tmp, "templates", n + ".png"), "wb") as f:
-            f.write(images[n])
+        ws.add(n, images[n])
     applog.set_path(os.path.join(tmp, "autoclick.log"))
     hub = enginehub.EngineHub()
-    hub.load(tmp, config_dir=common.PROFILE)
+    hub.load(ws.root, config_dir=common.PROFILE)
     if not hub.ready:
         raise SystemExit(f"引擎載入失敗: {hub.error!r}")
     if hub.coarse_only:
@@ -115,8 +121,8 @@ def judge(frame, tgts, hub, sizes):
            "sold": [c["name"] for c in frame["cards"] if c["soldOut"]]}
     if picks:
         k, name, m = picks[0]
-        card = card_at(frame, m.center, sizes)
-        out["picked"] = {"branch": k + 1, "item": name[len(common.PREFIX):],
+        card = card_at(frame, m.center)
+        out["picked"] = {"branch": k + 1, "item": common.item_of(name),
                          "center": list(m.center), "score": round(m.score, 3),
                          "color": None if m.color is None else round(m.color, 3),
                          "card": None if card is None else
@@ -124,9 +130,8 @@ def judge(frame, tgts, hub, sizes):
                           "center": card["center"]}}
     else:
         out["picked"] = None
-    out["others"] = [{"branch": k + 1, "item": n[len(common.PREFIX):],
-                      "card": (lambda c: None if c is None else c["name"]
-                               + ("（售完）" if c["soldOut"] else ""))(card_at(frame, m.center, sizes))}
+    out["others"] = [{"branch": k + 1, "item": common.item_of(n),
+                      "card": card_text(card_at(frame, m.center))}
                      for k, n, m in picks[1:]]
     if exp is None:
         out["expected"] = None
@@ -140,7 +145,7 @@ def judge(frame, tgts, hub, sizes):
                              "failed": f.failed}
     p = out["picked"]
     if p is not None:
-        d = ((p["center"][0] - want[0]) ** 2 + (p["center"][1] - want[1]) ** 2) ** 0.5
+        d = _dist(p["center"], want)
         p["dist"] = round(d, 1)
         out["ok"] = p["item"] == name and d <= tol
     else:
@@ -158,12 +163,12 @@ def main(argv=None):
     r = flowfile.read(path)
     tgts = branch_targets(r["data"]["steps"])
     names = [t["template"] for t in tgts]
-    if [n[len(common.PREFIX):] for n in names] != PRIORITY:
+    if [common.item_of(n) for n in names] != PRIORITY:
         raise SystemExit("分岔的分支順序不是 spec 的優先順序")
     sizes = {}
     for n in names:
         img = cv2.imdecode(np.frombuffer(r["images"][n], np.uint8), cv2.IMREAD_COLOR)
-        sizes[n[len(common.PREFIX):]] = (img.shape[1], img.shape[0])
+        sizes[common.item_of(n)] = (img.shape[1], img.shape[0])
 
     with open(os.path.join(TEMPLATES_DIR, "annotations.json"), encoding="utf-8") as f:
         frames = [fr for fr in json.load(f)["frames"] if fr["set"] == args.lang]

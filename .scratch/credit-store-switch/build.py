@@ -65,7 +65,7 @@ def purchase_block(base, tail):
     return block
 
 
-def rebuild(data, templates):
+def rebuild(data):
     """就地改寫 data 的採購區塊; 回傳 (新 steps, 被換掉的舊區塊)."""
     steps = data["steps"]
     start, nav = common.purchase_span(steps)
@@ -90,7 +90,7 @@ def main(argv=None):
     images.update(new_tmpl)
 
     n_before = len(data["steps"])
-    steps, old = rebuild(data, new_tmpl)
+    steps, old = rebuild(data)
     out = args.out or path
     missing = flowfile.write(out, data, images, r["pos"])
     if missing:

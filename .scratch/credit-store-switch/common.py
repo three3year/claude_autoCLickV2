@@ -43,6 +43,7 @@ CREDIT = "收取信用"
 RECRUIT = ("公開招募", "公开招募")
 NAV = ("導航", "导航")
 BUY = ("購買物品", "购买物品")
+GOT = ("獲得物資", "获得物资")
 
 
 def flow_path(lang, name=None):
@@ -60,6 +61,11 @@ def flow_path(lang, name=None):
 
 def template_name(item):
     return PREFIX + item
+
+
+def item_of(template):
+    """`採購_X` → 商品名 X (template_name 的反向)."""
+    return template[len(PREFIX):]
 
 
 def _tmpl(step):

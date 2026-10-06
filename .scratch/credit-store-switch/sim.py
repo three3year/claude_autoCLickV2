@@ -21,7 +21,7 @@ import os
 import sys
 
 import common
-from common import PRIORITY, template_name
+from common import PRIORITY
 
 sys.path.insert(0, os.path.join(common.APP, "tests"))
 
@@ -71,12 +71,12 @@ class Shop:
         if name.startswith(common.PREFIX):
             if self.phase != "shop":
                 return None
-            item = name[len(common.PREFIX):]
+            item = common.item_of(name)
             hits = [c.pos for c in self.cards if c.name == item and not c.sold]
             return hits or None
         if name in common.BUY:
             return BUY_AT if self.phase == "buy" else None
-        if name in ("獲得物資", "获得物资"):
+        if name in common.GOT:
             return GOT_AT if self.phase == "got" else None
         if name.startswith(common.NAV):
             return NAV_AT
@@ -204,7 +204,7 @@ def scenarios():
     def s4():
         cards = [Card("傢俱零件", (300, 300)), Card("招聘許可", (800, 300), sold=True)]
 
-        def extra(h, r):
+        def extra(h):
             n = sum(1 for x in h.lookups() if x.startswith(common.PREFIX))
             timeouts = h.log_text().count("沒有任何分支成立")
             return (n == len(PRIORITY) and timeouts == 1,
@@ -220,7 +220,7 @@ def scenarios():
                  "碳", "碳", "碳"]
         cards = grid(names)
 
-        def extra(h, r):
+        def extra(h):
             ok = "重複區段完成（10 次）" in h.log_text()
             left = [c.label for c in cards if not c.sold]
             return ok and len(left) == 2, f"10 輪後還剩 {len(left)} 張沒買：{'、'.join(left)}"
@@ -277,18 +277,16 @@ def main(argv=None):
         ok = got == expected and r.ended == "done"
         note = ""
         if extra is not None:
-            ok2, note = extra(h, r)
+            ok2, note = extra(h)
             ok = ok and ok2
-        # 結束購買的那一輪: 最後一次關獲得物資 (或區塊開頭) 到點導航的虛擬秒數
         results.append({"title": title, "desc": desc, "ok": ok, "ended": r.ended,
-                        "expected": expected, "got": got, "note": note,
-                        "secs": round(h.clock.t - 1000.0, 1)})
+                        "expected": expected, "got": got, "note": note})
         failed += not ok
         print(f"[{'通過' if ok else '失敗'}] {title}: {desc}")
         if not ok:
             print("   預期:", " → ".join(expected))
             print("   實際:", " → ".join(got), f"(ended={r.ended})")
-            tail = [m for m in h.logs()[-8:]]
+            tail = h.logs()[-8:]
             print("   紀錄尾端:", *tail, sep="\n     ")
         if note:
             print("   ", note)
