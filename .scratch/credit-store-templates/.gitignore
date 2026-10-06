@@ -1,0 +1,4 @@
+# 可重新產生的影像: frames/ 由 extract_frames.py 從 oCam Video 抽出, overlays/ 由 build.py 畫出
+frames/
+overlays/
+preview/

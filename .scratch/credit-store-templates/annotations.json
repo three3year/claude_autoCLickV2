@@ -1,0 +1,1264 @@
+{
+ "_說明": "驗證畫面標註。cards 依畫面上由左到右、由上到下排列；name 用遊戲繁中名 (簡中畫面也換成繁中名)；center＝圓圈圖示中心 (影格像素)；soldOut＝卡片蓋著「售完/售罄」斜帶。center 由 measure_centers.py 量出後寫入，再以 overlay 目視核對。",
+ "frames": [
+  {
+   "id": "tw_pic1",
+   "set": "tw",
+   "source": {
+    "pic": "pic1"
+   },
+   "cards": [
+    {
+     "name": "加急許可",
+     "soldOut": false,
+     "center": [
+      155.3,
+      162.7
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      467.4,
+      162.7
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      779.5,
+      162.7
+     ]
+    },
+    {
+     "name": "龍門幣",
+     "soldOut": false,
+     "center": [
+      1091.6,
+      162.7
+     ]
+    },
+    {
+     "name": "加急許可",
+     "soldOut": false,
+     "center": [
+      1403.7,
+      162.7
+     ]
+    },
+    {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      155.3,
+      476.1
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": true,
+     "center": [
+      467.4,
+      476.1
+     ]
+    },
+    {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      779.5,
+      476.1
+     ]
+    },
+    {
+     "name": "固源岩",
+     "soldOut": false,
+     "center": [
+      1091.6,
+      476.1
+     ]
+    },
+    {
+     "name": "異鐵",
+     "soldOut": false,
+     "center": [
+      1403.7,
+      476.1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tw_demo2_f2760",
+   "set": "tw",
+   "source": {
+    "video": "demo2",
+    "frame": 2760
+   },
+   "cards": [
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      160.6,
+      420.3
+     ]
+    },
+    {
+     "name": "破損裝置",
+     "soldOut": false,
+     "center": [
+      472.7,
+      420.3
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": false,
+     "center": [
+      784.8,
+      420.3
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      1096.9,
+      420.3
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      1409.0,
+      420.3
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      160.6,
+      733.7
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": false,
+     "center": [
+      472.7,
+      733.7
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": false,
+     "center": [
+      784.8,
+      733.7
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      1096.9,
+      733.7
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1409.0,
+      733.7
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tw_demo2_f2880",
+   "set": "tw",
+   "source": {
+    "video": "demo2",
+    "frame": 2880
+   },
+   "cards": [
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      161.5,
+      420.2
+     ]
+    },
+    {
+     "name": "破損裝置",
+     "soldOut": false,
+     "center": [
+      473.6,
+      420.2
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      785.8,
+      420.2
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      1097.8,
+      420.2
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      1410.0,
+      420.2
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      161.5,
+      733.6
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": false,
+     "center": [
+      473.6,
+      733.6
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      785.8,
+      733.6
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      1097.8,
+      733.6
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1410.0,
+      733.6
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tw_demo2_f2980",
+   "set": "tw",
+   "source": {
+    "video": "demo2",
+    "frame": 2980
+   },
+   "cards": [
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      161.2,
+      420.7
+     ]
+    },
+    {
+     "name": "破損裝置",
+     "soldOut": false,
+     "center": [
+      473.3,
+      420.7
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      785.5,
+      420.7
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      1097.5,
+      420.7
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      1409.7,
+      420.7
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": true,
+     "center": [
+      161.2,
+      734.1
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": true,
+     "center": [
+      473.3,
+      734.1
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      785.5,
+      734.1
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      1097.5,
+      734.1
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1409.7,
+      734.1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tw_demo2_f3020",
+   "set": "tw",
+   "source": {
+    "video": "demo2",
+    "frame": 3020
+   },
+   "cards": [
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      161.6,
+      421.1
+     ]
+    },
+    {
+     "name": "破損裝置",
+     "soldOut": true,
+     "center": [
+      473.7,
+      421.1
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      785.8,
+      421.1
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      1097.9,
+      421.1
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      1410.0,
+      421.1
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": true,
+     "center": [
+      161.6,
+      734.5
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": true,
+     "center": [
+      473.7,
+      734.5
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      785.8,
+      734.5
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      1097.9,
+      734.5
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1410.0,
+      734.5
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo1_f4620",
+   "set": "cn",
+   "source": {
+    "video": "demo1",
+    "frame": 4620
+   },
+   "cards": [
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      143.0,
+      376.4
+     ]
+    },
+    {
+     "name": "加急許可",
+     "soldOut": false,
+     "center": [
+      419.1,
+      376.4
+     ]
+    },
+    {
+     "name": "碳素",
+     "soldOut": false,
+     "center": [
+      695.2,
+      376.4
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": false,
+     "center": [
+      971.3,
+      376.4
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": false,
+     "center": [
+      1247.4,
+      376.4
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      143.0,
+      653.5
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": false,
+     "center": [
+      419.1,
+      653.5
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      695.2,
+      653.5
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      971.3,
+      653.5
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1247.4,
+      653.5
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo1_f4970",
+   "set": "cn",
+   "source": {
+    "video": "demo1",
+    "frame": 4970
+   },
+   "cards": [
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      142.1,
+      376.2
+     ]
+    },
+    {
+     "name": "加急許可",
+     "soldOut": true,
+     "center": [
+      418.2,
+      376.2
+     ]
+    },
+    {
+     "name": "碳素",
+     "soldOut": false,
+     "center": [
+      694.4,
+      376.2
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": false,
+     "center": [
+      970.5,
+      376.2
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": false,
+     "center": [
+      1246.5,
+      376.2
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      142.1,
+      653.3
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      418.2,
+      653.3
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      694.4,
+      653.3
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      970.5,
+      653.3
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1246.5,
+      653.3
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo1_f5470",
+   "set": "cn",
+   "source": {
+    "video": "demo1",
+    "frame": 5470
+   },
+   "cards": [
+    {
+     "name": "初級作戰記錄",
+     "soldOut": true,
+     "center": [
+      142.9,
+      375.1
+     ]
+    },
+    {
+     "name": "加急許可",
+     "soldOut": true,
+     "center": [
+      419.0,
+      375.1
+     ]
+    },
+    {
+     "name": "碳素",
+     "soldOut": false,
+     "center": [
+      695.1,
+      375.1
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      971.2,
+      375.1
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": true,
+     "center": [
+      1247.3,
+      375.1
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": true,
+     "center": [
+      142.9,
+      652.2
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      419.0,
+      652.2
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      695.1,
+      652.2
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": true,
+     "center": [
+      971.2,
+      652.2
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1247.3,
+      652.2
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo5_f3300",
+   "set": "cn",
+   "source": {
+    "video": "demo5",
+    "frame": 3300
+   },
+   "cards": [
+    {
+     "name": "技巧概要·卷2",
+     "soldOut": false,
+     "center": [
+      143.0,
+      376.6
+     ]
+    },
+    {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      419.1,
+      376.6
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": false,
+     "center": [
+      695.2,
+      376.6
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      971.3,
+      376.6
+     ]
+    },
+    {
+     "name": "異鐵",
+     "soldOut": false,
+     "center": [
+      1247.4,
+      376.6
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      143.0,
+      653.8
+     ]
+    },
+    {
+     "name": "加急許可",
+     "soldOut": false,
+     "center": [
+      419.1,
+      653.8
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": false,
+     "center": [
+      695.2,
+      653.8
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      971.3,
+      653.8
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1247.4,
+      653.8
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo5_f3540",
+   "set": "cn",
+   "source": {
+    "video": "demo5",
+    "frame": 3540
+   },
+   "cards": [
+    {
+     "name": "技巧概要·卷2",
+     "soldOut": true,
+     "center": [
+      143.4,
+      376.1
+     ]
+    },
+    {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      419.5,
+      376.1
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": true,
+     "center": [
+      695.6,
+      376.1
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      971.7,
+      376.1
+     ]
+    },
+    {
+     "name": "異鐵",
+     "soldOut": false,
+     "center": [
+      1247.8,
+      376.1
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      143.4,
+      653.2
+     ]
+    },
+    {
+     "name": "加急許可",
+     "soldOut": false,
+     "center": [
+      419.5,
+      653.2
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": false,
+     "center": [
+      695.6,
+      653.2
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      971.7,
+      653.2
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": false,
+     "center": [
+      1247.8,
+      653.2
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo5_f3820",
+   "set": "cn",
+   "source": {
+    "video": "demo5",
+    "frame": 3820
+   },
+   "cards": [
+    {
+     "name": "技巧概要·卷2",
+     "soldOut": true,
+     "center": [
+      142.3,
+      376.3
+     ]
+    },
+    {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      418.4,
+      376.3
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": true,
+     "center": [
+      694.5,
+      376.3
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      970.6,
+      376.3
+     ]
+    },
+    {
+     "name": "異鐵",
+     "soldOut": false,
+     "center": [
+      1246.7,
+      376.3
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      142.3,
+      653.4
+     ]
+    },
+    {
+     "name": "加急許可",
+     "soldOut": true,
+     "center": [
+      418.4,
+      653.4
+     ]
+    },
+    {
+     "name": "招聘許可",
+     "soldOut": true,
+     "center": [
+      694.5,
+      653.4
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      970.6,
+      653.4
+     ]
+    },
+    {
+     "name": "赤金",
+     "soldOut": true,
+     "center": [
+      1246.7,
+      653.4
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo6_f3113",
+   "set": "cn",
+   "source": {
+    "video": "demo6",
+    "frame": 3113
+   },
+   "cards": [
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      142.8,
+      376.2
+     ]
+    },
+    {
+     "name": "固源岩",
+     "soldOut": false,
+     "center": [
+      418.9,
+      376.2
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      695.0,
+      376.2
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": false,
+     "center": [
+      971.1,
+      376.2
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      1247.2,
+      376.2
+     ]
+    },
+    {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      142.8,
+      653.4
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      418.9,
+      653.4
+     ]
+    },
+    {
+     "name": "技巧概要·卷2",
+     "soldOut": false,
+     "center": [
+      695.0,
+      653.4
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      971.1,
+      653.4
+     ]
+    },
+    {
+     "name": "固源岩",
+     "soldOut": false,
+     "center": [
+      1247.2,
+      653.4
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo6_f3383",
+   "set": "cn",
+   "source": {
+    "video": "demo6",
+    "frame": 3383
+   },
+   "cards": [
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      142.6,
+      376.6
+     ]
+    },
+    {
+     "name": "固源岩",
+     "soldOut": true,
+     "center": [
+      418.7,
+      376.6
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      694.8,
+      376.6
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": false,
+     "center": [
+      970.9,
+      376.6
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      1247.0,
+      376.6
+     ]
+    },
+    {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      142.6,
+      653.7
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      418.7,
+      653.7
+     ]
+    },
+    {
+     "name": "技巧概要·卷2",
+     "soldOut": true,
+     "center": [
+      694.8,
+      653.7
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      970.9,
+      653.7
+     ]
+    },
+    {
+     "name": "固源岩",
+     "soldOut": true,
+     "center": [
+      1247.0,
+      653.7
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cn_demo6_f3532",
+   "set": "cn",
+   "source": {
+    "video": "demo6",
+    "frame": 3532
+   },
+   "cards": [
+    {
+     "name": "聚酸酯",
+     "soldOut": true,
+     "center": [
+      143.9,
+      376.8
+     ]
+    },
+    {
+     "name": "固源岩",
+     "soldOut": true,
+     "center": [
+      420.0,
+      376.8
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      696.1,
+      376.8
+     ]
+    },
+    {
+     "name": "裝置",
+     "soldOut": true,
+     "center": [
+      972.2,
+      376.8
+     ]
+    },
+    {
+     "name": "聚酸酯",
+     "soldOut": false,
+     "center": [
+      1248.3,
+      376.8
+     ]
+    },
+    {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      143.9,
+      653.9
+     ]
+    },
+    {
+     "name": "初級作戰記錄",
+     "soldOut": false,
+     "center": [
+      420.0,
+      653.9
+     ]
+    },
+    {
+     "name": "技巧概要·卷2",
+     "soldOut": true,
+     "center": [
+      696.1,
+      653.9
+     ]
+    },
+    {
+     "name": "傢俱零件",
+     "soldOut": false,
+     "center": [
+      972.2,
+      653.9
+     ]
+    },
+    {
+     "name": "固源岩",
+     "soldOut": true,
+     "center": [
+      1248.3,
+      653.9
+     ]
+    }
+   ]
+  }
+ ]
+}
