@@ -39,9 +39,10 @@ from video_to_flow.geom import center  # noqa: E402
 PREFIX = "採購_"
 RETAKE = "待重拍_"
 
-# 倉庫素材圖上的 19 種商品: (遊戲繁中名, 核對圖用的 ASCII 代號, 素材圖, 圓圈中心)
-# 圓圈中心是霍夫圓偵測的結果; pic2 各格的物品由看圖對照遊戲物品辨認
-# (pic2 只取一階灰圈、二階黃綠圈)。
+# 倉庫素材圖上的 23 種商品: (遊戲繁中名, 核對圖用的 ASCII 代號, 素材圖, 圓圈中心)
+# 素材圖都是繁中客戶端的倉庫 (同一尺度)。圓圈中心是霍夫圓偵測的結果; pic2 各格的
+# 物品由看圖對照遊戲物品辨認 (pic2 只取一階灰圈、二階黃綠圈)。pic8 的 EXP 卡圓心
+# 由外環外緣擬圓, 書本超出圓圈擬不準, 改用同欄/同列的圓心 (格距同 pic2)。
 ITEMS = [
     ("源岩", "yuanyan", "pic2", (104.5, 585.5)),
     ("固源岩", "guyuanyan", "pic2", (104.5, 351.5)),
@@ -62,12 +63,24 @@ ITEMS = [
     ("碳素組", "tansuzu", "pic5", (96.5, 108.5)),
     ("龍門幣", "longmenbi", "pic6", (96.5, 96.5)),
     ("赤金", "chijin", "pic6", (96.5, 330.5)),
+    ("基礎作戰記錄", "record0", "pic8", (330.4, 105.2)),
+    ("初級作戰記錄", "record1", "pic8", (137.0, 572.0)),
+    ("技巧概要·卷1", "skill1", "pic8", (522.5, 105.2)),
+    ("技巧概要·卷2", "skill2", "pic8", (330.4, 572.0)),
 ]
+# 有簡中客戶端倉庫圖的商品: 簡中範本改從這裡切 (不必把繁中倉庫圖縮放到簡中尺度)。
+# pic7 與 pic8 同一排版, 格距 170.9 vs 192 px (比 0.89, 等於簡中/繁中的畫面比);
+# 圓心取法同 pic8。
+CN_SOURCES = {
+    "基礎作戰記錄": ("pic7", (278.1, 88.9)),
+    "初級作戰記錄": ("pic7", (107.2, 502.0)),
+    "技巧概要·卷1": ("pic7", (449.0, 88.9)),
+    "技巧概要·卷2": ("pic7", (278.1, 502.0)),
+}
 # 驗證畫面上出現、但不在這次範本裡的商品 (核對圖代號)
-OTHER_CODES = {"初級作戰記錄": "record1", "傢俱零件": "furniture",
-               "技巧概要·卷2": "skill2"}
-# 這次沒做的商品 (名稱照繁中遊戲畫面; spec 寫的「家具零件」在繁中卡上是「傢俱零件」)
-NOT_MADE = ["基礎作戰記錄", "初級作戰記錄", "技巧概要·卷1", "技巧概要·卷2", "傢俱零件"]
+OTHER_CODES = {"傢俱零件": "furniture"}
+# 這次沒做的商品 (使用者決定傢俱零件不判斷, 不列)
+NOT_MADE = []
 
 # 兩個候選框法: 相對圓圈中心的 (左, 上, 右, 下), 倉庫像素 (圓圈外環半徑約 78、
 # 內側黑環半徑約 70)。下緣都停在中心下方 +20 以內: 倉庫右下的庫存數字框
@@ -112,13 +125,15 @@ def write(path, img):
 
 # ---------------------------------------------------------------- 切圖
 
-def cut(src, circle, box, s):
-    """把素材圖縮 s 倍後, 切出相對圓圈中心 box (倉庫像素) 的範圍.
+def cut(src, circle, box, s, src_scale=1.0):
+    """切出相對圓圈中心 box (繁中倉庫像素) 的範圍, 輸出是繁中倉庫圖示的 s 倍.
 
+    src_scale = 素材圖本身相對繁中倉庫的尺度 (簡中客戶端的倉庫圖 < 1)。
     回傳 (範本圖, 範本中心相對圓圈中心的偏移 (縮放後像素))。
     """
-    big = cv2.resize(src, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
-    cx, cy = (circle[0] + 0.5) * s - 0.5, (circle[1] + 0.5) * s - 0.5
+    f = s / src_scale
+    big = cv2.resize(src, None, fx=f, fy=f, interpolation=cv2.INTER_AREA)
+    cx, cy = (circle[0] + 0.5) * f - 0.5, (circle[1] + 0.5) * f - 0.5
     left, top, right, bottom = box
     x0, y0 = round(cx + left * s), round(cy + top * s)
     w, h = round((right - left) * s), round((bottom - top) * s)
@@ -127,12 +142,21 @@ def cut(src, circle, box, s):
     return big[y0:y0 + h, x0:x0 + w].copy(), (x0 + w / 2 - cx, y0 + h / 2 - cy)
 
 
-def cut_all(sources, names, framing, s):
-    """{商品名: {"img": 範本圖, "offset": 範本中心相對圓圈中心的偏移}}."""
+def cut_all(sources, names, framing, s, cn_src_scale=None):
+    """{商品名: {"img": 範本圖, "offset": 範本中心相對圓圈中心的偏移}}.
+
+    cn_src_scale 有值＝簡中組: CN_SOURCES 裡的商品改從簡中倉庫圖切, 該圖相對繁中
+    倉庫的尺度取 cn_src_scale (同一客戶端的倉庫與商店畫面等比, 所以等於簡中/繁中
+    商店的圓圈直徑比)。
+    """
     out = {}
     for name, _code, pic, circle in ITEMS:
         if name in names:
-            img, off = cut(sources[pic], circle, FRAMINGS[framing]["box"], s)
+            src_scale = 1.0
+            if cn_src_scale is not None and name in CN_SOURCES:
+                pic, circle = CN_SOURCES[name]
+                src_scale = cn_src_scale
+            img, off = cut(sources[pic], circle, FRAMINGS[framing]["box"], s, src_scale)
             out[name] = {"img": img, "offset": off}
     return out
 
@@ -553,7 +577,8 @@ def failure_sources(lines, title, run):
 
 SERIES = [("源岩", "固源岩"), ("代糖", "糖"), ("酯原料", "聚酸酯"), ("異鐵碎片", "異鐵"),
           ("雙酮", "酮凝集"), ("破損裝置", "裝置"), ("碳", "碳素"), ("碳", "碳素組"),
-          ("碳素", "碳素組"), ("招聘許可", "加急許可")]
+          ("碳素", "碳素組"), ("招聘許可", "加急許可"), ("基礎作戰記錄", "初級作戰記錄"),
+          ("技巧概要·卷1", "技巧概要·卷2")]
 
 
 def cross_table(lines, title, run):
@@ -650,6 +675,11 @@ def build_report(config, tw_runs, chosen, cn_run, scales):
               f"比 {scales.d_tw / scales.d_warehouse:.4f}。",
               f"- 簡中：倉庫圖示 × {scales.cn_scale:.4f}（＝ {TW_SCALE} × 簡中/繁中 "
               f"{scales.cn_over_tw:.4f}）。",
+              f"  - 例外：{'、'.join(CN_SOURCES)} 有簡中客戶端的倉庫圖"
+              f"（{'、'.join(sorted({p for p, _c in CN_SOURCES.values()}))}），簡中範本直接從它切："
+              f"簡中倉庫 × {TW_SCALE}（同一客戶端內倉庫→商店的比例），不經繁中倉庫圖縮放。"
+              f"簡中倉庫相對繁中倉庫的尺度取簡中/繁中 {scales.cn_over_tw:.4f}"
+              "（pic7 與 pic8 的格距比 170.9/192 ≈ 0.89 吻合）。",
               "  - 量法：在每張驗證畫面上、未售完的黃綠圈二階材料卡（"
               + "、".join(sorted(RING_ITEMS)) + "）沿放射線找彩色外環的外緣（右下數字框象限不量），"
               "取各方向中位數為半徑；兩組各取所有卡的中位數相比。",
@@ -667,7 +697,8 @@ def build_report(config, tw_runs, chosen, cn_run, scales):
     lines += ["## 這次沒做的商品", "",
               "採購中心會賣、但倉庫素材圖裡沒有的商品（之後補截倉庫圖示再重跑）：", ""]
     lines += [f"- {n}" for n in NOT_MADE]
-    lines += ["- 其他偶爾上架的商品", ""]
+    lines += ["- 其他偶爾上架的商品", "",
+              "傢俱零件：使用者決定不判斷，不做範本。", ""]
     for f, run in tw_runs.items():
         if f != chosen:
             lines += [f"## 附錄：未選中的框法（{FRAMINGS[f]['label']}）", ""]
@@ -705,7 +736,8 @@ def main(argv=None):
     unknown = names - {n for n, *_ in ITEMS}
     if unknown:
         raise SystemExit(f"不認得的商品: {'、'.join(unknown)}")
-    sources = {p: read(os.path.join(SRC, p + ".png")) for p in ("pic2", "pic4", "pic5", "pic6")}
+    pics = {p for *_, p, _c in ITEMS} | {p for p, _c in CN_SOURCES.values()}
+    sources = {p: read(os.path.join(SRC, p + ".png")) for p in sorted(pics)}
     frames = load_frames({"tw", "cn"})
     tw_frames = [fr for fr in frames if fr["set"] == "tw"]
     cn_frames = [fr for fr in frames if fr["set"] == "cn"]
@@ -716,7 +748,8 @@ def main(argv=None):
           f"倉庫 {scales.d_warehouse:.1f}")
 
     tw_sets = {fw: cut_all(sources, names, fw, TW_SCALE) for fw in FRAMINGS}
-    cn_sets = {fw: cut_all(sources, names, fw, scales.cn_scale) for fw in FRAMINGS}
+    cn_sets = {fw: cut_all(sources, names, fw, scales.cn_scale, scales.cn_over_tw)
+               for fw in FRAMINGS}
     os.makedirs(os.path.join(HERE, "overlays"), exist_ok=True)
     template_sheet([(f"tw-{fw}", tw_sets[fw]) for fw in FRAMINGS]
                    + [(f"cn-{fw}", cn_sets[fw]) for fw in FRAMINGS],
