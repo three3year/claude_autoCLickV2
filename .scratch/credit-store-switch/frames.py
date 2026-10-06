@@ -1,0 +1,206 @@
+"""接縫二: 真引擎＋標註過的商店影格, 驗分岔會挑哪張卡 (見 spec.md「Testing Decisions」).
+
+    .venv/Scripts/python.exe .scratch/credit-store-switch/frames.py --lang tw
+    .venv/Scripts/python.exe .scratch/credit-store-switch/frames.py --lang cn [--flow 早_簡中]
+
+影格與標註沿用採購中心範本的驗證 (`.scratch/credit-store-templates/frames/`、
+`annotations.json`; 影格由那邊的 extract_frames.py 抽出)。
+
+走 app 的真實偵測路徑: 存檔裡的範本放進暫存工作區 → EngineHub 載入 (arknights
+profile 的 config.yaml 門檻) → 依分岔的分支順序對整張影格執行各分支條件步驟的
+找圖目標 (automation.findtarget.find, 畫面倍率 1); 第一個挑到的＝分岔會走的分支
+(同執行器 _exec_branch 每輪的判定)。
+
+預期: 標註裡還沒售完的卡中, 優先最高的那種商品; 同種多格取最上面那格 (同列取左邊)。
+位置: 範本中心應落在 卡片圓心 + 框法偏移 (圈內方塊, 見 credit-store-templates/build.py
+的 FRAMINGS["inner"]) 的位置容許值內 (同影片轉流程的 position_tolerance)。
+demo1 的影格位元率低 (0.5 Mbps), 已知待重拍範本在上面比不到: 結果照實列出並註明,
+不算失敗。結果寫到 results/frames_<lang>.json; 有非 demo1 的影格不符預期時結束碼 1。
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import sys
+import tempfile
+
+import common
+from common import PRIORITY
+
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+
+import applog  # noqa: E402
+import enginehub  # noqa: E402
+import flowfile  # noqa: E402
+from automation import findtarget  # noqa: E402
+from automation.runner import branch_layout  # noqa: E402
+from video_to_flow import verify as vtf_verify  # noqa: E402
+
+TEMPLATES_DIR = os.path.join(common.ROOT, ".scratch", "credit-store-templates")
+INNER_BOX = (-50, -52, 50, 20)   # 圈內方塊 (倉庫像素, 相對圓圈中心; 範本寬＝100×尺度)
+LOW_BITRATE = {"demo1"}
+
+
+def read_img(path):
+    img = cv2.imdecode(np.fromfile(path, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise SystemExit(f"讀不到影格: {path}")
+    return img
+
+
+def branch_targets(steps):
+    """採購區塊裡分岔各分支的條件找圖目標 (依分支順序)."""
+    start, nav = common.purchase_span(steps)
+    bs = next(i for i in range(start, nav) if steps[i].get("type") == "branch_start")
+    segs, _end = branch_layout(steps, bs)
+    return [findtarget.target(steps[s]) for s in segs]
+
+
+def expected(frame, sizes):
+    """(商品名, 預期範本中心, 容許值) 或 None (畫面上沒有還沒售完的白名單商品)."""
+    live = [c for c in frame["cards"] if not c["soldOut"] and c["name"] in PRIORITY]
+    if not live:
+        return None
+    best = min(PRIORITY.index(c["name"]) for c in live)
+    name = PRIORITY[best]
+    cards = [c for c in live if c["name"] == name]
+    card = min(cards, key=lambda c: (round(c["center"][1] / 100), c["center"][0]))
+    w, h = sizes[name]
+    s = w / (INNER_BOX[2] - INNER_BOX[0])
+    off = ((INNER_BOX[0] + INNER_BOX[2]) / 2 * s, (INNER_BOX[1] + INNER_BOX[3]) / 2 * s)
+    want = (card["center"][0] + off[0], card["center"][1] + off[1])
+    return name, want, vtf_verify.position_tolerance((0, 0, w, h))
+
+
+def card_at(frame, pt, sizes_any):
+    """點擊位置落在哪張卡 (最近的圓心, 半個格距以內)."""
+    best = min(frame["cards"], key=lambda c: (c["center"][0] - pt[0]) ** 2
+               + (c["center"][1] - pt[1]) ** 2)
+    d = ((best["center"][0] - pt[0]) ** 2 + (best["center"][1] - pt[1]) ** 2) ** 0.5
+    return best if d < 130 else None
+
+
+def make_hub(images, names, tmp):
+    os.makedirs(os.path.join(tmp, "templates"))
+    for n in names:
+        with open(os.path.join(tmp, "templates", n + ".png"), "wb") as f:
+            f.write(images[n])
+    applog.set_path(os.path.join(tmp, "autoclick.log"))
+    hub = enginehub.EngineHub()
+    hub.load(tmp, config_dir=common.PROFILE)
+    if not hub.ready:
+        raise SystemExit(f"引擎載入失敗: {hub.error!r}")
+    if hub.coarse_only:
+        raise SystemExit("深度驗證模型載不起來 (coarse-only): 驗證結果不等於實際執行, 中止")
+    hub.preload(names)
+    return hub
+
+
+def judge(frame, tgts, hub, sizes):
+    img = read_img(os.path.join(TEMPLATES_DIR, "frames", frame["id"] + ".png"))
+    picks = []    # 所有成立的分支 (依順序)
+    found = {}
+    for k, t in enumerate(tgts):
+        f = findtarget.find(t, hub, img, (0, 0), origin=None, scale=1.0)
+        found[t["template"]] = f
+        if f.picked is not None:
+            picks.append((k, t["template"], f.picked))
+    exp = expected(frame, sizes)
+    out = {"id": frame["id"], "video": frame["source"].get("video"),
+           "low_bitrate": frame["source"].get("video") in LOW_BITRATE,
+           "live": [c["name"] for c in frame["cards"] if not c["soldOut"]],
+           "sold": [c["name"] for c in frame["cards"] if c["soldOut"]]}
+    if picks:
+        k, name, m = picks[0]
+        card = card_at(frame, m.center, sizes)
+        out["picked"] = {"branch": k + 1, "item": name[len(common.PREFIX):],
+                         "center": list(m.center), "score": round(m.score, 3),
+                         "color": None if m.color is None else round(m.color, 3),
+                         "card": None if card is None else
+                         {"name": card["name"], "soldOut": card["soldOut"],
+                          "center": card["center"]}}
+    else:
+        out["picked"] = None
+    out["others"] = [{"branch": k + 1, "item": n[len(common.PREFIX):],
+                      "card": (lambda c: None if c is None else c["name"]
+                               + ("（售完）" if c["soldOut"] else ""))(card_at(frame, m.center, sizes))}
+                     for k, n, m in picks[1:]]
+    if exp is None:
+        out["expected"] = None
+        out["ok"] = out["picked"] is None
+        return out
+    name, want, tol = exp
+    out["expected"] = {"item": name, "center": [round(v, 1) for v in want],
+                       "tol": round(tol, 1)}
+    f = found[common.template_name(name)]
+    out["expected_query"] = {"best": None if f.query is None else round(f.query.score, 3),
+                             "failed": f.failed}
+    p = out["picked"]
+    if p is not None:
+        d = ((p["center"][0] - want[0]) ** 2 + (p["center"][1] - want[1]) ** 2) ** 0.5
+        p["dist"] = round(d, 1)
+        out["ok"] = p["item"] == name and d <= tol
+    else:
+        out["ok"] = False
+    return out
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--lang", choices=sorted(common.LANGS), required=True)
+    ap.add_argument("--flow", help="流程名或路徑 (預設依語系)")
+    args = ap.parse_args(argv)
+
+    path = common.flow_path(args.lang, args.flow)
+    r = flowfile.read(path)
+    tgts = branch_targets(r["data"]["steps"])
+    names = [t["template"] for t in tgts]
+    if [n[len(common.PREFIX):] for n in names] != PRIORITY:
+        raise SystemExit("分岔的分支順序不是 spec 的優先順序")
+    sizes = {}
+    for n in names:
+        img = cv2.imdecode(np.frombuffer(r["images"][n], np.uint8), cv2.IMREAD_COLOR)
+        sizes[n[len(common.PREFIX):]] = (img.shape[1], img.shape[0])
+
+    with open(os.path.join(TEMPLATES_DIR, "annotations.json"), encoding="utf-8") as f:
+        frames = [fr for fr in json.load(f)["frames"] if fr["set"] == args.lang]
+
+    tmp = tempfile.mkdtemp(prefix="credit_switch_")
+    try:
+        print("載入引擎…", flush=True)
+        hub = make_hub(r["images"], names, tmp)
+        results = [judge(fr, tgts, hub, sizes) for fr in frames]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = 0
+    for o in results:
+        p, e = o["picked"], o["expected"]
+        tag = "通過" if o["ok"] else ("不符（demo1 低位元率）" if o["low_bitrate"] else "不符")
+        bad += not o["ok"] and not o["low_bitrate"]
+        got = "不走任何分支" if p is None else (
+            f"分支 {p['branch']} {p['item']} @{tuple(p['center'])} 分數 {p['score']}"
+            + (f" 比色 {p['color']}" if p["color"] is not None else "")
+            + (f" 距預期 {p['dist']}px" if "dist" in p else "")
+            + (f" → 卡：{p['card']['name']}{'（售完）' if p['card']['soldOut'] else ''}"
+               if p["card"] else " → 不在卡上"))
+        want = "不走任何分支" if e is None else f"{e['item']} @{tuple(e['center'])} ±{e['tol']}"
+        print(f"[{tag}] {o['id']}: 預期 {want}；實際 {got}")
+        if not o["ok"] and e is not None:
+            q = o["expected_query"]
+            print(f"      預期商品的查詢：最高 {q['best']}、未過 {q['failed']}")
+    os.makedirs(os.path.join(common.HERE, "results"), exist_ok=True)
+    with open(os.path.join(common.HERE, "results", f"frames_{args.lang}.json"), "w",
+              encoding="utf-8") as f:
+        json.dump({"flow": os.path.basename(path), "results": results}, f,
+                  ensure_ascii=False, indent=1)
+    print(f"{sum(o['ok'] for o in results)}/{len(results)} 通過；"
+          f"非 demo1 不符 {bad} 張")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,542 @@
+{
+ "flow": "早_簡中.autoclickpack",
+ "results": [
+  {
+   "id": "cn_demo1_f4620",
+   "video": "demo1",
+   "low_bitrate": true,
+   "live": [
+    "初級作戰記錄",
+    "加急許可",
+    "碳素",
+    "招聘許可",
+    "裝置",
+    "初級作戰記錄",
+    "招聘許可",
+    "傢俱零件",
+    "初級作戰記錄",
+    "赤金"
+   ],
+   "sold": [],
+   "picked": null,
+   "others": [],
+   "expected": {
+    "item": "加急許可",
+    "center": [
+     419.1,
+     362.5
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.685,
+    "failed": "verify"
+   },
+   "ok": false
+  },
+  {
+   "id": "cn_demo1_f4970",
+   "video": "demo1",
+   "low_bitrate": true,
+   "live": [
+    "初級作戰記錄",
+    "碳素",
+    "招聘許可",
+    "裝置",
+    "初級作戰記錄",
+    "傢俱零件",
+    "初級作戰記錄",
+    "赤金"
+   ],
+   "sold": [
+    "加急許可",
+    "招聘許可"
+   ],
+   "picked": null,
+   "others": [],
+   "expected": {
+    "item": "招聘許可",
+    "center": [
+     970.5,
+     362.3
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.377,
+    "failed": "verify"
+   },
+   "ok": false
+  },
+  {
+   "id": "cn_demo1_f5470",
+   "video": "demo1",
+   "low_bitrate": true,
+   "live": [
+    "碳素",
+    "傢俱零件",
+    "赤金"
+   ],
+   "sold": [
+    "初級作戰記錄",
+    "加急許可",
+    "招聘許可",
+    "裝置",
+    "初級作戰記錄",
+    "招聘許可",
+    "初級作戰記錄"
+   ],
+   "picked": null,
+   "others": [],
+   "expected": {
+    "item": "赤金",
+    "center": [
+     1247.3,
+     638.3
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.346,
+    "failed": "verify"
+   },
+   "ok": false
+  },
+  {
+   "id": "cn_demo5_f3300",
+   "video": "demo5",
+   "low_bitrate": false,
+   "live": [
+    "技巧概要·卷2",
+    "糖",
+    "裝置",
+    "聚酸酯",
+    "異鐵",
+    "傢俱零件",
+    "加急許可",
+    "招聘許可",
+    "聚酸酯",
+    "赤金"
+   ],
+   "sold": [],
+   "picked": {
+    "branch": 1,
+    "item": "加急許可",
+    "center": [
+     418,
+     639
+    ],
+    "score": 0.956,
+    "color": 0.984,
+    "card": {
+     "name": "加急許可",
+     "soldOut": false,
+     "center": [
+      419.1,
+      653.8
+     ]
+    },
+    "dist": 1.4
+   },
+   "others": [
+    {
+     "branch": 2,
+     "item": "招聘許可",
+     "card": "招聘許可"
+    },
+    {
+     "branch": 3,
+     "item": "技巧概要·卷2",
+     "card": "技巧概要·卷2"
+    },
+    {
+     "branch": 5,
+     "item": "赤金",
+     "card": "赤金"
+    },
+    {
+     "branch": 8,
+     "item": "糖",
+     "card": "糖"
+    },
+    {
+     "branch": 9,
+     "item": "聚酸酯",
+     "card": "聚酸酯"
+    },
+    {
+     "branch": 10,
+     "item": "異鐵",
+     "card": "異鐵"
+    },
+    {
+     "branch": 11,
+     "item": "裝置",
+     "card": "裝置"
+    }
+   ],
+   "expected": {
+    "item": "加急許可",
+    "center": [
+     419.1,
+     639.9
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.956,
+    "failed": null
+   },
+   "ok": true
+  },
+  {
+   "id": "cn_demo5_f3540",
+   "video": "demo5",
+   "low_bitrate": false,
+   "live": [
+    "糖",
+    "聚酸酯",
+    "異鐵",
+    "傢俱零件",
+    "加急許可",
+    "招聘許可",
+    "聚酸酯",
+    "赤金"
+   ],
+   "sold": [
+    "技巧概要·卷2",
+    "裝置"
+   ],
+   "picked": {
+    "branch": 1,
+    "item": "加急許可",
+    "center": [
+     418,
+     639
+    ],
+    "score": 0.96,
+    "color": 0.983,
+    "card": {
+     "name": "加急許可",
+     "soldOut": false,
+     "center": [
+      419.5,
+      653.2
+     ]
+    },
+    "dist": 1.5
+   },
+   "others": [
+    {
+     "branch": 2,
+     "item": "招聘許可",
+     "card": "招聘許可"
+    },
+    {
+     "branch": 5,
+     "item": "赤金",
+     "card": "赤金"
+    },
+    {
+     "branch": 8,
+     "item": "糖",
+     "card": "糖"
+    },
+    {
+     "branch": 9,
+     "item": "聚酸酯",
+     "card": "聚酸酯"
+    },
+    {
+     "branch": 10,
+     "item": "異鐵",
+     "card": "異鐵"
+    }
+   ],
+   "expected": {
+    "item": "加急許可",
+    "center": [
+     419.5,
+     639.3
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.96,
+    "failed": null
+   },
+   "ok": true
+  },
+  {
+   "id": "cn_demo5_f3820",
+   "video": "demo5",
+   "low_bitrate": false,
+   "live": [
+    "糖",
+    "聚酸酯",
+    "異鐵",
+    "傢俱零件",
+    "聚酸酯"
+   ],
+   "sold": [
+    "技巧概要·卷2",
+    "裝置",
+    "加急許可",
+    "招聘許可",
+    "赤金"
+   ],
+   "picked": {
+    "branch": 8,
+    "item": "糖",
+    "center": [
+     418,
+     362
+    ],
+    "score": 0.899,
+    "color": 0.987,
+    "card": {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      418.4,
+      376.3
+     ]
+    },
+    "dist": 0.6
+   },
+   "others": [
+    {
+     "branch": 9,
+     "item": "聚酸酯",
+     "card": "聚酸酯"
+    },
+    {
+     "branch": 10,
+     "item": "異鐵",
+     "card": "異鐵"
+    }
+   ],
+   "expected": {
+    "item": "糖",
+    "center": [
+     418.4,
+     362.4
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.899,
+    "failed": null
+   },
+   "ok": true
+  },
+  {
+   "id": "cn_demo6_f3113",
+   "video": "demo6",
+   "low_bitrate": false,
+   "live": [
+    "聚酸酯",
+    "固源岩",
+    "聚酸酯",
+    "裝置",
+    "聚酸酯",
+    "糖",
+    "初級作戰記錄",
+    "技巧概要·卷2",
+    "傢俱零件",
+    "固源岩"
+   ],
+   "sold": [],
+   "picked": {
+    "branch": 3,
+    "item": "技巧概要·卷2",
+    "center": [
+     695,
+     638
+    ],
+    "score": 0.935,
+    "color": null,
+    "card": {
+     "name": "技巧概要·卷2",
+     "soldOut": false,
+     "center": [
+      695.0,
+      653.4
+     ]
+    },
+    "dist": 1.5
+   },
+   "others": [
+    {
+     "branch": 7,
+     "item": "固源岩",
+     "card": "固源岩"
+    },
+    {
+     "branch": 8,
+     "item": "糖",
+     "card": "糖"
+    },
+    {
+     "branch": 9,
+     "item": "聚酸酯",
+     "card": "聚酸酯"
+    },
+    {
+     "branch": 11,
+     "item": "裝置",
+     "card": "裝置"
+    },
+    {
+     "branch": 19,
+     "item": "初級作戰記錄",
+     "card": "初級作戰記錄"
+    }
+   ],
+   "expected": {
+    "item": "技巧概要·卷2",
+    "center": [
+     695.0,
+     639.5
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.935,
+    "failed": null
+   },
+   "ok": true
+  },
+  {
+   "id": "cn_demo6_f3383",
+   "video": "demo6",
+   "low_bitrate": false,
+   "live": [
+    "聚酸酯",
+    "聚酸酯",
+    "裝置",
+    "聚酸酯",
+    "糖",
+    "初級作戰記錄",
+    "傢俱零件"
+   ],
+   "sold": [
+    "固源岩",
+    "技巧概要·卷2",
+    "固源岩"
+   ],
+   "picked": {
+    "branch": 8,
+    "item": "糖",
+    "center": [
+     142,
+     639
+    ],
+    "score": 0.915,
+    "color": 0.984,
+    "card": {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      142.6,
+      653.7
+     ]
+    },
+    "dist": 1.0
+   },
+   "others": [
+    {
+     "branch": 9,
+     "item": "聚酸酯",
+     "card": "聚酸酯"
+    },
+    {
+     "branch": 11,
+     "item": "裝置",
+     "card": "裝置"
+    },
+    {
+     "branch": 19,
+     "item": "初級作戰記錄",
+     "card": "初級作戰記錄"
+    }
+   ],
+   "expected": {
+    "item": "糖",
+    "center": [
+     142.6,
+     639.8
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.915,
+    "failed": null
+   },
+   "ok": true
+  },
+  {
+   "id": "cn_demo6_f3532",
+   "video": "demo6",
+   "low_bitrate": false,
+   "live": [
+    "聚酸酯",
+    "聚酸酯",
+    "糖",
+    "初級作戰記錄",
+    "傢俱零件"
+   ],
+   "sold": [
+    "聚酸酯",
+    "固源岩",
+    "裝置",
+    "技巧概要·卷2",
+    "固源岩"
+   ],
+   "picked": {
+    "branch": 8,
+    "item": "糖",
+    "center": [
+     142,
+     639
+    ],
+    "score": 0.905,
+    "color": 0.984,
+    "card": {
+     "name": "糖",
+     "soldOut": false,
+     "center": [
+      143.9,
+      653.9
+     ]
+    },
+    "dist": 2.1
+   },
+   "others": [
+    {
+     "branch": 9,
+     "item": "聚酸酯",
+     "card": "聚酸酯"
+    },
+    {
+     "branch": 19,
+     "item": "初級作戰記錄",
+     "card": "初級作戰記錄"
+    }
+   ],
+   "expected": {
+    "item": "糖",
+    "center": [
+     143.9,
+     640.0
+    ],
+    "tol": 15.5
+   },
+   "expected_query": {
+    "best": 0.905,
+    "failed": null
+   },
+   "ok": true
+  }
+ ]
+}
