@@ -69,8 +69,8 @@ def find(template, target=None, **kw):
                 **kw)
 
 
-def key(keys):
-    return {"type": "key", "keys": keys}
+def key(keys, **kw):
+    return dict({"type": "key", "keys": keys}, **kw)
 
 
 def loop(count):
@@ -274,14 +274,18 @@ class Vision:
 class Input:
     """假的滑鼠鍵盤: 只記錄事件, 不送出任何真實輸入."""
 
-    def __init__(self, events, lock=None):
+    def __init__(self, events, lock=None, clock=None):
         self.events = events
         self._lock = lock or threading.Lock()
         self._cursor = (0, 0)
+        self.clock = clock   # 虛擬時鐘 (None＝不記時間)
+        self.times = []      # 每個事件發生的虛擬時間 (與 events 同序)
 
     def _rec(self, ev):
         with self._lock:
             self.events.append(ev)
+            if self.clock is not None:
+                self.times.append(self.clock.t)
 
     def click(self, x, y, button="left", clicks=1, **kw):
         self._rec(("click", int(x), int(y), button, int(clicks)))
@@ -362,7 +366,7 @@ class Harness:
         self.vision = Vision(clock=self.clock)
         self.events = []
         self.lock = threading.Lock()
-        self.input = Input(self.events, self.lock)
+        self.input = Input(self.events, self.lock, self.clock)
         monkeypatch.setattr(runner_mod, "time", self.clock)
         monkeypatch.setattr(runner_mod.capture, "grab", self.vision.grab)
         for name in ("click", "drag", "press_keys", "move", "cursor_pos",
@@ -413,6 +417,11 @@ class Harness:
 
     def kinds(self):
         return [e[0] for e in self.events]
+
+    def input_times(self):
+        """送出輸入 (點擊/拖曳/按鍵) 的 (種類, 虛擬時間) 序列, 不含移動游標."""
+        return [(e[0], t) for e, t in zip(self.events, self.input.times)
+                if e[0] in ("click", "drag", "keys")]
 
     def _cal_names(self):
         cal = getattr(getattr(self, "runner", None), "calibration", None)

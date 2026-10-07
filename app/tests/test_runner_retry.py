@@ -2,7 +2,7 @@
 
 生效確認還沒通過時, 重送輸入要同時滿足: 距上一次輸入已過補做間隔 (流程設定,
 預設 1000ms), 且 (設了忙碌指示時) 畫面上沒有忙碌指示。忙碌指示在確認沒達成的
-每一輪查一次, 與`忙碌暫停`共用 (ADR 0010)。
+每一輪用同一張截圖查一次 (找圖等待本身不看忙碌, ADR 0011)。
 斷言對象: 送出的點擊次數、虛擬時鐘、查詢紀錄、檔案日誌。
 """
 from harness import find, tgt
@@ -92,9 +92,9 @@ def test_逾時時延後中的時間也算進去(harness):
     assert harness.clicks() == [AT], "指示一直在: 一次都不補"
     [rec] = confirm_records(harness)
     assert rec["result"] == "not_gone"
-    # 逾時被`忙碌暫停`延到 2+60s; 補做從 1.0s 起被延後到逾時
-    assert rec["busy_pause"] == "60.00"
-    assert 60.9 <= float(rec["busy_delay"]) <= 61.1
+    # 逾時照常 2s (不因忙碌延後, ADR 0011); 補做從 1.0s 起被延後到逾時
+    assert "busy_pause" not in rec
+    assert 0.9 <= float(rec["busy_delay"]) <= 1.1
 
 
 def test_找圖到補點仍是一個舞台原子區段(harness):

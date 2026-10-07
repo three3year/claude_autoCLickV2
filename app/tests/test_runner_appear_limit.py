@@ -1,8 +1,8 @@
 """`等待消失`的`出現等候上限` (effect-confirm 票 02, ADR 0008).
 
 設了上限: 上限內一次都沒看到＝通過; 看到了就照常等它消失、受步驟逾時限制。
-沒設: 維持「從未出現＝逾時失敗」。用途是等可能不出現的圖 (忙碌時間不計入見
-test_runner_busy_pause)。
+沒設: 維持「從未出現＝逾時失敗」。用途是等可能不出現的圖 (上限不因忙碌延後,
+見 test_runner_busy_no_pause)。
 """
 from harness import click, find
 from test_editor_scale import make_app  # noqa: F401  (fixture)

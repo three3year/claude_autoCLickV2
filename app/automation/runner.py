@@ -13,13 +13,16 @@ threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分
 把它當`預期尺度`交給偵測器。量不到 (或流程沒有校準對) 就一個輸入都不送。
 
 `生效確認`還沒通過時的`補做` (重送同一個輸入) 有兩道門 (ADR 0008): 距上一次
-輸入已過`補做間隔`, 且畫面上沒有`忙碌指示`。
+輸入已過`補做間隔`, 且畫面上沒有`忙碌指示` (確認沒生效的那一輪用同一張截圖查)。
 所有實際送出的輸入都經過 `_input`, 它記下「上一次輸入」的時間。
 
-所有找圖的等待 (分岔、一般找圖、生效確認、等待消失) 共用 `WaitClock` 判斷逾時。
-流程有設忙碌指示時, 輪詢沒達成的那一輪用同一張截圖查一次 (補做的門也用這次
-結果); 看到忙碌的時間不計入逾時 (`忙碌暫停`, ADR 0010), 每個等待時鐘累計最多
-60 秒 (分岔整個一個; 找圖階段與它的確認階段各一個)。
+所有找圖的等待 (分岔、一般找圖、生效確認、等待消失) 共用 `WaitClock` 判斷逾時,
+逾時照常計時、不看忙碌指示 (ADR 0011 取代 ADR 0010 的忙碌暫停)。
+
+`忙碌檢查` (ADR 0011): 勾了的步驟 (座標點擊、拖曳、按鍵、找圖點擊) 送出輸入後,
+在`忙碌出現等候`內輪詢忙碌指示, 一次都沒看到＝放行; 看到就等它消失 (挑中的位置
+不再有匹配), 從送出起最多 BUSY_GONE_CAP 秒, 等不到＝停止流程。之後才做生效確認;
+補做重送後不再另等。
 """
 import threading
 import time
@@ -133,17 +136,25 @@ def _matching_branch_end(steps, i):
     return len(steps)
 
 
-BUSY_PAUSE_CAP = 60.0   # `忙碌暫停`: 同一步驟最多累計暫停的秒數 (ADR 0010)
+BUSY_GONE_CAP = 60.0    # `忙碌檢查`: 從送出輸入起等忙碌指示消失的上限 (秒), 超過＝停止流程
+BUSY_APPEAR_DEFAULT = 1.0   # `忙碌出現等候`預設 (秒); 流程設定帶入時以毫秒存
+BUSY_CHECK_KEY = "busyCheck"    # 步驟上的布林鍵: 只在勾了時寫入, 缺鍵＝沒勾
+BUSY_CHECK_TYPES = ("click", "drag", "key", "find_click")   # 送出輸入的步驟種類
+
+
+def busy_check(step):
+    """步驟有沒有勾`忙碌檢查`: 只有送出輸入的步驟算 (找圖要動作為點擊)."""
+    t = step.get("type")
+    if t == "find_click" and step.get("action", "click") != "click":
+        return False
+    return t in BUSY_CHECK_TYPES and bool(step.get(BUSY_CHECK_KEY))
 
 
 class WaitClock:
     """找圖等待共用的等待時鐘: 截止時間、輪詢間隔、逾時判定.
 
     分岔的輪詢、一般找圖 (等待消失另有`出現等候上限`)、生效確認都用它判斷
-    逾時。pause(秒) 把截止時間 (與出現等候上限) 一起往後延; `忙碌暫停`經
-    busy() 用它——看到忙碌指示到下一次沒看到為止的時間不計入, 累計最多
-    BUSY_PAUSE_CAP 秒, 超過後照常計時。一個時鐘＝一個額度 (分岔整個一個、
-    找圖階段與它的確認階段各一個)。
+    逾時。逾時照常計時, 不因忙碌指示延後 (ADR 0011)。
     """
 
     def __init__(self, timeout, interval, appear_limit=None):
@@ -152,41 +163,15 @@ class WaitClock:
         self.interval = interval
         self._deadline = now + timeout
         self._appear_by = None if appear_limit is None else now + appear_limit
-        self._paused = 0.0
-        self._busy_since = None   # 這段忙碌開始的時間; None＝目前沒在忙碌
-
-    @property
-    def paused(self):
-        """截止時間已往後延的秒數 (含進行中的忙碌, 不超過上限)."""
-        ongoing = (0.0 if self._busy_since is None
-                   else time.monotonic() - self._busy_since)
-        return min(BUSY_PAUSE_CAP, self._paused + ongoing)
-
-    def pause_field(self):
-        """檔案日誌 `busy_pause` 欄位: 暫停秒數, 小數兩位."""
-        return f"{self.paused:.2f}"
-
-    def pause(self, seconds):
-        self._paused += seconds
-
-    def busy(self, seen):
-        """記下這一輪有沒有看到忙碌指示: 看到＝開始 (或持續) 暫停, 沒看到＝結算."""
-        now = time.monotonic()
-        if seen:
-            if self._busy_since is None:
-                self._busy_since = now
-        elif self._busy_since is not None:
-            self.pause(now - self._busy_since)
-            self._busy_since = None
 
     def expired(self):
         """步驟逾時到了沒."""
-        return time.monotonic() >= self._deadline + self.paused
+        return time.monotonic() >= self._deadline
 
     def appear_expired(self):
         """`出現等候上限`到了沒 (沒設＝永遠沒到)."""
         return (self._appear_by is not None
-                and time.monotonic() >= self._appear_by + self.paused)
+                and time.monotonic() >= self._appear_by)
 
 
 class Runner:
@@ -248,9 +233,10 @@ class Runner:
     # ---------- 控制 ----------
     def start(self, steps, run_mode="count", run_count=1, start_delay=3,
               scan_region=None, avoid_hover=False, calibration=None,
-              retry_interval=1.0, busy=None, pressed_at=None):
+              retry_interval=1.0, busy=None, busy_appear=BUSY_APPEAR_DEFAULT,
+              pressed_at=None):
         """pressed_at: 按下「執行」的時間 (monotonic); `開始延遲`從這時起算,
-        沒給＝現在。"""
+        沒給＝現在。busy_appear: `忙碌出現等候` (秒), 流程層級設定。"""
         if self.running:
             raise RuntimeError("已在執行中")
         self._stop.clear()
@@ -265,6 +251,7 @@ class Runner:
         # `補做間隔` (秒) 與`忙碌指示` (找圖目標或 None): 流程層級設定
         self.retry_interval = max(0.0, float(retry_interval))
         self.busy = busy if busy and busy.get("template") else None
+        self.busy_appear = max(0.0, float(busy_appear))
         self._last_input = None   # 上一次送出輸入的時間 (monotonic)
         self._last_click = None  # 上一次點擊的螢幕座標, 供相對座標步驟使用
         self._origin_src = None  # 原點來自找圖時: {target, box, origin}
@@ -506,24 +493,81 @@ class Runner:
         getattr(win, kind)(*args)
         self._last_input = time.monotonic()
 
-    def _note_busy(self, no, clock, screen, org):
-        """這一輪沒達成: 用同一張截圖查一次`忙碌指示`, 結果記進等待時鐘.
+    def _busy_seen(self, no, screen, org):
+        """畫面上 (這張截圖) 有沒有`忙碌指示`; 沒設忙碌指示＝不查、當作沒有.
 
-        `忙碌暫停`與`補做`的門共用這一次查詢 (不另外截圖、不讓出舞台);
-        找到或生效的那一輪不呼叫。沒設忙碌指示＝不查、當作沒看到。
+        `補做`的門用: 確認沒生效的那一輪用同一張截圖查一次 (不另外截圖、
+        不讓出舞台); 找到或生效的那一輪不呼叫。
         """
         if self.busy is None:
             return False
         f = self._find(no, self.busy, screen, org, self._last_click,
                        kind="忙碌指示")
-        seen = f.picked is not None
-        clock.busy(seen)
-        return seen
+        return f.picked is not None
+
+    def _busy_check(self, no, step):
+        """`忙碌檢查` (ADR 0011): 勾了的步驟送出輸入後, 等`忙碌指示`消失.
+
+        從送出輸入 (上一次輸入的時間) 起算: `忙碌出現等候`內輪詢, 一次都沒看到
+        ＝放行 (not_appeared; 就算生效確認其實已成立也等滿); 看到就等它消失
+        ——挑中的位置不再有匹配 (gone, 同等待消失的同位置判定); 等到
+        BUSY_GONE_CAP 秒仍在＝停止流程 (timeout, 不走「找不到時」)。輪詢間隔
+        沿用步驟的找圖輪詢節奏。每次寫一筆 `busy.check` 檔案日誌。
+        """
+        if not busy_check(step):
+            return
+        if self.busy is None:
+            # 執行前檢查會擋下; 這裡是防禦線
+            self.log(f"[{no}] 勾了忙碌檢查但流程沒設忙碌指示 → 不等", "warn")
+            return
+        sent = self._last_input
+        interval = max(0.1, float(step.get("interval", 0.5)))
+        region = getattr(self, "scan_region", None)
+        appear_by = sent + self.busy_appear
+        gone_by = sent + BUSY_GONE_CAP
+        box = None   # 看到時挑中的框; None＝還沒看到
+        polls = 0
+        while True:
+            self._check_stop()
+            screen, org = self._grab(region)
+            polls += 1
+            f = self._find(no, self.busy, screen, org, self._last_click,
+                           kind="忙碌指示")
+            now = time.monotonic()
+            if box is None:
+                if f.picked is not None:
+                    box = f.picked.box
+                    self.log(f"[{no}] 看到忙碌指示 → 等它消失")
+                elif now >= appear_by:
+                    result = "not_appeared"
+                    break
+            else:
+                hit = findtarget.still_there(box, f.matches)
+                if hit is None:
+                    result = "gone"
+                    break
+                box = hit.box
+                if now >= gone_by:
+                    result = "timeout"
+                    break
+            self._sleep(min(interval, (appear_by if box is None else gone_by) - now))
+        waited = now - sent
+        rec = dict(step=no, result=result, waited=f"{waited:.2f}", polls=polls)
+        if box is not None:
+            rec["picked"] = findtarget.fmt_box(box)
+        self._log_file("busy.check", **rec)
+        if result == "gone":
+            self.log(f"[{no}] 忙碌指示已消失（等了 {waited:.1f}s）", "ok")
+        elif result == "timeout":
+            msg = (f"[{no}] 忙碌指示 {int(BUSY_GONE_CAP)} 秒沒消失"
+                   "（可能斷線或畫面卡住）")
+            self.log(msg + " → 停止執行", "warn")
+            raise RuntimeError(msg + " → 停止執行")
 
     def _retry_ready(self, busy_seen, gate):
         """`補做`的兩道門: 已過`補做間隔`、且畫面上沒有`忙碌指示`.
 
-        busy_seen 是這一輪已查過的忙碌指示結果 (_note_busy)。gate 記錄因忙碌
+        busy_seen 是這一輪已查過的忙碌指示結果 (_busy_seen)。gate 記錄因忙碌
         延後補做的累計秒數 (busy_since: 這次開始延後的時間; delay: 已結算的
         總和), 只從間隔已滿時起算。
         """
@@ -589,12 +633,13 @@ class Runner:
             keys = step.get("keys", "")
             self._input("press_keys", keys)
             self.log(f"[{no}] 按鍵 {keys}")
+            self._busy_check(no, step)
 
         else:
             self.log(f"[{no}] 未知步驟類型: {t}", "warn")
 
     def _exec_pointer(self, steps, idx):
-        """座標點擊 / 拖曳: 換算落點 → 送出 → (有設的話) `生效確認`.
+        """座標點擊 / 拖曳: 換算落點 → 送出 → (勾了的話) `忙碌檢查` → (有設的話) `生效確認`.
 
         原點: 沒有確認時送出就更新 (同舊行為); 有確認時**生效後才更新**——補做
         送出的輸入以第一次輸入前的原點計算, 與第一次完全相同。
@@ -653,9 +698,11 @@ class Runner:
                      "→ 以「不確認」執行", "warn")
             mode = "none"
         if mode == "none":
+            self._log_file("input", step=no, kind=t, **fields)
+        self._busy_check(no, step)   # 日誌: 輸入那筆之後、確認那筆之前
+        if mode == "none":
             if updates:
                 self._set_origin(after)
-            self._log_file("input", step=no, kind=t, **fields)
             return None
         rec = dict(step=no, kind=t, mode=mode, **fields)
         if mode == "gone":
@@ -690,11 +737,10 @@ class Runner:
             waiting, done, fail = f"{what}出現", f"{what}已出現", f"未見{what}"
         timeout = float(step.get("timeout", 10))
         self.log(f"[{no}] 等待生效（直到{waiting}）")
-        ok, f, polls, inputs, delay, paused = self._await_effect(
+        ok, f, polls, inputs, delay = self._await_effect(
             no, timeout, float(step.get("interval", 0.5)), check,
             lambda screen, org: True, lambda: self._input(t, *args))
-        rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}",
-                   busy_pause=paused)
+        rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}")
         if ok:
             if updates:
                 self._set_origin(after)
@@ -714,11 +760,12 @@ class Runner:
         """`生效確認`的共同迴圈 (找圖點擊、座標點擊、拖曳共用).
 
         每個輪詢間隔截一張圖, check(screen, org) → (生效與否, 紀錄用的結果);
-        沒生效時查一次忙碌指示 (`忙碌暫停`), may_retry(screen, org) 為真、且過了
-        `補做`的兩道門 (補做間隔、忙碌指示) 才 resend() 重送同一個輸入。整段不
-        讓出舞台。確認階段自己一個等待時鐘 (暫停額度與找圖階段分開)。
+        沒生效時用同一張截圖查一次忙碌指示 (補做的門), may_retry(screen, org)
+        為真、且過了`補做`的兩道門 (補做間隔、忙碌指示) 才 resend() 重送同一個
+        輸入 (重送後不再做忙碌檢查)。整段不讓出舞台。逾時從呼叫時起算 (勾了
+        忙碌檢查的步驟＝忙碌檢查結束之後)。
         回傳 (生效與否, 最後一次 check 的結果, 輪詢數, 輸入數, 因忙碌延後補做
-        的秒數, 日誌用的忙碌暫停秒數字串)。
+        的秒數)。
         """
         region = getattr(self, "scan_region", None)
         clock = WaitClock(timeout, interval)
@@ -732,14 +779,14 @@ class Runner:
             ok, last = check(screen, org)
             if ok:
                 break
-            busy = self._note_busy(no, clock, screen, org)
+            busy = self._busy_seen(no, screen, org)
             if may_retry(screen, org) and self._retry_ready(busy, gate):
                 resend()
                 inputs += 1
             if clock.expired():
                 break
         self._settle_busy(gate, time.monotonic())
-        return ok, last, polls, inputs, gate["delay"], clock.pause_field()
+        return ok, last, polls, inputs, gate["delay"]
 
     def _enclosing_end(self, steps, pos):
         """pos 之後第一個未配對的結束標記索引 (= 所屬最內層區段結尾); 無則 None."""
@@ -881,18 +928,15 @@ class Runner:
                 f = last[k] = self._find(segs[k] + 1, t, screen, org, origin)
                 if f.picked is not None:
                     self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{f.template}）", "ok")
-                    self._record(segs[k] + 1, "branch", f, "found", polls=polls,
-                                 busy_pause=clock.pause_field())
+                    self._record(segs[k] + 1, "branch", f, "found", polls=polls)
                     return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
-            # 整個分岔共用一個等待時鐘 (一個暫停額度)
-            self._note_busy(idx + 1, clock, screen, org)
             if clock.expired():
                 break
             self._sleep(clock.interval)
         for k, f in enumerate(last):
             self._record(segs[k] + 1, "branch", f,
                          "cannot_run" if f.reason == "origin" else "timeout",
-                         polls=polls, busy_pause=clock.pause_field())
+                         polls=polls)
         if any(c.get("onNotFound") == "stop" for c in conds):
             raise RuntimeError(
                 f"[{idx + 1}] 分岔逾時 {timeout}s, 沒有任何分支條件成立 → 停止執行")
@@ -940,7 +984,7 @@ class Runner:
         # (從未出現不能判定成功: 可能畫面根本沒進到預期狀態)
         # 「消失」＝先前挑中的那個位置不再有匹配; 別處的同款圖不影響
         # `出現等候上限` (appearLimitMs, 預設不設): 這段時間內一次都沒看到＝通過
-        # ——等「可能出現、也可能根本不出現」的圖; 忙碌的時間不計入 (`忙碌暫停`)
+        # ——等「可能出現、也可能根本不出現」的圖
         if action == "wait_gone":
             limit_ms = step.get("appearLimitMs")
             clock = WaitClock(timeout, interval,
@@ -964,29 +1008,24 @@ class Runner:
                 elif tracked is not None:
                     self.log(f"[{no}] 「{name}」已消失", "ok")
                     self._record(no, "wait_gone", f, "gone", polls=polls,
-                                 picked=findtarget.fmt_box(tracked),
-                                 busy_pause=clock.pause_field())
+                                 picked=findtarget.fmt_box(tracked))
                     return None
                 elif clock.appear_expired():
                     self.log(f"[{no}] 「{name}」在出現等候上限 {int(limit_ms)}ms "
                              "內沒出現 → 通過", "ok")
-                    self._record(no, "wait_gone", f, "not_appeared", polls=polls,
-                                 busy_pause=clock.pause_field())
+                    self._record(no, "wait_gone", f, "not_appeared", polls=polls)
                     return None
                 # 圖還在 (或還沒出現): 沒達成
-                self._note_busy(no, clock, screen, org)
                 if clock.expired():
                     break
                 self._sleep(clock.interval)
             if tracked is not None:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」仍未消失"
                 self._record(no, "wait_gone", f, "not_gone", polls=polls,
-                             picked=findtarget.fmt_box(tracked),
-                             busy_pause=clock.pause_field())
+                             picked=findtarget.fmt_box(tracked))
             else:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」從未出現"
-                self._record(no, "wait_gone", f, "timeout", polls=polls,
-                             busy_pause=clock.pause_field())
+                self._record(no, "wait_gone", f, "timeout", polls=polls)
             return self._on_not_found(no, msg, on_nf)
 
         # ---- 找圖階段 (等待出現) ----
@@ -1002,25 +1041,22 @@ class Runner:
                 best = max(best, f.query.score)
             if f.picked is not None:
                 break
-            self._note_busy(no, clock, screen, org)
             if clock.expired():
                 break
             self._sleep(clock.interval)
-        paused = clock.pause_field()
 
         hit = f.picked
         if hit is None:
             msg = f"[{no}] 逾時 {timeout}s 未找到「{name}」(最高相似度 {best:.3f})"
             if f.reason == "count":
                 msg += f"（找到 {len(f.matches)} 個，挑選規則挑不到）"
-            self._record(no, "find", f, "timeout", polls=polls,
-                         busy_pause=paused)
+            self._record(no, "find", f, "timeout", polls=polls)
             return self._on_not_found(no, msg, on_nf)
 
         cx, cy = hit.center
         sx, sy = cx + off[0], cy + off[1]
         many = f"，共 {len(f.matches)} 個匹配" if len(f.matches) > 1 else ""
-        self._record(no, "find", f, "found", polls=polls, busy_pause=paused,
+        self._record(no, "find", f, "found", polls=polls,
                      **({"click": f"({sx},{sy})"} if do_click else {}))
         if not do_click:
             if step.get("updateOrigin", True):
@@ -1033,6 +1069,7 @@ class Runner:
         self._input("click", sx, sy, button, clicks)
         if step.get("updateOrigin", True):
             self._set_origin((sx, sy), tgt, hit.box, origin)
+        self._busy_check(no, step)   # 點擊 → 忙碌檢查 → 生效確認
         confirm = step.get("confirm", "none")
         if confirm == "next" and not confirm_next_connected(steps, idx):
             # 執行期防禦線: 理論上已被存檔與執行前檢查擋下, 退化成「不確認」
@@ -1111,11 +1148,11 @@ class Runner:
             if step.get("updateOrigin", True):
                 self._set_origin((sx, sy), tgt, cur["box"], origin)
 
-        ok, f, polls, n_clicks, delay, paused = self._await_effect(
+        ok, f, polls, n_clicks, delay = self._await_effect(
             no, timeout, interval, check,
             lambda screen, org: cur["still"] is not None, resend)
         extra = {"polls": polls, "clicks": n_clicks,
-                 "busy_delay": f"{delay:.2f}", "busy_pause": paused}
+                 "busy_delay": f"{delay:.2f}"}
         if mode == "gone":
             extra["picked"] = findtarget.fmt_box(cur["box"])
         if ok:

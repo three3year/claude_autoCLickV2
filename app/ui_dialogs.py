@@ -12,6 +12,7 @@ import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowfmt, win
+from automation.runner import BUSY_CHECK_KEY
 from ui_theme import C, FONT
 
 BTN_NAMES = [("left", "左鍵"), ("right", "右鍵"), ("middle", "中鍵")]
@@ -1042,6 +1043,15 @@ def edit_step(app, step):
     result = [None]
     t = step["type"]
     v = {}
+
+    def busy_row():
+        """`忙碌檢查`勾選列 (ADR 0011; 送出輸入的步驟才有); 回傳整列元件供顯示/隱藏."""
+        v["busyCheck"] = tk.BooleanVar(value=bool(step.get(BUSY_CHECK_KEY)))
+        fr = add_row("忙碌檢查")
+        _check(fr, BUSY_CHECK_TEXT, v["busyCheck"]).pack(side="left")
+        lab = body.grid_slaves(row=int(fr.grid_info()["row"]), column=0)
+        return (*lab, fr)
+
     # 這次開對話框期間新加進本流程的範本: 關閉時把「最後沒被這一步引用到的」
     # 收回去——「在找圖對話框現場截圖後按取消＝丟棄該圖」(舊的`確認圖`
     # 「截圖即時存檔、取消對話框圖仍留下」語意已經改掉)
@@ -1134,6 +1144,7 @@ def edit_step(app, step):
         fr = add_row("相對座標")
         _check(fr, "把點擊位置更新為相對座標原點", v["updateOrigin"]).pack(
             side="left")
+        busy_row()
 
     elif t == "drag":
         MODE_ZH = {"abs": "絕對座標（搜尋範圍內）", "prev": "相對上一步點擊位置"}
@@ -1250,6 +1261,7 @@ def edit_step(app, step):
         lbl(fr, "毫秒")
         add_note("到達終點後按住停頓再放開；捲動類介面直接放開會慣性滾過頭，"
                  "建議 500 毫秒左右；0＝直接放開")
+        busy_row()
 
     elif t == "wait":
         v["ms"] = tk.IntVar(value=step.get("ms", 1000))
@@ -1285,6 +1297,7 @@ def edit_step(app, step):
         fr = add_row("按鍵")
         ttk.Entry(fr, textvariable=v["keys"], width=24).pack(side="left")
         add_note("單鍵如 enter、esc、f5、a；組合鍵用 + 連接，如 ctrl+v、alt+f4")
+        busy_row()
 
     elif t == "find_click":
         v["template"] = tk.StringVar(value=findtarget.template(step))
@@ -1425,8 +1438,8 @@ def edit_step(app, step):
                     to=600000, increment=100, width=8).pack(side="left",
                                                             padx=(0, 4))
         lbl(appear_fr, "毫秒（0＝不設）")
-        appear_note = add_note("這段時間內一次都沒看到＝通過（等可能不出現的圖；"
-                               "忙碌的時間不計入）；看到了就照常等它消失、受逾時限制")
+        appear_note = add_note("這段時間內一次都沒看到＝通過（等可能不出現的圖）；"
+                               "看到了就照常等它消失、受逾時限制")
         mouse_row(v)
 
         fr = add_row("點擊偏移")
@@ -1493,6 +1506,7 @@ def edit_step(app, step):
         cfm_tmpl_note = add_note("截「點成功後才會出現」的下一畫面圖案（如結算畫面、下一關按鈕）")
         summary_lbl["cfm"] = add_note("")
         refresh_summary()
+        busy_widgets = busy_row()   # 只有點擊時才有 (隨「不點擊」整列隱藏)
 
         # 是否把找到 (點擊) 的位置更新為相對座標原點
         v["updateOrigin"] = tk.BooleanVar(value=step.get("updateOrigin", True))
@@ -1505,7 +1519,7 @@ def edit_step(app, step):
         def sync_click_opts(*_):
             # 「不點擊」時整個「生效確認」都無意義 → 隱藏; 確認圖再依 appear 決定
             is_click = ACT_KEY[v["action"].get()] == "click"
-            for w in (cfm_mode_lbl, cfm_mode_fr, cfm_main_note):
+            for w in (cfm_mode_lbl, cfm_mode_fr, cfm_main_note, *busy_widgets):
                 w.grid() if is_click else w.grid_remove()
             gone = ACT_KEY[v["action"].get()] == "wait_gone"
             for w in (appear_lbl, appear_fr, appear_note):
@@ -1613,6 +1627,14 @@ def edit_step(app, step):
                     s.pop("appearLimitMs", None)
                 s.pop("region", None)  # 舊版步驟範圍 (已廢除; 限定範圍在找圖目標裡)
                 s.pop("rotate", None)  # 舊版執行期旋轉比對已移除
+            # `忙碌檢查`: 只在勾了 (且是送出輸入的步驟) 時寫鍵; 找圖選「不點擊」
+            # 「等待消失」時整列已隱藏, 存為沒勾
+            sends_input = (t in ("click", "drag", "key")
+                           or (t == "find_click" and s.get("action") == "click"))
+            if sends_input and v["busyCheck"].get():
+                s[BUSY_CHECK_KEY] = True
+            else:
+                s.pop(BUSY_CHECK_KEY, None)
         except (tk.TclError, ValueError) as e:
             msg = str(e) if isinstance(e, ValueError) else "請確認數值欄位皆已正確填寫"
             messagebox.showwarning("輸入錯誤", msg, parent=dlg)
@@ -1634,6 +1656,7 @@ def edit_step(app, step):
     return result[0]
 
 
+BUSY_CHECK_TEXT = "送出後等忙碌指示消失再往下（會讓遊戲忙的操作才勾）"
 POINTER_CFM_ZH = {"none": "不確認（送一次就走）",
                   "gone": "做到原點的圖離開",
                   "appear": "做到確認圖出現為止",

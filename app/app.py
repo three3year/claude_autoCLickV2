@@ -37,9 +37,9 @@ import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowfmt, hotkey, imgio, win
-from automation.runner import (Runner, branch_layout, confirm_next_connected,
-                               origin_source, uses_confirm_next,
-                               uses_origin_leaves)
+from automation.runner import (Runner, branch_layout, busy_check,
+                               confirm_next_connected, origin_source,
+                               uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
 
 PROFILES_DIR = profile_store.profiles_root()
@@ -96,6 +96,11 @@ def _pointer_confirm_desc(s):
 
 
 def step_desc(s):
+    """步驟清單的摘要; 勾了`忙碌檢查`的步驟尾端標〔忙碌檢查〕 (比照〔限定〕等標示)."""
+    return _step_body(s) + ("〔忙碌檢查〕" if busy_check(s) else "")
+
+
+def _step_body(s):
     t = s["type"]
     if t == "click":
         if s.get("mode", "abs") == "prev":
@@ -380,6 +385,8 @@ class App:
     # 流程層級的`補做間隔` (毫秒) 與`忙碌指示` (找圖目標或 None), ADR 0008
     retry_interval_ms = flowfile.RETRY_DEFAULT_MS
     busy_target = None
+    # 流程層級的`忙碌出現等候` (毫秒), ADR 0011
+    busy_appear_ms = flowfile.BUSY_APPEAR_DEFAULT_MS
 
     def __init__(self, root):
         self.root = root
@@ -721,23 +728,32 @@ class App:
     # ================= `補做`設定 (補做間隔 / 忙碌指示, ADR 0008) =================
 
     def _update_retry_ui(self):
-        """流程設定區顯示目前的補做間隔與忙碌指示."""
+        """流程設定區顯示目前的補做間隔、忙碌出現等候與忙碌指示."""
         if getattr(self, "busy_lbl", None) is None:
             return
         if self.retry_var.get() != str(self.retry_interval_ms):
             self.retry_var.set(str(self.retry_interval_ms))
+        if self.busy_appear_var.get() != str(self.busy_appear_ms):
+            self.busy_appear_var.set(str(self.busy_appear_ms))
         tgt = self.busy_target
         # 第三列空間有限: 只寫範本名 (細節在「忙碌指示…」裡看)
         self.busy_lbl.configure(text=tgt["template"] if tgt else "（不設）")
 
     def _on_retry_change(self):
         """補做間隔欄位改了 → 流程設定跟著改 (不合法的輸入先不理)."""
+        self._on_ms_change(self.retry_var, "retry_interval_ms")
+
+    def _on_busy_appear_change(self):
+        """忙碌出現等候欄位改了 → 流程設定跟著改 (存法比照補做間隔)."""
+        self._on_ms_change(self.busy_appear_var, "busy_appear_ms")
+
+    def _on_ms_change(self, var, attr):
         try:
-            ms = int(self.retry_var.get())
+            ms = int(var.get())
         except ValueError:
             return
-        if ms >= 0 and ms != self.retry_interval_ms:
-            self.retry_interval_ms = ms
+        if ms >= 0 and ms != getattr(self, attr):
+            setattr(self, attr, ms)
             self._autosave()
 
     def edit_busy_indicator(self):
@@ -780,7 +796,7 @@ class App:
                 self.busy_target = tgt
                 self._autosave()
                 self.log_ui(f"已設定忙碌指示「{name}」：畫面上有它時先不補做，"
-                            "找圖等待也暫停計時", "ok")
+                            "勾了忙碌檢查的步驟送出後會等它消失", "ok")
         ui_dialogs.discard_unused(self, added, None)
         self._update_retry_ui()
 
@@ -870,6 +886,14 @@ class App:
                     textvariable=self.retry_var).pack(side="right")
         ttk.Label(bar3, text="補做間隔").pack(side="right", padx=(16, 4))
         self.retry_var.trace_add("write", lambda *_: self._on_retry_change())
+        # `忙碌出現等候` (ADR 0011): 勾了忙碌檢查的步驟送出後最多等忙碌指示出現多久
+        ttk.Label(bar3, text="ms").pack(side="right", padx=(2, 0))
+        self.busy_appear_var = tk.StringVar(value=str(self.busy_appear_ms))
+        ttk.Spinbox(bar3, from_=0, to=10000, increment=100, width=6,
+                    textvariable=self.busy_appear_var).pack(side="right")
+        ttk.Label(bar3, text="忙碌出現等候").pack(side="right", padx=(16, 4))
+        self.busy_appear_var.trace_add(
+            "write", lambda *_: self._on_busy_appear_change())
 
         ttk.Button(bar2, text="＋建立", style="Small.TButton", takefocus=False,
                    command=self.create_profile_ui).pack(side="right")
@@ -1790,6 +1814,7 @@ class App:
             "scanRegion": self.scan_region,
             "avoidHover": self.avoid_hover.get(),
             flowfile.RETRY_KEY: self.retry_interval_ms,
+            flowfile.BUSY_APPEAR_KEY: self.busy_appear_ms,
             flowfmt.COORD_SPACE: flowfmt.REGION,
         })
         return data
@@ -1811,6 +1836,7 @@ class App:
         self.editor_scale = 1.0   # 編輯器倍率屬於「這次編輯這份流程」
         self._update_cal_ui()
         self.retry_interval_ms = flowfile.retry_interval_ms(data)
+        self.busy_appear_ms = flowfile.busy_appear_ms(data)
         self.busy_target = flowfile.busy_target(data)
         self._update_retry_ui()
         self.run_mode.set("直到停止" if data.get("runMode") == "infinite" else "執行次數")
@@ -2042,6 +2068,16 @@ class App:
             messagebox.showwarning("執行", "範本不存在：\n" + "\n".join(missing),
                                    parent=self.root)
             return
+        checked = [i + 1 for i, s in enumerate(steps) if busy_check(s)]
+        if checked and not self.busy_target:
+            # 勾了忙碌檢查卻沒有忙碌指示可查: 擋下, 不讓人以為有在等
+            messagebox.showwarning(
+                "執行",
+                "有步驟勾了「忙碌檢查」，但這份流程沒有設定忙碌指示：\n"
+                f"步驟 {', '.join(map(str, checked))}\n"
+                "請先在「忙碌指示…」設定忙碌指示，或取消這些步驟的勾選",
+                parent=self.root)
+            return
         err = self._flow_error(steps)
         if err:
             messagebox.showwarning("執行", err, parent=self.root)
@@ -2086,6 +2122,7 @@ class App:
                               calibration=self.flow_cal,
                               retry_interval=self.retry_interval_ms / 1000.0,
                               busy=self.busy_target,
+                              busy_appear=self.busy_appear_ms / 1000.0,
                               pressed_at=pressed_at)
         except RuntimeError as e:
             messagebox.showwarning("執行", str(e), parent=self.root)
