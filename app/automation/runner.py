@@ -128,6 +128,39 @@ def _matching_branch_end(steps, i):
     return len(steps)
 
 
+class WaitClock:
+    """找圖等待共用的等待時鐘: 截止時間、輪詢間隔、逾時判定.
+
+    分岔的輪詢、一般找圖 (等待消失另有`出現等候上限`)、生效確認都用它判斷
+    逾時。pause(秒) 把截止時間 (與出現等候上限) 一起往後延。
+    """
+
+    def __init__(self, timeout, interval, appear_limit=None):
+        now = time.monotonic()
+        self.timeout = timeout
+        self.interval = interval
+        self._deadline = now + timeout
+        self._appear_by = None if appear_limit is None else now + appear_limit
+        self._paused = 0.0
+
+    @property
+    def paused(self):
+        """截止時間已往後延的秒數."""
+        return self._paused
+
+    def pause(self, seconds):
+        self._paused += seconds
+
+    def expired(self):
+        """步驟逾時到了沒."""
+        return time.monotonic() >= self._deadline + self.paused
+
+    def appear_expired(self):
+        """`出現等候上限`到了沒 (沒設＝永遠沒到)."""
+        return (self._appear_by is not None
+                and time.monotonic() >= self._appear_by + self.paused)
+
+
 class Runner:
     def __init__(self, detector, stage=None, filelog=None):
         self.detector = detector  # 偵測查詢接縫 (見模組 docstring)
@@ -646,11 +679,11 @@ class Runner:
         回傳 (生效與否, 最後一次 check 的結果, 輪詢數, 輸入數, 因忙碌延後秒數)。
         """
         region = getattr(self, "scan_region", None)
-        deadline = time.monotonic() + timeout
+        clock = WaitClock(timeout, interval)
         inputs, polls = 1, 0
         gate = {"busy_since": None, "delay": 0.0}
         while True:
-            self._sleep(interval)   # 先給應用程式反應時間
+            self._sleep(clock.interval)   # 先給應用程式反應時間
             self._check_stop()
             screen, org = self._grab(region)
             polls += 1
@@ -661,7 +694,7 @@ class Runner:
                                                             gate):
                 resend()
                 inputs += 1
-            if time.monotonic() >= deadline:
+            if clock.expired():
                 break
         self._settle_busy(gate, time.monotonic())
         return ok, last, polls, inputs, gate["delay"]
@@ -795,7 +828,7 @@ class Runner:
             if origin is None and findtarget.needs_origin(t):
                 self.log(f"[{segs[k] + 1}] 分支條件以原點為基準: 尚無原點 → "
                          "這個分支不成立", "warn")
-        deadline = time.monotonic() + timeout
+        clock = WaitClock(timeout, interval)
         polls = 0
         last = [findtarget.Found(t, reason="origin") for t in tgts]
         while True:
@@ -808,9 +841,9 @@ class Runner:
                     self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{f.template}）", "ok")
                     self._record(segs[k] + 1, "branch", f, "found", polls=polls)
                     return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
-            if time.monotonic() >= deadline:
+            if clock.expired():
                 break
-            self._sleep(interval)
+            self._sleep(clock.interval)
         for k, f in enumerate(last):
             self._record(segs[k] + 1, "branch", f,
                          "cannot_run" if f.reason == "origin" else "timeout",
@@ -864,10 +897,9 @@ class Runner:
         # `出現等候上限` (appearLimitMs, 預設不設): 這段時間內一次都沒看到＝通過
         # ——等「可能出現、也可能根本不出現」的圖 (忙碌指示), 取代固定等待
         if action == "wait_gone":
-            start = time.monotonic()
-            deadline = start + timeout
             limit_ms = step.get("appearLimitMs")
-            appear_by = start + float(limit_ms) / 1000.0 if limit_ms else None
+            clock = WaitClock(timeout, interval,
+                              float(limit_ms) / 1000.0 if limit_ms else None)
             tracked = None
             polls = 0
             while True:
@@ -889,14 +921,14 @@ class Runner:
                     self._record(no, "wait_gone", f, "gone", polls=polls,
                                  picked=findtarget.fmt_box(tracked))
                     return None
-                elif appear_by is not None and time.monotonic() >= appear_by:
+                elif clock.appear_expired():
                     self.log(f"[{no}] 「{name}」在出現等候上限 {int(limit_ms)}ms "
                              "內沒出現 → 通過", "ok")
                     self._record(no, "wait_gone", f, "not_appeared", polls=polls)
                     return None
-                if time.monotonic() >= deadline:
+                if clock.expired():
                     break
-                self._sleep(interval)
+                self._sleep(clock.interval)
             if tracked is not None:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」仍未消失"
                 self._record(no, "wait_gone", f, "not_gone", polls=polls,
@@ -907,7 +939,7 @@ class Runner:
             return self._on_not_found(no, msg, on_nf)
 
         # ---- 找圖階段 (等待出現) ----
-        deadline = time.monotonic() + timeout
+        clock = WaitClock(timeout, interval)
         best = 0.0
         polls = 0
         while True:
@@ -919,9 +951,9 @@ class Runner:
                 best = max(best, f.query.score)
             if f.picked is not None:
                 break
-            if time.monotonic() >= deadline:
+            if clock.expired():
                 break
-            self._sleep(interval)
+            self._sleep(clock.interval)
 
         hit = f.picked
         if hit is None:
