@@ -260,3 +260,77 @@ def test_畫面倍率同時當預期尺度交給偵測器():
     """flow-scale: 一個倍率兩個用途——像素設定 ×它, 查詢時當`預期尺度`."""
     _, vision = run([(300, 200)], scale=0.9)
     assert vision.expected_scales == [("t", 0.9)]
+
+
+# ---------- 固定矩形 (busy-pause-fixed-rect 票 03) ----------
+# 存成搜尋範圍的比例 (左、上、寬、高, 各 0–1); REGION＝(100, 50, 1200, 900)
+
+def rect(x, y, w, h):
+    return {"limit": {"kind": "rect", "x": x, "y": y, "w": w, "h": h}}
+
+
+def test_固定矩形_查詢區域是比例乘搜尋範圍():
+    r, _ = run([(700, 600), (300, 200)], target=rect(0.25, 0.5, 0.5, 0.25))
+    assert r.limit == (400, 500, 600, 225)
+    assert [center(m) for m in r.matches] == [(700, 600)]
+
+
+def test_固定矩形_搜尋範圍改變後跟著按比例改變():
+    r, _ = run([], target=rect(0.25, 0.5, 0.5, 0.25), region=(0, 0, 800, 400))
+    assert r.limit == (200, 200, 400, 100)
+
+
+def test_固定矩形_不隨畫面倍率換算():
+    r, _ = run([], target=rect(0.25, 0.5, 0.5, 0.25), scale=2.0)
+    assert r.limit == (400, 500, 600, 225)
+
+
+def test_固定矩形_不需要原點():
+    tgt = rect(0.25, 0.5, 0.5, 0.25)
+    assert not findtarget.needs_origin(tgt)
+    r, vision = run([(700, 600)], target=tgt, origin=None)
+    assert center(r.picked) == (700, 600)
+
+
+def test_固定矩形_超出搜尋範圍的部分被裁掉():
+    r, _ = run([], target=rect(0.75, 0.0, 0.5, 1.0))
+    assert r.limit == (1000, 50, 300, 900)
+
+
+def test_固定矩形_數值不合法或沒有交集_不找也不退成整個範圍():
+    bad = [rect(-0.1, 0, 0.5, 0.5), rect(0, 0, 1.5, 0.5), rect(0, 0, 0, 0.5),
+           rect(1.0, 0, 0.5, 0.5), rect("a", 0, 0.5, 0.5),
+           rect(True, 0, 0.5, 0.5), {"limit": {"kind": "rect", "x": 0.1}}]
+    for tgt in bad:
+        r, vision = run([(300, 300)], target=tgt)
+        assert r.picked is None and r.matches == [], tgt
+        assert vision.lookups == [], tgt
+        assert r.limit[2] == 0 or r.limit[3] == 0, tgt
+
+
+def test_固定矩形_組找圖目標保留比例():
+    lim = {"kind": "rect", "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4}
+    assert findtarget.make_target("a", limit=lim) == {"template": "a",
+                                                      "limit": lim}
+
+
+def test_固定矩形_標記與摘要():
+    tgt = dict({"template": "a"}, **rect(0.25, 0.5, 0.5, 0.125))
+    assert findtarget.tags(tgt) == ["限定"]
+    assert findtarget.tag_text(tgt) == "〔限定〕"
+    assert findtarget.summary(tgt) == \
+        "固定矩形 (25.0%,50.0%) 50.0%×12.5%；分數最高；不比色"
+
+
+def test_框選的螢幕矩形換算成搜尋範圍的比例():
+    lim = findtarget.ratio_rect_from_screen((400, 500, 600, 225), REGION)
+    assert lim == {"kind": "rect", "x": 0.25, "y": 0.5, "w": 0.5, "h": 0.25}
+    r, _ = run([], target={"limit": lim})
+    assert r.limit == (400, 500, 600, 225), "換算回來是同一塊"
+
+
+def test_框選超出搜尋範圍的部分先裁掉_完全在外面是None():
+    lim = findtarget.ratio_rect_from_screen((0, 0, 400, 350), REGION)
+    assert lim == {"kind": "rect", "x": 0.0, "y": 0.0, "w": 0.25,
+                   "h": 0.3333}
+    assert findtarget.ratio_rect_from_screen((2000, 0, 10, 10), REGION) is None

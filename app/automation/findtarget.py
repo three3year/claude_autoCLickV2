@@ -5,13 +5,15 @@
     {"template": "範本名",
      "limit":      {"kind": "origin", "x", "y", "w", "h"}   以原點為基準的矩形
                  | {"kind": "grid", "cells": [1..9]}         搜尋範圍九宮格 (由左上起依列編號)
+                 | {"kind": "rect", "x", "y", "w", "h"}     `固定矩形`: 搜尋範圍的比例 (各 0–1)
      "pick":       {"kind": "top" | "left", "n": N}          由上到下 / 由左到右第 N 個
                  | {"kind": "near", "base": "origin" | "region", "x", "y"}  最接近指定點
      "colorCheck": true}
 
 缺欄位＝不限定 / 分數最高 / 不比色。找圖步驟的找圖目標在 `target`, `確認圖`在
 `confirmTarget`; 「點到下一步的圖出現」沿用下一步的 `target`。像素欄位 (原點
-矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率` (ADR 0009)。
+矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率` (ADR 0009);
+九宮格與固定矩形是搜尋範圍的比例, 與尺度無關。
 
 本模組維持輕量 (不 import cv2/numpy): 編輯器、執行器、影片轉流程都經這裡的
 存取函式讀寫步驟上的找圖目標, 解析並執行一個找圖目標的邏輯也在這裡 (三處行為
@@ -156,7 +158,9 @@ def limit_rect(tgt, region, origin, scale=1.0):
 
     None＝不限定 (整個搜尋範圍); 裁完沒有交集時寬高為 0。以原點為基準的
     矩形 ×`畫面倍率`; 九宮格是搜尋範圍的比例 (格號 1–9 由左上起逐列),
-    勾多格取包住它們的最小矩形。呼叫端保證以原點為基準時 origin 不是 None。
+    勾多格取包住它們的最小矩形; `固定矩形`＝比例 × 搜尋範圍 (不隨倍率換算)。
+    設定壞掉 (格號無效、比例不合法) 時寬高為 0——不找, 絕不退成整個範圍。
+    呼叫端保證以原點為基準時 origin 不是 None。
     """
     lim = tgt.get("limit") or {}
     kind = lim.get("kind")
@@ -175,11 +179,26 @@ def limit_rect(tgt, region, origin, scale=1.0):
         rows = [(c - 1) // 3 for c in cells]
         x, x1 = rx + rw * min(cols) // 3, rx + rw * (max(cols) + 1) // 3
         y, y1 = ry + rh * min(rows) // 3, ry + rh * (max(rows) + 1) // 3
+    elif kind == "rect":
+        if not _valid_ratio_rect(lim):
+            return (rx, ry, 0, 0)
+        x, x1 = rx + round(rw * lim["x"]), rx + round(rw * (lim["x"] + lim["w"]))
+        y, y1 = ry + round(rh * lim["y"]), ry + round(rh * (lim["y"] + lim["h"]))
     else:
         return None
     x0, y0 = max(x, rx), max(y, ry)
     x1, y1 = min(x1, rx + rw), min(y1, ry + rh)
     return (x0, y0, max(0, x1 - x0), max(0, y1 - y0))
+
+
+def _valid_ratio_rect(lim):
+    """`固定矩形`的四個比例都是 0–1 的數字, 寬高大於 0."""
+    vals = [lim.get(k) for k in ("x", "y", "w", "h")]
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool)
+               for v in vals):
+        return False
+    x, y, w, h = vals
+    return 0 <= x <= 1 and 0 <= y <= 1 and 0 < w <= 1 and 0 < h <= 1
 
 
 def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
@@ -297,7 +316,7 @@ def pick_text(tgt):
 def make_target(template, limit=None, pick=None, color=False):
     """由表單值組一個找圖目標; 預設值 (不限定/分數最高/不比色) 不寫進存檔."""
     tgt = {"template": template}
-    if limit and limit.get("kind") == "origin":
+    if limit and limit.get("kind") in ("origin", "rect"):
         tgt["limit"] = dict(limit)
     elif limit and limit.get("kind") == "grid" and limit.get("cells"):
         tgt["limit"] = {"kind": "grid", "cells": sorted(set(limit["cells"]))}
@@ -323,6 +342,22 @@ def rect_from_screen(box, origin, k):
             "h": flowfmt.scale_px(box[3], 1.0 / k)}
 
 
+def ratio_rect_from_screen(box, region):
+    """框選到的螢幕矩形 → `固定矩形` (搜尋範圍的比例, 小數 4 位).
+
+    先裁到搜尋範圍內; 完全在範圍外回 None。比例與尺度無關, 不必反除倍率。
+    """
+    rx, ry, rw, rh = region
+    x0, y0 = max(box[0], rx), max(box[1], ry)
+    x1 = min(box[0] + box[2], rx + rw)
+    y1 = min(box[1] + box[3], ry + rh)
+    if x1 <= x0 or y1 <= y0:
+        return None
+    return {"kind": "rect",
+            "x": round((x0 - rx) / rw, 4), "y": round((y0 - ry) / rh, 4),
+            "w": round((x1 - x0) / rw, 4), "h": round((y1 - y0) / rh, 4)}
+
+
 def tag_text(tgt):
     """步驟清單/交付報告用的標記字串 〔限定、由上到下第3、比色〕; 沒有特別設定＝空."""
     t = tags(tgt)
@@ -332,7 +367,7 @@ def tag_text(tgt):
 def tags(tgt):
     """步驟清單上的簡短標記: 有特別設定的屬性 (限定範圍、挑選規則、比色)."""
     out = []
-    if (tgt.get("limit") or {}).get("kind") in ("origin", "grid"):
+    if (tgt.get("limit") or {}).get("kind") in ("origin", "grid", "rect"):
         out.append("限定")
     pick = tgt.get("pick") or {}
     if pick.get("kind") == "top":
@@ -354,6 +389,10 @@ def summary(tgt):
                  f" {int(lim.get('w', 0))}×{int(lim.get('h', 0))}")
     elif lim.get("kind") == "grid" and lim.get("cells"):
         part1 = "九宮格 " + ",".join(str(c) for c in sorted(lim["cells"]))
+    elif lim.get("kind") == "rect":
+        part1 = (f"固定矩形 ({lim.get('x', 0):.1%},{lim.get('y', 0):.1%})"
+                 f" {lim.get('w', 0):.1%}×{lim.get('h', 0):.1%}"
+                 if _valid_ratio_rect(lim) else "固定矩形（設定無效）")
     else:
         part1 = "整個搜尋範圍"
     pick = tgt.get("pick") or {}

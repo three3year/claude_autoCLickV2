@@ -622,3 +622,22 @@ def test_開啟外來檔_複製副本進profile_原檔不被動到(tmp_path):
     assert flowfile.is_inside_profile(r["flow_path"], str(profile))
     assert open(src, "rb").read() == before
     assert flowfile.template_names(r["flow_path"]) == ["a"]
+
+
+def test_固定矩形存檔與草稿往返_格式版本不變(tmp_path):
+    """busy-pause-fixed-rect 票 03: 限定範圍本來就在找圖目標裡, 讀回內容一樣."""
+    rect = {"kind": "rect", "x": 0.1234, "y": 0.5, "w": 0.25, "h": 0.0625}
+    step = {"type": "find_click", "target": {"template": "a", "limit": rect},
+            "confirm": "appear",
+            "confirmTarget": {"template": "b", "limit": dict(rect)}}
+    data = {"steps": [step], "coordSpace": "region"}
+    path = str(tmp_path / ("f" + flowfile.EXT))
+    flowfile.write(path, data, {"a": b"A", "b": b"B"})
+    back = flowfile.read(path)["data"]
+    assert back["flowFormat"] == 4
+    assert back["steps"][0]["target"]["limit"] == rect
+    assert back["steps"][0]["confirmTarget"]["limit"] == rect
+    flowfile.write_draft(str(tmp_path), back)
+    draft = flowfile.read_draft(str(tmp_path))
+    assert draft["steps"][0]["target"]["limit"] == rect
+    assert draft["steps"][0]["confirmTarget"]["limit"] == rect

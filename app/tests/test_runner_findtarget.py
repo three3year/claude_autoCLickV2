@@ -182,3 +182,57 @@ def test_以原點為基準的限定範圍卻沒有原點_步驟跳過(harness):
     lim = {"limit": {"kind": "origin", "x": 0, "y": 0, "w": 100, "h": 100}}
     r = harness.run([find("btn", target=lim, onNotFound="stop")])
     assert r.ended == "done" and harness.clicks() == []
+
+
+# ---------- 固定矩形 (busy-pause-fixed-rect 票 03) ----------
+# harness 的搜尋範圍預設 (0, 0, 1920, 1080)
+
+FIXED = {"limit": {"kind": "rect", "x": 0.5, "y": 0.5, "w": 0.25, "h": 0.25}}
+
+
+def _find_rec(harness, role="find"):
+    return [r for r in harness.filelog.of("find.target") if r["role"] == role]
+
+
+def test_固定矩形_只在比例乘搜尋範圍那一塊裡找(harness):
+    harness.vision.plan("btn", [[(100, 100, 0.99), (1000, 600, 0.90)]])
+    harness.run([find("btn", target=FIXED)])
+    assert harness.clicks() == [(1000, 600)]
+    [rec] = _find_rec(harness)
+    assert rec["limit"] == "(960,540,480,270)"
+
+
+def test_固定矩形_跟著搜尋範圍走(harness):
+    harness.vision.plan("btn", [(600, 450)])
+    harness.run([find("btn", target=FIXED)], scan_region=[200, 100, 800, 600])
+    assert harness.clicks() == [(600, 450)]
+    [rec] = _find_rec(harness)
+    assert rec["limit"] == "(600,400,200,150)"
+
+
+def test_固定矩形_畫面倍率不是1也不換算(harness):
+    harness.vision.plan("btn", [(1000, 600)])
+    harness.run([find("btn", target=FIXED)], scale=1.5)
+    [rec] = _find_rec(harness)
+    assert rec["limit"] == "(960,540,480,270)"
+
+
+def test_固定矩形_不合法就不找_逾時走找不到時(harness):
+    harness.vision.plan("btn", [(1000, 600)])
+    bad = {"limit": {"kind": "rect", "x": 0.5, "y": 0.5, "w": 0, "h": 0.25}}
+    r = harness.run([find("btn", target=bad, timeout=1, interval=0.2,
+                          onNotFound="stop")])
+    assert r.ended == "error" and harness.clicks() == []
+    assert "btn" not in harness.lookups(), "絕不退回整個搜尋範圍"
+
+
+def test_確認圖也能用固定矩形(harness):
+    harness.vision.plan("a", [(100, 100)])
+    harness.vision.plan("ok", [[(300, 300)], [(300, 300), (1000, 600)]])
+    r = harness.run([find("a", confirm="appear",
+                          confirmTarget=tgt("ok", **FIXED), interval=0.2,
+                          timeout=2, onNotFound="stop")])
+    assert r.ended == "done"
+    [rec] = _find_rec(harness, "confirm_appear")
+    assert rec["limit"] == "(960,540,480,270)"
+    assert rec["picked"] == "(980,590,40,20)"
