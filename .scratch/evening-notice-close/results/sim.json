@@ -1,0 +1,228 @@
+{
+ "晚_簡中": {
+  "notice_at": [
+   1632,
+   180
+  ],
+  "base_at": [
+   1000,
+   500
+  ],
+  "shown": {
+   "ended": "done",
+   "events": [
+    [
+     "click",
+     1632,
+     180,
+     "left",
+     1
+    ],
+    [
+     "click",
+     1000,
+     500,
+     "left",
+     1
+    ]
+   ],
+   "step1": [
+    {
+     "role": "find",
+     "result": "found",
+     "polls": 1,
+     "picked": "(1612,170,40,20)"
+    },
+    {
+     "role": "confirm_gone",
+     "result": "gone",
+     "polls": 1,
+     "clicks": 1,
+     "picked": "(1612,170,40,20)"
+    }
+   ],
+   "step2": [
+    {
+     "role": "find",
+     "result": "found",
+     "picked": "(980,490,40,20)"
+    },
+    {
+     "role": "confirm_gone",
+     "result": "gone",
+     "clicks": 1,
+     "picked": "(980,490,40,20)"
+    }
+   ],
+   "step1_secs": 0.3,
+   "notice_lookups": 2,
+   "log": [
+    "── 第 1/1 輪 ──",
+    "[1] 已點擊「公告关闭」→ 等待生效（直到「公告关闭」消失）",
+    "[1] 點擊已生效（「公告关闭」已消失）",
+    "[2] 已點擊「基建图标」→ 等待生效（直到「基建图标」消失）",
+    "[2] 點擊已生效（「基建图标」已消失）",
+    "執行完成"
+   ],
+   "ok": true
+  },
+  "hidden": {
+   "ended": "done",
+   "events": [
+    [
+     "click",
+     1000,
+     500,
+     "left",
+     1
+    ]
+   ],
+   "step1": [
+    {
+     "role": "find",
+     "result": "timeout",
+     "polls": 8
+    }
+   ],
+   "step2": [
+    {
+     "role": "find",
+     "result": "found",
+     "picked": "(980,490,40,20)"
+    },
+    {
+     "role": "confirm_gone",
+     "result": "gone",
+     "clicks": 1,
+     "picked": "(980,490,40,20)"
+    }
+   ],
+   "step1_secs": 2.1,
+   "notice_lookups": 8,
+   "log": [
+    "開頭校準：畫面倍率 ×1.000（距離 100.0px ÷ 基準 100.0px）",
+    "── 第 1/1 輪 ──",
+    "[1] 逾時 2.0s 未找到「公告关闭」(最高相似度 0.000) → 跳過",
+    "[2] 已點擊「基建图标」→ 等待生效（直到「基建图标」消失）",
+    "[2] 點擊已生效（「基建图标」已消失）",
+    "執行完成"
+   ],
+   "ok": true
+  },
+  "same_after_base": true,
+  "ok": true
+ },
+ "晚_繁中": {
+  "notice_at": [
+   1735,
+   133
+  ],
+  "base_at": [
+   1000,
+   500
+  ],
+  "shown": {
+   "ended": "done",
+   "events": [
+    [
+     "click",
+     1735,
+     133,
+     "left",
+     1
+    ],
+    [
+     "click",
+     1000,
+     500,
+     "left",
+     1
+    ]
+   ],
+   "step1": [
+    {
+     "role": "find",
+     "result": "found",
+     "polls": 1,
+     "picked": "(1715,123,40,20)"
+    },
+    {
+     "role": "confirm_gone",
+     "result": "gone",
+     "polls": 1,
+     "clicks": 1,
+     "picked": "(1715,123,40,20)"
+    }
+   ],
+   "step2": [
+    {
+     "role": "find",
+     "result": "found",
+     "picked": "(980,490,40,20)"
+    },
+    {
+     "role": "confirm_gone",
+     "result": "gone",
+     "clicks": 1,
+     "picked": "(980,490,40,20)"
+    }
+   ],
+   "step1_secs": 0.3,
+   "notice_lookups": 2,
+   "log": [
+    "── 第 1/1 輪 ──",
+    "[1] 已點擊「圓形叉叉」→ 等待生效（直到「圓形叉叉」消失）",
+    "[1] 點擊已生效（「圓形叉叉」已消失）",
+    "[2] 已點擊「基建BASE」→ 等待生效（直到「基建BASE」消失）",
+    "[2] 點擊已生效（「基建BASE」已消失）",
+    "執行完成"
+   ],
+   "ok": true
+  },
+  "hidden": {
+   "ended": "done",
+   "events": [
+    [
+     "click",
+     1000,
+     500,
+     "left",
+     1
+    ]
+   ],
+   "step1": [
+    {
+     "role": "find",
+     "result": "timeout",
+     "polls": 8
+    }
+   ],
+   "step2": [
+    {
+     "role": "find",
+     "result": "found",
+     "picked": "(980,490,40,20)"
+    },
+    {
+     "role": "confirm_gone",
+     "result": "gone",
+     "clicks": 1,
+     "picked": "(980,490,40,20)"
+    }
+   ],
+   "step1_secs": 2.1,
+   "notice_lookups": 8,
+   "log": [
+    "開頭校準：畫面倍率 ×1.000（距離 100.0px ÷ 基準 100.0px）",
+    "── 第 1/1 輪 ──",
+    "[1] 逾時 2.0s 未找到「圓形叉叉」(最高相似度 0.000) → 跳過",
+    "[2] 已點擊「基建BASE」→ 等待生效（直到「基建BASE」消失）",
+    "[2] 點擊已生效（「基建BASE」已消失）",
+    "執行完成"
+   ],
+   "ok": true
+  },
+  "same_after_base": true,
+  "ok": true
+ }
+}

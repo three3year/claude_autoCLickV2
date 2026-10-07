@@ -1,0 +1,122 @@
+{
+ "晚_簡中": {
+  "flow": [
+   {
+    "item": "步數",
+    "ok": true,
+    "note": "63 → 64"
+   },
+   {
+    "item": "第 1 步設定",
+    "ok": true,
+    "note": "{\"type\": \"find_click\", \"interval\": 0.3, \"confirm\": \"gone\", \"onNotFound\": \"skip\", \"timeout\": 2, \"offsetX\": 0, \"offsetY\": 0, \"target\": {\"template\": \"公告关闭\", \"limit\": {\"kind\": \"rect\", \"x\": 0.8597, \"y\": 0.0598, \"w\": 0.0792, \"h\": 0.1478}}, \"action\": \"click\", \"button\": \"left\", \"clicks\": 1, \"updateOrigin\": true}"
+   },
+   {
+    "item": "第 2 步起與原本相同",
+    "ok": true,
+    "note": "逐一相同"
+   },
+   {
+    "item": "區段完整",
+    "ok": true,
+    "note": "完整"
+   },
+   {
+    "item": "範本「公告关闭」",
+    "ok": true,
+    "note": "與早班位元組相同"
+   },
+   {
+    "item": "忙碌指示限定範圍不變",
+    "ok": true,
+    "note": "{\"template\": \"忙碌指示\", \"limit\": {\"kind\": \"grid\", \"cells\": [8, 9]}}"
+   },
+   {
+    "item": "其他範本不變",
+    "ok": true,
+    "note": "25 張"
+   }
+  ],
+  "draft": [
+   {
+    "item": "步數",
+    "ok": true,
+    "note": "63 → 64"
+   },
+   {
+    "item": "第 1 步設定",
+    "ok": true,
+    "note": "{\"type\": \"find_click\", \"interval\": 0.3, \"confirm\": \"gone\", \"onNotFound\": \"skip\", \"timeout\": 2, \"offsetX\": 0, \"offsetY\": 0, \"target\": {\"template\": \"公告关闭\", \"limit\": {\"kind\": \"rect\", \"x\": 0.8597, \"y\": 0.0598, \"w\": 0.0792, \"h\": 0.1478}}, \"action\": \"click\", \"button\": \"left\", \"clicks\": 1, \"updateOrigin\": true}"
+   },
+   {
+    "item": "第 2 步起與原本相同",
+    "ok": true,
+    "note": "逐一相同"
+   },
+   {
+    "item": "區段完整",
+    "ok": true,
+    "note": "完整"
+   },
+   {
+    "item": "範本「公告关闭」",
+    "ok": true,
+    "note": "與早班位元組相同"
+   },
+   {
+    "item": "忙碌指示限定範圍不變",
+    "ok": true,
+    "note": "{\"template\": \"忙碌指示\", \"limit\": {\"kind\": \"grid\", \"cells\": [8, 9]}}"
+   },
+   {
+    "item": "其他範本不變",
+    "ok": true,
+    "note": "25 張"
+   }
+  ]
+ },
+ "晚_繁中": {
+  "flow": [
+   {
+    "item": "步數",
+    "ok": true,
+    "note": "63 → 64"
+   },
+   {
+    "item": "第 1 步設定",
+    "ok": true,
+    "note": "{\"type\": \"find_click\", \"interval\": 0.3, \"confirm\": \"gone\", \"onNotFound\": \"skip\", \"timeout\": 2, \"offsetX\": 0, \"offsetY\": 0, \"target\": {\"template\": \"圓形叉叉\", \"limit\": {\"kind\": \"rect\", \"x\": 0.6917, \"y\": 0.0674, \"w\": 0.2453, \"h\": 0.2344}}, \"action\": \"click\", \"button\": \"left\", \"clicks\": 1, \"updateOrigin\": true}"
+   },
+   {
+    "item": "第 2 步起與原本相同",
+    "ok": true,
+    "note": "逐一相同"
+   },
+   {
+    "item": "區段完整",
+    "ok": true,
+    "note": "完整"
+   },
+   {
+    "item": "範本「圓形叉叉」",
+    "ok": true,
+    "note": "與早班位元組相同"
+   },
+   {
+    "item": "忙碌指示限定範圍不變",
+    "ok": true,
+    "note": "{\"template\": \"忙碌指示\", \"limit\": {\"kind\": \"grid\", \"cells\": [8, 9]}}"
+   },
+   {
+    "item": "忙碌指示圖與早班相同",
+    "ok": true,
+    "note": "相同"
+   },
+   {
+    "item": "其他範本不變",
+    "ok": true,
+    "note": "24 張"
+   }
+  ]
+ }
+}

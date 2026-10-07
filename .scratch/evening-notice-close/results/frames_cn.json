@@ -1,0 +1,307 @@
+{
+ "flow": "晚_簡中",
+ "target": {
+  "template": "公告关闭",
+  "limit": {
+   "kind": "rect",
+   "x": 0.8597,
+   "y": 0.0598,
+   "w": 0.0792,
+   "h": 0.1478
+  }
+ },
+ "base_target": {
+  "template": "基建图标"
+ },
+ "stride": 4,
+ "positive": [
+  {
+   "video": "demo5",
+   "frame": 285,
+   "found": true,
+   "picked": [
+    1604,
+    152,
+    56,
+    56
+   ],
+   "score": 0.996,
+   "limit": [
+    1564,
+    112,
+    136,
+    136
+   ],
+   "inside": true,
+   "want_center": [
+    1632,
+    180
+   ],
+   "dist": 0.0,
+   "tol": 14.0,
+   "ms": 318,
+   "ok": true
+  },
+  {
+   "video": "demo5",
+   "frame": 288,
+   "found": true,
+   "picked": [
+    1604,
+    152,
+    56,
+    56
+   ],
+   "score": 1.0,
+   "limit": [
+    1564,
+    112,
+    136,
+    136
+   ],
+   "inside": true,
+   "want_center": [
+    1632,
+    180
+   ],
+   "dist": 0.0,
+   "tol": 14.0,
+   "ms": 294,
+   "ok": true
+  },
+  {
+   "video": "demo5",
+   "frame": 291,
+   "found": true,
+   "picked": [
+    1604,
+    152,
+    56,
+    56
+   ],
+   "score": 1.0,
+   "limit": [
+    1564,
+    112,
+    136,
+    136
+   ],
+   "inside": true,
+   "want_center": [
+    1632,
+    180
+   ],
+   "dist": 0.0,
+   "tol": 14.0,
+   "ms": 399,
+   "ok": true
+  }
+ ],
+ "low_bitrate": [
+  {
+   "video": "demo1",
+   "frame": 378,
+   "found": false,
+   "picked": null,
+   "score": null,
+   "limit": [
+    1564,
+    112,
+    136,
+    136
+   ],
+   "inside": false,
+   "want_center": [
+    1632,
+    180
+   ],
+   "dist": null,
+   "tol": 14.0,
+   "ms": 758,
+   "ok": false
+  },
+  {
+   "video": "demo1",
+   "frame": 393,
+   "found": false,
+   "picked": null,
+   "score": null,
+   "limit": [
+    1564,
+    112,
+    136,
+    136
+   ],
+   "inside": false,
+   "want_center": [
+    1632,
+    180
+   ],
+   "dist": null,
+   "tol": 14.0,
+   "ms": 664,
+   "ok": false
+  },
+  {
+   "video": "demo1",
+   "frame": 420,
+   "found": false,
+   "picked": null,
+   "score": null,
+   "limit": [
+    1564,
+    112,
+    136,
+    136
+   ],
+   "inside": false,
+   "want_center": [
+    1632,
+    180
+   ],
+   "dist": null,
+   "tol": 14.0,
+   "ms": 574,
+   "ok": false
+  }
+ ],
+ "home": [
+  {
+   "video": "demo4",
+   "frame": 0,
+   "base": [
+    1407,
+    795,
+    72,
+    78
+   ],
+   "base_score": 1.0,
+   "found": false,
+   "picked": null,
+   "best": 0.297,
+   "failed": "match",
+   "ms": 101,
+   "ok": true
+  },
+  {
+   "video": "demo4",
+   "frame": 4,
+   "base": [
+    1407,
+    795,
+    72,
+    78
+   ],
+   "base_score": 1.0,
+   "found": false,
+   "picked": null,
+   "best": 0.297,
+   "failed": "match",
+   "ms": 104,
+   "ok": true
+  },
+  {
+   "video": "demo4",
+   "frame": 8,
+   "base": [
+    1407,
+    795,
+    72,
+    78
+   ],
+   "base_score": 1.0,
+   "found": false,
+   "picked": null,
+   "best": 0.297,
+   "failed": "match",
+   "ms": 116,
+   "ok": true
+  },
+  {
+   "video": "demo4",
+   "frame": 12,
+   "base": [
+    1407,
+    795,
+    72,
+    78
+   ],
+   "base_score": 0.986,
+   "found": false,
+   "picked": null,
+   "best": 0.292,
+   "failed": "match",
+   "ms": 77,
+   "ok": true
+  },
+  {
+   "video": "demo4",
+   "frame": 16,
+   "base": [
+    1384,
+    789,
+    69,
+    75
+   ],
+   "base_score": 0.96,
+   "found": false,
+   "picked": null,
+   "best": 0.245,
+   "failed": "match",
+   "ms": 155,
+   "ok": true
+  },
+  {
+   "video": "demo4",
+   "frame": 20,
+   "base": [
+    1357,
+    781,
+    69,
+    75
+   ],
+   "base_score": 0.938,
+   "found": false,
+   "picked": null,
+   "best": 0.238,
+   "failed": "match",
+   "ms": 61,
+   "ok": true
+  },
+  {
+   "video": "demo4",
+   "frame": 24,
+   "base": [
+    1349,
+    778,
+    69,
+    75
+   ],
+   "base_score": 0.926,
+   "found": false,
+   "picked": null,
+   "best": 0.182,
+   "failed": "match",
+   "ms": 133,
+   "ok": true
+  },
+  {
+   "video": "demo4",
+   "frame": 28,
+   "base": [
+    1346,
+    777,
+    69,
+    75
+   ],
+   "base_score": 0.92,
+   "found": false,
+   "picked": null,
+   "best": 0.237,
+   "failed": "match",
+   "ms": 77,
+   "ok": true
+  }
+ ],
+ "ok": true
+}

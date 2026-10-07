@@ -1,0 +1,389 @@
+{
+ "flow": "晚_繁中",
+ "target": {
+  "template": "圓形叉叉",
+  "limit": {
+   "kind": "rect",
+   "x": 0.6917,
+   "y": 0.0674,
+   "w": 0.2453,
+   "h": 0.2344
+  }
+ },
+ "base_target": {
+  "template": "基建BASE"
+ },
+ "stride": 4,
+ "positive": [
+  {
+   "video": "demo2",
+   "frame": 186,
+   "found": true,
+   "picked": [
+    1711,
+    109,
+    48,
+    48
+   ],
+   "score": 0.982,
+   "limit": [
+    1328,
+    69,
+    471,
+    240
+   ],
+   "inside": true,
+   "want_center": [
+    1735,
+    133
+   ],
+   "dist": 0.0,
+   "tol": 11.5,
+   "ms": 457,
+   "ok": true
+  },
+  {
+   "video": "demo2",
+   "frame": 192,
+   "found": true,
+   "picked": [
+    1711,
+    109,
+    48,
+    48
+   ],
+   "score": 0.982,
+   "limit": [
+    1328,
+    69,
+    471,
+    240
+   ],
+   "inside": true,
+   "want_center": [
+    1735,
+    133
+   ],
+   "dist": 0.0,
+   "tol": 11.5,
+   "ms": 376,
+   "ok": true
+  },
+  {
+   "video": "demo2",
+   "frame": 198,
+   "found": true,
+   "picked": [
+    1711,
+    109,
+    48,
+    48
+   ],
+   "score": 0.982,
+   "limit": [
+    1328,
+    69,
+    471,
+    240
+   ],
+   "inside": true,
+   "want_center": [
+    1735,
+    133
+   ],
+   "dist": 0.0,
+   "tol": 11.5,
+   "ms": 417,
+   "ok": true
+  },
+  {
+   "video": "demo2",
+   "frame": 204,
+   "found": true,
+   "picked": [
+    1711,
+    109,
+    48,
+    48
+   ],
+   "score": 0.982,
+   "limit": [
+    1328,
+    69,
+    471,
+    240
+   ],
+   "inside": true,
+   "want_center": [
+    1735,
+    133
+   ],
+   "dist": 0.0,
+   "tol": 11.5,
+   "ms": 310,
+   "ok": true
+  },
+  {
+   "video": "demo2",
+   "frame": 210,
+   "found": true,
+   "picked": [
+    1711,
+    109,
+    48,
+    48
+   ],
+   "score": 0.982,
+   "limit": [
+    1328,
+    69,
+    471,
+    240
+   ],
+   "inside": true,
+   "want_center": [
+    1735,
+    133
+   ],
+   "dist": 0.0,
+   "tol": 11.5,
+   "ms": 385,
+   "ok": true
+  },
+  {
+   "video": "demo2",
+   "frame": 216,
+   "found": true,
+   "picked": [
+    1711,
+    109,
+    48,
+    48
+   ],
+   "score": 0.976,
+   "limit": [
+    1328,
+    69,
+    471,
+    240
+   ],
+   "inside": true,
+   "want_center": [
+    1735,
+    133
+   ],
+   "dist": 0.0,
+   "tol": 11.5,
+   "ms": 762,
+   "ok": true
+  }
+ ],
+ "low_bitrate": [],
+ "home": [
+  {
+   "video": "demo3",
+   "frame": 0,
+   "base": [
+    1466,
+    812,
+    88,
+    90
+   ],
+   "base_score": 1.0,
+   "found": false,
+   "picked": null,
+   "best": 0.362,
+   "failed": "match",
+   "ms": 201,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 4,
+   "base": [
+    1466,
+    812,
+    88,
+    90
+   ],
+   "base_score": 1.0,
+   "found": false,
+   "picked": null,
+   "best": 0.362,
+   "failed": "match",
+   "ms": 191,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 8,
+   "base": [
+    1467,
+    812,
+    88,
+    90
+   ],
+   "base_score": 0.992,
+   "found": false,
+   "picked": null,
+   "best": 0.334,
+   "failed": "match",
+   "ms": 156,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 12,
+   "base": [
+    1444,
+    806,
+    88,
+    90
+   ],
+   "base_score": 0.985,
+   "found": false,
+   "picked": null,
+   "best": 0.347,
+   "failed": "match",
+   "ms": 182,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 16,
+   "base": [
+    1414,
+    799,
+    84,
+    86
+   ],
+   "base_score": 0.984,
+   "found": false,
+   "picked": null,
+   "best": 0.333,
+   "failed": "match",
+   "ms": 112,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 20,
+   "base": [
+    1402,
+    796,
+    81,
+    83
+   ],
+   "base_score": 0.986,
+   "found": false,
+   "picked": null,
+   "best": 0.427,
+   "failed": "match",
+   "ms": 234,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 24,
+   "base": [
+    1399,
+    795,
+    81,
+    83
+   ],
+   "base_score": 0.965,
+   "found": false,
+   "picked": null,
+   "best": 0.42,
+   "failed": "match",
+   "ms": 267,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 28,
+   "base": [
+    1398,
+    794,
+    81,
+    83
+   ],
+   "base_score": 0.975,
+   "found": false,
+   "picked": null,
+   "best": 0.44,
+   "failed": "match",
+   "ms": 161,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 32,
+   "base": [
+    1398,
+    794,
+    81,
+    83
+   ],
+   "base_score": 0.978,
+   "found": false,
+   "picked": null,
+   "best": 0.43,
+   "failed": "match",
+   "ms": 253,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 36,
+   "base": [
+    1398,
+    794,
+    81,
+    83
+   ],
+   "base_score": 0.975,
+   "found": false,
+   "picked": null,
+   "best": 0.416,
+   "failed": "match",
+   "ms": 233,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 40,
+   "base": [
+    1398,
+    794,
+    81,
+    83
+   ],
+   "base_score": 0.98,
+   "found": false,
+   "picked": null,
+   "best": 0.424,
+   "failed": "match",
+   "ms": 179,
+   "ok": true
+  },
+  {
+   "video": "demo3",
+   "frame": 44,
+   "base": [
+    1398,
+    793,
+    81,
+    83
+   ],
+   "base_score": 0.969,
+   "found": false,
+   "picked": null,
+   "best": 0.418,
+   "failed": "match",
+   "ms": 275,
+   "ok": true
+  }
+ ],
+ "ok": true
+}
