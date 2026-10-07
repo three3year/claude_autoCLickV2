@@ -864,16 +864,8 @@ class App:
         # (塞進去會被裁掉), 校準自成一列才保得住「常駐顯示」
         bar3 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         bar3.pack(fill="x")
-        ttk.Label(bar3, text="畫面校準").pack(side="left")
-        ttk.Button(bar3, text="設定校準對", style="Small.TButton",
-                   takefocus=False,
-                   command=self.designate_pair).pack(side="left", padx=(8, 6))
-        # 校準按鈕常駐顯示目前的編輯器倍率 (執行時開頭會自動再量一次)
-        self.cal_btn = ttk.Button(bar3, text="校準", style="Small.TButton",
-                                  takefocus=False, command=self.calibrate_now)
-        self.cal_btn.pack(side="left")
-        self.cal_info = ttk.Label(bar3, text="", foreground=C["muted"])
-        self.cal_info.pack(side="left", padx=(12, 0))
+        # 右側的流程設定先 pack (pack 先到先分到空間): 預設視窗寬度下塞不下時,
+        # 被裁掉的是左側的校準對說明文字, 不是設定欄位
         # 流程層級的`補做`設定 (ADR 0008): 補做間隔 + 忙碌指示 (步驟面板太窄放不下)
         self.busy_lbl = ttk.Label(bar3, text="", foreground=C["muted"])
         self.busy_lbl.pack(side="right", padx=(6, 0))
@@ -894,6 +886,16 @@ class App:
         ttk.Label(bar3, text="忙碌出現等候").pack(side="right", padx=(16, 4))
         self.busy_appear_var.trace_add(
             "write", lambda *_: self._on_busy_appear_change())
+        ttk.Label(bar3, text="畫面校準").pack(side="left")
+        ttk.Button(bar3, text="設定校準對", style="Small.TButton",
+                   takefocus=False,
+                   command=self.designate_pair).pack(side="left", padx=(8, 6))
+        # 校準按鈕常駐顯示目前的編輯器倍率 (執行時開頭會自動再量一次)
+        self.cal_btn = ttk.Button(bar3, text="校準", style="Small.TButton",
+                                  takefocus=False, command=self.calibrate_now)
+        self.cal_btn.pack(side="left")
+        self.cal_info = ttk.Label(bar3, text="", foreground=C["muted"])
+        self.cal_info.pack(side="left", padx=(12, 0))
 
         ttk.Button(bar2, text="＋建立", style="Small.TButton", takefocus=False,
                    command=self.create_profile_ui).pack(side="right")
