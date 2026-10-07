@@ -1,0 +1,136 @@
+{
+ "早_簡中": {
+  "before": 247,
+  "after": 243,
+  "removed": [
+   {
+    "no": 82,
+    "before": "點擊 prev (771,71)",
+    "after": "branch_end"
+   },
+   {
+    "no": 90,
+    "before": "點擊 prev (773,247)",
+    "after": "branch_end"
+   },
+   {
+    "no": 98,
+    "before": "點擊 prev (774,65)",
+    "after": "branch_end"
+   },
+   {
+    "no": 107,
+    "before": "點擊 prev (749,21)",
+    "after": "branch_end"
+   }
+  ]
+ },
+ "早_繁中": {
+  "before": 207,
+  "after": 203,
+  "removed": [
+   {
+    "no": 68,
+    "before": "點擊 prev (876,93)",
+    "after": "點擊 prev (0,196)"
+   },
+   {
+    "no": 70,
+    "before": "點擊 prev (0,196)",
+    "after": "branch_end"
+   },
+   {
+    "no": 80,
+    "before": "點擊 prev (876,93)",
+    "after": "branch_end"
+   },
+   {
+    "no": 91,
+    "before": "點擊 prev (872,53)",
+    "after": "branch_end"
+   }
+  ]
+ },
+ "晚_簡中": {
+  "before": 70,
+  "after": 63,
+  "removed": [
+   {
+    "no": 31,
+    "before": "點擊 prev (117,381)",
+    "after": "找圖 製造站1列"
+   },
+   {
+    "no": 40,
+    "before": "點擊 prev (767,-318)",
+    "after": "點擊 prev (0,175)"
+   },
+   {
+    "no": 42,
+    "before": "點擊 prev (0,175)",
+    "after": "branch_end"
+   },
+   {
+    "no": 52,
+    "before": "點擊 prev (767,-145)",
+    "after": "點擊 prev (0,219)"
+   },
+   {
+    "no": 54,
+    "before": "點擊 prev (0,219)",
+    "after": "點擊 prev (0,172)"
+   },
+   {
+    "no": 56,
+    "before": "點擊 prev (0,172)",
+    "after": "branch_end"
+   },
+   {
+    "no": 64,
+    "before": "點擊 prev (767,418)",
+    "after": "branch_end"
+   }
+  ]
+ },
+ "晚_繁中": {
+  "before": 70,
+  "after": 63,
+  "removed": [
+   {
+    "no": 31,
+    "before": "點擊 prev (164,432)",
+    "after": "找圖 製造站1列"
+   },
+   {
+    "no": 40,
+    "before": "點擊 prev (868,-359)",
+    "after": "點擊 prev (0,196)"
+   },
+   {
+    "no": 42,
+    "before": "點擊 prev (0,196)",
+    "after": "branch_end"
+   },
+   {
+    "no": 52,
+    "before": "點擊 prev (868,-164)",
+    "after": "點擊 prev (0,246)"
+   },
+   {
+    "no": 54,
+    "before": "點擊 prev (0,246)",
+    "after": "點擊 prev (0,196)"
+   },
+   {
+    "no": 56,
+    "before": "點擊 prev (0,196)",
+    "after": "branch_end"
+   },
+   {
+    "no": 64,
+    "before": "點擊 prev (868,476)",
+    "after": "branch_end"
+   }
+  ]
+ }
+}

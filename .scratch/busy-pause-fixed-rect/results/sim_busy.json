@@ -1,0 +1,1536 @@
+{
+ "早_簡中": [
+  {
+   "removed_no": 82,
+   "segment": [
+    79,
+    83
+   ],
+   "next_step": 83,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1771,
+      571,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[3] 點擊 (1771, 571)（上一步 +771,+71） 左鍵×1",
+     "[5] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1771,
+      571,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[3] 點擊 (1771, 571)（上一步 +771,+71） 左鍵×1",
+     "[5] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 90,
+   "segment": [
+    86,
+    90
+   ],
+   "next_step": 90,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1773,
+      747,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[3] 點擊 (1773, 747)（上一步 +773,+247） 左鍵×1",
+     "[5] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1773,
+      747,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[3] 點擊 (1773, 747)（上一步 +773,+247） 左鍵×1",
+     "[5] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 98,
+   "segment": [
+    93,
+    97
+   ],
+   "next_step": 97,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1774,
+      565,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "貿易站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[3] 點擊 (1774, 565)（上一步 +774,+65） 左鍵×1",
+     "[5] 找到「貿易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1774,
+      565,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "貿易站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[3] 點擊 (1774, 565)（上一步 +774,+65） 左鍵×1",
+     "[5] 找到「貿易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 107,
+   "segment": [
+    102,
+    105
+   ],
+   "next_step": 105,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1749,
+      521,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1001,
+      500,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "非工作区",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[2] 點擊 (1749, 521)（上一步 +749,+21） 左鍵×1",
+     "[4] 找到「非工作区」(相似度 0.990) → 點擊 (1001, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1749,
+      521,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1001,
+      500,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "非工作区",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[2] 點擊 (1749, 521)（上一步 +749,+21） 左鍵×1",
+     "[4] 找到「非工作区」(相似度 0.990) → 點擊 (1001, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  }
+ ],
+ "早_繁中": [
+  {
+   "removed_no": 68,
+   "segment": [
+    65,
+    70
+   ],
+   "next_step": 70,
+   "click_then_click": [
+    67
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1876,
+      593,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1876,
+      789,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[4] 點擊 (1876, 789)（上一步 +0,+196） 左鍵×1",
+     "[6] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1876,
+      593,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1876,
+      789,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[4] 點擊 (1876, 789)（上一步 +0,+196） 左鍵×1",
+     "[6] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 70,
+   "segment": [
+    65,
+    70
+   ],
+   "next_step": 70,
+   "click_then_click": [
+    67
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1876,
+      593,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1876,
+      789,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[4] 點擊 (1876, 789)（上一步 +0,+196） 左鍵×1",
+     "[6] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1876,
+      593,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1876,
+      789,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[4] 點擊 (1876, 789)（上一步 +0,+196） 左鍵×1",
+     "[6] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 80,
+   "segment": [
+    75,
+    79
+   ],
+   "next_step": 79,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1876,
+      593,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "貿易站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[3] 點擊 (1876, 593)（上一步 +876,+93） 左鍵×1",
+     "[5] 找到「貿易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1876,
+      593,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "貿易站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[3] 點擊 (1876, 593)（上一步 +876,+93） 左鍵×1",
+     "[5] 找到「貿易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 91,
+   "segment": [
+    86,
+    89
+   ],
+   "next_step": 89,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1872,
+      553,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1000,
+      500,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "非工作區",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[2] 點擊 (1872, 553)（上一步 +872,+53） 左鍵×1",
+     "[4] 找到「非工作區」(相似度 0.990) → 點擊 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1872,
+      553,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1000,
+      500,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "非工作區",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[2] 點擊 (1872, 553)（上一步 +872,+53） 左鍵×1",
+     "[4] 找到「非工作區」(相似度 0.990) → 點擊 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  }
+ ],
+ "晚_簡中": [
+  {
+   "removed_no": 31,
+   "segment": [
+    28,
+    31
+   ],
+   "next_step": 31,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1117,
+      881,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[3] 點擊 (1117, 881)（上一步 +117,+381） 左鍵×1",
+     "[4] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1117,
+      881,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[3] 點擊 (1117, 881)（上一步 +117,+381） 左鍵×1",
+     "[4] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 40,
+   "segment": [
+    36,
+    41
+   ],
+   "next_step": 41,
+   "click_then_click": [
+    38
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      182,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      357,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "贸易站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[4] 點擊 (1767, 357)（上一步 +0,+175） 左鍵×1",
+     "[6] 找到「贸易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      182,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      357,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "贸易站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[4] 點擊 (1767, 357)（上一步 +0,+175） 左鍵×1",
+     "[6] 找到「贸易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 42,
+   "segment": [
+    36,
+    41
+   ],
+   "next_step": 41,
+   "click_then_click": [
+    38
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      182,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      357,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "贸易站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[4] 點擊 (1767, 357)（上一步 +0,+175） 左鍵×1",
+     "[6] 找到「贸易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      182,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      357,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "贸易站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[4] 點擊 (1767, 357)（上一步 +0,+175） 左鍵×1",
+     "[6] 找到「贸易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 52,
+   "segment": [
+    46,
+    52
+   ],
+   "next_step": 52,
+   "click_then_click": [
+    48,
+    49
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      355,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      574,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      746,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "发电站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[5] 點擊 (1767, 746)（上一步 +0,+172） 左鍵×1",
+     "[7] 找到「发电站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      355,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      574,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      746,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "发电站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[5] 點擊 (1767, 746)（上一步 +0,+172） 左鍵×1",
+     "[7] 找到「发电站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 54,
+   "segment": [
+    46,
+    52
+   ],
+   "next_step": 52,
+   "click_then_click": [
+    48,
+    49
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      355,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      574,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      746,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "发电站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[5] 點擊 (1767, 746)（上一步 +0,+172） 左鍵×1",
+     "[7] 找到「发电站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      355,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      574,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      746,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "发电站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[5] 點擊 (1767, 746)（上一步 +0,+172） 左鍵×1",
+     "[7] 找到「发电站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 56,
+   "segment": [
+    46,
+    52
+   ],
+   "next_step": 52,
+   "click_then_click": [
+    48,
+    49
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      355,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      574,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      746,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "发电站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[5] 點擊 (1767, 746)（上一步 +0,+172） 左鍵×1",
+     "[7] 找到「发电站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      355,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      574,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1767,
+      746,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "发电站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[5] 點擊 (1767, 746)（上一步 +0,+172） 左鍵×1",
+     "[7] 找到「发电站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 64,
+   "segment": [
+    55,
+    59
+   ],
+   "next_step": 59,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      918,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1000,
+      500,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "非工作区",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[3] 點擊 (1767, 918)（上一步 +767,+418） 左鍵×1",
+     "[5] 找到「非工作区」(相似度 0.990) → 點擊 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1767,
+      918,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1000,
+      500,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "非工作区",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[3] 點擊 (1767, 918)（上一步 +767,+418） 左鍵×1",
+     "[5] 找到「非工作区」(相似度 0.990) → 點擊 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  }
+ ],
+ "晚_繁中": [
+  {
+   "removed_no": 31,
+   "segment": [
+    28,
+    31
+   ],
+   "next_step": 31,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1164,
+      932,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[3] 點擊 (1164, 932)（上一步 +164,+432） 左鍵×1",
+     "[4] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1164,
+      932,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 1,
+    "next": "製造站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[3] 點擊 (1164, 932)（上一步 +164,+432） 左鍵×1",
+     "[4] 找到「製造站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 40,
+   "segment": [
+    36,
+    41
+   ],
+   "next_step": 41,
+   "click_then_click": [
+    38
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      141,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      337,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "貿易站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[4] 點擊 (1868, 337)（上一步 +0,+196） 左鍵×1",
+     "[6] 找到「貿易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      141,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      337,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "貿易站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[4] 點擊 (1868, 337)（上一步 +0,+196） 左鍵×1",
+     "[6] 找到「貿易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 42,
+   "segment": [
+    36,
+    41
+   ],
+   "next_step": 41,
+   "click_then_click": [
+    38
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      141,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      337,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "貿易站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[4] 點擊 (1868, 337)（上一步 +0,+196） 左鍵×1",
+     "[6] 找到「貿易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      141,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      337,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "貿易站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[4] 點擊 (1868, 337)（上一步 +0,+196） 左鍵×1",
+     "[6] 找到「貿易站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 52,
+   "segment": [
+    46,
+    52
+   ],
+   "next_step": 52,
+   "click_then_click": [
+    48,
+    49
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      336,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      582,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      778,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "發電站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[5] 點擊 (1868, 778)（上一步 +0,+196） 左鍵×1",
+     "[7] 找到「發電站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      336,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      582,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      778,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "發電站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[5] 點擊 (1868, 778)（上一步 +0,+196） 左鍵×1",
+     "[7] 找到「發電站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 54,
+   "segment": [
+    46,
+    52
+   ],
+   "next_step": 52,
+   "click_then_click": [
+    48,
+    49
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      336,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      582,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      778,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "發電站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[5] 點擊 (1868, 778)（上一步 +0,+196） 左鍵×1",
+     "[7] 找到「發電站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      336,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      582,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      778,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "發電站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[5] 點擊 (1868, 778)（上一步 +0,+196） 左鍵×1",
+     "[7] 找到「發電站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 56,
+   "segment": [
+    46,
+    52
+   ],
+   "next_step": 52,
+   "click_then_click": [
+    48,
+    49
+   ],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      336,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      582,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      778,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "發電站1列",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[5] 點擊 (1868, 778)（上一步 +0,+196） 左鍵×1",
+     "[7] 找到「發電站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      336,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      582,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1868,
+      778,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 3,
+    "next": "發電站1列",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[5] 點擊 (1868, 778)（上一步 +0,+196） 左鍵×1",
+     "[7] 找到「發電站1列」(相似度 0.990) 位置 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  },
+  {
+   "removed_no": 64,
+   "segment": [
+    55,
+    59
+   ],
+   "next_step": 59,
+   "click_then_click": [],
+   "with_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      976,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1000,
+      500,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "非工作區",
+    "next_result": "found",
+    "busy_pause": "15.30",
+    "busy_lookups": 51,
+    "log": [
+     "[3] 點擊 (1868, 976)（上一步 +868,+476） 左鍵×1",
+     "[5] 找到「非工作區」(相似度 0.990) → 點擊 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "no_busy": {
+    "events": [
+     [
+      "click",
+      1868,
+      976,
+      "left",
+      1
+     ],
+     [
+      "click",
+      1000,
+      500,
+      "left",
+      1
+     ]
+    ],
+    "ended": "done",
+    "clicks": 2,
+    "next": "非工作區",
+    "next_result": "found",
+    "busy_pause": "0.00",
+    "busy_lookups": 0,
+    "log": [
+     "[3] 點擊 (1868, 976)（上一步 +868,+476） 左鍵×1",
+     "[5] 找到「非工作區」(相似度 0.990) → 點擊 (1000, 500)",
+     "執行完成"
+    ]
+   },
+   "ok": true
+  }
+ ]
+}
