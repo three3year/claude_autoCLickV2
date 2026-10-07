@@ -7,8 +7,8 @@
 新範本從 demo2 (繁中、最大化 1920×1024) 好友訪問時的忙碌字樣裁: 底下是純暗帶,
 裁法照簡中 (10/05): 只框字 (灰階 >120 的外框 +1px)。
 
-驗證走 app 的真實偵測路徑 (arknights 門檻), 對整張影格執行流程層級的忙碌指示
-找圖目標 (限定範圍照流程裡的設定, 畫面倍率 1):
+驗證走 app 的真實偵測路徑 (arknights 門檻), 影格換成實機搜尋範圍的畫布 (common.frame_region),
+執行流程層級的忙碌指示找圖目標 (限定範圍照流程裡的設定, 畫面倍率 1):
 - 有忙碌的影格 (opencv 灰階相關 ≥0.9, 抽樣) 要找得到; demo3 那幾幀疊字的也列出。
 - 沒有忙碌的影格 (相關 <0.3, demo2/demo3 每 25 幀抽一張) 要找不到。
 - 淡入淡出中間 (0.3–0.9) 的影格不算。
@@ -37,7 +37,6 @@ FLOW = "早_繁中"
 EVENING = "晚_繁中"
 SOURCE = ("demo2", 2000)
 CROP = (1069, 944, 272, 25)          # x, y, w, h (影片 1:1 = 流程尺度)
-REGION = (0, 0, 1920, 1024)          # 早_繁中 的搜尋範圍
 VIDEOS = {"demo2": 3284, "demo3": 913}
 POS_STRIDE, NEG_STRIDE = 10, 25
 
@@ -76,12 +75,12 @@ def label(frames, tmpl):
     return out
 
 
-def evaluate(hub, busy, frames, samples):
+def evaluate(hub, busy, frames, samples, place):
     rows = []
     for video, n, kind, corr in samples:
-        img = frames.get(video, n)
+        canvas, org = place(frames.get(video, n))
         t0 = time.perf_counter()
-        f = findtarget.find(busy, hub, img, REGION[:2], origin=None, scale=1.0)
+        f = findtarget.find(busy, hub, canvas, org, origin=None, scale=1.0)
         ms = (time.perf_counter() - t0) * 1000
         q = f.query
         rows.append({"video": video, "frame": n, "kind": kind,
@@ -114,6 +113,19 @@ def summarize(rows, tag):
     return out
 
 
+def original_image(name, flows):
+    """換掉之前的舊範本: 已經 --apply 過時現在的存檔裡是新圖, 舊圖從票 06 的備份讀.
+
+    改的不是正式流程目錄 (試跑), 或備份還沒做 (還沒套用過) 時回 None。
+    """
+    if os.path.normcase(os.path.abspath(flows)) != os.path.normcase(common.FLOWS):
+        return None
+    p = os.path.join(common.ticket_backup("06"), "arknights", "flows", FLOW + flowfile.EXT)
+    if not os.path.isfile(p):
+        return None
+    return flowfile.read(p)["images"].get(name)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="驗證通過後寫回早_繁中")
@@ -124,7 +136,7 @@ def main(argv=None):
     r = flowfile.read(path)
     busy = flowfile.busy_target(r["data"])
     name = busy["template"]
-    old = r["images"][name]
+    old = original_image(name, args.flows) or r["images"][name]
     ev = flowfile.read(common.flow_path(EVENING, args.flows))
     ev_busy = flowfile.busy_target(ev["data"])
     ev_same_old = ev_busy is not None and ev["images"].get(ev_busy["template"]) == old
@@ -140,9 +152,10 @@ def main(argv=None):
         imgs = {"新": common.encode(new), "舊": old}
         hub = common.make_hub(imgs, list(imgs), tmp)
         res = {}
+        place = common.frame_region("tw", r["data"]["scanRegion"])
         for tag in ("新", "舊"):
             tgt = dict(busy, template=tag)
-            rows = evaluate(hub, tgt, frames, samples)
+            rows = evaluate(hub, tgt, frames, samples, place)
             res[tag] = {"summary": summarize(rows, tag), "rows": rows}
     finally:
         frames.close()
@@ -170,7 +183,8 @@ def main(argv=None):
         return 0
     r["images"][name] = blob
     x, y, w, h = CROP
-    r["pos"][name] = [x + w // 2, y + h // 2]
+    ox, oy = common.LANGS["tw"]["offset"]   # pos 是螢幕座標
+    r["pos"][name] = [x + ox + w // 2, y + oy + h // 2]
     back = common.write_flow(path, r["data"], r["images"], r["pos"])
     if back["images"][name] != blob or back["data"]["steps"] != r["data"]["steps"]:
         raise SystemExit("讀回的內容與寫入的不同")

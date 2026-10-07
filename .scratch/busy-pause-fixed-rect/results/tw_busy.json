@@ -27,7 +27,7 @@
      "score_min": null,
      "score_max": null,
      "best_max": 0.226,
-     "ms_avg": 220
+     "ms_avg": 147
     },
     "busy": {
      "n": 38,
@@ -35,7 +35,7 @@
      "score_min": 0.967,
      "score_max": 1.0,
      "best_max": 1.0,
-     "ms_avg": 301
+     "ms_avg": 383
     },
     "busy_overlap": {
      "n": 5,
@@ -43,7 +43,7 @@
      "score_min": 0.965,
      "score_max": 0.967,
      "best_max": 0.967,
-     "ms_avg": 325
+     "ms_avg": 376
     }
    },
    "rows": [
@@ -57,7 +57,7 @@
      "box": null,
      "best": 0.226,
      "failed": "match",
-     "ms": 271
+     "ms": 116
     },
     {
      "video": "demo2",
@@ -69,7 +69,7 @@
      "box": null,
      "best": 0.226,
      "failed": "match",
-     "ms": 240
+     "ms": 87
     },
     {
      "video": "demo2",
@@ -81,7 +81,7 @@
      "box": null,
      "best": 0.209,
      "failed": "match",
-     "ms": 221
+     "ms": 66
     },
     {
      "video": "demo2",
@@ -93,7 +93,7 @@
      "box": null,
      "best": 0.209,
      "failed": "match",
-     "ms": 102
+     "ms": 32
     },
     {
      "video": "demo2",
@@ -105,7 +105,7 @@
      "box": null,
      "best": 0.209,
      "failed": "match",
-     "ms": 102
+     "ms": 34
     },
     {
      "video": "demo2",
@@ -117,7 +117,7 @@
      "box": null,
      "best": 0.185,
      "failed": "match",
-     "ms": 121
+     "ms": 46
     },
     {
      "video": "demo2",
@@ -129,7 +129,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 218
+     "ms": 65
     },
     {
      "video": "demo2",
@@ -141,7 +141,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 206
+     "ms": 63
     },
     {
      "video": "demo2",
@@ -153,7 +153,7 @@
      "box": null,
      "best": 0.149,
      "failed": "match",
-     "ms": 310
+     "ms": 90
     },
     {
      "video": "demo2",
@@ -165,7 +165,7 @@
      "box": null,
      "best": 0.137,
      "failed": "match",
-     "ms": 228
+     "ms": 71
     },
     {
      "video": "demo2",
@@ -177,7 +177,7 @@
      "box": null,
      "best": 0.137,
      "failed": "match",
-     "ms": 230
+     "ms": 68
     },
     {
      "video": "demo2",
@@ -189,7 +189,7 @@
      "box": null,
      "best": 0.135,
      "failed": "match",
-     "ms": 226
+     "ms": 73
     },
     {
      "video": "demo2",
@@ -201,7 +201,7 @@
      "box": null,
      "best": 0.168,
      "failed": "match",
-     "ms": 229
+     "ms": 76
     },
     {
      "video": "demo2",
@@ -213,7 +213,7 @@
      "box": null,
      "best": 0.168,
      "failed": "match",
-     "ms": 207
+     "ms": 77
     },
     {
      "video": "demo2",
@@ -225,7 +225,7 @@
      "box": null,
      "best": 0.172,
      "failed": "match",
-     "ms": 124
+     "ms": 35
     },
     {
      "video": "demo2",
@@ -237,7 +237,7 @@
      "box": null,
      "best": 0.167,
      "failed": "match",
-     "ms": 257
+     "ms": 86
     },
     {
      "video": "demo2",
@@ -254,7 +254,7 @@
      ],
      "best": 0.99,
      "failed": null,
-     "ms": 513
+     "ms": 110
     },
     {
      "video": "demo2",
@@ -266,7 +266,7 @@
      "box": null,
      "best": 0.183,
      "failed": "match",
-     "ms": 385
+     "ms": 180
     },
     {
      "video": "demo2",
@@ -278,7 +278,7 @@
      "box": null,
      "best": 0.157,
      "failed": "match",
-     "ms": 265
+     "ms": 94
     },
     {
      "video": "demo2",
@@ -290,7 +290,7 @@
      "box": null,
      "best": 0.158,
      "failed": "match",
-     "ms": 222
+     "ms": 88
     },
     {
      "video": "demo2",
@@ -302,7 +302,7 @@
      "box": null,
      "best": 0.183,
      "failed": "match",
-     "ms": 261
+     "ms": 108
     },
     {
      "video": "demo2",
@@ -314,7 +314,7 @@
      "box": null,
      "best": 0.162,
      "failed": "match",
-     "ms": 199
+     "ms": 61
     },
     {
      "video": "demo2",
@@ -326,7 +326,7 @@
      "box": null,
      "best": 0.201,
      "failed": "match",
-     "ms": 286
+     "ms": 86
     },
     {
      "video": "demo2",
@@ -338,7 +338,7 @@
      "box": null,
      "best": 0.19,
      "failed": "match",
-     "ms": 279
+     "ms": 87
     },
     {
      "video": "demo2",
@@ -350,7 +350,7 @@
      "box": null,
      "best": 0.19,
      "failed": "match",
-     "ms": 284
+     "ms": 83
     },
     {
      "video": "demo2",
@@ -362,7 +362,7 @@
      "box": null,
      "best": 0.191,
      "failed": "match",
-     "ms": 303
+     "ms": 85
     },
     {
      "video": "demo2",
@@ -374,7 +374,7 @@
      "box": null,
      "best": 0.179,
      "failed": "match",
-     "ms": 388
+     "ms": 107
     },
     {
      "video": "demo2",
@@ -386,7 +386,7 @@
      "box": null,
      "best": 0.177,
      "failed": "match",
-     "ms": 181
+     "ms": 57
     },
     {
      "video": "demo2",
@@ -398,7 +398,7 @@
      "box": null,
      "best": 0.179,
      "failed": "match",
-     "ms": 205
+     "ms": 64
     },
     {
      "video": "demo2",
@@ -410,7 +410,7 @@
      "box": null,
      "best": 0.141,
      "failed": "match",
-     "ms": 135
+     "ms": 43
     },
     {
      "video": "demo2",
@@ -422,7 +422,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 219
+     "ms": 63
     },
     {
      "video": "demo2",
@@ -434,7 +434,7 @@
      "box": null,
      "best": 0.155,
      "failed": "match",
-     "ms": 393
+     "ms": 103
     },
     {
      "video": "demo2",
@@ -451,7 +451,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 319
+     "ms": 105
     },
     {
      "video": "demo2",
@@ -468,7 +468,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 316
+     "ms": 153
     },
     {
      "video": "demo2",
@@ -485,7 +485,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 353
+     "ms": 161
     },
     {
      "video": "demo2",
@@ -497,7 +497,7 @@
      "box": null,
      "best": 0.138,
      "failed": "match",
-     "ms": 239
+     "ms": 117
     },
     {
      "video": "demo2",
@@ -514,7 +514,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 375
+     "ms": 116
     },
     {
      "video": "demo2",
@@ -531,7 +531,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 328
+     "ms": 190
     },
     {
      "video": "demo2",
@@ -548,7 +548,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 302
+     "ms": 172
     },
     {
      "video": "demo2",
@@ -560,7 +560,7 @@
      "box": null,
      "best": 0.182,
      "failed": "match",
-     "ms": 286
+     "ms": 154
     },
     {
      "video": "demo2",
@@ -577,7 +577,7 @@
      ],
      "best": 0.967,
      "failed": null,
-     "ms": 345
+     "ms": 139
     },
     {
      "video": "demo2",
@@ -594,7 +594,7 @@
      ],
      "best": 0.997,
      "failed": null,
-     "ms": 408
+     "ms": 171
     },
     {
      "video": "demo2",
@@ -611,7 +611,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 411
+     "ms": 173
     },
     {
      "video": "demo2",
@@ -628,7 +628,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 624
+     "ms": 181
     },
     {
      "video": "demo2",
@@ -645,7 +645,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 300
+     "ms": 184
     },
     {
      "video": "demo2",
@@ -662,7 +662,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 536
+     "ms": 201
     },
     {
      "video": "demo2",
@@ -679,7 +679,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 291
+     "ms": 190
     },
     {
      "video": "demo2",
@@ -691,7 +691,7 @@
      "box": null,
      "best": 0.194,
      "failed": "match",
-     "ms": 198
+     "ms": 123
     },
     {
      "video": "demo2",
@@ -708,7 +708,7 @@
      ],
      "best": 0.987,
      "failed": null,
-     "ms": 276
+     "ms": 149
     },
     {
      "video": "demo2",
@@ -725,7 +725,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 324
+     "ms": 186
     },
     {
      "video": "demo2",
@@ -742,7 +742,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 267
+     "ms": 177
     },
     {
      "video": "demo2",
@@ -759,7 +759,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 236
+     "ms": 177
     },
     {
      "video": "demo2",
@@ -771,7 +771,7 @@
      "box": null,
      "best": 0.185,
      "failed": "match",
-     "ms": 274
+     "ms": 197
     },
     {
      "video": "demo2",
@@ -788,7 +788,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 228
+     "ms": 164
     },
     {
      "video": "demo2",
@@ -805,7 +805,7 @@
      ],
      "best": 0.997,
      "failed": null,
-     "ms": 219
+     "ms": 193
     },
     {
      "video": "demo2",
@@ -822,7 +822,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 213
+     "ms": 188
     },
     {
      "video": "demo2",
@@ -834,7 +834,7 @@
      "box": null,
      "best": 0.214,
      "failed": "match",
-     "ms": 308
+     "ms": 227
     },
     {
      "video": "demo2",
@@ -851,7 +851,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 217
+     "ms": 137
     },
     {
      "video": "demo2",
@@ -868,7 +868,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 247
+     "ms": 201
     },
     {
      "video": "demo2",
@@ -885,7 +885,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 222
+     "ms": 198
     },
     {
      "video": "demo2",
@@ -902,7 +902,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 237
+     "ms": 200
     },
     {
      "video": "demo2",
@@ -919,7 +919,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 256
+     "ms": 211
     },
     {
      "video": "demo2",
@@ -936,7 +936,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 343
+     "ms": 221
     },
     {
      "video": "demo2",
@@ -948,7 +948,7 @@
      "box": null,
      "best": 0.214,
      "failed": "match",
-     "ms": 193
+     "ms": 149
     },
     {
      "video": "demo2",
@@ -965,7 +965,7 @@
      ],
      "best": 0.997,
      "failed": null,
-     "ms": 259
+     "ms": 852
     },
     {
      "video": "demo2",
@@ -982,7 +982,7 @@
      ],
      "best": 0.997,
      "failed": null,
-     "ms": 250
+     "ms": 1608
     },
     {
      "video": "demo2",
@@ -999,7 +999,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 258
+     "ms": 1516
     },
     {
      "video": "demo2",
@@ -1016,7 +1016,7 @@
      ],
      "best": 0.976,
      "failed": null,
-     "ms": 254
+     "ms": 1472
     },
     {
      "video": "demo2",
@@ -1033,7 +1033,7 @@
      ],
      "best": 0.997,
      "failed": null,
-     "ms": 232
+     "ms": 1260
     },
     {
      "video": "demo2",
@@ -1050,7 +1050,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 254
+     "ms": 775
     },
     {
      "video": "demo2",
@@ -1067,7 +1067,7 @@
      ],
      "best": 0.999,
      "failed": null,
-     "ms": 240
+     "ms": 485
     },
     {
      "video": "demo2",
@@ -1079,7 +1079,7 @@
      "box": null,
      "best": 0.193,
      "failed": "match",
-     "ms": 199
+     "ms": 267
     },
     {
      "video": "demo2",
@@ -1096,7 +1096,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 224
+     "ms": 519
     },
     {
      "video": "demo2",
@@ -1113,7 +1113,7 @@
      ],
      "best": 0.996,
      "failed": null,
-     "ms": 243
+     "ms": 552
     },
     {
      "video": "demo2",
@@ -1130,7 +1130,7 @@
      ],
      "best": 0.998,
      "failed": null,
-     "ms": 240
+     "ms": 509
     },
     {
      "video": "demo2",
@@ -1142,7 +1142,7 @@
      "box": null,
      "best": 0.172,
      "failed": "match",
-     "ms": 272
+     "ms": 406
     },
     {
      "video": "demo2",
@@ -1154,7 +1154,7 @@
      "box": null,
      "best": 0.18,
      "failed": "match",
-     "ms": 230
+     "ms": 307
     },
     {
      "video": "demo2",
@@ -1166,7 +1166,7 @@
      "box": null,
      "best": 0.0,
      "failed": "match",
-     "ms": 163
+     "ms": 240
     },
     {
      "video": "demo2",
@@ -1178,7 +1178,7 @@
      "box": null,
      "best": 0.182,
      "failed": "match",
-     "ms": 211
+     "ms": 231
     },
     {
      "video": "demo2",
@@ -1190,7 +1190,7 @@
      "box": null,
      "best": 0.143,
      "failed": "match",
-     "ms": 198
+     "ms": 296
     },
     {
      "video": "demo2",
@@ -1202,7 +1202,7 @@
      "box": null,
      "best": 0.175,
      "failed": "match",
-     "ms": 171
+     "ms": 237
     },
     {
      "video": "demo2",
@@ -1214,7 +1214,7 @@
      "box": null,
      "best": 0.171,
      "failed": "match",
-     "ms": 254
+     "ms": 355
     },
     {
      "video": "demo2",
@@ -1226,7 +1226,7 @@
      "box": null,
      "best": 0.17,
      "failed": "match",
-     "ms": 78
+     "ms": 97
     },
     {
      "video": "demo2",
@@ -1238,7 +1238,7 @@
      "box": null,
      "best": 0.091,
      "failed": "match",
-     "ms": 219
+     "ms": 303
     },
     {
      "video": "demo3",
@@ -1250,7 +1250,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 197
+     "ms": 270
     },
     {
      "video": "demo3",
@@ -1262,7 +1262,7 @@
      "box": null,
      "best": 0.136,
      "failed": "match",
-     "ms": 175
+     "ms": 217
     },
     {
      "video": "demo3",
@@ -1274,7 +1274,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 167
+     "ms": 169
     },
     {
      "video": "demo3",
@@ -1286,7 +1286,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 161
+     "ms": 166
     },
     {
      "video": "demo3",
@@ -1298,7 +1298,7 @@
      "box": null,
      "best": 0.135,
      "failed": "match",
-     "ms": 190
+     "ms": 199
     },
     {
      "video": "demo3",
@@ -1310,7 +1310,7 @@
      "box": null,
      "best": 0.172,
      "failed": "match",
-     "ms": 180
+     "ms": 203
     },
     {
      "video": "demo3",
@@ -1322,7 +1322,7 @@
      "box": null,
      "best": 0.173,
      "failed": "match",
-     "ms": 105
+     "ms": 98
     },
     {
      "video": "demo3",
@@ -1334,7 +1334,7 @@
      "box": null,
      "best": 0.173,
      "failed": "match",
-     "ms": 120
+     "ms": 107
     },
     {
      "video": "demo3",
@@ -1346,7 +1346,7 @@
      "box": null,
      "best": 0.199,
      "failed": "match",
-     "ms": 192
+     "ms": 161
     },
     {
      "video": "demo3",
@@ -1358,7 +1358,7 @@
      "box": null,
      "best": 0.199,
      "failed": "match",
-     "ms": 187
+     "ms": 166
     },
     {
      "video": "demo3",
@@ -1370,7 +1370,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 173
+     "ms": 156
     },
     {
      "video": "demo3",
@@ -1382,7 +1382,7 @@
      "box": null,
      "best": 0.185,
      "failed": "match",
-     "ms": 330
+     "ms": 353
     },
     {
      "video": "demo3",
@@ -1394,7 +1394,7 @@
      "box": null,
      "best": 0.177,
      "failed": "match",
-     "ms": 94
+     "ms": 90
     },
     {
      "video": "demo3",
@@ -1406,7 +1406,7 @@
      "box": null,
      "best": 0.218,
      "failed": "match",
-     "ms": 355
+     "ms": 337
     },
     {
      "video": "demo3",
@@ -1418,7 +1418,7 @@
      "box": null,
      "best": 0.16,
      "failed": "match",
-     "ms": 221
+     "ms": 230
     },
     {
      "video": "demo3",
@@ -1430,7 +1430,7 @@
      "box": null,
      "best": 0.181,
      "failed": "match",
-     "ms": 235
+     "ms": 210
     },
     {
      "video": "demo3",
@@ -1447,7 +1447,7 @@
      ],
      "best": 0.967,
      "failed": null,
-     "ms": 296
+     "ms": 341
     },
     {
      "video": "demo3",
@@ -1464,7 +1464,7 @@
      ],
      "best": 0.965,
      "failed": null,
-     "ms": 320
+     "ms": 402
     },
     {
      "video": "demo3",
@@ -1481,7 +1481,7 @@
      ],
      "best": 0.966,
      "failed": null,
-     "ms": 347
+     "ms": 368
     },
     {
      "video": "demo3",
@@ -1498,7 +1498,7 @@
      ],
      "best": 0.967,
      "failed": null,
-     "ms": 320
+     "ms": 374
     },
     {
      "video": "demo3",
@@ -1515,7 +1515,7 @@
      ],
      "best": 0.967,
      "failed": null,
-     "ms": 316
+     "ms": 384
     },
     {
      "video": "demo3",
@@ -1532,7 +1532,7 @@
      ],
      "best": 0.967,
      "failed": null,
-     "ms": 323
+     "ms": 352
     }
    ]
   },
@@ -1544,7 +1544,7 @@
      "score_min": null,
      "score_max": null,
      "best_max": 0.229,
-     "ms_avg": 225
+     "ms_avg": 176
     },
     "busy": {
      "n": 38,
@@ -1552,7 +1552,7 @@
      "score_min": 0.927,
      "score_max": 1.0,
      "best_max": 1.0,
-     "ms_avg": 244
+     "ms_avg": 233
     },
     "busy_overlap": {
      "n": 5,
@@ -1560,7 +1560,7 @@
      "score_min": 0.986,
      "score_max": 1.0,
      "best_max": 1.0,
-     "ms_avg": 841
+     "ms_avg": 307
     }
    },
    "rows": [
@@ -1574,7 +1574,7 @@
      "box": null,
      "best": 0.229,
      "failed": "match",
-     "ms": 206
+     "ms": 207
     },
     {
      "video": "demo2",
@@ -1586,7 +1586,7 @@
      "box": null,
      "best": 0.229,
      "failed": "match",
-     "ms": 197
+     "ms": 178
     },
     {
      "video": "demo2",
@@ -1598,7 +1598,7 @@
      "box": null,
      "best": 0.21,
      "failed": "match",
-     "ms": 111
+     "ms": 80
     },
     {
      "video": "demo2",
@@ -1610,7 +1610,7 @@
      "box": null,
      "best": 0.21,
      "failed": "match",
-     "ms": 106
+     "ms": 83
     },
     {
      "video": "demo2",
@@ -1622,7 +1622,7 @@
      "box": null,
      "best": 0.21,
      "failed": "match",
-     "ms": 109
+     "ms": 88
     },
     {
      "video": "demo2",
@@ -1634,7 +1634,7 @@
      "box": null,
      "best": 0.207,
      "failed": "match",
-     "ms": 104
+     "ms": 107
     },
     {
      "video": "demo2",
@@ -1646,7 +1646,7 @@
      "box": null,
      "best": 0.189,
      "failed": "match",
-     "ms": 153
+     "ms": 206
     },
     {
      "video": "demo2",
@@ -1658,7 +1658,7 @@
      "box": null,
      "best": 0.189,
      "failed": "match",
-     "ms": 153
+     "ms": 220
     },
     {
      "video": "demo2",
@@ -1670,7 +1670,7 @@
      "box": null,
      "best": 0.164,
      "failed": "match",
-     "ms": 149
+     "ms": 175
     },
     {
      "video": "demo2",
@@ -1682,7 +1682,7 @@
      "box": null,
      "best": 0.164,
      "failed": "match",
-     "ms": 129
+     "ms": 183
     },
     {
      "video": "demo2",
@@ -1694,7 +1694,7 @@
      "box": null,
      "best": 0.164,
      "failed": "match",
-     "ms": 134
+     "ms": 190
     },
     {
      "video": "demo2",
@@ -1706,7 +1706,7 @@
      "box": null,
      "best": 0.164,
      "failed": "match",
-     "ms": 142
+     "ms": 172
     },
     {
      "video": "demo2",
@@ -1718,7 +1718,7 @@
      "box": null,
      "best": 0.2,
      "failed": "match",
-     "ms": 120
+     "ms": 143
     },
     {
      "video": "demo2",
@@ -1730,7 +1730,7 @@
      "box": null,
      "best": 0.207,
      "failed": "match",
-     "ms": 185
+     "ms": 199
     },
     {
      "video": "demo2",
@@ -1742,7 +1742,7 @@
      "box": null,
      "best": 0.16,
      "failed": "match",
-     "ms": 80
+     "ms": 86
     },
     {
      "video": "demo2",
@@ -1754,7 +1754,7 @@
      "box": null,
      "best": 0.165,
      "failed": "match",
-     "ms": 232
+     "ms": 272
     },
     {
      "video": "demo2",
@@ -1771,7 +1771,7 @@
      ],
      "best": 0.96,
      "failed": null,
-     "ms": 193
+     "ms": 268
     },
     {
      "video": "demo2",
@@ -1783,7 +1783,7 @@
      "box": null,
      "best": 0.17,
      "failed": "match",
-     "ms": 236
+     "ms": 254
     },
     {
      "video": "demo2",
@@ -1795,7 +1795,7 @@
      "box": null,
      "best": 0.146,
      "failed": "match",
-     "ms": 215
+     "ms": 251
     },
     {
      "video": "demo2",
@@ -1807,7 +1807,7 @@
      "box": null,
      "best": 0.145,
      "failed": "match",
-     "ms": 253
+     "ms": 375
     },
     {
      "video": "demo2",
@@ -1819,7 +1819,7 @@
      "box": null,
      "best": 0.168,
      "failed": "match",
-     "ms": 172
+     "ms": 215
     },
     {
      "video": "demo2",
@@ -1831,7 +1831,7 @@
      "box": null,
      "best": 0.177,
      "failed": "match",
-     "ms": 177
+     "ms": 235
     },
     {
      "video": "demo2",
@@ -1843,7 +1843,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 176
+     "ms": 224
     },
     {
      "video": "demo2",
@@ -1855,7 +1855,7 @@
      "box": null,
      "best": 0.214,
      "failed": "match",
-     "ms": 228
+     "ms": 215
     },
     {
      "video": "demo2",
@@ -1867,7 +1867,7 @@
      "box": null,
      "best": 0.189,
      "failed": "match",
-     "ms": 205
+     "ms": 234
     },
     {
      "video": "demo2",
@@ -1879,7 +1879,7 @@
      "box": null,
      "best": 0.206,
      "failed": "match",
-     "ms": 210
+     "ms": 236
     },
     {
      "video": "demo2",
@@ -1891,7 +1891,7 @@
      "box": null,
      "best": 0.175,
      "failed": "match",
-     "ms": 276
+     "ms": 331
     },
     {
      "video": "demo2",
@@ -1903,7 +1903,7 @@
      "box": null,
      "best": 0.183,
      "failed": "match",
-     "ms": 192
+     "ms": 214
     },
     {
      "video": "demo2",
@@ -1915,7 +1915,7 @@
      "box": null,
      "best": 0.158,
      "failed": "match",
-     "ms": 178
+     "ms": 196
     },
     {
      "video": "demo2",
@@ -1927,7 +1927,7 @@
      "box": null,
      "best": 0.173,
      "failed": "match",
-     "ms": 89
+     "ms": 88
     },
     {
      "video": "demo2",
@@ -1939,7 +1939,7 @@
      "box": null,
      "best": 0.17,
      "failed": "match",
-     "ms": 153
+     "ms": 169
     },
     {
      "video": "demo2",
@@ -1951,7 +1951,7 @@
      "box": null,
      "best": 0.141,
      "failed": "match",
-     "ms": 192
+     "ms": 197
     },
     {
      "video": "demo2",
@@ -1968,7 +1968,7 @@
      ],
      "best": 0.968,
      "failed": null,
-     "ms": 204
+     "ms": 229
     },
     {
      "video": "demo2",
@@ -1985,7 +1985,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 227
+     "ms": 244
     },
     {
      "video": "demo2",
@@ -2002,7 +2002,7 @@
      ],
      "best": 0.969,
      "failed": null,
-     "ms": 219
+     "ms": 241
     },
     {
      "video": "demo2",
@@ -2014,7 +2014,7 @@
      "box": null,
      "best": 0.15,
      "failed": "match",
-     "ms": 106
+     "ms": 104
     },
     {
      "video": "demo2",
@@ -2031,7 +2031,7 @@
      ],
      "best": 0.968,
      "failed": null,
-     "ms": 241
+     "ms": 232
     },
     {
      "video": "demo2",
@@ -2048,7 +2048,7 @@
      ],
      "best": 0.968,
      "failed": null,
-     "ms": 254
+     "ms": 260
     },
     {
      "video": "demo2",
@@ -2065,7 +2065,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 256
+     "ms": 255
     },
     {
      "video": "demo2",
@@ -2077,7 +2077,7 @@
      "box": null,
      "best": 0.154,
      "failed": "match",
-     "ms": 226
+     "ms": 202
     },
     {
      "video": "demo2",
@@ -2094,7 +2094,7 @@
      ],
      "best": 0.927,
      "failed": null,
-     "ms": 225
+     "ms": 226
     },
     {
      "video": "demo2",
@@ -2111,7 +2111,7 @@
      ],
      "best": 0.967,
      "failed": null,
-     "ms": 240
+     "ms": 224
     },
     {
      "video": "demo2",
@@ -2128,7 +2128,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 218
+     "ms": 240
     },
     {
      "video": "demo2",
@@ -2145,7 +2145,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 251
+     "ms": 252
     },
     {
      "video": "demo2",
@@ -2162,7 +2162,7 @@
      ],
      "best": 0.968,
      "failed": null,
-     "ms": 270
+     "ms": 244
     },
     {
      "video": "demo2",
@@ -2179,7 +2179,7 @@
      ],
      "best": 0.968,
      "failed": null,
-     "ms": 237
+     "ms": 231
     },
     {
      "video": "demo2",
@@ -2196,7 +2196,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 228
+     "ms": 247
     },
     {
      "video": "demo2",
@@ -2208,7 +2208,7 @@
      "box": null,
      "best": 0.223,
      "failed": "match",
-     "ms": 210
+     "ms": 199
     },
     {
      "video": "demo2",
@@ -2225,7 +2225,7 @@
      ],
      "best": 0.958,
      "failed": null,
-     "ms": 271
+     "ms": 242
     },
     {
      "video": "demo2",
@@ -2242,7 +2242,7 @@
      ],
      "best": 0.969,
      "failed": null,
-     "ms": 317
+     "ms": 249
     },
     {
      "video": "demo2",
@@ -2259,7 +2259,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 203
+     "ms": 250
     },
     {
      "video": "demo2",
@@ -2276,7 +2276,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 215
+     "ms": 244
     },
     {
      "video": "demo2",
@@ -2288,7 +2288,7 @@
      "box": null,
      "best": 0.19,
      "failed": "match",
-     "ms": 312
+     "ms": 347
     },
     {
      "video": "demo2",
@@ -2305,7 +2305,7 @@
      ],
      "best": 0.969,
      "failed": null,
-     "ms": 219
+     "ms": 231
     },
     {
      "video": "demo2",
@@ -2322,7 +2322,7 @@
      ],
      "best": 0.967,
      "failed": null,
-     "ms": 245
+     "ms": 218
     },
     {
      "video": "demo2",
@@ -2339,7 +2339,7 @@
      ],
      "best": 0.97,
      "failed": null,
-     "ms": 256
+     "ms": 220
     },
     {
      "video": "demo2",
@@ -2351,7 +2351,7 @@
      "box": null,
      "best": 0.187,
      "failed": "match",
-     "ms": 225
+     "ms": 189
     },
     {
      "video": "demo2",
@@ -2368,7 +2368,7 @@
      ],
      "best": 0.968,
      "failed": null,
-     "ms": 239
+     "ms": 209
     },
     {
      "video": "demo2",
@@ -2385,7 +2385,7 @@
      ],
      "best": 0.968,
      "failed": null,
-     "ms": 377
+     "ms": 225
     },
     {
      "video": "demo2",
@@ -2402,7 +2402,7 @@
      ],
      "best": 0.972,
      "failed": null,
-     "ms": 216
+     "ms": 219
     },
     {
      "video": "demo2",
@@ -2419,7 +2419,7 @@
      ],
      "best": 0.966,
      "failed": null,
-     "ms": 212
+     "ms": 234
     },
     {
      "video": "demo2",
@@ -2436,7 +2436,7 @@
      ],
      "best": 0.966,
      "failed": null,
-     "ms": 263
+     "ms": 238
     },
     {
      "video": "demo2",
@@ -2453,7 +2453,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 251
+     "ms": 268
     },
     {
      "video": "demo2",
@@ -2465,7 +2465,7 @@
      "box": null,
      "best": 0.186,
      "failed": "match",
-     "ms": 213
+     "ms": 190
     },
     {
      "video": "demo2",
@@ -2482,7 +2482,7 @@
      ],
      "best": 0.968,
      "failed": null,
-     "ms": 209
+     "ms": 210
     },
     {
      "video": "demo2",
@@ -2499,7 +2499,7 @@
      ],
      "best": 0.969,
      "failed": null,
-     "ms": 193
+     "ms": 212
     },
     {
      "video": "demo2",
@@ -2516,7 +2516,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 191
+     "ms": 199
     },
     {
      "video": "demo2",
@@ -2533,7 +2533,7 @@
      ],
      "best": 0.937,
      "failed": null,
-     "ms": 199
+     "ms": 232
     },
     {
      "video": "demo2",
@@ -2550,7 +2550,7 @@
      ],
      "best": 0.971,
      "failed": null,
-     "ms": 208
+     "ms": 227
     },
     {
      "video": "demo2",
@@ -2567,7 +2567,7 @@
      ],
      "best": 0.973,
      "failed": null,
-     "ms": 196
+     "ms": 225
     },
     {
      "video": "demo2",
@@ -2584,7 +2584,7 @@
      ],
      "best": 0.973,
      "failed": null,
-     "ms": 223
+     "ms": 212
     },
     {
      "video": "demo2",
@@ -2596,7 +2596,7 @@
      "box": null,
      "best": 0.214,
      "failed": "match",
-     "ms": 180
+     "ms": 164
     },
     {
      "video": "demo2",
@@ -2613,7 +2613,7 @@
      ],
      "best": 0.966,
      "failed": null,
-     "ms": 154
+     "ms": 186
     },
     {
      "video": "demo2",
@@ -2630,7 +2630,7 @@
      ],
      "best": 0.967,
      "failed": null,
-     "ms": 213
+     "ms": 216
     },
     {
      "video": "demo2",
@@ -2647,7 +2647,7 @@
      ],
      "best": 0.97,
      "failed": null,
-     "ms": 350
+     "ms": 234
     },
     {
      "video": "demo2",
@@ -2659,7 +2659,7 @@
      "box": null,
      "best": 0.175,
      "failed": "match",
-     "ms": 236
+     "ms": 209
     },
     {
      "video": "demo2",
@@ -2671,7 +2671,7 @@
      "box": null,
      "best": 0.147,
      "failed": "match",
-     "ms": 269
+     "ms": 341
     },
     {
      "video": "demo2",
@@ -2683,7 +2683,7 @@
      "box": null,
      "best": 0.0,
      "failed": "match",
-     "ms": 152
+     "ms": 126
     },
     {
      "video": "demo2",
@@ -2695,7 +2695,7 @@
      "box": null,
      "best": 0.197,
      "failed": "match",
-     "ms": 218
+     "ms": 195
     },
     {
      "video": "demo2",
@@ -2707,7 +2707,7 @@
      "box": null,
      "best": 0.141,
      "failed": "match",
-     "ms": 340
+     "ms": 193
     },
     {
      "video": "demo2",
@@ -2719,7 +2719,7 @@
      "box": null,
      "best": 0.181,
      "failed": "match",
-     "ms": 318
+     "ms": 133
     },
     {
      "video": "demo2",
@@ -2731,7 +2731,7 @@
      "box": null,
      "best": 0.185,
      "failed": "match",
-     "ms": 464
+     "ms": 168
     },
     {
      "video": "demo2",
@@ -2743,7 +2743,7 @@
      "box": null,
      "best": 0.184,
      "failed": "match",
-     "ms": 166
+     "ms": 54
     },
     {
      "video": "demo2",
@@ -2755,7 +2755,7 @@
      "box": null,
      "best": 0.107,
      "failed": "match",
-     "ms": 508
+     "ms": 181
     },
     {
      "video": "demo3",
@@ -2767,7 +2767,7 @@
      "box": null,
      "best": 0.126,
      "failed": "match",
-     "ms": 384
+     "ms": 169
     },
     {
      "video": "demo3",
@@ -2779,7 +2779,7 @@
      "box": null,
      "best": 0.142,
      "failed": "match",
-     "ms": 553
+     "ms": 183
     },
     {
      "video": "demo3",
@@ -2791,7 +2791,7 @@
      "box": null,
      "best": 0.17,
      "failed": "match",
-     "ms": 326
+     "ms": 128
     },
     {
      "video": "demo3",
@@ -2803,7 +2803,7 @@
      "box": null,
      "best": 0.17,
      "failed": "match",
-     "ms": 332
+     "ms": 131
     },
     {
      "video": "demo3",
@@ -2815,7 +2815,7 @@
      "box": null,
      "best": 0.165,
      "failed": "match",
-     "ms": 292
+     "ms": 142
     },
     {
      "video": "demo3",
@@ -2827,7 +2827,7 @@
      "box": null,
      "best": 0.174,
      "failed": "match",
-     "ms": 248
+     "ms": 92
     },
     {
      "video": "demo3",
@@ -2839,7 +2839,7 @@
      "box": null,
      "best": 0.16,
      "failed": "match",
-     "ms": 153
+     "ms": 61
     },
     {
      "video": "demo3",
@@ -2851,7 +2851,7 @@
      "box": null,
      "best": 0.16,
      "failed": "match",
-     "ms": 163
+     "ms": 73
     },
     {
      "video": "demo3",
@@ -2863,7 +2863,7 @@
      "box": null,
      "best": 0.214,
      "failed": "match",
-     "ms": 268
+     "ms": 121
     },
     {
      "video": "demo3",
@@ -2875,7 +2875,7 @@
      "box": null,
      "best": 0.198,
      "failed": "match",
-     "ms": 269
+     "ms": 106
     },
     {
      "video": "demo3",
@@ -2887,7 +2887,7 @@
      "box": null,
      "best": 0.19,
      "failed": "match",
-     "ms": 247
+     "ms": 116
     },
     {
      "video": "demo3",
@@ -2899,7 +2899,7 @@
      "box": null,
      "best": 0.188,
      "failed": "match",
-     "ms": 427
+     "ms": 203
     },
     {
      "video": "demo3",
@@ -2911,7 +2911,7 @@
      "box": null,
      "best": 0.192,
      "failed": "match",
-     "ms": 106
+     "ms": 59
     },
     {
      "video": "demo3",
@@ -2923,7 +2923,7 @@
      "box": null,
      "best": 0.174,
      "failed": "match",
-     "ms": 434
+     "ms": 191
     },
     {
      "video": "demo3",
@@ -2935,7 +2935,7 @@
      "box": null,
      "best": 0.193,
      "failed": "match",
-     "ms": 340
+     "ms": 159
     },
     {
      "video": "demo3",
@@ -2947,7 +2947,7 @@
      "box": null,
      "best": 0.198,
      "failed": "match",
-     "ms": 243
+     "ms": 127
     },
     {
      "video": "demo3",
@@ -2964,7 +2964,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 578
+     "ms": 270
     },
     {
      "video": "demo3",
@@ -2981,7 +2981,7 @@
      ],
      "best": 0.986,
      "failed": null,
-     "ms": 794
+     "ms": 294
     },
     {
      "video": "demo3",
@@ -2998,7 +2998,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 819
+     "ms": 292
     },
     {
      "video": "demo3",
@@ -3015,7 +3015,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 1093
+     "ms": 297
     },
     {
      "video": "demo3",
@@ -3032,7 +3032,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 786
+     "ms": 299
     },
     {
      "video": "demo3",
@@ -3049,7 +3049,7 @@
      ],
      "best": 1.0,
      "failed": null,
-     "ms": 713
+     "ms": 353
     }
    ]
   }

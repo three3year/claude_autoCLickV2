@@ -43,7 +43,7 @@ def ticket_backup(ticket):
 
 
 def preflight(flows, backup=BACKUP):
-    """改正式流程前的檢查: AutoClick 已關、備份已在. 改的是別的目錄 (試跑) 就只查前者.
+    """改正式流程前的檢查與備份: AutoClick 已關、備份已在. 改的是別的目錄 (試跑) 就只查前者.
 
     backup 不存在時: 票 05 的 BACKUP 要人工先做; 票 06 起的 (ticket_backup) 由這裡
     把當下的 profiles 整個複製過去——重跑時備份已在, 不會被改過的版本蓋掉。
@@ -116,34 +116,29 @@ def sync_draft(path, profile=PROFILE):
 # ================= 真引擎 (接縫三) =================
 
 def read_img(path):
-    import cv2
-    import numpy as np
-    img = cv2.imdecode(np.fromfile(path, np.uint8), cv2.IMREAD_COLOR)
+    """讀圖 (中文路徑, 經 app 的 imgio); 讀不到就中止."""
+    from automation import imgio
+    img = imgio.imread(path)
     if img is None:
         raise SystemExit(f"讀不到圖: {path}")
     return img
 
 
 def write_img(path, img):
-    import cv2
-    ok, buf = cv2.imencode(".png", img)
-    if not ok:
-        raise SystemExit(f"編碼失敗: {path}")
-    buf.tofile(path)
+    from automation import imgio
+    imgio.imwrite(path, img)
 
 
 def decode(blob):
-    import cv2
-    import numpy as np
-    return cv2.imdecode(np.frombuffer(blob, np.uint8), cv2.IMREAD_COLOR)
+    """存檔裡的範本位元組 → 影像 (經 app 的 imgio)."""
+    from automation import imgio
+    return imgio.imdecode(blob)
 
 
 def encode(img):
-    import cv2
-    ok, buf = cv2.imencode(".png", img)
-    if not ok:
-        raise SystemExit("範本編碼失敗")
-    return buf.tobytes()
+    """影像 → 範本的 PNG 位元組 (經 app 的 imgio, 與編輯器存範本同一套編碼)."""
+    from automation import imgio
+    return imgio.encode_png(img)
 
 
 def make_hub(images, names, tmp):
@@ -202,6 +197,8 @@ def frame_region(lang, region):
     import numpy as np
     ox, oy = LANGS[lang]["offset"]
     rx, ry, rw, rh = region
+    if ox < rx or oy < ry:
+        raise SystemExit(f"影片左上 ({ox},{oy}) 在搜尋範圍左上 ({rx},{ry}) 之外: 不認得的配置")
 
     def place(img):
         canvas = np.zeros((rh, rw, 3), np.uint8)

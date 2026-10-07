@@ -168,12 +168,13 @@ def product_box(lang):
 def list_rect(box, lang, region, grid=None):
     """一整欄: 左右照 box 外擴, 上下＝整個搜尋範圍 (原本九宮格限定的就照九宮格的上下)."""
     r = common.video_box_to_rect(box, lang, region, MARGIN)
-    if grid:
-        rows = [(c - 1) // 3 for c in grid]
-        y0, y1 = min(rows) / 3, (max(rows) + 1) / 3
-    else:
-        y0, y1 = 0.0, 1.0
-    return dict(r, y=round(y0, 4), h=round(y1 - y0, 4))
+    if not grid:
+        return dict(r, y=0.0, h=1.0)
+    # 九宮格的上下照 findtarget 的換算 (限定範圍的唯一實作), 再換成比例
+    cell = findtarget.limit_rect({"limit": {"kind": "grid", "cells": grid}},
+                                 tuple(region), None)
+    g = findtarget.ratio_rect_from_screen(cell, tuple(region))
+    return dict(r, y=g["y"], h=g["h"])
 
 
 def plan(lang, r, positions):
@@ -213,8 +214,12 @@ def new_limit(tgt, p, lang, region):
     if p is None or p["rect"] is None or lim.get("kind") == "origin":
         return None
     if p["rect"] == "list":
-        return list_rect(p["box"], lang, region,
-                         lim.get("cells") if lim.get("kind") == "grid" else None)
+        col = list_rect(p["box"], lang, region,
+                        lim.get("cells") if lim.get("kind") == "grid" else None)
+        if lim.get("kind") == "rect":
+            # 重跑: 上次寫回的一整欄已經不是九宮格了, 上下照它原本的 (別把「只看上 2/3」放寬)
+            col.update(y=lim["y"], h=lim["h"])
+        return col
     return dict(p["rect"])
 
 
@@ -223,15 +228,11 @@ def rebuild(steps, plans, lang, region):
     out, changes = [], []
     for i, s in enumerate(steps):
         s = json.loads(json.dumps(s))
-        for key, role in ((findtarget.TARGET, "target"),
-                          (findtarget.CONFIRM_TARGET, "confirm")):
-            if key == findtarget.TARGET and s.get("type") != "find_click":
-                continue
+        for key, tgt in findtarget.step_targets(s):
+            # 沒生效的確認圖 (生效確認不是「確認圖出現」) 不動
             if key == findtarget.CONFIRM_TARGET and not findtarget.uses_confirm_target(s):
                 continue
-            tgt = s.get(key)
-            if not tgt:
-                continue
+            role = "target" if key == findtarget.TARGET else "confirm"
             lim = new_limit(tgt, plans.get(tgt.get("template")), lang, region)
             if lim is None or lim == tgt.get("limit"):
                 continue
@@ -305,27 +306,27 @@ def verify_templates(lang, hub, steps, new_steps, positions, plans, frames, plac
             for v in picks:
                 video, n, x, y, w, h = v[:6]
                 canvas, org = place(frames.get(video, n))
-                fo, to = timed_find(a, hub, canvas, org)
-                fn, tn = timed_find(b, hub, canvas, org)
+                before, ms_before = timed_find(a, hub, canvas, org)
+                after, ms_after = timed_find(b, hub, canvas, org)
                 ox, oy = common.LANGS[lang]["offset"]
-                want = (fo.picked.center if fo.picked is not None
+                want = (before.picked.center if before.picked is not None
                         else (x + ox + w // 2, y + oy + h // 2))
                 tol = vtf_verify.position_tolerance((0, 0, w, h))
-                d = _dist(fn.picked.center, want) if fn.picked is not None else None
+                d = _dist(after.picked.center, want) if after.picked is not None else None
+                # 加框前就找不到 (轉場、比色擋掉的別列…) 的影格不算數;
+                # 加框前挑到的在框外 (轉場中途的位置) 另列
+                inside = before.picked is not None and _inside(before.picked.box, after.limit)
                 rows.append({"template": b["template"], "limit": b["limit"],
                              "video": video, "frame": n,
-                             "old_found": fo.picked is not None,
-                             "new_found": fn.picked is not None,
+                             "old_found": before.picked is not None,
+                             "new_found": after.picked is not None,
                              "dist": None if d is None else round(d, 1),
                              "tol": round(tol, 1),
-                             "score": None if fn.picked is None else round(fn.picked.score, 3),
-                             "ms_old": round(to), "ms_new": round(tn),
-                             # 加框前就找不到 (轉場、比色擋掉的別列…) 的影格不算數;
-                             # 加框前挑到的在框外 (轉場中途的位置) 另列
-                             "outside": fo.picked is not None and not _inside(fo.picked.box, fn.limit),
-                             "valid": fo.picked is not None and _inside(fo.picked.box, fn.limit),
-                             "ok": (fo.picked is None or not _inside(fo.picked.box, fn.limit)
-                                    or (d is not None and d <= tol))})
+                             "score": None if after.picked is None else round(after.picked.score, 3),
+                             "ms_old": round(ms_before), "ms_new": round(ms_after),
+                             "outside": before.picked is not None and not inside,
+                             "valid": inside,
+                             "ok": not inside or (d is not None and d <= tol)})
     return rows
 
 
@@ -358,7 +359,8 @@ def verify_products(lang, hub, steps, new_steps, place):
         ok = (po is None and pn is None) or (
             po is not None and pn is not None and po[0] == pn[0]
             and _dist(po[2], pn[2]) <= 3)
-        rows.append({"frame": fr["id"], "old": po and [po[0], po[1], list(po[2])],
+        rows.append({"frame": fr["id"], "video": fr["source"]["video"],
+                     "old": po and [po[0], po[1], list(po[2])],
                      "new": pn and [pn[0], pn[1], list(pn[2])],
                      "ms_old": round(res["old"][1]), "ms_new": round(res["new"][1]),
                      "ok": ok})
@@ -390,10 +392,8 @@ def run_lang(lang, args, frames):
         prows = verify_products(lang, hub, steps, new_steps, place)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    for x in trows:
+    for x in trows + prows:
         x["low_bitrate"] = x.get("video") in LOW_BITRATE
-    for x in prows:
-        x["low_bitrate"] = x["frame"].split("_")[1] in LOW_BITRATE
     for x in [x for x in trows + prows if not x["ok"]]:
         print(f"  [{lang}] 不符{'（demo1 低位元率，不算）' if x['low_bitrate'] else ''}: {x}")
     bad = [x for x in trows + prows if not x["ok"] and not x["low_bitrate"]]
@@ -401,18 +401,18 @@ def run_lang(lang, args, frames):
     for x in outside:
         print(f"  [{lang}] 加框前挑到的在框外 (不算): {x['template']} {x['video']} #{x['frame']}")
     have = {x["template"] for x in trows if x.get("valid")}
-    nof = sorted({x["template"] for x in trows} - have)
-    trows_f = [x for x in trows if x.get("valid")]
+    no_valid = sorted({x["template"] for x in trows} - have)
+    valid_rows = [x for x in trows if x.get("valid")]
     ms = lambda rows, k: round(sum(x[k] for x in rows) / len(rows)) if rows else None  # noqa: E731
-    if nof:
-        print(f"  [{lang}] 沒有可驗的影格 (影片上沒有, 或加框前引擎也找不到)：{'、'.join(nof)}")
-    print(f"[{lang}] 範本驗證 {sum(x['ok'] for x in trows_f)}/{len(trows_f)}；"
-          f"平均查詢 {ms(trows_f, 'ms_old')} → {ms(trows_f, 'ms_new')} ms")
+    if no_valid:
+        print(f"  [{lang}] 沒有可驗的影格 (影片上沒有, 或加框前引擎也找不到)：{'、'.join(no_valid)}")
+    print(f"[{lang}] 範本驗證 {sum(x['ok'] for x in valid_rows)}/{len(valid_rows)}；"
+          f"平均查詢 {ms(valid_rows, 'ms_old')} → {ms(valid_rows, 'ms_new')} ms")
     print(f"[{lang}] 商品分岔 {sum(x['ok'] for x in prows)}/{len(prows)}；"
           f"一輪 23 個分支 {ms(prows, 'ms_old')} → {ms(prows, 'ms_new')} ms")
     report = {"flow": os.path.basename(path), "plans": plans,
               "changes": [list(c) for c in changes], "templates": trows,
-              "products": prows, "no_valid": nof, "ok": not bad,
+              "products": prows, "no_valid": no_valid, "ok": not bad,
               "outside": [{k: x[k] for k in ("template", "video", "frame")} for x in outside]}
     return report, (path, r, new_steps)
 

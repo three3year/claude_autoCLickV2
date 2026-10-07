@@ -14,6 +14,8 @@ import re
 import sys
 
 import common
+import fixed_rects as fr8
+import quick_place as qp7
 import report as r05
 
 import flowfile  # noqa: E402
@@ -50,7 +52,7 @@ def section06(res):
     return [H06, "",
             f"- **新範本**：從 `oCam Video/{src['video']}.mp4` 第 {src['frame']} 幀（好友訪問時底部的"
             f"「正在提交反饋至神經……」）裁到只剩字，框 {tuple(src['crop'])}（影片＝實機座標）。"
-            "名稱與限定範圍（九宮格 8、9）不變。",
+            f"名稱與限定範圍（{findtarget.limit_text(res['limit'])}）不變。",
             "- **舊範本的問題**：是從 demo3 第 852 幀附近裁的，那幾幀忙碌字樣底下疊著另一段淡出中的提示字，"
             "裁下來是兩層字的殘影。",
             "- **驗證（真引擎、arknights 門檻，限定範圍照流程設定）**：",
@@ -67,7 +69,22 @@ def section06(res):
             "- 腳本：`.scratch/busy-pause-fixed-rect/tw_busy.py`（可重跑；`--apply` 才寫回）", ""]
 
 
-def section07(lang, res, steps):
+COLOR_GATE = 0.95     # arknights profile 的比色門檻
+
+
+def color_note(summ):
+    """沒在交流時靠比色擋下的程度; 交流中比色離門檻不到 0.03 才提醒餘裕不大."""
+    cmin = (summ["exchange"]["color"] or [None])[0]
+    text = (f"- 沒在交流的線索板上，交流中的形狀分數最高到 {summ['board_idle']['best_when_not_found']}，"
+            f"是靠比色擋下的；交流中時比色最低 {cmin}（門檻 {COLOR_GATE}）")
+    if cmin is not None and cmin - COLOR_GATE < 0.03:
+        text += "，餘裕不大。實跑若交流中卻沒走分支 1，查日誌這一步的比色分數。"
+    else:
+        text += "。"
+    return [text]
+
+
+def section07(lang, res):
     r = res[lang]
     at = r.get("at")
     s = r["summary"]
@@ -87,22 +104,24 @@ def section07(lang, res, steps):
     no = f"第 {at}–{at + 4} 步" if at else "快速置入那一步"
     return [H07, "",
             f"- **改了什麼**：{no}：原本無條件找快速置入來按，改成一個分岔——"
-            f"分支 1「交流中〔固定矩形、比色〕→ 僅等待出現（逾時 1.5s→跳過）」，後面不接步驟；"
+            f"分支 1「交流中〔固定矩形、比色〕→ 僅等待出現（逾時 {qp7.TIMEOUT:g}s→跳過）」，後面不接步驟；"
             "分支 2 是原本的快速置入步驟原樣搬進來（比色、偏移、逾時都不變）。"
+            "分岔整體的逾時取兩個條件中較長的（快速置入的 2 秒），兩個都不成立就跳過。"
             "兩個同時成立時走排在前面的分支 1，所以**線索交流進行中時不按快速置入**；沒在交流才照舊按。"
             "解鎖線索以後的步驟不動。",
             f"- **採用「交流中」，沒走退路（0/7）**。範本：線索板底部中間「{word}」字樣左邊不會動的那段"
             f"（橘線末端＋第一個字），從 `{src['video']}.mp4` 第 {src['frame']} 幀裁，框 {tuple(src['crop'])}"
             "（影片座標）。字樣中間壓著一個會轉的圓環（圓點繞圈、外圈脈動），所以不截整串字。",
-            f"- 固定矩形：{rect}（範本框四周外擴 40px）。",
+            f"- 固定矩形：{rect}（範本框四周外擴 {qp7.MARGIN}px）。",
             "- **驗證（真引擎、arknights 門檻，影格換成實機搜尋範圍的畫布、找圖目標照存檔設定）**：",
             line("exchange", "交流中的線索板（分岔走分支 1）"),
             line("board_idle", "沒在交流的線索板（含 0/7；不走分支 1）"),
-            line("other", "其他畫面（每 40 幀；交流中找不到）"),
+            line("other", f"其他畫面（每 {qp7.OTHER_STRIDE} 幀；交流中找不到）"),
             line("transition", "轉場中（線索板淡入、接收線索面板拉開、忙碌圖示蓋住；只記錄、不計分）"),
             "- **已知風險**：線索板剛淡入的那幾幀，快速置入已經是橘色、交流中的比色還沒過，"
             "這時判定會走分支 2。流程走到這裡前已在線索板上點過每日線索、領取（板子早就穩定），"
             "所以照理碰不到；實跑若交流中還是按了快速置入，查日誌這一步分岔的 `find.target`。",
+            *color_note(r["summary"]),
             f"- 修改前的備份：`app/dist/{backup_name('07')}/`",
             "- 腳本：`.scratch/busy-pause-fixed-rect/quick_place.py`（可重跑；`--apply` 才寫回）", ""]
 
@@ -124,10 +143,13 @@ def section08(lang, res):
              f"- **加了框的範本**（{len(added)} 張，共 {len(res['changes'])} 處找圖目標／確認圖）："
              + "、".join(added) + "。",
              "  - 位置固定的圖：影格與實跑日誌上的出現位置分群（中心差 ≤8px 算同一處）。以實機日誌的位置為主"
-             "（沒有日誌就用影片上最大的那群），加上離它 450px 內、影片上至少 3 次的位置"
-             "（例如別的彈窗的叉叉、待辦項目往左移之前的位置）；框＝這些位置的聯集外擴 40px。"
-             "離得更遠的（別的畫面上長得像的東西，例如商店頁右上角也比得到「領取」）不框。",
-             "  - 換班清單的列名、訪問基建：會隨捲動上下移，框是一整欄（左右外擴 40px、上下整個畫面；"
+             f"（沒有日誌就用影片上最大的那群），加上離它 {fr8.NEAR}px 內、影片上至少 {fr8.MIN_HITS} 次的位置"
+             f"（例如別的彈窗的叉叉、待辦項目往左移之前的位置）；框＝這些位置的聯集外擴 {fr8.MARGIN}px。"
+             "離得更遠的（別的畫面上長得像的東西，例如商店頁右上角也比得到「領取」）不框。"
+             "規格的判斷依據是「所有影格上都在同一位置」，照字面會把規格明列要加的開頭彈窗叉叉、待辦列排除，"
+             "所以放寬成這樣；代價是有些框把附近長得像的位置也框進去（例如公開招募選單滑入途中、"
+             "好友列表旁邊的分頁），框變大一點，不會漏找。",
+             f"  - 換班清單的列名、訪問基建：會隨捲動上下移，框是一整欄（左右外擴 {fr8.MARGIN}px、上下整個畫面；"
              "原本限定畫面上 2/3 的照舊只看上 2/3）。",
              ]
     if product:
@@ -140,15 +162,14 @@ def section08(lang, res):
     for n, why in skipped:
         lines.append(f"  - {n}：{why}。")
     lines += ["- **驗證（真引擎、arknights 門檻，影格換成實機搜尋範圍的畫布）**：",
-              f"  - 每張加框的範本在它出現在框裡的影格上（最多 6 張，分散在不同影片）加框前後各找一次；"
+              f"  - 每張加框的範本在它出現在框裡的影格上（最多 {fr8.PER_TEMPLATE} 張，分散在不同影片）加框前後各找一次；"
               f"加框前找得到的 {len(t)} 張裡，{sum(x['ok'] for x in t)} 張加框後也找得到、位置跟加框前一樣"
               "（加框前就找不到的轉場、比色擋掉的別列不算）。"
               f"平均查詢 {avg(t, 'ms_old')} ms → {avg(t, 'ms_new')} ms。",
               *([f"  - 沒有可驗的影格（影片上沒出現在框裡，或加框前引擎也找不到）："
                  + "、".join(res["no_valid"]) + "。"] if res.get("no_valid") else []),
               *[f"  - 不符（demo1 低位元率，照實列出、不算失敗）：{x['template']} {x['video']} 第 {x['frame']} 幀"
-                "——加框前分數就壓在門檻邊上，裁圖後深度驗證分數降到門檻下"
-                f"（兩版所有有效影格加框前後的分數差中位數是 0，這是唯一明顯下降的一張）。"
+                "——加框前分數就壓在門檻邊上，裁圖後深度驗證分數降到門檻下。"
                 for x in t if not x["ok"]],
               *([("  - 加框前挑到的位置在框外（轉場中途，例如線索板滑到一半；不算）："
                   + "、".join(f"{x['template']} {x['video']} 第 {x['frame']} 幀" for x in res["outside"]) + "。")]
@@ -200,7 +221,7 @@ def main(argv=None):
             text = f.read()
         if name == "早_繁中":
             text = r05.replace_section(text, re.escape(H06), section06(tw), before_first_h2=True)
-        text = r05.replace_section(text, re.escape(H07), section07(lang, qp, steps),
+        text = r05.replace_section(text, re.escape(H07), section07(lang, qp),
                                    before_first_h2=True)
         text = r05.replace_section(text, re.escape(H08), section08(lang, fr),
                                    before_first_h2=True)

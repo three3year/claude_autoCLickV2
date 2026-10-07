@@ -158,18 +158,18 @@ def evaluate(lang, hub, cond, quick, frames, place, rows_in):
                          is not None else None),
                "best": None if fe.query is None else round(fe.query.score, 3),
                "failed": fe.failed}
-        if kind == "transition":
-            fq = findtarget.find(quick, hub, canvas, org, origin=None, scale=1.0)
-            row["branch"] = 1 if fe.picked else (2 if fq.picked else None)
-            row["ok"] = True      # 不計分, 見 samples()
-        elif kind != "other":
-            fq = findtarget.find(quick, hub, canvas, org, origin=None, scale=1.0)
-            row["branch"] = 1 if fe.picked else (2 if fq.picked else None)
-            # 沒在交流: 不能走分支 1; 快速置入是灰的 (線索已滿) 時本來就不按 (分岔逾時跳過)
-            row["ok"] = (row["branch"] == 1 if kind == "exchange"
-                         else row["branch"] != 1)
-        else:
+        if kind == "other":
             row["ok"] = not row["exchange"]
+        else:
+            # 分岔的判定: 依分支順序第一個挑到的
+            fq = findtarget.find(quick, hub, canvas, org, origin=None, scale=1.0)
+            row["branch"] = 1 if fe.picked else (2 if fq.picked else None)
+            if kind == "transition":
+                row["ok"] = True      # 不計分, 見 samples()
+            elif kind == "exchange":
+                row["ok"] = row["branch"] == 1
+            else:   # 沒在交流: 不能走分支 1; 快速置入是灰的 (線索已滿) 時本來就不按 (分岔逾時跳過)
+                row["ok"] = row["branch"] != 1
         rows.append(row)
     return rows
 
