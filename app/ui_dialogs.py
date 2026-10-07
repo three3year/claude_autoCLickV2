@@ -12,7 +12,7 @@ import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowfmt, win
-from automation.runner import BUSY_CHECK_KEY
+from automation.runner import BUSY_CHECK_KEY, sends_input
 from ui_theme import C, FONT
 
 BTN_NAMES = [("left", "左鍵"), ("right", "右鍵"), ("middle", "中鍵")]
@@ -1629,9 +1629,7 @@ def edit_step(app, step):
                 s.pop("rotate", None)  # 舊版執行期旋轉比對已移除
             # `忙碌檢查`: 只在勾了 (且是送出輸入的步驟) 時寫鍵; 找圖選「不點擊」
             # 「等待消失」時整列已隱藏, 存為沒勾
-            sends_input = (t in ("click", "drag", "key")
-                           or (t == "find_click" and s.get("action") == "click"))
-            if sends_input and v["busyCheck"].get():
+            if sends_input(s) and v["busyCheck"].get():
                 s[BUSY_CHECK_KEY] = True
             else:
                 s.pop(BUSY_CHECK_KEY, None)

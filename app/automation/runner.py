@@ -142,23 +142,29 @@ BUSY_CHECK_KEY = "busyCheck"    # 步驟上的布林鍵: 只在勾了時寫入, 
 BUSY_CHECK_TYPES = ("click", "drag", "key", "find_click")   # 送出輸入的步驟種類
 
 
-def busy_check(step):
-    """步驟有沒有勾`忙碌檢查`: 只有送出輸入的步驟算 (找圖要動作為點擊)."""
+def sends_input(step):
+    """步驟會不會送出輸入: 座標點擊、拖曳、按鍵、動作為點擊的找圖 (編輯器與執行器共用)."""
     t = step.get("type")
-    if t == "find_click" and step.get("action", "click") != "click":
-        return False
-    return t in BUSY_CHECK_TYPES and bool(step.get(BUSY_CHECK_KEY))
+    if t == "find_click":
+        return step.get("action", "click") == "click"
+    return t in BUSY_CHECK_TYPES
+
+
+def has_busy_check(step):
+    """步驟有沒有勾`忙碌檢查` (只有送出輸入的步驟算)."""
+    return sends_input(step) and bool(step.get(BUSY_CHECK_KEY))
 
 
 class WaitClock:
     """找圖等待共用的等待時鐘: 截止時間、輪詢間隔、逾時判定.
 
-    分岔的輪詢、一般找圖 (等待消失另有`出現等候上限`)、生效確認都用它判斷
-    逾時。逾時照常計時, 不因忙碌指示延後 (ADR 0011)。
+    分岔的輪詢、一般找圖 (等待消失另有`出現等候上限`)、生效確認、忙碌檢查都用它
+    判斷逾時。逾時照常計時, 不因忙碌指示延後 (ADR 0011)。start: 起算時間
+    (monotonic), 沒給＝現在 (忙碌檢查從送出輸入的時間起算)。
     """
 
-    def __init__(self, timeout, interval, appear_limit=None):
-        now = time.monotonic()
+    def __init__(self, timeout, interval, appear_limit=None, start=None):
+        now = time.monotonic() if start is None else start
         self.timeout = timeout
         self.interval = interval
         self._deadline = now + timeout
@@ -172,6 +178,11 @@ class WaitClock:
         """`出現等候上限`到了沒 (沒設＝永遠沒到)."""
         return (self._appear_by is not None
                 and time.monotonic() >= self._appear_by)
+
+    def nap(self, appear=False):
+        """下一輪前該睡多久: 輪詢間隔, 但不超過截止時間 (appear＝出現等候上限)."""
+        by = self._appear_by if appear and self._appear_by is not None else self._deadline
+        return max(0.0, min(self.interval, by - time.monotonic()))
 
 
 class Runner:
@@ -514,17 +525,16 @@ class Runner:
         BUSY_GONE_CAP 秒仍在＝停止流程 (timeout, 不走「找不到時」)。輪詢間隔
         沿用步驟的找圖輪詢節奏。每次寫一筆 `busy.check` 檔案日誌。
         """
-        if not busy_check(step):
+        if not has_busy_check(step):
             return
         if self.busy is None:
             # 執行前檢查會擋下; 這裡是防禦線
             self.log(f"[{no}] 勾了忙碌檢查但流程沒設忙碌指示 → 不等", "warn")
             return
         sent = self._last_input
-        interval = max(0.1, float(step.get("interval", 0.5)))
         region = getattr(self, "scan_region", None)
-        appear_by = sent + self.busy_appear
-        gone_by = sent + BUSY_GONE_CAP
+        clock = WaitClock(BUSY_GONE_CAP, max(0.1, float(step.get("interval", 0.5))),
+                          appear_limit=self.busy_appear, start=sent)
         box = None   # 看到時挑中的框; None＝還沒看到
         polls = 0
         while True:
@@ -533,12 +543,11 @@ class Runner:
             polls += 1
             f = self._find(no, self.busy, screen, org, self._last_click,
                            kind="忙碌指示")
-            now = time.monotonic()
             if box is None:
                 if f.picked is not None:
                     box = f.picked.box
                     self.log(f"[{no}] 看到忙碌指示 → 等它消失")
-                elif now >= appear_by:
+                elif clock.appear_expired():
                     result = "not_appeared"
                     break
             else:
@@ -547,11 +556,11 @@ class Runner:
                     result = "gone"
                     break
                 box = hit.box
-                if now >= gone_by:
+                if clock.expired():
                     result = "timeout"
                     break
-            self._sleep(min(interval, (appear_by if box is None else gone_by) - now))
-        waited = now - sent
+            self._sleep(clock.nap(appear=box is None))
+        waited = time.monotonic() - sent
         rec = dict(step=no, result=result, waited=f"{waited:.2f}", polls=polls)
         if box is not None:
             rec["picked"] = findtarget.fmt_box(box)

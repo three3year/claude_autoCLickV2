@@ -37,7 +37,7 @@ import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowfmt, hotkey, imgio, win
-from automation.runner import (Runner, branch_layout, busy_check,
+from automation.runner import (Runner, branch_layout, has_busy_check,
                                confirm_next_connected, origin_source,
                                uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
@@ -97,7 +97,7 @@ def _pointer_confirm_desc(s):
 
 def step_desc(s):
     """步驟清單的摘要; 勾了`忙碌檢查`的步驟尾端標〔忙碌檢查〕 (比照〔限定〕等標示)."""
-    return _step_body(s) + ("〔忙碌檢查〕" if busy_check(s) else "")
+    return _step_body(s) + ("〔忙碌檢查〕" if has_busy_check(s) else "")
 
 
 def _step_body(s):
@@ -2070,7 +2070,7 @@ class App:
             messagebox.showwarning("執行", "範本不存在：\n" + "\n".join(missing),
                                    parent=self.root)
             return
-        checked = [i + 1 for i, s in enumerate(steps) if busy_check(s)]
+        checked = [i + 1 for i, s in enumerate(steps) if has_busy_check(s)]
         if checked and not self.busy_target:
             # 勾了忙碌檢查卻沒有忙碌指示可查: 擋下, 不讓人以為有在等
             messagebox.showwarning(

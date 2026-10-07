@@ -34,7 +34,8 @@ import common  # noqa: E402  (busy-pause-fixed-rect/common.py: 路徑、prefligh
 
 import flowfile  # noqa: E402
 from automation import findtarget  # noqa: E402
-from automation.runner import BUSY_CHECK_KEY, busy_check  # noqa: E402
+from automation.runner import BUSY_CHECK_KEY, has_busy_check  # noqa: E402
+import app  # noqa: E402  (步驟描述與編輯器同一套: app.step_desc)
 
 BACKUP = os.path.join(common.APP, "dist", "profiles-backup-2026-10-08-busy-check")
 RESULTS = os.path.join(HERE, "results")
@@ -110,7 +111,7 @@ def check_flow(name, data, images, expect, base):
     """讀回驗證: 勾選集合＝預期、其他內容與 base (備份) 相同、忙碌指示在、沒寫出現等候鍵."""
     errs = []
     steps = data["steps"]
-    got = [i for i, s in enumerate(steps) if busy_check(s)]
+    got = [i for i, s in enumerate(steps) if has_busy_check(s)]
     if got != sorted(expect):
         errs.append(f"勾選集合不同: 預期 {[i + 1 for i in expect]} 實際 {[i + 1 for i in got]}")
     bsteps = base["data"]["steps"]
@@ -148,13 +149,12 @@ def main(argv=None):
         r = flowfile.read(path)
         steps = r["data"]["steps"]
         picks = plan(steps)
-        already = [i for i in picks if busy_check(steps[i])]
-        extra = [i for i, s in enumerate(steps) if busy_check(s) and i not in picks]
+        already = [i for i in picks if has_busy_check(steps[i])]
+        extra = [i for i, s in enumerate(steps) if has_busy_check(s) and i not in picks]
         print(f"===== {name}: {len(steps)} 步, 要勾 {len(picks)} 步"
               f"{f' (已勾 {len(already)})' if already else ''}"
               f"{f' **另有不在計畫內的勾選 {[i + 1 for i in extra]}**' if extra else ''}")
         for i, why in picks.items():
-            import app
             print(f"  {i + 1:3d} {app.step_desc(steps[i])[:60]}  ← {why}")
         summary[name] = {"steps": len(steps),
                          "checked": [{"no": i + 1, "type": steps[i]["type"],
