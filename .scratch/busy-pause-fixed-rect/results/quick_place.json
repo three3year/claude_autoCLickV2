@@ -1,0 +1,128 @@
+{
+ "cn": {
+  "flow": "早_簡中.autoclickpack",
+  "source": {
+   "video": "demo6",
+   "frame": 1090,
+   "crop": [
+    770,
+    788,
+    74,
+    26
+   ]
+  },
+  "rect": {
+   "kind": "rect",
+   "x": 0.4296,
+   "y": 0.813,
+   "w": 0.0896,
+   "h": 0.1152
+  },
+  "ok": true,
+  "summary": {
+   "exchange": {
+    "n": 27,
+    "exchange_found": 27,
+    "ok": 27,
+    "score": [
+     0.926,
+     1.0
+    ],
+    "color": [
+     0.966,
+     1.0
+    ],
+    "best_when_not_found": null
+   },
+   "board_idle": {
+    "n": 53,
+    "exchange_found": 0,
+    "ok": 53,
+    "score": null,
+    "color": null,
+    "best_when_not_found": 0.898
+   },
+   "other": {
+    "n": 325,
+    "exchange_found": 0,
+    "ok": 325,
+    "score": null,
+    "color": null,
+    "best_when_not_found": 0.702
+   },
+   "transition": {
+    "n": 11,
+    "exchange_found": 0,
+    "ok": 11,
+    "score": null,
+    "color": null,
+    "best_when_not_found": 0.951
+   }
+  },
+  "bad": [],
+  "at": 54
+ },
+ "tw": {
+  "flow": "早_繁中.autoclickpack",
+  "source": {
+   "video": "demo2",
+   "frame": 1140,
+   "crop": [
+    870,
+    886,
+    82,
+    30
+   ]
+  },
+  "rect": {
+   "kind": "rect",
+   "x": 0.4323,
+   "y": 0.8262,
+   "w": 0.0844,
+   "h": 0.1074
+  },
+  "ok": true,
+  "summary": {
+   "exchange": {
+    "n": 19,
+    "exchange_found": 19,
+    "ok": 19,
+    "score": [
+     0.981,
+     1.0
+    ],
+    "color": [
+     0.993,
+     1.0
+    ],
+    "best_when_not_found": null
+   },
+   "board_idle": {
+    "n": 26,
+    "exchange_found": 0,
+    "ok": 26,
+    "score": null,
+    "color": null,
+    "best_when_not_found": 0.857
+   },
+   "other": {
+    "n": 96,
+    "exchange_found": 0,
+    "ok": 96,
+    "score": null,
+    "color": null,
+    "best_when_not_found": 0.6
+   },
+   "transition": {
+    "n": 1,
+    "exchange_found": 0,
+    "ok": 1,
+    "score": null,
+    "color": null,
+    "best_when_not_found": 0.959
+   }
+  },
+  "bad": [],
+  "at": 46
+ }
+}
