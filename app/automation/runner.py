@@ -18,7 +18,8 @@ threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分
 
 所有找圖的等待 (分岔、一般找圖、生效確認、等待消失) 共用 `WaitClock` 判斷逾時。
 流程有設忙碌指示時, 輪詢沒達成的那一輪用同一張截圖查一次 (補做的門也用這次
-結果); 看到忙碌的時間不計入逾時 (`忙碌暫停`, ADR 0010), 同一步驟累計最多 60 秒。
+結果); 看到忙碌的時間不計入逾時 (`忙碌暫停`, ADR 0010), 每個等待時鐘累計最多
+60 秒 (分岔整個一個; 找圖階段與它的確認階段各一個)。
 """
 import threading
 import time
@@ -160,6 +161,10 @@ class WaitClock:
         ongoing = (0.0 if self._busy_since is None
                    else time.monotonic() - self._busy_since)
         return min(BUSY_PAUSE_CAP, self._paused + ongoing)
+
+    def pause_field(self):
+        """檔案日誌 `busy_pause` 欄位: 暫停秒數, 小數兩位."""
+        return f"{self.paused:.2f}"
 
     def pause(self, seconds):
         self._paused += seconds
@@ -501,7 +506,7 @@ class Runner:
         getattr(win, kind)(*args)
         self._last_input = time.monotonic()
 
-    def _busy_seen(self, no, clock, screen, org):
+    def _note_busy(self, no, clock, screen, org):
         """這一輪沒達成: 用同一張截圖查一次`忙碌指示`, 結果記進等待時鐘.
 
         `忙碌暫停`與`補做`的門共用這一次查詢 (不另外截圖、不讓出舞台);
@@ -518,7 +523,7 @@ class Runner:
     def _retry_ready(self, busy_seen, gate):
         """`補做`的兩道門: 已過`補做間隔`、且畫面上沒有`忙碌指示`.
 
-        busy_seen 是這一輪已查過的忙碌指示結果 (_busy_seen)。gate 記錄因忙碌
+        busy_seen 是這一輪已查過的忙碌指示結果 (_note_busy)。gate 記錄因忙碌
         延後補做的累計秒數 (busy_since: 這次開始延後的時間; delay: 已結算的
         總和), 只從間隔已滿時起算。
         """
@@ -689,7 +694,7 @@ class Runner:
             no, timeout, float(step.get("interval", 0.5)), check,
             lambda screen, org: True, lambda: self._input(t, *args))
         rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}",
-                   busy_pause=f"{paused:.2f}")
+                   busy_pause=paused)
         if ok:
             if updates:
                 self._set_origin(after)
@@ -713,7 +718,7 @@ class Runner:
         `補做`的兩道門 (補做間隔、忙碌指示) 才 resend() 重送同一個輸入。整段不
         讓出舞台。確認階段自己一個等待時鐘 (暫停額度與找圖階段分開)。
         回傳 (生效與否, 最後一次 check 的結果, 輪詢數, 輸入數, 因忙碌延後補做
-        的秒數, 忙碌暫停的秒數)。
+        的秒數, 日誌用的忙碌暫停秒數字串)。
         """
         region = getattr(self, "scan_region", None)
         clock = WaitClock(timeout, interval)
@@ -727,14 +732,14 @@ class Runner:
             ok, last = check(screen, org)
             if ok:
                 break
-            busy = self._busy_seen(no, clock, screen, org)
+            busy = self._note_busy(no, clock, screen, org)
             if may_retry(screen, org) and self._retry_ready(busy, gate):
                 resend()
                 inputs += 1
             if clock.expired():
                 break
         self._settle_busy(gate, time.monotonic())
-        return ok, last, polls, inputs, gate["delay"], clock.paused
+        return ok, last, polls, inputs, gate["delay"], clock.pause_field()
 
     def _enclosing_end(self, steps, pos):
         """pos 之後第一個未配對的結束標記索引 (= 所屬最內層區段結尾); 無則 None."""
@@ -877,17 +882,17 @@ class Runner:
                 if f.picked is not None:
                     self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{f.template}）", "ok")
                     self._record(segs[k] + 1, "branch", f, "found", polls=polls,
-                                 busy_pause=f"{clock.paused:.2f}")
+                                 busy_pause=clock.pause_field())
                     return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
             # 整個分岔共用一個等待時鐘 (一個暫停額度)
-            self._busy_seen(idx + 1, clock, screen, org)
+            self._note_busy(idx + 1, clock, screen, org)
             if clock.expired():
                 break
             self._sleep(clock.interval)
         for k, f in enumerate(last):
             self._record(segs[k] + 1, "branch", f,
                          "cannot_run" if f.reason == "origin" else "timeout",
-                         polls=polls, busy_pause=f"{clock.paused:.2f}")
+                         polls=polls, busy_pause=clock.pause_field())
         if any(c.get("onNotFound") == "stop" for c in conds):
             raise RuntimeError(
                 f"[{idx + 1}] 分岔逾時 {timeout}s, 沒有任何分支條件成立 → 停止執行")
@@ -960,16 +965,16 @@ class Runner:
                     self.log(f"[{no}] 「{name}」已消失", "ok")
                     self._record(no, "wait_gone", f, "gone", polls=polls,
                                  picked=findtarget.fmt_box(tracked),
-                                 busy_pause=f"{clock.paused:.2f}")
+                                 busy_pause=clock.pause_field())
                     return None
                 elif clock.appear_expired():
                     self.log(f"[{no}] 「{name}」在出現等候上限 {int(limit_ms)}ms "
                              "內沒出現 → 通過", "ok")
                     self._record(no, "wait_gone", f, "not_appeared", polls=polls,
-                                 busy_pause=f"{clock.paused:.2f}")
+                                 busy_pause=clock.pause_field())
                     return None
                 # 圖還在 (或還沒出現): 沒達成
-                self._busy_seen(no, clock, screen, org)
+                self._note_busy(no, clock, screen, org)
                 if clock.expired():
                     break
                 self._sleep(clock.interval)
@@ -977,11 +982,11 @@ class Runner:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」仍未消失"
                 self._record(no, "wait_gone", f, "not_gone", polls=polls,
                              picked=findtarget.fmt_box(tracked),
-                             busy_pause=f"{clock.paused:.2f}")
+                             busy_pause=clock.pause_field())
             else:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」從未出現"
                 self._record(no, "wait_gone", f, "timeout", polls=polls,
-                             busy_pause=f"{clock.paused:.2f}")
+                             busy_pause=clock.pause_field())
             return self._on_not_found(no, msg, on_nf)
 
         # ---- 找圖階段 (等待出現) ----
@@ -997,11 +1002,11 @@ class Runner:
                 best = max(best, f.query.score)
             if f.picked is not None:
                 break
-            self._busy_seen(no, clock, screen, org)
+            self._note_busy(no, clock, screen, org)
             if clock.expired():
                 break
             self._sleep(clock.interval)
-        paused = f"{clock.paused:.2f}"
+        paused = clock.pause_field()
 
         hit = f.picked
         if hit is None:
@@ -1110,7 +1115,7 @@ class Runner:
             no, timeout, interval, check,
             lambda screen, org: cur["still"] is not None, resend)
         extra = {"polls": polls, "clicks": n_clicks,
-                 "busy_delay": f"{delay:.2f}", "busy_pause": f"{paused:.2f}"}
+                 "busy_delay": f"{delay:.2f}", "busy_pause": paused}
         if mode == "gone":
             extra["picked"] = findtarget.fmt_box(cur["box"])
         if ok:
