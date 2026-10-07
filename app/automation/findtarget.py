@@ -381,20 +381,25 @@ def tags(tgt):
     return out
 
 
+def limit_text(lim):
+    """`限定範圍`的一段描述 (摘要的第一段; 編輯器顯示固定矩形的值)."""
+    lim = lim or {}
+    if lim.get("kind") == "origin":
+        return (f"原點矩形 ({int(lim.get('x', 0)):+d},{int(lim.get('y', 0)):+d})"
+                f" {int(lim.get('w', 0))}×{int(lim.get('h', 0))}")
+    if lim.get("kind") == "grid" and lim.get("cells"):
+        return "九宮格 " + ",".join(str(c) for c in sorted(lim["cells"]))
+    if lim.get("kind") == "rect":
+        if not _valid_ratio_rect(lim):
+            return "固定矩形（設定無效）"
+        return (f"固定矩形 ({lim['x']:.1%},{lim['y']:.1%})"
+                f" {lim['w']:.1%}×{lim['h']:.1%}")
+    return "整個搜尋範圍"
+
+
 def summary(tgt):
     """找圖設定一行摘要: 限定範圍；挑選規則；比色."""
-    lim = tgt.get("limit") or {}
-    if lim.get("kind") == "origin":
-        part1 = (f"原點矩形 ({int(lim.get('x', 0)):+d},{int(lim.get('y', 0)):+d})"
-                 f" {int(lim.get('w', 0))}×{int(lim.get('h', 0))}")
-    elif lim.get("kind") == "grid" and lim.get("cells"):
-        part1 = "九宮格 " + ",".join(str(c) for c in sorted(lim["cells"]))
-    elif lim.get("kind") == "rect":
-        part1 = (f"固定矩形 ({lim.get('x', 0):.1%},{lim.get('y', 0):.1%})"
-                 f" {lim.get('w', 0):.1%}×{lim.get('h', 0):.1%}"
-                 if _valid_ratio_rect(lim) else "固定矩形（設定無效）")
-    else:
-        part1 = "整個搜尋範圍"
+    part1 = limit_text(tgt.get("limit"))
     pick = tgt.get("pick") or {}
     kind = pick.get("kind", "score")
     if kind == "top":

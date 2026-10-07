@@ -671,7 +671,7 @@ def _resolve_prev_origin(app, step, dlg, k=1.0):
 # ================= `找圖目標`的設定 (限定範圍/挑選規則/比色) =================
 
 LIMIT_ZH = {"none": "不限定（整個搜尋範圍）", "origin": "以原點為基準的矩形",
-            "grid": "搜尋範圍九宮格"}
+            "grid": "搜尋範圍九宮格", "rect": "固定矩形"}
 PICK_ZH = {"score": "分數最高", "top": "由上到下第 N 個",
            "left": "由左到右第 N 個", "near": "最接近指定點"}
 BASE_ZH = {"origin": "原點", "region": "搜尋範圍左上角"}
@@ -721,7 +721,8 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     origin_fn(k): 這個找圖目標判定時的預設原點 (螢幕座標) 或 None——框選
     原點矩形與點選指定點時預先標出 (◎); test_fn(表單值, 子對話框): 以這組
     設定比對測試 (提示以子對話框為 parent, 才不會被壓在它後面)。
-    像素類拾取 (原點矩形、指定點) 的值反除編輯器的`畫面倍率`, 換回流程尺度。
+    像素類拾取 (原點矩形、指定點) 的值反除編輯器的`畫面倍率`, 換回流程尺度;
+    `固定矩形`存搜尋範圍的比例 (框和搜尋範圍都是螢幕像素), 與倍率無關。
     """
     root = app.root
     sub = tk.Toplevel(root)
@@ -759,8 +760,11 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     v_lim = tk.StringVar(value=LIMIT_ZH[lim.get("kind")
                                         if lim.get("kind") in LIMIT_ZH
                                         else "none"])
-    rect = {k_: tk.IntVar(value=int(lim.get(k_, d)))
+    is_origin = lim.get("kind") == "origin"
+    rect = {k_: tk.IntVar(value=int(lim.get(k_, d)) if is_origin else d)
             for k_, d in (("x", -100), ("y", 0), ("w", 300), ("h", 100))}
+    # `固定矩形`: 框選結果 (搜尋範圍的比例); None＝還沒框過
+    fixed = [dict(lim) if lim.get("kind") == "rect" else None]
     cells = {c: tk.BooleanVar(value=c in (lim.get("cells") or []))
              for c in range(1, 10)}
     v_pick = tk.StringVar(value=PICK_ZH[pick.get("kind")
@@ -809,6 +813,47 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
                                                sticky="w", padx=(0, 10))
     grid_note = add_note("把搜尋範圍切成 3×3，勾選的格子＝只在這裡找"
                          "（勾多格＝包住它們的最小矩形）")
+    fixed_fr = add_row("")
+    has_region = bool(getattr(app, "scan_region", None))
+
+    def show_fixed():
+        fixed_lbl.configure(text=findtarget.limit_text(fixed[0]) if fixed[0]
+                            else "（還沒框選）")
+
+    def pick_fixed():
+        region = getattr(app, "scan_region", None)
+        if not region:
+            # 清場「之前」檢查 (按鈕已停用, 這是防線): 清場中彈提示會隱形卡死
+            messagebox.showwarning("固定矩形", "請先在主視窗框選搜尋範圍",
+                                   parent=sub)
+            return
+        r = None
+        with ui_overlay.screen_clear(root, extra=(sub,)):
+            r = ui_overlay.pick(root, "region",
+                                "框出只在這一塊找圖的範圍（存成搜尋範圍的比例）",
+                                hide=(sub,))
+        if r:
+            got = findtarget.ratio_rect_from_screen(
+                (r["screenX"], r["screenY"], r["w"], r["h"]), region)
+            if got is None:
+                messagebox.showwarning("固定矩形", "框出的範圍不在搜尋範圍內，"
+                                       "請重新框選", parent=sub)
+                return
+            fixed[0] = got
+            show_fixed()
+
+    fixed_btn = ttk.Button(fixed_fr, text="在畫面上框選", style="Accent.TButton",
+                           command=pick_fixed)
+    fixed_btn.pack(side="left")
+    fixed_lbl = ttk.Label(fixed_fr, style="Muted.TLabel")
+    fixed_lbl.pack(side="left", padx=(8, 0))
+    show_fixed()
+    if not has_region:
+        fixed_btn.state(["disabled"])
+    fixed_note = add_note(
+        "在畫面上拖一個框，存成搜尋範圍的比例（搜尋範圍重框也不用重設）；"
+        "用在位置固定的圖，會捲動的清單把框沿捲動方向拉長" if has_region else
+        "要先在主視窗框選搜尋範圍才能框選（固定矩形存的是搜尋範圍的比例）")
 
     # ---- 挑選規則 ----
     fr = add_row("挑選規則")
@@ -864,6 +909,8 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
             w.grid() if lk == "origin" else w.grid_remove()
         for w in (grid_fr, grid_note):
             w.grid() if lk == "grid" else w.grid_remove()
+        for w in (fixed_fr, fixed_note):
+            w.grid() if lk == "rect" else w.grid_remove()
         pk = _key_of(PICK_ZH, v_pick.get())
         n_fr.grid() if pk in ("top", "left") else n_fr.grid_remove()
         near_fr.grid() if pk == "near" else near_fr.grid_remove()
@@ -888,6 +935,10 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
             if not chosen:
                 raise ValueError("九宮格至少要勾一格")
             limit = {"kind": "grid", "cells": chosen}
+        elif lk == "rect":
+            if fixed[0] is None:
+                raise ValueError("固定矩形還沒框選：請按「在畫面上框選」拖一個框")
+            limit = dict(fixed[0])
         pk = _key_of(PICK_ZH, v_pick.get())
         pick_ = {"kind": pk}
         if pk in ("top", "left"):
