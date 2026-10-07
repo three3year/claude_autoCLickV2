@@ -1374,8 +1374,8 @@ def edit_step(app, step):
                     to=600000, increment=100, width=8).pack(side="left",
                                                             padx=(0, 4))
         lbl(appear_fr, "毫秒（0＝不設）")
-        appear_note = add_note("這段時間內一次都沒看到＝通過（例：等「正在提交」這種"
-                               "可能不出現的忙碌指示）；看到了就照常等它消失、受逾時限制")
+        appear_note = add_note("這段時間內一次都沒看到＝通過（等可能不出現的圖；"
+                               "忙碌的時間不計入）；看到了就照常等它消失、受逾時限制")
         mouse_row(v)
 
         fr = add_row("點擊偏移")

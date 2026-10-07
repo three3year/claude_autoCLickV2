@@ -779,8 +779,8 @@ class App:
             elif tgt is not None:
                 self.busy_target = tgt
                 self._autosave()
-                self.log_ui(f"已設定忙碌指示「{name}」：補做前畫面上有它就先不補",
-                            "ok")
+                self.log_ui(f"已設定忙碌指示「{name}」：畫面上有它時先不補做，"
+                            "找圖等待也暫停計時", "ok")
         ui_dialogs.discard_unused(self, added, None)
         self._update_retry_ui()
 

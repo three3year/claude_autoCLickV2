@@ -1,7 +1,8 @@
 """`補做`的兩道門: `補做間隔`與`忙碌指示` (effect-confirm 票 01, ADR 0008).
 
 生效確認還沒通過時, 重送輸入要同時滿足: 距上一次輸入已過補做間隔 (流程設定,
-預設 1000ms), 且 (設了忙碌指示時) 畫面上沒有忙碌指示。忙碌指示只在補做判斷時查。
+預設 1000ms), 且 (設了忙碌指示時) 畫面上沒有忙碌指示。忙碌指示在確認沒達成的
+每一輪查一次, 與`忙碌暫停`共用 (ADR 0010)。
 斷言對象: 送出的點擊次數、虛擬時鐘、查詢紀錄、檔案日誌。
 """
 from harness import find, tgt
@@ -43,8 +44,8 @@ def test_補點後重新計算間隔(harness):
 
 def test_畫面上有忙碌指示就延後_消失才補(harness):
     harness.vision.plan("a", [AT] * 9 + [None])
-    # 1.0s 起該補了: 1.0/1.2/1.4 指示還在, 1.6 消失 → 1.6s 補
-    harness.vision.plan("busy", [(960, 1000)] * 3 + [None])
+    # 每輪沒生效都查: 1.0s 起該補了, 1.0/1.2/1.4 指示還在, 1.6 消失 → 1.6s 補
+    harness.vision.plan("busy", [None] * 4 + [(960, 1000)] * 3 + [None])
     harness.run([find("a", confirm="gone", interval=0.2)], busy=BUSY)
     assert harness.clicks() == [AT, AT]
     [rec] = confirm_records(harness)
@@ -59,12 +60,12 @@ def test_沒設忙碌指示只看間隔(harness):
     assert "busy" not in harness.lookups()
 
 
-def test_一般輸入前不查忙碌指示(harness):
-    """第一次點擊、以及生效前還沒到補做時機時, 查詢紀錄裡都沒有忙碌指示."""
+def test_一般輸入前不查忙碌指示_確認沒生效的那輪才查(harness):
+    """找到就點 (不查); 確認第一輪還在＝查一次; 第二輪已消失＝不查."""
     harness.vision.plan("a", [AT, AT, None])
     harness.run([find("a", confirm="gone", interval=0.2), find("b")],
                 busy=BUSY)
-    assert "busy" not in harness.lookups()
+    assert harness.lookups() == ["a", "a", "busy", "a", "b"]
 
 
 def test_找圖目標圖消失_目標不在原位就不補點(harness):
@@ -91,7 +92,9 @@ def test_逾時時延後中的時間也算進去(harness):
     assert harness.clicks() == [AT], "指示一直在: 一次都不補"
     [rec] = confirm_records(harness)
     assert rec["result"] == "not_gone"
-    assert 0.9 <= float(rec["busy_delay"]) <= 1.1
+    # 逾時被`忙碌暫停`延到 2+60s; 補做從 1.0s 起被延後到逾時
+    assert rec["busy_pause"] == "60.00"
+    assert 60.9 <= float(rec["busy_delay"]) <= 61.1
 
 
 def test_找圖到補點仍是一個舞台原子區段(harness):

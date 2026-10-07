@@ -35,7 +35,8 @@ def test_座標點擊_沒出現就在補做間隔後補點_兩次落點相同(ha
 
 def test_補做間隔與忙碌指示也把關座標點擊(harness):
     harness.vision.plan("ok", [None] * 8 + [(300, 300)])
-    harness.vision.plan("busy", [(960, 1000)] * 3 + [None])
+    # 每輪沒生效都查 (`忙碌暫停`): 1.0/1.2/1.4 有指示, 1.6 消失 → 1.6s 補
+    harness.vision.plan("busy", [None] * 4 + [(960, 1000)] * 3 + [None])
     harness.run([click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
                        interval=0.2)], busy=tgt("busy"))
     assert harness.clicks() == [(100, 100), (100, 100)]
