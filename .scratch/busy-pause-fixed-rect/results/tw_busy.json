@@ -1,0 +1,3057 @@
+{
+ "source": {
+  "video": "demo2",
+  "frame": 2000,
+  "crop": [
+   1069,
+   944,
+   272,
+   25
+  ]
+ },
+ "limit": {
+  "kind": "grid",
+  "cells": [
+   8,
+   9
+  ]
+ },
+ "ok": true,
+ "evening_same_old": true,
+ "results": {
+  "新": {
+   "summary": {
+    "idle": {
+     "n": 63,
+     "found": 0,
+     "score_min": null,
+     "score_max": null,
+     "best_max": 0.226,
+     "ms_avg": 220
+    },
+    "busy": {
+     "n": 38,
+     "found": 38,
+     "score_min": 0.967,
+     "score_max": 1.0,
+     "best_max": 1.0,
+     "ms_avg": 301
+    },
+    "busy_overlap": {
+     "n": 5,
+     "found": 5,
+     "score_min": 0.965,
+     "score_max": 0.967,
+     "best_max": 0.967,
+     "ms_avg": 325
+    }
+   },
+   "rows": [
+    {
+     "video": "demo2",
+     "frame": 0,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.226,
+     "failed": "match",
+     "ms": 271
+    },
+    {
+     "video": "demo2",
+     "frame": 25,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.226,
+     "failed": "match",
+     "ms": 240
+    },
+    {
+     "video": "demo2",
+     "frame": 125,
+     "kind": "idle",
+     "corr": 0.295,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.209,
+     "failed": "match",
+     "ms": 221
+    },
+    {
+     "video": "demo2",
+     "frame": 150,
+     "kind": "idle",
+     "corr": 0.294,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.209,
+     "failed": "match",
+     "ms": 102
+    },
+    {
+     "video": "demo2",
+     "frame": 175,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.209,
+     "failed": "match",
+     "ms": 102
+    },
+    {
+     "video": "demo2",
+     "frame": 200,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.185,
+     "failed": "match",
+     "ms": 121
+    },
+    {
+     "video": "demo2",
+     "frame": 325,
+     "kind": "idle",
+     "corr": 0.271,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 218
+    },
+    {
+     "video": "demo2",
+     "frame": 350,
+     "kind": "idle",
+     "corr": 0.271,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 206
+    },
+    {
+     "video": "demo2",
+     "frame": 575,
+     "kind": "idle",
+     "corr": 0.294,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.149,
+     "failed": "match",
+     "ms": 310
+    },
+    {
+     "video": "demo2",
+     "frame": 625,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.137,
+     "failed": "match",
+     "ms": 228
+    },
+    {
+     "video": "demo2",
+     "frame": 650,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.137,
+     "failed": "match",
+     "ms": 230
+    },
+    {
+     "video": "demo2",
+     "frame": 675,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.135,
+     "failed": "match",
+     "ms": 226
+    },
+    {
+     "video": "demo2",
+     "frame": 700,
+     "kind": "idle",
+     "corr": 0.286,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.168,
+     "failed": "match",
+     "ms": 229
+    },
+    {
+     "video": "demo2",
+     "frame": 800,
+     "kind": "idle",
+     "corr": 0.29,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.168,
+     "failed": "match",
+     "ms": 207
+    },
+    {
+     "video": "demo2",
+     "frame": 825,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.172,
+     "failed": "match",
+     "ms": 124
+    },
+    {
+     "video": "demo2",
+     "frame": 875,
+     "kind": "idle",
+     "corr": 0.295,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.167,
+     "failed": "match",
+     "ms": 257
+    },
+    {
+     "video": "demo2",
+     "frame": 1080,
+     "kind": "busy",
+     "corr": 0.997,
+     "found": true,
+     "score": 0.99,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.99,
+     "failed": null,
+     "ms": 513
+    },
+    {
+     "video": "demo2",
+     "frame": 1125,
+     "kind": "idle",
+     "corr": 0.297,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.183,
+     "failed": "match",
+     "ms": 385
+    },
+    {
+     "video": "demo2",
+     "frame": 1175,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.157,
+     "failed": "match",
+     "ms": 265
+    },
+    {
+     "video": "demo2",
+     "frame": 1200,
+     "kind": "idle",
+     "corr": 0.297,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.158,
+     "failed": "match",
+     "ms": 222
+    },
+    {
+     "video": "demo2",
+     "frame": 1225,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.183,
+     "failed": "match",
+     "ms": 261
+    },
+    {
+     "video": "demo2",
+     "frame": 1325,
+     "kind": "idle",
+     "corr": 0.275,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.162,
+     "failed": "match",
+     "ms": 199
+    },
+    {
+     "video": "demo2",
+     "frame": 1350,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.201,
+     "failed": "match",
+     "ms": 286
+    },
+    {
+     "video": "demo2",
+     "frame": 1400,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.19,
+     "failed": "match",
+     "ms": 279
+    },
+    {
+     "video": "demo2",
+     "frame": 1450,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.19,
+     "failed": "match",
+     "ms": 284
+    },
+    {
+     "video": "demo2",
+     "frame": 1475,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.191,
+     "failed": "match",
+     "ms": 303
+    },
+    {
+     "video": "demo2",
+     "frame": 1500,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.179,
+     "failed": "match",
+     "ms": 388
+    },
+    {
+     "video": "demo2",
+     "frame": 1550,
+     "kind": "idle",
+     "corr": 0.294,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.177,
+     "failed": "match",
+     "ms": 181
+    },
+    {
+     "video": "demo2",
+     "frame": 1575,
+     "kind": "idle",
+     "corr": 0.295,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.179,
+     "failed": "match",
+     "ms": 205
+    },
+    {
+     "video": "demo2",
+     "frame": 1675,
+     "kind": "idle",
+     "corr": 0.298,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.141,
+     "failed": "match",
+     "ms": 135
+    },
+    {
+     "video": "demo2",
+     "frame": 1925,
+     "kind": "idle",
+     "corr": 0.272,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 219
+    },
+    {
+     "video": "demo2",
+     "frame": 1975,
+     "kind": "idle",
+     "corr": 0.288,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.155,
+     "failed": "match",
+     "ms": 393
+    },
+    {
+     "video": "demo2",
+     "frame": 1985,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 319
+    },
+    {
+     "video": "demo2",
+     "frame": 1995,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 316
+    },
+    {
+     "video": "demo2",
+     "frame": 2005,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 353
+    },
+    {
+     "video": "demo2",
+     "frame": 2025,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.138,
+     "failed": "match",
+     "ms": 239
+    },
+    {
+     "video": "demo2",
+     "frame": 2040,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 375
+    },
+    {
+     "video": "demo2",
+     "frame": 2050,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 328
+    },
+    {
+     "video": "demo2",
+     "frame": 2060,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 302
+    },
+    {
+     "video": "demo2",
+     "frame": 2075,
+     "kind": "idle",
+     "corr": 0.286,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.182,
+     "failed": "match",
+     "ms": 286
+    },
+    {
+     "video": "demo2",
+     "frame": 2095,
+     "kind": "busy",
+     "corr": 0.99,
+     "found": true,
+     "score": 0.967,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.967,
+     "failed": null,
+     "ms": 345
+    },
+    {
+     "video": "demo2",
+     "frame": 2105,
+     "kind": "busy",
+     "corr": 1.0,
+     "found": true,
+     "score": 0.997,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.997,
+     "failed": null,
+     "ms": 408
+    },
+    {
+     "video": "demo2",
+     "frame": 2115,
+     "kind": "busy",
+     "corr": 1.0,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 411
+    },
+    {
+     "video": "demo2",
+     "frame": 2125,
+     "kind": "busy",
+     "corr": 1.0,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 624
+    },
+    {
+     "video": "demo2",
+     "frame": 2165,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 300
+    },
+    {
+     "video": "demo2",
+     "frame": 2175,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 536
+    },
+    {
+     "video": "demo2",
+     "frame": 2185,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 291
+    },
+    {
+     "video": "demo2",
+     "frame": 2200,
+     "kind": "idle",
+     "corr": 0.264,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.194,
+     "failed": "match",
+     "ms": 198
+    },
+    {
+     "video": "demo2",
+     "frame": 2225,
+     "kind": "busy",
+     "corr": 0.996,
+     "found": true,
+     "score": 0.987,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.987,
+     "failed": null,
+     "ms": 276
+    },
+    {
+     "video": "demo2",
+     "frame": 2235,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 324
+    },
+    {
+     "video": "demo2",
+     "frame": 2245,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 267
+    },
+    {
+     "video": "demo2",
+     "frame": 2255,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 236
+    },
+    {
+     "video": "demo2",
+     "frame": 2275,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.185,
+     "failed": "match",
+     "ms": 274
+    },
+    {
+     "video": "demo2",
+     "frame": 2295,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 228
+    },
+    {
+     "video": "demo2",
+     "frame": 2305,
+     "kind": "busy",
+     "corr": 1.0,
+     "found": true,
+     "score": 0.997,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.997,
+     "failed": null,
+     "ms": 219
+    },
+    {
+     "video": "demo2",
+     "frame": 2315,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 213
+    },
+    {
+     "video": "demo2",
+     "frame": 2325,
+     "kind": "idle",
+     "corr": 0.261,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.214,
+     "failed": "match",
+     "ms": 308
+    },
+    {
+     "video": "demo2",
+     "frame": 2355,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 217
+    },
+    {
+     "video": "demo2",
+     "frame": 2365,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 247
+    },
+    {
+     "video": "demo2",
+     "frame": 2375,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 222
+    },
+    {
+     "video": "demo2",
+     "frame": 2420,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 237
+    },
+    {
+     "video": "demo2",
+     "frame": 2430,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 256
+    },
+    {
+     "video": "demo2",
+     "frame": 2440,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 343
+    },
+    {
+     "video": "demo2",
+     "frame": 2450,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.214,
+     "failed": "match",
+     "ms": 193
+    },
+    {
+     "video": "demo2",
+     "frame": 2480,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.997,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.997,
+     "failed": null,
+     "ms": 259
+    },
+    {
+     "video": "demo2",
+     "frame": 2490,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.997,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.997,
+     "failed": null,
+     "ms": 250
+    },
+    {
+     "video": "demo2",
+     "frame": 2500,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 258
+    },
+    {
+     "video": "demo2",
+     "frame": 2540,
+     "kind": "busy",
+     "corr": 0.993,
+     "found": true,
+     "score": 0.976,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.976,
+     "failed": null,
+     "ms": 254
+    },
+    {
+     "video": "demo2",
+     "frame": 2550,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.997,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.997,
+     "failed": null,
+     "ms": 232
+    },
+    {
+     "video": "demo2",
+     "frame": 2560,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 254
+    },
+    {
+     "video": "demo2",
+     "frame": 2570,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.999,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.999,
+     "failed": null,
+     "ms": 240
+    },
+    {
+     "video": "demo2",
+     "frame": 2575,
+     "kind": "idle",
+     "corr": 0.298,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.193,
+     "failed": "match",
+     "ms": 199
+    },
+    {
+     "video": "demo2",
+     "frame": 2625,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 224
+    },
+    {
+     "video": "demo2",
+     "frame": 2635,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.996,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.996,
+     "failed": null,
+     "ms": 243
+    },
+    {
+     "video": "demo2",
+     "frame": 2645,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.998,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.998,
+     "failed": null,
+     "ms": 240
+    },
+    {
+     "video": "demo2",
+     "frame": 2675,
+     "kind": "idle",
+     "corr": 0.288,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.172,
+     "failed": "match",
+     "ms": 272
+    },
+    {
+     "video": "demo2",
+     "frame": 2700,
+     "kind": "idle",
+     "corr": 0.287,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.18,
+     "failed": "match",
+     "ms": 230
+    },
+    {
+     "video": "demo2",
+     "frame": 2775,
+     "kind": "idle",
+     "corr": 0.254,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.0,
+     "failed": "match",
+     "ms": 163
+    },
+    {
+     "video": "demo2",
+     "frame": 2900,
+     "kind": "idle",
+     "corr": 0.298,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.182,
+     "failed": "match",
+     "ms": 211
+    },
+    {
+     "video": "demo2",
+     "frame": 2950,
+     "kind": "idle",
+     "corr": 0.274,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.143,
+     "failed": "match",
+     "ms": 198
+    },
+    {
+     "video": "demo2",
+     "frame": 2975,
+     "kind": "idle",
+     "corr": 0.3,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.175,
+     "failed": "match",
+     "ms": 171
+    },
+    {
+     "video": "demo2",
+     "frame": 3000,
+     "kind": "idle",
+     "corr": 0.276,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.171,
+     "failed": "match",
+     "ms": 254
+    },
+    {
+     "video": "demo2",
+     "frame": 3025,
+     "kind": "idle",
+     "corr": 0.28,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.17,
+     "failed": "match",
+     "ms": 78
+    },
+    {
+     "video": "demo2",
+     "frame": 3050,
+     "kind": "idle",
+     "corr": 0.289,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.091,
+     "failed": "match",
+     "ms": 219
+    },
+    {
+     "video": "demo3",
+     "frame": 0,
+     "kind": "idle",
+     "corr": 0.266,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 197
+    },
+    {
+     "video": "demo3",
+     "frame": 25,
+     "kind": "idle",
+     "corr": 0.286,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.136,
+     "failed": "match",
+     "ms": 175
+    },
+    {
+     "video": "demo3",
+     "frame": 50,
+     "kind": "idle",
+     "corr": 0.27,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 167
+    },
+    {
+     "video": "demo3",
+     "frame": 75,
+     "kind": "idle",
+     "corr": 0.27,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 161
+    },
+    {
+     "video": "demo3",
+     "frame": 100,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.135,
+     "failed": "match",
+     "ms": 190
+    },
+    {
+     "video": "demo3",
+     "frame": 425,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.172,
+     "failed": "match",
+     "ms": 180
+    },
+    {
+     "video": "demo3",
+     "frame": 450,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.173,
+     "failed": "match",
+     "ms": 105
+    },
+    {
+     "video": "demo3",
+     "frame": 475,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.173,
+     "failed": "match",
+     "ms": 120
+    },
+    {
+     "video": "demo3",
+     "frame": 500,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.199,
+     "failed": "match",
+     "ms": 192
+    },
+    {
+     "video": "demo3",
+     "frame": 525,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.199,
+     "failed": "match",
+     "ms": 187
+    },
+    {
+     "video": "demo3",
+     "frame": 550,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 173
+    },
+    {
+     "video": "demo3",
+     "frame": 575,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.185,
+     "failed": "match",
+     "ms": 330
+    },
+    {
+     "video": "demo3",
+     "frame": 600,
+     "kind": "idle",
+     "corr": 0.294,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.177,
+     "failed": "match",
+     "ms": 94
+    },
+    {
+     "video": "demo3",
+     "frame": 650,
+     "kind": "idle",
+     "corr": 0.295,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.218,
+     "failed": "match",
+     "ms": 355
+    },
+    {
+     "video": "demo3",
+     "frame": 675,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.16,
+     "failed": "match",
+     "ms": 221
+    },
+    {
+     "video": "demo3",
+     "frame": 700,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.181,
+     "failed": "match",
+     "ms": 235
+    },
+    {
+     "video": "demo3",
+     "frame": 855,
+     "kind": "busy",
+     "corr": 0.928,
+     "found": true,
+     "score": 0.967,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.967,
+     "failed": null,
+     "ms": 296
+    },
+    {
+     "video": "demo3",
+     "frame": 850,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 0.965,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.965,
+     "failed": null,
+     "ms": 320
+    },
+    {
+     "video": "demo3",
+     "frame": 852,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 0.966,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.966,
+     "failed": null,
+     "ms": 347
+    },
+    {
+     "video": "demo3",
+     "frame": 854,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 0.967,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.967,
+     "failed": null,
+     "ms": 320
+    },
+    {
+     "video": "demo3",
+     "frame": 856,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 0.967,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.967,
+     "failed": null,
+     "ms": 316
+    },
+    {
+     "video": "demo3",
+     "frame": 858,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 0.967,
+     "box": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "best": 0.967,
+     "failed": null,
+     "ms": 323
+    }
+   ]
+  },
+  "舊": {
+   "summary": {
+    "idle": {
+     "n": 63,
+     "found": 0,
+     "score_min": null,
+     "score_max": null,
+     "best_max": 0.229,
+     "ms_avg": 225
+    },
+    "busy": {
+     "n": 38,
+     "found": 38,
+     "score_min": 0.927,
+     "score_max": 1.0,
+     "best_max": 1.0,
+     "ms_avg": 244
+    },
+    "busy_overlap": {
+     "n": 5,
+     "found": 5,
+     "score_min": 0.986,
+     "score_max": 1.0,
+     "best_max": 1.0,
+     "ms_avg": 841
+    }
+   },
+   "rows": [
+    {
+     "video": "demo2",
+     "frame": 0,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.229,
+     "failed": "match",
+     "ms": 206
+    },
+    {
+     "video": "demo2",
+     "frame": 25,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.229,
+     "failed": "match",
+     "ms": 197
+    },
+    {
+     "video": "demo2",
+     "frame": 125,
+     "kind": "idle",
+     "corr": 0.295,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.21,
+     "failed": "match",
+     "ms": 111
+    },
+    {
+     "video": "demo2",
+     "frame": 150,
+     "kind": "idle",
+     "corr": 0.294,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.21,
+     "failed": "match",
+     "ms": 106
+    },
+    {
+     "video": "demo2",
+     "frame": 175,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.21,
+     "failed": "match",
+     "ms": 109
+    },
+    {
+     "video": "demo2",
+     "frame": 200,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.207,
+     "failed": "match",
+     "ms": 104
+    },
+    {
+     "video": "demo2",
+     "frame": 325,
+     "kind": "idle",
+     "corr": 0.271,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.189,
+     "failed": "match",
+     "ms": 153
+    },
+    {
+     "video": "demo2",
+     "frame": 350,
+     "kind": "idle",
+     "corr": 0.271,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.189,
+     "failed": "match",
+     "ms": 153
+    },
+    {
+     "video": "demo2",
+     "frame": 575,
+     "kind": "idle",
+     "corr": 0.294,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.164,
+     "failed": "match",
+     "ms": 149
+    },
+    {
+     "video": "demo2",
+     "frame": 625,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.164,
+     "failed": "match",
+     "ms": 129
+    },
+    {
+     "video": "demo2",
+     "frame": 650,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.164,
+     "failed": "match",
+     "ms": 134
+    },
+    {
+     "video": "demo2",
+     "frame": 675,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.164,
+     "failed": "match",
+     "ms": 142
+    },
+    {
+     "video": "demo2",
+     "frame": 700,
+     "kind": "idle",
+     "corr": 0.286,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.2,
+     "failed": "match",
+     "ms": 120
+    },
+    {
+     "video": "demo2",
+     "frame": 800,
+     "kind": "idle",
+     "corr": 0.29,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.207,
+     "failed": "match",
+     "ms": 185
+    },
+    {
+     "video": "demo2",
+     "frame": 825,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.16,
+     "failed": "match",
+     "ms": 80
+    },
+    {
+     "video": "demo2",
+     "frame": 875,
+     "kind": "idle",
+     "corr": 0.295,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.165,
+     "failed": "match",
+     "ms": 232
+    },
+    {
+     "video": "demo2",
+     "frame": 1080,
+     "kind": "busy",
+     "corr": 0.997,
+     "found": true,
+     "score": 0.96,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.96,
+     "failed": null,
+     "ms": 193
+    },
+    {
+     "video": "demo2",
+     "frame": 1125,
+     "kind": "idle",
+     "corr": 0.297,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.17,
+     "failed": "match",
+     "ms": 236
+    },
+    {
+     "video": "demo2",
+     "frame": 1175,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.146,
+     "failed": "match",
+     "ms": 215
+    },
+    {
+     "video": "demo2",
+     "frame": 1200,
+     "kind": "idle",
+     "corr": 0.297,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.145,
+     "failed": "match",
+     "ms": 253
+    },
+    {
+     "video": "demo2",
+     "frame": 1225,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.168,
+     "failed": "match",
+     "ms": 172
+    },
+    {
+     "video": "demo2",
+     "frame": 1325,
+     "kind": "idle",
+     "corr": 0.275,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.177,
+     "failed": "match",
+     "ms": 177
+    },
+    {
+     "video": "demo2",
+     "frame": 1350,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 176
+    },
+    {
+     "video": "demo2",
+     "frame": 1400,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.214,
+     "failed": "match",
+     "ms": 228
+    },
+    {
+     "video": "demo2",
+     "frame": 1450,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.189,
+     "failed": "match",
+     "ms": 205
+    },
+    {
+     "video": "demo2",
+     "frame": 1475,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.206,
+     "failed": "match",
+     "ms": 210
+    },
+    {
+     "video": "demo2",
+     "frame": 1500,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.175,
+     "failed": "match",
+     "ms": 276
+    },
+    {
+     "video": "demo2",
+     "frame": 1550,
+     "kind": "idle",
+     "corr": 0.294,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.183,
+     "failed": "match",
+     "ms": 192
+    },
+    {
+     "video": "demo2",
+     "frame": 1575,
+     "kind": "idle",
+     "corr": 0.295,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.158,
+     "failed": "match",
+     "ms": 178
+    },
+    {
+     "video": "demo2",
+     "frame": 1675,
+     "kind": "idle",
+     "corr": 0.298,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.173,
+     "failed": "match",
+     "ms": 89
+    },
+    {
+     "video": "demo2",
+     "frame": 1925,
+     "kind": "idle",
+     "corr": 0.272,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.17,
+     "failed": "match",
+     "ms": 153
+    },
+    {
+     "video": "demo2",
+     "frame": 1975,
+     "kind": "idle",
+     "corr": 0.288,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.141,
+     "failed": "match",
+     "ms": 192
+    },
+    {
+     "video": "demo2",
+     "frame": 1985,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.968,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.968,
+     "failed": null,
+     "ms": 204
+    },
+    {
+     "video": "demo2",
+     "frame": 1995,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 227
+    },
+    {
+     "video": "demo2",
+     "frame": 2005,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.969,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.969,
+     "failed": null,
+     "ms": 219
+    },
+    {
+     "video": "demo2",
+     "frame": 2025,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.15,
+     "failed": "match",
+     "ms": 106
+    },
+    {
+     "video": "demo2",
+     "frame": 2040,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.968,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.968,
+     "failed": null,
+     "ms": 241
+    },
+    {
+     "video": "demo2",
+     "frame": 2050,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.968,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.968,
+     "failed": null,
+     "ms": 254
+    },
+    {
+     "video": "demo2",
+     "frame": 2060,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 256
+    },
+    {
+     "video": "demo2",
+     "frame": 2075,
+     "kind": "idle",
+     "corr": 0.286,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.154,
+     "failed": "match",
+     "ms": 226
+    },
+    {
+     "video": "demo2",
+     "frame": 2095,
+     "kind": "busy",
+     "corr": 0.99,
+     "found": true,
+     "score": 0.927,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.927,
+     "failed": null,
+     "ms": 225
+    },
+    {
+     "video": "demo2",
+     "frame": 2105,
+     "kind": "busy",
+     "corr": 1.0,
+     "found": true,
+     "score": 0.967,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.967,
+     "failed": null,
+     "ms": 240
+    },
+    {
+     "video": "demo2",
+     "frame": 2115,
+     "kind": "busy",
+     "corr": 1.0,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 218
+    },
+    {
+     "video": "demo2",
+     "frame": 2125,
+     "kind": "busy",
+     "corr": 1.0,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 251
+    },
+    {
+     "video": "demo2",
+     "frame": 2165,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.968,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.968,
+     "failed": null,
+     "ms": 270
+    },
+    {
+     "video": "demo2",
+     "frame": 2175,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.968,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.968,
+     "failed": null,
+     "ms": 237
+    },
+    {
+     "video": "demo2",
+     "frame": 2185,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 228
+    },
+    {
+     "video": "demo2",
+     "frame": 2200,
+     "kind": "idle",
+     "corr": 0.264,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.223,
+     "failed": "match",
+     "ms": 210
+    },
+    {
+     "video": "demo2",
+     "frame": 2225,
+     "kind": "busy",
+     "corr": 0.996,
+     "found": true,
+     "score": 0.958,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.958,
+     "failed": null,
+     "ms": 271
+    },
+    {
+     "video": "demo2",
+     "frame": 2235,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.969,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.969,
+     "failed": null,
+     "ms": 317
+    },
+    {
+     "video": "demo2",
+     "frame": 2245,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 203
+    },
+    {
+     "video": "demo2",
+     "frame": 2255,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 215
+    },
+    {
+     "video": "demo2",
+     "frame": 2275,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.19,
+     "failed": "match",
+     "ms": 312
+    },
+    {
+     "video": "demo2",
+     "frame": 2295,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.969,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.969,
+     "failed": null,
+     "ms": 219
+    },
+    {
+     "video": "demo2",
+     "frame": 2305,
+     "kind": "busy",
+     "corr": 1.0,
+     "found": true,
+     "score": 0.967,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.967,
+     "failed": null,
+     "ms": 245
+    },
+    {
+     "video": "demo2",
+     "frame": 2315,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.97,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.97,
+     "failed": null,
+     "ms": 256
+    },
+    {
+     "video": "demo2",
+     "frame": 2325,
+     "kind": "idle",
+     "corr": 0.261,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.187,
+     "failed": "match",
+     "ms": 225
+    },
+    {
+     "video": "demo2",
+     "frame": 2355,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.968,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.968,
+     "failed": null,
+     "ms": 239
+    },
+    {
+     "video": "demo2",
+     "frame": 2365,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.968,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.968,
+     "failed": null,
+     "ms": 377
+    },
+    {
+     "video": "demo2",
+     "frame": 2375,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.972,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.972,
+     "failed": null,
+     "ms": 216
+    },
+    {
+     "video": "demo2",
+     "frame": 2420,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.966,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.966,
+     "failed": null,
+     "ms": 212
+    },
+    {
+     "video": "demo2",
+     "frame": 2430,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.966,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.966,
+     "failed": null,
+     "ms": 263
+    },
+    {
+     "video": "demo2",
+     "frame": 2440,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 251
+    },
+    {
+     "video": "demo2",
+     "frame": 2450,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.186,
+     "failed": "match",
+     "ms": 213
+    },
+    {
+     "video": "demo2",
+     "frame": 2480,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.968,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.968,
+     "failed": null,
+     "ms": 209
+    },
+    {
+     "video": "demo2",
+     "frame": 2490,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.969,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.969,
+     "failed": null,
+     "ms": 193
+    },
+    {
+     "video": "demo2",
+     "frame": 2500,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 191
+    },
+    {
+     "video": "demo2",
+     "frame": 2540,
+     "kind": "busy",
+     "corr": 0.993,
+     "found": true,
+     "score": 0.937,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.937,
+     "failed": null,
+     "ms": 199
+    },
+    {
+     "video": "demo2",
+     "frame": 2550,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.971,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.971,
+     "failed": null,
+     "ms": 208
+    },
+    {
+     "video": "demo2",
+     "frame": 2560,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.973,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.973,
+     "failed": null,
+     "ms": 196
+    },
+    {
+     "video": "demo2",
+     "frame": 2570,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.973,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.973,
+     "failed": null,
+     "ms": 223
+    },
+    {
+     "video": "demo2",
+     "frame": 2575,
+     "kind": "idle",
+     "corr": 0.298,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.214,
+     "failed": "match",
+     "ms": 180
+    },
+    {
+     "video": "demo2",
+     "frame": 2625,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.966,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.966,
+     "failed": null,
+     "ms": 154
+    },
+    {
+     "video": "demo2",
+     "frame": 2635,
+     "kind": "busy",
+     "corr": 0.998,
+     "found": true,
+     "score": 0.967,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.967,
+     "failed": null,
+     "ms": 213
+    },
+    {
+     "video": "demo2",
+     "frame": 2645,
+     "kind": "busy",
+     "corr": 0.999,
+     "found": true,
+     "score": 0.97,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.97,
+     "failed": null,
+     "ms": 350
+    },
+    {
+     "video": "demo2",
+     "frame": 2675,
+     "kind": "idle",
+     "corr": 0.288,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.175,
+     "failed": "match",
+     "ms": 236
+    },
+    {
+     "video": "demo2",
+     "frame": 2700,
+     "kind": "idle",
+     "corr": 0.287,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.147,
+     "failed": "match",
+     "ms": 269
+    },
+    {
+     "video": "demo2",
+     "frame": 2775,
+     "kind": "idle",
+     "corr": 0.254,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.0,
+     "failed": "match",
+     "ms": 152
+    },
+    {
+     "video": "demo2",
+     "frame": 2900,
+     "kind": "idle",
+     "corr": 0.298,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.197,
+     "failed": "match",
+     "ms": 218
+    },
+    {
+     "video": "demo2",
+     "frame": 2950,
+     "kind": "idle",
+     "corr": 0.274,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.141,
+     "failed": "match",
+     "ms": 340
+    },
+    {
+     "video": "demo2",
+     "frame": 2975,
+     "kind": "idle",
+     "corr": 0.3,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.181,
+     "failed": "match",
+     "ms": 318
+    },
+    {
+     "video": "demo2",
+     "frame": 3000,
+     "kind": "idle",
+     "corr": 0.276,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.185,
+     "failed": "match",
+     "ms": 464
+    },
+    {
+     "video": "demo2",
+     "frame": 3025,
+     "kind": "idle",
+     "corr": 0.28,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.184,
+     "failed": "match",
+     "ms": 166
+    },
+    {
+     "video": "demo2",
+     "frame": 3050,
+     "kind": "idle",
+     "corr": 0.289,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.107,
+     "failed": "match",
+     "ms": 508
+    },
+    {
+     "video": "demo3",
+     "frame": 0,
+     "kind": "idle",
+     "corr": 0.266,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.126,
+     "failed": "match",
+     "ms": 384
+    },
+    {
+     "video": "demo3",
+     "frame": 25,
+     "kind": "idle",
+     "corr": 0.286,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.142,
+     "failed": "match",
+     "ms": 553
+    },
+    {
+     "video": "demo3",
+     "frame": 50,
+     "kind": "idle",
+     "corr": 0.27,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.17,
+     "failed": "match",
+     "ms": 326
+    },
+    {
+     "video": "demo3",
+     "frame": 75,
+     "kind": "idle",
+     "corr": 0.27,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.17,
+     "failed": "match",
+     "ms": 332
+    },
+    {
+     "video": "demo3",
+     "frame": 100,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.165,
+     "failed": "match",
+     "ms": 292
+    },
+    {
+     "video": "demo3",
+     "frame": 425,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.174,
+     "failed": "match",
+     "ms": 248
+    },
+    {
+     "video": "demo3",
+     "frame": 450,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.16,
+     "failed": "match",
+     "ms": 153
+    },
+    {
+     "video": "demo3",
+     "frame": 475,
+     "kind": "idle",
+     "corr": 0.299,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.16,
+     "failed": "match",
+     "ms": 163
+    },
+    {
+     "video": "demo3",
+     "frame": 500,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.214,
+     "failed": "match",
+     "ms": 268
+    },
+    {
+     "video": "demo3",
+     "frame": 525,
+     "kind": "idle",
+     "corr": 0.293,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.198,
+     "failed": "match",
+     "ms": 269
+    },
+    {
+     "video": "demo3",
+     "frame": 550,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.19,
+     "failed": "match",
+     "ms": 247
+    },
+    {
+     "video": "demo3",
+     "frame": 575,
+     "kind": "idle",
+     "corr": 0.292,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.188,
+     "failed": "match",
+     "ms": 427
+    },
+    {
+     "video": "demo3",
+     "frame": 600,
+     "kind": "idle",
+     "corr": 0.294,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.192,
+     "failed": "match",
+     "ms": 106
+    },
+    {
+     "video": "demo3",
+     "frame": 650,
+     "kind": "idle",
+     "corr": 0.295,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.174,
+     "failed": "match",
+     "ms": 434
+    },
+    {
+     "video": "demo3",
+     "frame": 675,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.193,
+     "failed": "match",
+     "ms": 340
+    },
+    {
+     "video": "demo3",
+     "frame": 700,
+     "kind": "idle",
+     "corr": 0.291,
+     "found": false,
+     "score": null,
+     "box": null,
+     "best": 0.198,
+     "failed": "match",
+     "ms": 243
+    },
+    {
+     "video": "demo3",
+     "frame": 855,
+     "kind": "busy",
+     "corr": 0.928,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 578
+    },
+    {
+     "video": "demo3",
+     "frame": 850,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 0.986,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 0.986,
+     "failed": null,
+     "ms": 794
+    },
+    {
+     "video": "demo3",
+     "frame": 852,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 819
+    },
+    {
+     "video": "demo3",
+     "frame": 854,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 1093
+    },
+    {
+     "video": "demo3",
+     "frame": 856,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 786
+    },
+    {
+     "video": "demo3",
+     "frame": 858,
+     "kind": "busy_overlap",
+     "corr": null,
+     "found": true,
+     "score": 1.0,
+     "box": [
+      1069,
+      945,
+      272,
+      24
+     ],
+     "best": 1.0,
+     "failed": null,
+     "ms": 713
+    }
+   ]
+  }
+ }
+}
