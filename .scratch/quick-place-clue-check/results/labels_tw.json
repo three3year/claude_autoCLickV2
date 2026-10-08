@@ -1,0 +1,1130 @@
+{
+ "flow": "早_繁中",
+ "video": "add4",
+ "stride": 3,
+ "summary": {
+  "相關蒐集者": {
+   "ok": 55,
+   "total": 55,
+   "cursor": [],
+   "pos_min": 1.0,
+   "pos_max": 1.0,
+   "neg_best": 0.0
+  },
+  "來自": {
+   "ok": 55,
+   "total": 55,
+   "cursor": [],
+   "pos_min": 1.0,
+   "pos_max": 1.0,
+   "neg_best": 0.0
+  }
+ },
+ "rows": {
+  "相關蒐集者": [
+   {
+    "frame": 59,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 62,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 65,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 68,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 71,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 74,
+    "num": 2,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 77,
+    "num": 2,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 80,
+    "num": 2,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 83,
+    "num": 2,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 88,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 91,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 94,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 97,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 100,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 104,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 107,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 110,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 113,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 116,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 119,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 122,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 125,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 128,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 131,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 134,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 137,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 140,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 143,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 148,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 151,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 154,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 157,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 160,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 164,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 167,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 170,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 173,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 176,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 179,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 182,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 185,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 188,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 191,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 194,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 197,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 200,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 203,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 206,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 209,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 212,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 215,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 218,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 221,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 224,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 227,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   }
+  ],
+  "來自": [
+   {
+    "frame": 59,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 62,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 65,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 68,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 71,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 74,
+    "num": 2,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 77,
+    "num": 2,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 80,
+    "num": 2,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 83,
+    "num": 2,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 88,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 91,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 94,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 97,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 100,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 104,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 107,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 110,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 113,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 116,
+    "num": 4,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 119,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 122,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 125,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 128,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 131,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 134,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 137,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 140,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 143,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 148,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 151,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 154,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 157,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 160,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 164,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 167,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 170,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 173,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 176,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 179,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 182,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 185,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 188,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 191,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 194,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 197,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 200,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 203,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 206,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 209,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 212,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 215,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 218,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 221,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 224,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 227,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   }
+  ]
+ },
+ "chosen": "來自"
+}

@@ -1,0 +1,29 @@
+{
+ "flow": "早_簡中",
+ "flows": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\app\\dist\\AutoClick\\profiles\\arknights\\flows",
+ "backup": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\app\\dist\\profiles-backup-2026-10-09-quick-place-clue-check",
+ "steps_before": 247,
+ "steps": 266,
+ "layout": {
+  "get": 53,
+  "recv": [
+   54,
+   58
+  ],
+  "open": 59,
+  "check": [
+   60,
+   78
+  ],
+  "leftover": [
+   79,
+   82
+  ],
+  "unlock": [
+   83,
+   86
+  ],
+  "entry": 87
+ },
+ "label": "来自"
+}

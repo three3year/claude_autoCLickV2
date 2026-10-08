@@ -1,0 +1,1529 @@
+{
+ "flow": "早_簡中",
+ "video": "add3",
+ "stride": 3,
+ "summary": {
+  "相关搜集者": {
+   "ok": 65,
+   "total": 68,
+   "cursor": [
+    76,
+    79,
+    82,
+    101,
+    104,
+    107
+   ],
+   "pos_min": 0.881,
+   "pos_max": 1.0,
+   "neg_best": 0.121
+  },
+  "来自": {
+   "ok": 63,
+   "total": 63,
+   "cursor": [
+    82,
+    98,
+    101,
+    104,
+    107,
+    110,
+    124,
+    127,
+    130,
+    133,
+    136
+   ],
+   "pos_min": 0.992,
+   "pos_max": 1.0,
+   "neg_best": 0.128
+  }
+ },
+ "rows": {
+  "相关搜集者": [
+   {
+    "frame": 64,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 67,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 70,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 73,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.052,
+    "ok": true
+   },
+   {
+    "frame": 76,
+    "num": 1,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.141,
+    "ok": true
+   },
+   {
+    "frame": 79,
+    "num": 1,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.13,
+    "ok": true
+   },
+   {
+    "frame": 82,
+    "num": 1,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.177,
+    "ok": true
+   },
+   {
+    "frame": 85,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 88,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 91,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 95,
+    "num": 2,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 98,
+    "num": 2,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.105,
+    "ok": true
+   },
+   {
+    "frame": 101,
+    "num": 2,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.183,
+    "ok": true
+   },
+   {
+    "frame": 104,
+    "num": 2,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.184,
+    "ok": true
+   },
+   {
+    "frame": 107,
+    "num": 2,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.186,
+    "ok": true
+   },
+   {
+    "frame": 110,
+    "num": 2,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.105,
+    "ok": true
+   },
+   {
+    "frame": 113,
+    "num": 2,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 116,
+    "num": 2,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 121,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.994,
+    "best": 0.994,
+    "ok": true
+   },
+   {
+    "frame": 124,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.881,
+    "best": 0.881,
+    "ok": true
+   },
+   {
+    "frame": 127,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.673,
+    "ok": false
+   },
+   {
+    "frame": 130,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.673,
+    "ok": false
+   },
+   {
+    "frame": 133,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.673,
+    "ok": false
+   },
+   {
+    "frame": 136,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.949,
+    "best": 0.949,
+    "ok": true
+   },
+   {
+    "frame": 139,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.998,
+    "best": 0.998,
+    "ok": true
+   },
+   {
+    "frame": 142,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 145,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 148,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 151,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 154,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 157,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.121,
+    "ok": true
+   },
+   {
+    "frame": 160,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.121,
+    "ok": true
+   },
+   {
+    "frame": 163,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.121,
+    "ok": true
+   },
+   {
+    "frame": 166,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 169,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 172,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 175,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 179,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 182,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 185,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 188,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 191,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 194,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 197,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 200,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.994,
+    "best": 0.994,
+    "ok": true
+   },
+   {
+    "frame": 203,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.994,
+    "best": 0.994,
+    "ok": true
+   },
+   {
+    "frame": 206,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.994,
+    "best": 0.994,
+    "ok": true
+   },
+   {
+    "frame": 209,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.994,
+    "best": 0.994,
+    "ok": true
+   },
+   {
+    "frame": 212,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 215,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 218,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 221,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 224,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 227,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.994,
+    "best": 0.994,
+    "ok": true
+   },
+   {
+    "frame": 230,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.999,
+    "best": 0.999,
+    "ok": true
+   },
+   {
+    "frame": 233,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.999,
+    "best": 0.999,
+    "ok": true
+   },
+   {
+    "frame": 236,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.999,
+    "best": 0.999,
+    "ok": true
+   },
+   {
+    "frame": 240,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.999,
+    "best": 0.999,
+    "ok": true
+   },
+   {
+    "frame": 243,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.998,
+    "best": 0.998,
+    "ok": true
+   },
+   {
+    "frame": 246,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 249,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 252,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 255,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 258,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 261,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 264,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 267,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 270,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 273,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 276,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 279,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 282,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 285,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 288,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   }
+  ],
+  "来自": [
+   {
+    "frame": 64,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 67,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 70,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 73,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.088,
+    "ok": true
+   },
+   {
+    "frame": 76,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.128,
+    "ok": true
+   },
+   {
+    "frame": 79,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.114,
+    "ok": true
+   },
+   {
+    "frame": 82,
+    "num": 1,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.164,
+    "ok": true
+   },
+   {
+    "frame": 85,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 88,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 91,
+    "num": 1,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 95,
+    "num": 2,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 98,
+    "num": 2,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.219,
+    "ok": true
+   },
+   {
+    "frame": 101,
+    "num": 2,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.218,
+    "ok": true
+   },
+   {
+    "frame": 104,
+    "num": 2,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.185,
+    "ok": true
+   },
+   {
+    "frame": 107,
+    "num": 2,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.17,
+    "ok": true
+   },
+   {
+    "frame": 110,
+    "num": 2,
+    "has": false,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.219,
+    "ok": true
+   },
+   {
+    "frame": 113,
+    "num": 2,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 116,
+    "num": 2,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 121,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 124,
+    "num": 3,
+    "has": true,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.522,
+    "ok": true
+   },
+   {
+    "frame": 127,
+    "num": 3,
+    "has": true,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.48,
+    "ok": true
+   },
+   {
+    "frame": 130,
+    "num": 3,
+    "has": true,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.48,
+    "ok": true
+   },
+   {
+    "frame": 133,
+    "num": 3,
+    "has": true,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.48,
+    "ok": true
+   },
+   {
+    "frame": 136,
+    "num": 3,
+    "has": true,
+    "cursor": true,
+    "found": false,
+    "score": null,
+    "best": 0.601,
+    "ok": true
+   },
+   {
+    "frame": 139,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.992,
+    "best": 0.992,
+    "ok": true
+   },
+   {
+    "frame": 142,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 145,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 148,
+    "num": 3,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 151,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 154,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 157,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 160,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 163,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 166,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 169,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 172,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 175,
+    "num": 4,
+    "has": false,
+    "cursor": false,
+    "found": false,
+    "score": null,
+    "best": 0.0,
+    "ok": true
+   },
+   {
+    "frame": 179,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 182,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 185,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 188,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 191,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 194,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 197,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.993,
+    "best": 0.993,
+    "ok": true
+   },
+   {
+    "frame": 200,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.999,
+    "best": 0.999,
+    "ok": true
+   },
+   {
+    "frame": 203,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.999,
+    "best": 0.999,
+    "ok": true
+   },
+   {
+    "frame": 206,
+    "num": 5,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.999,
+    "best": 0.999,
+    "ok": true
+   },
+   {
+    "frame": 209,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.999,
+    "best": 0.999,
+    "ok": true
+   },
+   {
+    "frame": 212,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 215,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 218,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 221,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 224,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 227,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.996,
+    "best": 0.996,
+    "ok": true
+   },
+   {
+    "frame": 230,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.998,
+    "best": 0.998,
+    "ok": true
+   },
+   {
+    "frame": 233,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.998,
+    "best": 0.998,
+    "ok": true
+   },
+   {
+    "frame": 236,
+    "num": 6,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.998,
+    "best": 0.998,
+    "ok": true
+   },
+   {
+    "frame": 240,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.998,
+    "best": 0.998,
+    "ok": true
+   },
+   {
+    "frame": 243,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.995,
+    "best": 0.995,
+    "ok": true
+   },
+   {
+    "frame": 246,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 249,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 252,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 255,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 258,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 0.997,
+    "best": 0.997,
+    "ok": true
+   },
+   {
+    "frame": 261,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 264,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 267,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 270,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 273,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 276,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 279,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 282,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 285,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   },
+   {
+    "frame": 288,
+    "num": 7,
+    "has": true,
+    "cursor": false,
+    "found": true,
+    "score": 1.0,
+    "best": 1.0,
+    "ok": true
+   }
+  ]
+ },
+ "chosen": "来自"
+}
