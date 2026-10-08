@@ -81,38 +81,53 @@ def _first(widget, cls):
 
 
 class _Driver:
-    """在 modal 對話框開著的時候操作它 (透過 after 排進同一個事件迴圈)."""
+    """在 modal 對話框開著的時候操作它 (透過 after 排進同一個事件迴圈, 一個做完才排下一個)."""
+
+    STEP_MS = 60          # 前一個動作做完到下一個動作之間
+    LEFT_OPEN_MS = 10000  # 動作都做完, 對話框還開著多久就算失敗並關掉
 
     def __init__(self, root, title):
         self.root = root
         self.title = title
         self.dlg = None
         self.error = None
-        self._flushing = False   # 正在 helper 自己的 update() 裡
+        self._todo = []
 
     def run(self, *actions):
-        """actions: 收 driver 的 callable, 依序排進事件迴圈執行."""
-        delay = 60
-        self.root.after(delay, self._attach)
-        for act in actions:
-            delay += 60
-            self.root.after(delay, self._wrap(act))
+        """actions: 收 driver 的 callable, 依序執行——前一個做完才排下一個.
 
-    def _wrap(self, act):
-        def go():
-            if self.error is not None:
-                return
-            if self._flushing:
-                # 前一個動作還在 helper 的 update() 裡 (它跑得比排程慢):
-                # 這時進來會插隊, 例如在 select 中途就按掉對話框——晚一點再跑
-                self.root.after(30, go)
-                return
-            try:
-                act(self)
-            except BaseException as e:       # 讓失敗浮出來, 不要卡在 modal
-                self.error = e
-                self.close()
-        return go
+        不能一開始就把每個動作排在固定時間: 對話框開得比間隔慢時好幾個計時器
+        同時到期, 延後重排保不住順序——曾經「確定」插隊到「在畫面上框選」前面,
+        確定沒過、對話框關不掉, 測試卡住等人來關 (2026-10-09)。
+        """
+        self._todo = list(actions)
+        self.root.after(self.STEP_MS, self._start)
+
+    def _start(self):
+        self._attach()
+        self._next()
+
+    def _next(self):
+        if self.error is not None:
+            return
+        if not self._todo:
+            self.root.after(self.LEFT_OPEN_MS, self._left_open)
+            return
+        act = self._todo.pop(0)
+        try:
+            act(self)
+        except BaseException as e:       # 讓失敗浮出來, 不要卡在 modal
+            self.error = e
+            self.close()
+            return
+        self.root.after(self.STEP_MS, self._next)
+
+    def _left_open(self):
+        """動作都做完了對話框還開著＝測試會一直等下去: 記成失敗並關掉, 不留給人關."""
+        if self.error is None and self.dlg is not None and self.dlg.winfo_exists():
+            self.error = AssertionError(
+                f"動作都做完了，對話框「{self.title}」還開著（例如確定沒通過）")
+            self.close()
 
     def _attach(self):
         for w in self.root.winfo_children():
@@ -167,12 +182,8 @@ class _Driver:
             self._update()
 
     def _update(self):
-        """處理對話框的待辦事件; 期間到期的下一個動作會被延後 (見 _wrap)."""
-        self._flushing = True
-        try:
-            self.dlg.update()
-        finally:
-            self._flushing = False
+        """處理對話框的待辦事件 (下一個動作要等這個動作做完才排, 不會在這裡插隊)."""
+        self.dlg.update()
 
     def info_text(self):
         for w in _all(self.dlg):
@@ -221,6 +232,56 @@ def _open(app, driver, *actions):
 
 
 TITLE = "選擇範本"
+
+
+# ---------- 互動驅動本身 ----------
+
+def _slow_dialog(root, title, build_ms, busy_ms):
+    """開一個建得很慢的 modal 對話框, 等它被關掉.
+
+    建 build_ms (driver 排好的計時器開好時有的已到期、有的還沒); 剛開時有一陣
+    事件 (3 個, 各花 busy_ms) 要處理——像真的對話框剛 map 時那樣。
+    """
+    import time
+    dlg = tk.Toplevel(root)
+    dlg.title(title)
+    time.sleep(build_ms / 1000)
+    left = [3]
+
+    def burst():
+        if dlg.winfo_exists() and left[0] > 0:
+            left[0] -= 1
+            time.sleep(busy_ms / 1000)
+            dlg.after(1, burst)
+    dlg.after(0, burst)
+    root.wait_window(dlg)
+
+
+# 舊的驅動 (一開始就把動作排在固定時間, 處理事件中到期的延後重排) 在這幾組
+# 每次都會亂序 (2026-10-09 量過: 2,1,3 / 1,3,2 / 3,2,1)
+@pytest.mark.parametrize("build_ms,busy_ms", [(150, 60), (220, 40), (250, 20)])
+def test_驅動照順序做動作_對話框開得慢也不插隊(picker, build_ms, busy_ms):
+    order = []
+
+    def step(k):
+        def act(dr):
+            order.append(k)
+            dr._update()
+        return act
+    d = _Driver(picker.root, "慢對話框")
+    d.run(step(1), step(2), step(3), lambda dr: dr.close())
+    _slow_dialog(picker.root, "慢對話框", build_ms, busy_ms)
+    assert d.error is None
+    assert order == [1, 2, 3]
+
+
+def test_動作做完對話框還開著_算失敗並關掉_不卡住(picker, monkeypatch):
+    monkeypatch.setattr(_Driver, "LEFT_OPEN_MS", 200)
+    d = _Driver(picker.root, "關不掉")
+    d.run(lambda dr: None)            # 例如按了確定卻沒通過
+    _slow_dialog(picker.root, "關不掉", build_ms=0, busy_ms=0)
+    assert isinstance(d.error, AssertionError)
+    assert "還開著" in str(d.error)
 
 
 # ---------- 樹狀來源 ----------
