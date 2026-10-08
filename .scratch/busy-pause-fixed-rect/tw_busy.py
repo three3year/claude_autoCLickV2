@@ -13,7 +13,8 @@
 - 沒有忙碌的影格 (相關 <0.3, demo2/demo3 每 25 幀抽一張) 要找不到。
 - 淡入淡出中間 (0.3–0.9) 的影格不算。
 結果寫 results/tw_busy.json。--apply: 換掉早_繁中的忙碌指示範本 (名稱、限定範圍不變),
-先備份、讀回驗證、草稿同步。晚_繁中用的若是同一張舊圖, 只回報不改 (規格不含晚班)。
+先備份、讀回驗證、草稿同步。晚_繁中 (規格不含晚班) 只在加 --evening 時一起換 (使用者 10/07
+看過新舊對照後決定換); 它的忙碌指示設定與搜尋範圍必須跟早_繁中一樣, 驗證才適用。
 """
 from __future__ import annotations
 
@@ -129,6 +130,8 @@ def original_image(name, flows):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="驗證通過後寫回早_繁中")
+    ap.add_argument("--evening", action="store_true",
+                    help="--apply 時晚_繁中也一起換 (使用者 10/07 決定)")
     ap.add_argument("--flows", default=common.FLOWS)
     args = ap.parse_args(argv)
 
@@ -176,11 +179,28 @@ def main(argv=None):
     if not args.apply:
         return 0
 
-    common.preflight(args.flows, common.ticket_backup("06"))
     blob = common.encode(new)
+    common.preflight(args.flows, common.ticket_backup("06"))
+    replace(path, name, blob, args.flows)
+    if args.evening:
+        # 使用者 10/07 決定晚班也換: 晚_繁中的忙碌指示設定與搜尋範圍要跟早_繁中一樣,
+        # 上面的驗證才適用
+        ev_path = common.flow_path(EVENING, args.flows)
+        if (ev_busy != busy
+                or ev["data"]["scanRegion"] != r["data"]["scanRegion"]):
+            raise SystemExit("晚_繁中的忙碌指示設定或搜尋範圍跟早_繁中不同: 驗證不適用, 不換")
+        common.preflight(args.flows, common.ticket_backup("06-evening"))
+        replace(ev_path, ev_busy["template"], blob, args.flows)
+    return 0
+
+
+def replace(path, name, blob, flows):
+    """把存檔裡的忙碌指示範本換成 blob (名稱、限定範圍不變); 已是新圖就不動."""
+    label = os.path.splitext(os.path.basename(path))[0]
+    r = flowfile.read(path)
     if r["images"][name] == blob:
-        print("早_繁中 已是新範本, 不動")
-        return 0
+        print(f"{label} 已是新範本, 不動")
+        return
     r["images"][name] = blob
     x, y, w, h = CROP
     ox, oy = common.LANGS["tw"]["offset"]   # pos 是螢幕座標
@@ -188,11 +208,9 @@ def main(argv=None):
     back = common.write_flow(path, r["data"], r["images"], r["pos"])
     if back["images"][name] != blob or back["data"]["steps"] != r["data"]["steps"]:
         raise SystemExit("讀回的內容與寫入的不同")
-    print("已換掉 早_繁中 的忙碌指示範本")
-    if common.sync_draft(path, os.path.dirname(args.flows)):
+    print(f"已換掉 {label} 的忙碌指示範本")
+    if common.sync_draft(path, os.path.dirname(flows)):
         print("    草稿與工作區已同步")
-    return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -1,5 +1,7 @@
 """票 06–08 的交付報告: 早_簡中、早_繁中的 .md 各加一節、重產步驟清單.
 
+晚_繁中的忙碌指示也換了 (使用者 10/07 決定) 時, 它的 .md 也加票 06 那一節。
+
     .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/report_0608.py [--flows 目錄]
 
 先跑 tw_busy.py、quick_place.py、fixed_rects.py (結果從 results/*.json 讀)。可以重跑:
@@ -41,7 +43,15 @@ def backup_name(ticket):
     return os.path.basename(common.ticket_backup(ticket))
 
 
-def section06(res):
+def evening_replaced(flows):
+    """晚_繁中的忙碌指示是不是已經換成早_繁中的新圖 (使用者 10/07 決定一起換)."""
+    def busy_img(name):
+        r = flowfile.read(common.flow_path(name, flows))
+        return r["images"].get(flowfile.busy_target(r["data"])["template"])
+    return busy_img("晚_繁中") == busy_img("早_繁中")
+
+
+def section06(res, evening):
     new, old = res["results"]["新"]["summary"], res["results"]["舊"]["summary"]
     src = res["source"]
 
@@ -64,7 +74,9 @@ def section06(res):
             "最高約 0.19，比較可能是那幾次點完 ⇌ 後 1 秒內根本沒出現忙碌（伺服器回得快），"
             "不一定是範本壞掉；實機位置跟影片完全一致（例如進駐總覽兩邊都是 (206,150)）。"
             "換成新範本是為了不靠運氣（沒有殘影），實跑時請看日誌 `busy_pause`／`busy_delay` 有沒有數值。",
-            "- 晚_繁中用的是同一張舊範本，這次沒有換（規格不含晚班）；要換請說。",
+            *(["- 晚_繁中用的是同一張舊範本，規格不含晚班；使用者 10/07 看過新舊對照後決定一起換"
+                f"（設定與搜尋範圍跟早班相同，上面的驗證適用；備份 `app/dist/{backup_name('06-evening')}/`）。"]
+              if evening else ["- 晚_繁中用的是同一張舊範本，這次沒有換（規格不含晚班）；要換請說。"]),
             f"- 修改前的備份：`app/dist/{backup_name('06')}/`",
             "- 腳本：`.scratch/busy-pause-fixed-rect/tw_busy.py`（可重跑；`--apply` 才寫回）", ""]
 
@@ -211,6 +223,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     tw = load("tw_busy.json")
     qp = load("quick_place.json")
+    evening = evening_replaced(args.flows)
     for name in common.MORNING:
         lang = LANG_OF[name]
         fr = load(f"fixed_rects_{lang}.json")
@@ -220,12 +233,22 @@ def main(argv=None):
         with open(md, encoding="utf-8") as f:
             text = f.read()
         if name == "早_繁中":
-            text = r05.replace_section(text, re.escape(H06), section06(tw), before_first_h2=True)
+            text = r05.replace_section(text, re.escape(H06), section06(tw, evening),
+                                       before_first_h2=True)
         text = r05.replace_section(text, re.escape(H07), section07(lang, qp),
                                    before_first_h2=True)
         text = r05.replace_section(text, re.escape(H08), section08(lang, fr),
                                    before_first_h2=True)
         text = r05.replace_section(text, r"## 步驟清單", step_table(steps) + [""])
+        with open(md, "w", encoding="utf-8") as f:
+            f.write(text.rstrip("\n") + "\n")
+        print(f"已更新 {md}")
+    if evening:   # 晚_繁中也換了忙碌指示: 它的報告加同一節 (步驟沒變, 步驟清單不動)
+        md = os.path.splitext(common.flow_path("晚_繁中", args.flows))[0] + ".md"
+        with open(md, encoding="utf-8") as f:
+            text = f.read()
+        text = r05.replace_section(text, re.escape(H06), section06(tw, evening),
+                                   before_first_h2=True)
         with open(md, "w", encoding="utf-8") as f:
             f.write(text.rstrip("\n") + "\n")
         print(f"已更新 {md}")
