@@ -1,0 +1,67 @@
+{
+ "orig": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\app\\dist\\profiles-backup-2026-10-08-credit-collect-confirm\\arknights\\flows",
+ "flow": [
+  {
+   "item": "步驟數不變",
+   "ok": true,
+   "note": "247 → 247"
+  },
+  {
+   "item": "只有收取信用那一步不同",
+   "ok": true,
+   "note": "不同的步驟：[124]（收取信用是第 124 步）"
+  },
+  {
+   "item": "只改三個欄位",
+   "ok": true,
+   "note": "改了：['confirm', 'confirmTarget', 'onNotFound']"
+  },
+  {
+   "item": "生效確認＝確認圖出現",
+   "ok": true,
+   "note": "appear"
+  },
+  {
+   "item": "找不到時＝跳出",
+   "ok": true,
+   "note": "break"
+  },
+  {
+   "item": "確認圖＝下一步的找圖目標",
+   "ok": true,
+   "note": "{\"template\": \"获得物资\", \"limit\": {\"kind\": \"rect\", \"x\": 0.4412, \"y\": 0.0543, \"w\": 0.1222, \"h\": 0.2391}}"
+  },
+  {
+   "item": "流程層級設定不變",
+   "ok": true,
+   "note": "相同"
+  },
+  {
+   "item": "範本不變",
+   "ok": true,
+   "note": "76 張"
+  },
+  {
+   "item": "區段完整",
+   "ok": true,
+   "note": "完整"
+  }
+ ],
+ "draft": [
+  {
+   "item": "草稿步驟與存檔相同",
+   "ok": true,
+   "note": "相同"
+  },
+  {
+   "item": "草稿設定與存檔相同",
+   "ok": true,
+   "note": "相同"
+  },
+  {
+   "item": "工作區範本與存檔相同",
+   "ok": true,
+   "note": "76 張"
+  }
+ ]
+}

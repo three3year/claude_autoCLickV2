@@ -1,0 +1,34 @@
+{
+ "flow": "早_繁中",
+ "step": 113,
+ "steps": 212,
+ "orig_flows": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\app\\dist\\profiles-backup-2026-10-08-credit-collect-confirm\\arknights\\flows",
+ "before": {
+  "confirm": "appear",
+  "confirmTarget": {
+   "template": "獲得物資",
+   "limit": {
+    "kind": "rect",
+    "x": 0.4531,
+    "y": 0.0488,
+    "w": 0.1068,
+    "h": 0.1875
+   }
+  },
+  "onNotFound": "break"
+ },
+ "after": {
+  "confirm": "appear",
+  "confirmTarget": {
+   "template": "獲得物資",
+   "limit": {
+    "kind": "rect",
+    "x": 0.4531,
+    "y": 0.0488,
+    "w": 0.1068,
+    "h": 0.1875
+   }
+  },
+  "onNotFound": "break"
+ }
+}
