@@ -1,0 +1,7381 @@
+{
+ "orig": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\app\\dist\\profiles-backup-2026-10-09-fixed-rect-sweep\\arknights\\flows",
+ "list_area": {
+  "clip_video": {
+   "top": 138,
+   "bottom": 1024,
+   "frames": 78,
+   "tops": [
+    [
+     138,
+     38
+    ],
+    [
+     140,
+     20
+    ],
+    [
+     144,
+     1
+    ],
+    [
+     188,
+     15
+    ],
+    [
+     190,
+     1
+    ],
+    [
+     202,
+     1
+    ],
+    [
+     210,
+     1
+    ],
+    [
+     218,
+     1
+    ]
+   ]
+  },
+  "screen": [
+   138,
+   1024
+  ]
+ },
+ "changes": [
+  {
+   "flow": "早_繁中",
+   "where": "busy",
+   "step": null,
+   "role": "busy",
+   "template": "忙碌指示",
+   "old": {
+    "kind": "grid",
+    "cells": [
+     8,
+     9
+    ]
+   },
+   "new": {
+    "kind": "rect",
+    "x": 0.5359,
+    "y": 0.8828,
+    "w": 0.1833,
+    "h": 0.1025
+   },
+   "box": [
+    1029,
+    904,
+    352,
+    105
+   ],
+   "kind": "busy"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "busy",
+   "step": null,
+   "role": "busy",
+   "template": "忙碌指示",
+   "old": {
+    "kind": "grid",
+    "cells": [
+     8,
+     9
+    ]
+   },
+   "new": {
+    "kind": "rect",
+    "x": 0.5359,
+    "y": 0.8828,
+    "w": 0.1833,
+    "h": 0.1025
+   },
+   "box": [
+    1029,
+    904,
+    352,
+    105
+   ],
+   "kind": "busy"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 2,
+   "role": "find",
+   "template": "基建BASE",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.7396,
+    "y": 0.7422,
+    "w": 0.0875,
+    "h": 0.166
+   },
+   "box": [
+    1420,
+    760,
+    168,
+    170
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 3,
+   "role": "find",
+   "template": "鈴鐺",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.9187,
+    "y": 0.0869,
+    "w": 0.0625,
+    "h": 0.1758
+   },
+   "box": [
+    1764,
+    89,
+    120,
+    180
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 6,
+   "role": "find",
+   "template": "可收穫",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.0833,
+    "y": 0.8984,
+    "w": 0.1224,
+    "h": 0.1016
+   },
+   "box": [
+    160,
+    920,
+    235,
+    128
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 8,
+   "role": "find",
+   "template": "訂單交付",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.0875,
+    "y": 0.8984,
+    "w": 0.1094,
+    "h": 0.1016
+   },
+   "box": [
+    168,
+    920,
+    210,
+    128
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 10,
+   "role": "find",
+   "template": "幹員信賴",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.0839,
+    "y": 0.8984,
+    "w": 0.1302,
+    "h": 0.1016
+   },
+   "box": [
+    161,
+    920,
+    250,
+    128
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 13,
+   "role": "find",
+   "template": "返回",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.001,
+    "y": 0.0225,
+    "w": 0.0573,
+    "h": 0.123
+   },
+   "box": [
+    2,
+    23,
+    110,
+    126
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 16,
+   "role": "find",
+   "template": "進駐總覽",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.0865,
+    "y": 0.1074,
+    "w": 0.0792,
+    "h": 0.1406
+   },
+   "box": [
+    166,
+    110,
+    152,
+    144
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 19,
+   "role": "find",
+   "template": "無人機加速",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.9292,
+    "y": 0.6719,
+    "w": 0.0667,
+    "h": 0.125
+   },
+   "box": [
+    1784,
+    688,
+    128,
+    128
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 20,
+   "role": "find",
+   "template": "最多",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.612,
+    "y": 0.4199,
+    "w": 0.1406,
+    "h": 0.1387
+   },
+   "box": [
+    1175,
+    430,
+    270,
+    142
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 22,
+   "role": "find",
+   "template": "確定",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.7,
+    "y": 0.7295,
+    "w": 0.0807,
+    "h": 0.1152
+   },
+   "box": [
+    1344,
+    747,
+    155,
+    118
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 23,
+   "role": "find",
+   "template": "收取",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.8313,
+    "y": 0.7871,
+    "w": 0.1094,
+    "h": 0.1426
+   },
+   "box": [
+    1596,
+    806,
+    210,
+    146
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 25,
+   "role": "find",
+   "template": "返回",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.001,
+    "y": 0.0244,
+    "w": 0.0568,
+    "h": 0.1211
+   },
+   "box": [
+    2,
+    25,
+    109,
+    124
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 27,
+   "role": "find",
+   "template": "返回",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.001,
+    "y": 0.0225,
+    "w": 0.0573,
+    "h": 0.123
+   },
+   "box": [
+    2,
+    23,
+    110,
+    126
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 28,
+   "role": "find",
+   "template": "進駐總覽",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.0865,
+    "y": 0.1074,
+    "w": 0.0792,
+    "h": 0.1406
+   },
+   "box": [
+    166,
+    110,
+    152,
+    144
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 29,
+   "role": "find",
+   "template": "非工作區",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.8323,
+    "y": 0.0156,
+    "w": 0.0729,
+    "h": 0.1328
+   },
+   "box": [
+    1598,
+    16,
+    140,
+    136
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 60,
+   "role": "find",
+   "template": "非工作區",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.8323,
+    "y": 0.0156,
+    "w": 0.0729,
+    "h": 0.1328
+   },
+   "box": [
+    1598,
+    16,
+    140,
+    136
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 61,
+   "role": "find",
+   "template": "幹員休息",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.8396,
+    "y": 0.8691,
+    "w": 0.0854,
+    "h": 0.1309
+   },
+   "box": [
+    1612,
+    890,
+    164,
+    144
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 63,
+   "role": "find",
+   "template": "導航",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.1375,
+    "y": 0.0195,
+    "w": 0.0771,
+    "h": 0.123
+   },
+   "box": [
+    264,
+    20,
+    148,
+    126
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 64,
+   "role": "find",
+   "template": "公開招募",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.6667,
+    "y": 0.3154,
+    "w": 0.074,
+    "h": 0.1348
+   },
+   "box": [
+    1280,
+    323,
+    142,
+    138
+   ],
+   "kind": "fixed"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 32,
+   "role": "find",
+   "template": "製造站1列",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "kind": "list"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 34,
+   "role": "find",
+   "template": "製造站1列",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "kind": "list"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 37,
+   "role": "find",
+   "template": "貿易站1列",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "kind": "list"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 42,
+   "role": "find",
+   "template": "貿易站1列",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "kind": "list"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 44,
+   "role": "find",
+   "template": "貿易站1列",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "kind": "list"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 47,
+   "role": "find",
+   "template": "發電站1列",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "kind": "list"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 53,
+   "role": "find",
+   "template": "發電站1列",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "kind": "list"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "target",
+   "step": 56,
+   "role": "find",
+   "template": "發電站1列",
+   "old": null,
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "kind": "list"
+  },
+  {
+   "flow": "晚_繁中",
+   "where": "confirm",
+   "step": 3,
+   "role": "confirm_appear",
+   "template": "待辦事項",
+   "old": {
+    "kind": "grid",
+    "cells": [
+     7
+    ]
+   },
+   "new": {
+    "kind": "rect",
+    "x": 0.0,
+    "y": 0.9004,
+    "w": 0.1198,
+    "h": 0.0996
+   },
+   "box": [
+    -30,
+    922,
+    260,
+    122
+   ],
+   "kind": "fixed"
+  }
+ ],
+ "checks": [
+  {
+   "flow": "早_繁中",
+   "step": null,
+   "where": "busy",
+   "role": "busy",
+   "template": "忙碌指示",
+   "kind": "busy",
+   "box": [
+    1029,
+    904,
+    352,
+    105
+   ],
+   "limit_px": [
+    1029,
+    904,
+    352,
+    105
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.5359,
+    "y": 0.8828,
+    "w": 0.1833,
+    "h": 0.1025
+   },
+   "old": {
+    "kind": "grid",
+    "cells": [
+     8,
+     9
+    ]
+   },
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 852,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.966,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 426,
+     "ms_new": 281,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 855,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.967,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 435,
+     "ms_new": 299,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 858,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.967,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 427,
+     "ms_new": 309,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 1992,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 371,
+     "ms_new": 309,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2055,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 361,
+     "ms_new": 296,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2124,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 375,
+     "ms_new": 402,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2226,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.994,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 368,
+     "ms_new": 308,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2295,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 375,
+     "ms_new": 554,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2367,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 356,
+     "ms_new": 300,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2442,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 364,
+     "ms_new": 287,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2544,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.997,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 351,
+     "ms_new": 294,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2625,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 389,
+     "ms_new": 291,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 121,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 383,
+   "ms_new": 328,
+   "ok": true,
+   "negative": [
+    {
+     "video": "demo3",
+     "frame": 0,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 367,
+     "ms_new": 84,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 25,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 259,
+     "ms_new": 76,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 50,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 224,
+     "ms_new": 80,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 75,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 236,
+     "ms_new": 81,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 100,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 244,
+     "ms_new": 184,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 125,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 279,
+     "ms_new": 153,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 150,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 271,
+     "ms_new": 140,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 175,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 284,
+     "ms_new": 148,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 200,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 154,
+     "ms_new": 214,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 225,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 118,
+     "ms_new": 141,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 250,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 127,
+     "ms_new": 136,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 275,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 119,
+     "ms_new": 134,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 300,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 132,
+     "ms_new": 187,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 325,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 232,
+     "ms_new": 87,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 350,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 399,
+     "ms_new": 65,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 375,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 226,
+     "ms_new": 57,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 400,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 346,
+     "ms_new": 73,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 425,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 299,
+     "ms_new": 56,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 450,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 109,
+     "ms_new": 316,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 475,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 127,
+     "ms_new": 261,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 500,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 240,
+     "ms_new": 138,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 525,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 211,
+     "ms_new": 118,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 550,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 217,
+     "ms_new": 75,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 575,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 422,
+     "ms_new": 65,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 600,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 122,
+     "ms_new": 211,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 625,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 196,
+     "ms_new": 136,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 650,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 480,
+     "ms_new": 115,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 675,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 272,
+     "ms_new": 186,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 700,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 300,
+     "ms_new": 131,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 725,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 195,
+     "ms_new": 123,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 750,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 212,
+     "ms_new": 116,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 775,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 269,
+     "ms_new": 119,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 800,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 272,
+     "ms_new": 130,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 825,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 246,
+     "ms_new": 71,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 875,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 262,
+     "ms_new": 80,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 900,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 237,
+     "ms_new": 73,
+     "ok": true
+    }
+   ],
+   "negative_skipped": []
+  },
+  {
+   "flow": "晚_繁中",
+   "step": null,
+   "where": "busy",
+   "role": "busy",
+   "template": "忙碌指示",
+   "kind": "busy",
+   "box": [
+    1029,
+    904,
+    352,
+    105
+   ],
+   "limit_px": [
+    1029,
+    904,
+    352,
+    105
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.5359,
+    "y": 0.8828,
+    "w": 0.1833,
+    "h": 0.1025
+   },
+   "old": {
+    "kind": "grid",
+    "cells": [
+     8,
+     9
+    ]
+   },
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 852,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.966,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 426,
+     "ms_new": 281,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 855,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.967,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 435,
+     "ms_new": 299,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 858,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.967,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 427,
+     "ms_new": 309,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 1992,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 371,
+     "ms_new": 309,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2055,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 361,
+     "ms_new": 296,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2124,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 375,
+     "ms_new": 402,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2226,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.994,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 368,
+     "ms_new": 308,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2295,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 375,
+     "ms_new": 554,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2367,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 356,
+     "ms_new": 300,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2442,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 364,
+     "ms_new": 287,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2544,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.997,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 351,
+     "ms_new": 294,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo2",
+     "frame": 2625,
+     "old": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "new": [
+      1069,
+      944,
+      272,
+      25
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 6.2,
+     "ms_old": 389,
+     "ms_new": 291,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 121,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 383,
+   "ms_new": 328,
+   "ok": true,
+   "negative": [
+    {
+     "video": "demo3",
+     "frame": 0,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 367,
+     "ms_new": 84,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 25,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 259,
+     "ms_new": 76,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 50,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 224,
+     "ms_new": 80,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 75,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 236,
+     "ms_new": 81,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 100,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 244,
+     "ms_new": 184,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 125,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 279,
+     "ms_new": 153,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 150,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 271,
+     "ms_new": 140,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 175,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 284,
+     "ms_new": 148,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 200,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 154,
+     "ms_new": 214,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 225,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 118,
+     "ms_new": 141,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 250,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 127,
+     "ms_new": 136,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 275,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 119,
+     "ms_new": 134,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 300,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 132,
+     "ms_new": 187,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 325,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 232,
+     "ms_new": 87,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 350,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 399,
+     "ms_new": 65,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 375,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 226,
+     "ms_new": 57,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 400,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 346,
+     "ms_new": 73,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 425,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 299,
+     "ms_new": 56,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 450,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 109,
+     "ms_new": 316,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 475,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 127,
+     "ms_new": 261,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 500,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 240,
+     "ms_new": 138,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 525,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 211,
+     "ms_new": 118,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 550,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 217,
+     "ms_new": 75,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 575,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 422,
+     "ms_new": 65,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 600,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 122,
+     "ms_new": 211,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 625,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 196,
+     "ms_new": 136,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 650,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 480,
+     "ms_new": 115,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 675,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 272,
+     "ms_new": 186,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 700,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 300,
+     "ms_new": 131,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 725,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 195,
+     "ms_new": 123,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 750,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 212,
+     "ms_new": 116,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 775,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 269,
+     "ms_new": 119,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 800,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 272,
+     "ms_new": 130,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 825,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 246,
+     "ms_new": 71,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 875,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 262,
+     "ms_new": 80,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 900,
+     "old_found": false,
+     "new_found": false,
+     "ms_old": 237,
+     "ms_new": 73,
+     "ok": true
+    }
+   ],
+   "negative_skipped": [],
+   "shared_with": "早_繁中 busy"
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 2,
+   "where": "target",
+   "role": "find",
+   "template": "基建BASE",
+   "kind": "fixed",
+   "box": [
+    1420,
+    760,
+    168,
+    170
+   ],
+   "limit_px": [
+    1420,
+    760,
+    168,
+    170
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.7396,
+    "y": 0.7422,
+    "w": 0.0875,
+    "h": 0.166
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 0,
+     "old": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "new": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 22.0,
+     "ms_old": 529,
+     "ms_new": 358,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 3,
+     "old": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "new": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 22.0,
+     "ms_old": 610,
+     "ms_new": 353,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 6,
+     "old": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "new": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 22.0,
+     "ms_old": 549,
+     "ms_new": 327,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 9,
+     "old": [
+      1465,
+      811,
+      88,
+      90
+     ],
+     "new": [
+      1465,
+      811,
+      88,
+      90
+     ],
+     "score": 0.991,
+     "dist": 0.0,
+     "tol": 22.0,
+     "ms_old": 556,
+     "ms_new": 345,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 4,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 561,
+   "ms_new": 346,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 3,
+   "where": "target",
+   "role": "find",
+   "template": "鈴鐺",
+   "kind": "fixed",
+   "box": [
+    1764,
+    89,
+    120,
+    180
+   ],
+   "limit_px": [
+    1764,
+    89,
+    120,
+    180
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.9187,
+    "y": 0.0869,
+    "w": 0.0625,
+    "h": 0.1758
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 96,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 10.0,
+     "ms_old": 462,
+     "ms_new": 252,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 99,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "score": 0.987,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 639,
+     "ms_new": 272,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 174,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "score": 0.925,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 615,
+     "ms_new": 269,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 177,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "score": 0.925,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 547,
+     "ms_new": 315,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 180,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "score": 0.9,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 635,
+     "ms_new": 270,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 183,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "score": 0.984,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 547,
+     "ms_new": 262,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 7,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 597,
+   "ms_new": 278,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 6,
+   "where": "target",
+   "role": "find",
+   "template": "可收穫",
+   "kind": "fixed",
+   "box": [
+    160,
+    920,
+    235,
+    128
+   ],
+   "limit_px": [
+    160,
+    920,
+    235,
+    104
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.0833,
+    "y": 0.8984,
+    "w": 0.1224,
+    "h": 0.1016
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 195,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 678,
+     "ms_new": 408,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 201,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 569,
+     "ms_new": 318,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 207,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 690,
+     "ms_new": 312,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 219,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "score": 0.875,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 676,
+     "ms_new": 321,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 225,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "score": 0.887,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 664,
+     "ms_new": 329,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 231,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "score": 0.869,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 685,
+     "ms_new": 343,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 12,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 660,
+   "ms_new": 338,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 8,
+   "where": "target",
+   "role": "find",
+   "template": "訂單交付",
+   "kind": "fixed",
+   "box": [
+    168,
+    920,
+    210,
+    128
+   ],
+   "limit_px": [
+    168,
+    920,
+    210,
+    104
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.0875,
+    "y": 0.8984,
+    "w": 0.1094,
+    "h": 0.1016
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 195,
+     "old": [
+      405,
+      960,
+      130,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 640,
+     "ms_new": 84,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 204,
+     "old": [
+      405,
+      960,
+      130,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 508,
+     "ms_new": 87,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 213,
+     "old": [
+      405,
+      960,
+      130,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 598,
+     "ms_new": 156,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 225,
+     "old": [
+      405,
+      960,
+      130,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 482,
+     "ms_new": 176,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 234,
+     "old": [
+      347,
+      960,
+      130,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 469,
+     "ms_new": 85,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 243,
+     "old": [
+      208,
+      960,
+      130,
+      48
+     ],
+     "new": [
+      208,
+      960,
+      130,
+      48
+     ],
+     "score": 0.845,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 532,
+     "ms_new": 307,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 20,
+   "mismatch_groups": [
+    {
+     "center": [
+      470,
+      984
+     ],
+     "count": 14,
+     "frames": [
+      [
+       "demo3",
+       192
+      ],
+      [
+       "demo3",
+       195
+      ],
+      [
+       "demo3",
+       198
+      ]
+     ]
+    },
+    {
+     "center": [
+      411,
+      984
+     ],
+     "count": 1,
+     "frames": [
+      [
+       "demo3",
+       234
+      ]
+     ]
+    }
+   ],
+   "outside": [
+    [
+     "demo3",
+     195,
+     [
+      405,
+      960,
+      130,
+      48
+     ]
+    ],
+    [
+     "demo3",
+     204,
+     [
+      405,
+      960,
+      130,
+      48
+     ]
+    ],
+    [
+     "demo3",
+     213,
+     [
+      405,
+      960,
+      130,
+      48
+     ]
+    ],
+    [
+     "demo3",
+     225,
+     [
+      405,
+      960,
+      130,
+      48
+     ]
+    ],
+    [
+     "demo3",
+     234,
+     [
+      347,
+      960,
+      130,
+      48
+     ]
+    ]
+   ],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 532,
+   "ms_new": 307,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 10,
+   "where": "target",
+   "role": "find",
+   "template": "幹員信賴",
+   "kind": "fixed",
+   "box": [
+    161,
+    920,
+    250,
+    128
+   ],
+   "limit_px": [
+    161,
+    920,
+    250,
+    104
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.0839,
+    "y": 0.8984,
+    "w": 0.1302,
+    "h": 0.1016
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 198,
+     "old": [
+      596,
+      960,
+      170,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 708,
+     "ms_new": 109,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 210,
+     "old": [
+      596,
+      960,
+      170,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 463,
+     "ms_new": 106,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 225,
+     "old": [
+      596,
+      960,
+      170,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 505,
+     "ms_new": 234,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 240,
+     "old": [
+      399,
+      960,
+      170,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 714,
+     "ms_new": 191,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 258,
+     "old": [
+      366,
+      960,
+      170,
+      48
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 12.0,
+     "ms_old": 772,
+     "ms_new": 94,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 273,
+     "old": [
+      201,
+      960,
+      170,
+      48
+     ],
+     "new": [
+      201,
+      960,
+      170,
+      48
+     ],
+     "score": 0.928,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 518,
+     "ms_new": 182,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 28,
+   "mismatch_groups": [
+    {
+     "center": [
+      681,
+      984
+     ],
+     "count": 14,
+     "frames": [
+      [
+       "demo3",
+       192
+      ],
+      [
+       "demo3",
+       195
+      ],
+      [
+       "demo3",
+       198
+      ]
+     ]
+    },
+    {
+     "center": [
+      622,
+      984
+     ],
+     "count": 1,
+     "frames": [
+      [
+       "demo3",
+       234
+      ]
+     ]
+    },
+    {
+     "center": [
+      484,
+      984
+     ],
+     "count": 5,
+     "frames": [
+      [
+       "demo3",
+       237
+      ],
+      [
+       "demo3",
+       240
+      ],
+      [
+       "demo3",
+       243
+      ]
+     ]
+    },
+    {
+     "center": [
+      451,
+      984
+     ],
+     "count": 1,
+     "frames": [
+      [
+       "demo3",
+       258
+      ]
+     ]
+    }
+   ],
+   "outside": [
+    [
+     "demo3",
+     198,
+     [
+      596,
+      960,
+      170,
+      48
+     ]
+    ],
+    [
+     "demo3",
+     210,
+     [
+      596,
+      960,
+      170,
+      48
+     ]
+    ],
+    [
+     "demo3",
+     225,
+     [
+      596,
+      960,
+      170,
+      48
+     ]
+    ],
+    [
+     "demo3",
+     240,
+     [
+      399,
+      960,
+      170,
+      48
+     ]
+    ],
+    [
+     "demo3",
+     258,
+     [
+      366,
+      960,
+      170,
+      48
+     ]
+    ]
+   ],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 518,
+   "ms_new": 182,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 13,
+   "where": "target",
+   "role": "find",
+   "template": "返回",
+   "kind": "fixed",
+   "box": [
+    2,
+    23,
+    110,
+    126
+   ],
+   "limit_px": [
+    2,
+    23,
+    110,
+    126
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.001,
+    "y": 0.0225,
+    "w": 0.0573,
+    "h": 0.123
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 156,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 285,
+     "ms_new": 114,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 276,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 197,
+     "ms_new": 121,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 423,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 199,
+     "ms_new": 101,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 546,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 221,
+     "ms_new": 121,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 666,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 277,
+     "ms_new": 122,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 789,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 208,
+     "ms_new": 89,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 244,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 231,
+   "ms_new": 111,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 16,
+   "where": "target",
+   "role": "find",
+   "template": "進駐總覽",
+   "kind": "fixed",
+   "box": [
+    166,
+    110,
+    152,
+    144
+   ],
+   "limit_px": [
+    166,
+    110,
+    152,
+    144
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.0865,
+    "y": 0.1074,
+    "w": 0.0792,
+    "h": 0.1406
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 111,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.998,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 233,
+     "ms_new": 141,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 141,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 176,
+     "ms_new": 108,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 174,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 221,
+     "ms_new": 131,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 297,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 232,
+     "ms_new": 129,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 432,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 252,
+     "ms_new": 128,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 465,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 242,
+     "ms_new": 143,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 65,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 226,
+   "ms_new": 130,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 19,
+   "where": "target",
+   "role": "find",
+   "template": "無人機加速",
+   "kind": "fixed",
+   "box": [
+    1784,
+    688,
+    128,
+    128
+   ],
+   "limit_px": [
+    1784,
+    688,
+    128,
+    128
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.9292,
+    "y": 0.6719,
+    "w": 0.0667,
+    "h": 0.125
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 351,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 229,
+     "ms_new": 126,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 360,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "score": 0.978,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 498,
+     "ms_new": 316,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 396,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 568,
+     "ms_new": 260,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 405,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 557,
+     "ms_new": 318,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 411,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 586,
+     "ms_new": 309,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 417,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 12.0,
+     "ms_old": 506,
+     "ms_new": 277,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 14,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 491,
+   "ms_new": 268,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 20,
+   "where": "target",
+   "role": "find",
+   "template": "最多",
+   "kind": "fixed",
+   "box": [
+    1175,
+    430,
+    270,
+    142
+   ],
+   "limit_px": [
+    1175,
+    430,
+    270,
+    142
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.612,
+    "y": 0.4199,
+    "w": 0.1406,
+    "h": 0.1387
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 366,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "score": 0.994,
+     "dist": 0.0,
+     "tol": 15.5,
+     "ms_old": 601,
+     "ms_new": 537,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 369,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 15.5,
+     "ms_old": 557,
+     "ms_new": 829,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 375,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 15.5,
+     "ms_old": 949,
+     "ms_new": 411,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 378,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "score": 0.982,
+     "dist": 0.0,
+     "tol": 15.5,
+     "ms_old": 1127,
+     "ms_new": 445,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 384,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "score": 0.964,
+     "dist": 0.0,
+     "tol": 15.5,
+     "ms_old": 963,
+     "ms_new": 356,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 387,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "score": 0.964,
+     "dist": 0.0,
+     "tol": 15.5,
+     "ms_old": 833,
+     "ms_new": 435,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 9,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 838,
+   "ms_new": 502,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 22,
+   "where": "target",
+   "role": "find",
+   "template": "確定",
+   "kind": "fixed",
+   "box": [
+    1344,
+    747,
+    155,
+    118
+   ],
+   "limit_px": [
+    1344,
+    747,
+    155,
+    118
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.7,
+    "y": 0.7295,
+    "w": 0.0807,
+    "h": 0.1152
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 366,
+     "old": [
+      1384,
+      787,
+      75,
+      38
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "score": 0.994,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 543,
+     "ms_new": 288,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 369,
+     "old": [
+      1384,
+      787,
+      75,
+      38
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 470,
+     "ms_new": 248,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 372,
+     "old": [
+      1384,
+      787,
+      75,
+      38
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 671,
+     "ms_new": 289,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 375,
+     "old": [
+      1384,
+      787,
+      75,
+      38
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 477,
+     "ms_new": 291,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 378,
+     "old": [
+      1384,
+      787,
+      75,
+      38
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 498,
+     "ms_new": 265,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 381,
+     "old": [
+      1384,
+      787,
+      75,
+      38
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 435,
+     "ms_new": 244,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 7,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 516,
+   "ms_new": 271,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 23,
+   "where": "target",
+   "role": "find",
+   "template": "收取",
+   "kind": "fixed",
+   "box": [
+    1596,
+    806,
+    210,
+    146
+   ],
+   "limit_px": [
+    1596,
+    806,
+    210,
+    146
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.8313,
+    "y": 0.7871,
+    "w": 0.1094,
+    "h": 0.1426
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 351,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 16.5,
+     "ms_old": 466,
+     "ms_new": 322,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 357,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 16.5,
+     "ms_old": 479,
+     "ms_new": 360,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 363,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 16.5,
+     "ms_old": 551,
+     "ms_new": 364,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 408,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "score": 0.997,
+     "dist": 0.0,
+     "tol": 16.5,
+     "ms_old": 475,
+     "ms_new": 320,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 414,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "score": 0.997,
+     "dist": 0.0,
+     "tol": 16.5,
+     "ms_old": 488,
+     "ms_new": 372,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 420,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "score": 0.969,
+     "dist": 0.0,
+     "tol": 16.5,
+     "ms_old": 747,
+     "ms_new": 325,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 12,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 534,
+   "ms_new": 344,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 25,
+   "where": "target",
+   "role": "find",
+   "template": "返回",
+   "kind": "fixed",
+   "box": [
+    2,
+    25,
+    109,
+    124
+   ],
+   "limit_px": [
+    2,
+    25,
+    109,
+    124
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.001,
+    "y": 0.0244,
+    "w": 0.0568,
+    "h": 0.1211
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 156,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 612,
+     "ms_new": 215,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 276,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 366,
+     "ms_new": 230,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 423,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 413,
+     "ms_new": 230,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 546,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 429,
+     "ms_new": 234,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 666,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 514,
+     "ms_new": 226,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 789,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 883,
+     "ms_new": 237,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 244,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 536,
+   "ms_new": 229,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 27,
+   "where": "target",
+   "role": "find",
+   "template": "返回",
+   "kind": "fixed",
+   "box": [
+    2,
+    23,
+    110,
+    126
+   ],
+   "limit_px": [
+    2,
+    23,
+    110,
+    126
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.001,
+    "y": 0.0225,
+    "w": 0.0573,
+    "h": 0.123
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 156,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.996,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 554,
+     "ms_new": 311,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 276,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 428,
+     "ms_new": 247,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 423,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 443,
+     "ms_new": 221,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 546,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 385,
+     "ms_new": 218,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 666,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 502,
+     "ms_new": 239,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 789,
+     "old": [
+      42,
+      63,
+      31,
+      48
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 7.5,
+     "ms_old": 442,
+     "ms_new": 241,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 244,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 459,
+   "ms_new": 246,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 28,
+   "where": "target",
+   "role": "find",
+   "template": "進駐總覽",
+   "kind": "fixed",
+   "box": [
+    166,
+    110,
+    152,
+    144
+   ],
+   "limit_px": [
+    166,
+    110,
+    152,
+    144
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.0865,
+    "y": 0.1074,
+    "w": 0.0792,
+    "h": 0.1406
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 111,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.998,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 538,
+     "ms_new": 300,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 141,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 579,
+     "ms_new": 291,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 174,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 401,
+     "ms_new": 277,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 297,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 536,
+     "ms_new": 273,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 432,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 486,
+     "ms_new": 344,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 465,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 465,
+     "ms_new": 354,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 65,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 501,
+   "ms_new": 306,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 29,
+   "where": "target",
+   "role": "find",
+   "template": "非工作區",
+   "kind": "fixed",
+   "box": [
+    1598,
+    16,
+    140,
+    136
+   ],
+   "limit_px": [
+    1598,
+    16,
+    140,
+    136
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.8323,
+    "y": 0.0156,
+    "w": 0.0729,
+    "h": 0.1328
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 510,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 377,
+     "ms_new": 271,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 564,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 399,
+     "ms_new": 263,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 618,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 404,
+     "ms_new": 281,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 672,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 413,
+     "ms_new": 270,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 726,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 0.961,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 393,
+     "ms_new": 270,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 780,
+     "old": [
+      1516,
+      142,
+      60,
+      56
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 14.0,
+     "ms_old": 474,
+     "ms_new": 89,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 109,
+   "mismatch_groups": [
+    {
+     "center": [
+      1546,
+      170
+     ],
+     "count": 12,
+     "frames": [
+      [
+       "demo3",
+       774
+      ],
+      [
+       "demo3",
+       777
+      ],
+      [
+       "demo3",
+       780
+      ]
+     ]
+    }
+   ],
+   "outside": [
+    [
+     "demo3",
+     780,
+     [
+      1516,
+      142,
+      60,
+      56
+     ]
+    ]
+   ],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 397,
+   "ms_new": 271,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 60,
+   "where": "target",
+   "role": "find",
+   "template": "非工作區",
+   "kind": "fixed",
+   "box": [
+    1598,
+    16,
+    140,
+    136
+   ],
+   "limit_px": [
+    1598,
+    16,
+    140,
+    136
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.8323,
+    "y": 0.0156,
+    "w": 0.0729,
+    "h": 0.1328
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 510,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 397,
+     "ms_new": 274,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 564,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 415,
+     "ms_new": 275,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 618,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 438,
+     "ms_new": 265,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 672,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 385,
+     "ms_new": 264,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 726,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "score": 0.961,
+     "dist": 0.0,
+     "tol": 14.0,
+     "ms_old": 423,
+     "ms_new": 333,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 780,
+     "old": [
+      1516,
+      142,
+      60,
+      56
+     ],
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 14.0,
+     "ms_old": 401,
+     "ms_new": 80,
+     "valid": false,
+     "outside": true,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 109,
+   "mismatch_groups": [
+    {
+     "center": [
+      1546,
+      170
+     ],
+     "count": 12,
+     "frames": [
+      [
+       "demo3",
+       774
+      ],
+      [
+       "demo3",
+       777
+      ],
+      [
+       "demo3",
+       780
+      ]
+     ]
+    }
+   ],
+   "outside": [
+    [
+     "demo3",
+     780,
+     [
+      1516,
+      142,
+      60,
+      56
+     ]
+    ]
+   ],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 412,
+   "ms_new": 282,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 61,
+   "where": "target",
+   "role": "find",
+   "template": "幹員休息",
+   "kind": "fixed",
+   "box": [
+    1612,
+    890,
+    164,
+    144
+   ],
+   "limit_px": [
+    1612,
+    890,
+    164,
+    134
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.8396,
+    "y": 0.8691,
+    "w": 0.0854,
+    "h": 0.1309
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 723,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 433,
+     "ms_new": 293,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 735,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 463,
+     "ms_new": 309,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 765,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "score": 0.873,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 470,
+     "ms_new": 282,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 777,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "score": 0.873,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 589,
+     "ms_new": 279,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 792,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "score": 0.873,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 552,
+     "ms_new": 275,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 804,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "score": 0.917,
+     "dist": 0.0,
+     "tol": 16.0,
+     "ms_old": 553,
+     "ms_new": 287,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 27,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 510,
+   "ms_new": 288,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 63,
+   "where": "target",
+   "role": "find",
+   "template": "導航",
+   "kind": "fixed",
+   "box": [
+    264,
+    20,
+    148,
+    126
+   ],
+   "limit_px": [
+    264,
+    20,
+    148,
+    126
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.1375,
+    "y": 0.0195,
+    "w": 0.0771,
+    "h": 0.123
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 156,
+     "old": [
+      304,
+      59,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      59,
+      68,
+      46
+     ],
+     "score": 0.994,
+     "dist": 0.0,
+     "tol": 11.5,
+     "ms_old": 483,
+     "ms_new": 272,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 276,
+     "old": [
+      304,
+      59,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      59,
+      68,
+      46
+     ],
+     "score": 0.993,
+     "dist": 0.0,
+     "tol": 11.5,
+     "ms_old": 416,
+     "ms_new": 250,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 420,
+     "old": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "score": 0.99,
+     "dist": 0.0,
+     "tol": 11.5,
+     "ms_old": 571,
+     "ms_new": 280,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 540,
+     "old": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 11.5,
+     "ms_old": 553,
+     "ms_new": 264,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 660,
+     "old": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 11.5,
+     "ms_old": 471,
+     "ms_new": 268,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 795,
+     "old": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 11.5,
+     "ms_old": 546,
+     "ms_new": 249,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 241,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 507,
+   "ms_new": 264,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 64,
+   "where": "target",
+   "role": "find",
+   "template": "公開招募",
+   "kind": "fixed",
+   "box": [
+    1280,
+    323,
+    142,
+    138
+   ],
+   "limit_px": [
+    1280,
+    323,
+    142,
+    138
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.6667,
+    "y": 0.3154,
+    "w": 0.074,
+    "h": 0.1348
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 777,
+     "old": [
+      1320,
+      358,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      358,
+      62,
+      58
+     ],
+     "score": 0.984,
+     "dist": 0.0,
+     "tol": 14.5,
+     "ms_old": 439,
+     "ms_new": 188,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 783,
+     "old": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.5,
+     "ms_old": 368,
+     "ms_new": 192,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 789,
+     "old": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.5,
+     "ms_old": 327,
+     "ms_new": 167,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 795,
+     "old": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 14.5,
+     "ms_old": 292,
+     "ms_new": 160,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 801,
+     "old": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "score": 0.99,
+     "dist": 0.0,
+     "tol": 14.5,
+     "ms_old": 307,
+     "ms_new": 184,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 810,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 14.5,
+     "ms_old": 549,
+     "ms_new": 51,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 12,
+   "mismatch_groups": [
+    {
+     "center": [
+      1351,
+      226
+     ],
+     "count": 1,
+     "frames": [
+      [
+       "demo3",
+       774
+      ]
+     ]
+    },
+    {
+     "center": [
+      1351,
+      145
+     ],
+     "count": 1,
+     "frames": [
+      [
+       "demo3",
+       810
+      ]
+     ]
+    }
+   ],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 347,
+   "ms_new": 178,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 32,
+   "where": "target",
+   "role": "find",
+   "template": "製造站1列",
+   "kind": "list",
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "limit_px": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 489,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 691,
+     "ms_new": 682,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 504,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 504,
+     "ms_new": 571,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 522,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 492,
+     "ms_new": 531,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 540,
+     "old": [
+      884,
+      141,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      141,
+      160,
+      40
+     ],
+     "score": 0.99,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 1644,
+     "ms_new": 1272,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 558,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 10.0,
+     "ms_old": 1252,
+     "ms_new": 795,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 576,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 10.0,
+     "ms_old": 973,
+     "ms_new": 716,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 35,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 833,
+   "ms_new": 764,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 34,
+   "where": "target",
+   "role": "find",
+   "template": "製造站1列",
+   "kind": "list",
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "limit_px": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 489,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 488,
+     "ms_new": 535,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 504,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 464,
+     "ms_new": 567,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 522,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 486,
+     "ms_new": 540,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 540,
+     "old": [
+      884,
+      141,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      141,
+      160,
+      40
+     ],
+     "score": 0.99,
+     "dist": 0.0,
+     "tol": 10.0,
+     "ms_old": 897,
+     "ms_new": 874,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 558,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 10.0,
+     "ms_old": 730,
+     "ms_new": 694,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 576,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 10.0,
+     "ms_old": 720,
+     "ms_new": 655,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 35,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 584,
+   "ms_new": 629,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 37,
+   "where": "target",
+   "role": "find",
+   "template": "貿易站1列",
+   "kind": "list",
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "limit_px": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 549,
+     "old": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 347,
+     "ms_new": 620,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 570,
+     "old": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 346,
+     "ms_new": 614,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 591,
+     "old": [
+      884,
+      356,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      356,
+      160,
+      36
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 658,
+     "ms_new": 797,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 612,
+     "old": [
+      884,
+      232,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      232,
+      160,
+      36
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 724,
+     "ms_new": 683,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 681,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 507,
+     "ms_new": 565,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 702,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 401,
+     "ms_new": 568,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 43,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 519,
+   "ms_new": 678,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 42,
+   "where": "target",
+   "role": "find",
+   "template": "貿易站1列",
+   "kind": "list",
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "limit_px": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 549,
+     "old": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 353,
+     "ms_new": 639,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 570,
+     "old": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 388,
+     "ms_new": 629,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 591,
+     "old": [
+      884,
+      356,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      356,
+      160,
+      36
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 693,
+     "ms_new": 833,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 612,
+     "old": [
+      884,
+      232,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      232,
+      160,
+      36
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 620,
+     "ms_new": 650,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 681,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 485,
+     "ms_new": 538,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 702,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 358,
+     "ms_new": 524,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 43,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 514,
+   "ms_new": 688,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 44,
+   "where": "target",
+   "role": "find",
+   "template": "貿易站1列",
+   "kind": "list",
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "limit_px": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 549,
+     "old": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 338,
+     "ms_new": 632,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 570,
+     "old": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      894,
+      160,
+      36
+     ],
+     "score": 0.995,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 384,
+     "ms_new": 642,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 591,
+     "old": [
+      884,
+      356,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      356,
+      160,
+      36
+     ],
+     "score": 0.992,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 627,
+     "ms_new": 824,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 612,
+     "old": [
+      884,
+      232,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      232,
+      160,
+      36
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 693,
+     "ms_new": 775,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 681,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 604,
+     "ms_new": 595,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 702,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 379,
+     "ms_new": 551,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 43,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 510,
+   "ms_new": 718,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 47,
+   "where": "target",
+   "role": "find",
+   "template": "發電站1列",
+   "kind": "list",
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "limit_px": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 594,
+     "old": [
+      884,
+      748,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      748,
+      160,
+      36
+     ],
+     "score": 0.989,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 559,
+     "ms_new": 731,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 615,
+     "old": [
+      884,
+      354,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      354,
+      160,
+      36
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 605,
+     "ms_new": 696,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 636,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 419,
+     "ms_new": 322,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 660,
+     "old": [
+      884,
+      396,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      396,
+      160,
+      36
+     ],
+     "score": 0.988,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 675,
+     "ms_new": 671,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 681,
+     "old": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "score": 0.975,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 681,
+     "ms_new": 677,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 702,
+     "old": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "score": 0.973,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 662,
+     "ms_new": 691,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 44,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 636,
+   "ms_new": 693,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 53,
+   "where": "target",
+   "role": "find",
+   "template": "發電站1列",
+   "kind": "list",
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "limit_px": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 594,
+     "old": [
+      884,
+      748,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      748,
+      160,
+      36
+     ],
+     "score": 0.989,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 585,
+     "ms_new": 681,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 615,
+     "old": [
+      884,
+      354,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      354,
+      160,
+      36
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 584,
+     "ms_new": 668,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 636,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 352,
+     "ms_new": 314,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 660,
+     "old": [
+      884,
+      396,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      396,
+      160,
+      36
+     ],
+     "score": 0.988,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 670,
+     "ms_new": 670,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 681,
+     "old": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "score": 0.975,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 665,
+     "ms_new": 698,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 702,
+     "old": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "score": 0.973,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 656,
+     "ms_new": 683,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 44,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 632,
+   "ms_new": 680,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 56,
+   "where": "target",
+   "role": "find",
+   "template": "發電站1列",
+   "kind": "list",
+   "box": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "limit_px": [
+    844,
+    138,
+    240,
+    886
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.4396,
+    "y": 0.1348,
+    "w": 0.125,
+    "h": 0.8652
+   },
+   "old": null,
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 594,
+     "old": [
+      884,
+      748,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      748,
+      160,
+      36
+     ],
+     "score": 0.989,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 578,
+     "ms_new": 683,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 615,
+     "old": [
+      884,
+      354,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      354,
+      160,
+      36
+     ],
+     "score": 0.999,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 617,
+     "ms_new": 742,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 636,
+     "old": null,
+     "new": null,
+     "score": null,
+     "dist": null,
+     "tol": 9.0,
+     "ms_old": 384,
+     "ms_new": 349,
+     "valid": false,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 660,
+     "old": [
+      884,
+      396,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      396,
+      160,
+      36
+     ],
+     "score": 0.988,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 682,
+     "ms_new": 764,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 681,
+     "old": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "score": 0.975,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 868,
+     "ms_new": 776,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 702,
+     "old": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "score": 0.973,
+     "dist": 0.0,
+     "tol": 9.0,
+     "ms_old": 958,
+     "ms_new": 813,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 44,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 741,
+   "ms_new": 756,
+   "ok": true
+  },
+  {
+   "flow": "晚_繁中",
+   "step": 3,
+   "where": "confirm",
+   "role": "confirm_appear",
+   "template": "待辦事項",
+   "kind": "fixed",
+   "box": [
+    -30,
+    922,
+    260,
+    122
+   ],
+   "limit_px": [
+    0,
+    922,
+    230,
+    102
+   ],
+   "new": {
+    "kind": "rect",
+    "x": 0.0,
+    "y": 0.9004,
+    "w": 0.1198,
+    "h": 0.0996
+   },
+   "old": {
+    "kind": "grid",
+    "cells": [
+     7
+    ]
+   },
+   "rows": [
+    {
+     "video": "demo3",
+     "frame": 198,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "score": 0.948,
+     "dist": 0.0,
+     "tol": 10.5,
+     "ms_old": 564,
+     "ms_new": 289,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 213,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 10.5,
+     "ms_old": 390,
+     "ms_new": 216,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 228,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 10.5,
+     "ms_old": 392,
+     "ms_new": 207,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 243,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 10.5,
+     "ms_old": 282,
+     "ms_new": 197,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 258,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 10.5,
+     "ms_old": 280,
+     "ms_new": 275,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    },
+    {
+     "video": "demo3",
+     "frame": 273,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "score": 1.0,
+     "dist": 0.0,
+     "tol": 10.5,
+     "ms_old": 286,
+     "ms_new": 203,
+     "valid": true,
+     "outside": false,
+     "low_bitrate": false,
+     "ok": true
+    }
+   ],
+   "video_hits": 30,
+   "mismatch_groups": [],
+   "outside": [],
+   "no_video": false,
+   "all_outside": false,
+   "ms_old": 366,
+   "ms_new": 231,
+   "ok": true
+  }
+ ],
+ "ok": true
+}
