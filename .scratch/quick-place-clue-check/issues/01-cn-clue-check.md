@@ -29,4 +29,4 @@
 - Code review(Standards/Spec 兩軸):
   - 已修:避用詞「錨點」「補點」(CONTEXT.md)改掉;沒用到的 import／LANGS 欄位;`crop.py` 重複用的變數與錯的 docstring;抽樣影格、驗證結果彙整、設定比較各抽成一處共用(`clue.picked_frames`、`frames.tally`、`check._same_settings`——原本設定比較的說明只看 `_settings`,補做間隔不同也會印「相同」);跨模組用私有名字改成公開(`one_step`、`template_of`);`check.py` 寫死的 7/14/15 改從 `clue.NUMS` 算。Spec 軸提的「換號那一刻」補進接縫一並寫進報告的已知風險。
   - 沒修:找圖後分數取整在 crop/frames 各寫一次、區段邊界用 a/b 等短名(跟前例腳本一致)。
-- 完整測試:沒改 app 程式碼。`app/` 下 pytest 第一次 `-x` 跑在 `test_fixed_rect_ui.py` 一個 UI 測試失敗、第二次全套 535 passed;UI 測試會開真的 Tk 視窗,使用者當時在用電腦(回報「介面卡住」),判斷是視窗被打擾的偶發失敗。之後沒再跑 UI 測試。
+- 完整測試:沒改 app 程式碼。`app/` 下 pytest 第一次 `-x` 跑時,`test_fixed_rect_ui.py::test_選固定矩形_框選_確定_存成搜尋範圍的比例` 開的對話框卡在畫面上沒關、測試停住,使用者在用電腦時看到(回報「介面沒關掉/介面卡住」)、手動關掉後測試才繼續,因為對話框被關掉拿到 `None` 而失敗——不是偶發失敗,是測試卡住要人介入。第二次全套 535 passed。這個測試為什麼會卡住沒有查(跟本票無關,另開票再看);之後沒再跑 UI 測試。
