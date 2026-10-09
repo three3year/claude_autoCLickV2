@@ -157,6 +157,68 @@ def has_busy_check(step):
     return sends_input(step) and bool(step.get(BUSY_CHECK_KEY))
 
 
+GATE_ZH = {"match": "粗篩", "verify": "驗證", "color": "比色"}
+
+
+class GateBest:
+    """輪詢期間各關的最高分 (執行紀錄「哪一關沒過」用).
+
+    每輪沒挑到時 `see(f)` 記下那一關的分數; 比色那一關記比色分數與它的圖形分數
+    (本尊比色沒過時使用者要同時看到兩個數字才知道該調範本還是比色)。
+    """
+
+    def __init__(self):
+        self.best = {}   # 關卡 → (該關最高分, 圖形分數或 None)
+
+    def see(self, f):
+        if f is None or f.picked is not None or f.query is None:
+            return
+        gate = f.query.failed
+        if gate == "color" and f.rejected:
+            m = max(f.rejected, key=lambda m: m.color)
+            score, graphic = m.color, m.score
+        elif gate in GATE_ZH:
+            score, graphic = f.query.score, None
+        else:
+            return
+        if gate not in self.best or score > self.best[gate][0]:
+            self.best[gate] = (score, graphic)
+
+    def text(self, f):
+        """沒挑到的那一關與該關分數的一句話 (沒有＝空字串)."""
+        if f is None:
+            return ""
+        failed = f.failed
+        if failed == "count":
+            return f"找到 {len(f.matches)} 個，挑選規則挑不到"
+        if failed in GATE_ZH:
+            score, graphic = self.best.get(failed, (None, None))
+            if score is None and f.query is not None:
+                score = f.query.score
+            if score is None:
+                return f"{GATE_ZH[failed]}沒過"
+            text = f"{GATE_ZH[failed]}最高 {score:.3f}"
+            if graphic is not None:
+                text += f"（圖形 {graphic:.3f}）"
+            return text
+        return {"limit": "限定範圍落在搜尋範圍外", "origin": "沒有原點",
+                "anchor": "沒有座標基準點"}.get(failed, "")
+
+
+def gate_fields(f):
+    """檔案紀錄的「最高分」與「沒過的那一關」兩欄 (找圖與生效確認共用的欄位名).
+
+    沒挑到: 最後一次查詢的最高分與未過的關卡; 挑到了但該離開的沒離開 (原點的圖離開、
+    目標圖消失): 分數是仍在原位那個匹配的, 關卡寫 still_there。
+    """
+    if f is None:
+        return {"best": "-", "failed": "-"}
+    if f.picked is not None:
+        return {"best": f"{f.picked.score:.3f}", "failed": "still_there"}
+    return {"best": f"{f.query.score:.3f}" if f.query is not None else "-",
+            "failed": f.failed}
+
+
 class WaitClock:
     """找圖等待共用的等待時鐘: 截止時間、輪詢間隔、逾時判定.
 
@@ -718,6 +780,7 @@ class Runner:
                 self._set_origin(after)
             return None
         rec = dict(step=no, kind=t, mode=mode, **fields)
+        gates = GateBest()
         if mode == "gone":
             # `原點的圖離開`: 重查產生原點的找圖目標 (限定範圍以它查詢時的原點換算、
             # 比色照開), 它挑中的框不再有匹配＝生效 (同等待消失的同位置判定)
@@ -746,13 +809,20 @@ class Runner:
 
             def check(screen, org):
                 f = self._find(no, ctgt, screen, org, origin, kind="確認")
+                gates.see(f)
                 return f.picked is not None, f
             waiting, done, fail = f"{what}出現", f"{what}已出現", f"未見{what}"
         timeout = float(step.get("timeout", 10))
         self.log(f"[{no}] 等待生效（直到{waiting}）")
+
+        def stopped(last, polls, inputs):
+            self._log_file("input.confirm", result="stopped",
+                           **dict(rec, polls=polls, inputs=inputs,
+                                  **gate_fields(last)))
         ok, f, polls, inputs, delay = self._await_effect(
             no, timeout, float(step.get("interval", 0.5)), check,
-            lambda screen, org: True, lambda: self._input(t, *args))
+            lambda screen, org: True, lambda: self._input(t, *args),
+            on_stop=stopped)
         rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}")
         if ok:
             if updates:
@@ -764,12 +834,16 @@ class Runner:
                 self._log_file("input.confirm", result="found",
                                **dict(rec, picked=findtarget.fmt_box(f.picked.box)))
             return None
-        self._log_file("input.confirm", result="timeout", **rec)
+        self._log_file("input.confirm", result="timeout",
+                       **dict(rec, **gate_fields(f)))
+        why = "" if mode == "gone" else gates.text(f)
+        why = f"，{why}" if why else ""
         return self._on_not_found(
             no, f"[{no}] {'點擊' if t == 'click' else '拖曳'}後 {timeout}s 內"
-                f"{fail}（送了 {inputs} 次）", step.get("onNotFound", "stop"))
+                f"{fail}（送了 {inputs} 次{why}）", step.get("onNotFound", "stop"))
 
-    def _await_effect(self, no, timeout, interval, check, may_retry, resend):
+    def _await_effect(self, no, timeout, interval, check, may_retry, resend,
+                      on_stop=None):
         """`生效確認`的共同迴圈 (找圖點擊、座標點擊、拖曳共用).
 
         每個輪詢間隔截一張圖, check(screen, org) → (生效與否, 紀錄用的結果);
@@ -778,26 +852,33 @@ class Runner:
         輸入 (重送後不再做忙碌檢查)。整段不讓出舞台。逾時從呼叫時起算 (勾了
         忙碌檢查的步驟＝忙碌檢查結束之後)。
         回傳 (生效與否, 最後一次 check 的結果, 輪詢數, 輸入數, 因忙碌延後補做
-        的秒數)。
+        的秒數)。手動停止落在輪詢裡時先 on_stop(最後一次的結果, 輪詢數, 輸入數)
+        (寫最後一筆檔案紀錄) 再往上拋。
         """
         region = getattr(self, "scan_region", None)
         clock = WaitClock(timeout, interval)
         inputs, polls = 1, 0
         gate = {"busy_since": None, "delay": 0.0}
-        while True:
-            self._sleep(clock.interval)   # 先給應用程式反應時間
-            self._check_stop()
-            screen, org = self._grab(region)
-            polls += 1
-            ok, last = check(screen, org)
-            if ok:
-                break
-            busy = self._busy_seen(no, screen, org)
-            if may_retry(screen, org) and self._retry_ready(busy, gate):
-                resend()
-                inputs += 1
-            if clock.expired():
-                break
+        last = None
+        try:
+            while True:
+                self._sleep(clock.interval)   # 先給應用程式反應時間
+                self._check_stop()
+                screen, org = self._grab(region)
+                polls += 1
+                ok, last = check(screen, org)
+                if ok:
+                    break
+                busy = self._busy_seen(no, screen, org)
+                if may_retry(screen, org) and self._retry_ready(busy, gate):
+                    resend()
+                    inputs += 1
+                if clock.expired():
+                    break
+        except StopRequested:
+            if on_stop is not None and last is not None:
+                on_stop(last, polls, inputs)
+            raise
         self._settle_busy(gate, time.monotonic())
         return ok, last, polls, inputs, gate["delay"]
 
@@ -899,10 +980,8 @@ class Runner:
         if f.picked is not None:
             fields["picked"] = findtarget.fmt_box(f.picked.box)
         # not_appeared 也記: 分得出「真的沒出現」與「範本/限定範圍對不上」
-        if result in ("timeout", "cannot_run", "not_appeared"):
-            fields["best"] = (f"{f.query.score:.3f}" if f.query is not None
-                              else "-")
-            fields["failed"] = f.failed
+        if result in ("timeout", "cannot_run", "not_appeared", "stopped"):
+            fields.update(gate_fields(f))
         fields.update(extra)
         self._log_file("find.target", **fields)
 
@@ -937,19 +1016,25 @@ class Runner:
         clock = WaitClock(timeout, interval)
         polls = 0
         last = [findtarget.Found(t, reason="origin") for t in tgts]
-        while True:
-            self._check_stop()
-            screen, org = self._grab(region)
-            polls += 1
-            for k, t in enumerate(tgts):
-                f = last[k] = self._find(segs[k] + 1, t, screen, org, origin)
-                if f.picked is not None:
-                    self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{f.template}）", "ok")
-                    self._record(segs[k] + 1, "branch", f, "found", polls=polls)
-                    return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
-            if clock.expired():
-                break
-            self._sleep(clock.interval)
+        try:
+            while True:
+                self._check_stop()
+                screen, org = self._grab(region)
+                polls += 1
+                for k, t in enumerate(tgts):
+                    f = last[k] = self._find(segs[k] + 1, t, screen, org, origin)
+                    if f.picked is not None:
+                        self.log(f"[{idx + 1}] 分岔 → 走分支 {k + 1}（{f.template}）", "ok")
+                        self._record(segs[k] + 1, "branch", f, "found", polls=polls)
+                        return segs[k]  # 主迴圈接著執行該找圖步驟 (立即命中)
+                if clock.expired():
+                    break
+                self._sleep(clock.interval)
+        except StopRequested:
+            if polls:
+                for k, f in enumerate(last):
+                    self._record(segs[k] + 1, "branch", f, "stopped", polls=polls)
+            raise
         for k, f in enumerate(last):
             self._record(segs[k] + 1, "branch", f,
                          "cannot_run" if f.reason == "origin" else "timeout",
@@ -1008,65 +1093,86 @@ class Runner:
                               float(limit_ms) / 1000.0 if limit_ms else None)
             tracked = None
             polls = 0
-            while True:
-                self._check_stop()
-                screen, org = self._grab(region)
-                polls += 1
-                f = self._find(no, tgt, screen, org, origin)
-                hit = (f.picked if tracked is None
-                       else findtarget.still_there(tracked, f.matches))
-                if hit is not None:
-                    tracked = hit.box
-                    if step.get("updateOrigin", True):
-                        # 記錄最後看到的位置 (不點擊也算相對座標原點)
-                        cx, cy = hit.center
-                        self._set_origin((cx + off[0], cy + off[1]), tgt,
-                                         hit.box, origin)
-                elif tracked is not None:
-                    self.log(f"[{no}] 「{name}」已消失", "ok")
-                    self._record(no, "wait_gone", f, "gone", polls=polls,
-                                 picked=findtarget.fmt_box(tracked))
-                    return None
-                elif clock.appear_expired():
-                    self.log(f"[{no}] 「{name}」在出現等候上限 {int(limit_ms)}ms "
-                             "內沒出現 → 通過", "ok")
-                    self._record(no, "wait_gone", f, "not_appeared", polls=polls)
-                    return None
-                # 圖還在 (或還沒出現): 沒達成
-                if clock.expired():
-                    break
-                self._sleep(clock.interval)
+            gates = GateBest()
+            f = None
+            try:
+                while True:
+                    self._check_stop()
+                    screen, org = self._grab(region)
+                    polls += 1
+                    f = self._find(no, tgt, screen, org, origin)
+                    gates.see(f)
+                    hit = (f.picked if tracked is None
+                           else findtarget.still_there(tracked, f.matches))
+                    if hit is not None:
+                        tracked = hit.box
+                        if step.get("updateOrigin", True):
+                            # 記錄最後看到的位置 (不點擊也算相對座標原點)
+                            cx, cy = hit.center
+                            self._set_origin((cx + off[0], cy + off[1]), tgt,
+                                             hit.box, origin)
+                    elif tracked is not None:
+                        self.log(f"[{no}] 「{name}」已消失", "ok")
+                        self._record(no, "wait_gone", f, "gone", polls=polls,
+                                     picked=findtarget.fmt_box(tracked))
+                        return None
+                    elif clock.appear_expired():
+                        self.log(f"[{no}] 「{name}」在出現等候上限 {int(limit_ms)}ms "
+                                 "內沒出現 → 通過", "ok")
+                        self._record(no, "wait_gone", f, "not_appeared", polls=polls)
+                        return None
+                    # 圖還在 (或還沒出現): 沒達成
+                    if clock.expired():
+                        break
+                    self._sleep(clock.interval)
+            except StopRequested:
+                if f is not None:
+                    extra = ({"picked": findtarget.fmt_box(tracked)}
+                             if tracked is not None else {})
+                    self._record(no, "wait_gone", f, "stopped", polls=polls,
+                                 **extra)
+                raise
             if tracked is not None:
                 msg = f"[{no}] 逾時 {timeout}s 內「{name}」仍未消失"
                 self._record(no, "wait_gone", f, "not_gone", polls=polls,
                              picked=findtarget.fmt_box(tracked))
             else:
-                msg = f"[{no}] 逾時 {timeout}s 內「{name}」從未出現"
+                why = gates.text(f)
+                msg = (f"[{no}] 逾時 {timeout}s 內「{name}」從未出現"
+                       + (f"（{why}）" if why else ""))
                 self._record(no, "wait_gone", f, "timeout", polls=polls)
             return self._on_not_found(no, msg, on_nf)
 
         # ---- 找圖階段 (等待出現) ----
         clock = WaitClock(timeout, interval)
-        best = 0.0
+        gates = GateBest()
         polls = 0
-        while True:
-            self._check_stop()
-            screen, org = self._grab(region)
-            polls += 1
-            f = self._find(no, tgt, screen, org, origin)
-            if f.query is not None:
-                best = max(best, f.query.score)
-            if f.picked is not None:
-                break
-            if clock.expired():
-                break
-            self._sleep(clock.interval)
+        f = None
+        try:
+            while True:
+                self._check_stop()
+                screen, org = self._grab(region)
+                polls += 1
+                f = self._find(no, tgt, screen, org, origin)
+                gates.see(f)
+                if f.picked is not None:
+                    break
+                if clock.expired():
+                    break
+                self._sleep(clock.interval)
+        except StopRequested:
+            if f is not None:
+                # 手動停止也留最後一筆: 不必為了看紀錄故意等逾時
+                self._record(no, "find", f, "stopped", polls=polls)
+            raise
 
         hit = f.picked
         if hit is None:
-            msg = f"[{no}] 逾時 {timeout}s 未找到「{name}」(最高相似度 {best:.3f})"
-            if f.reason == "count":
-                msg += f"（找到 {len(f.matches)} 個，挑選規則挑不到）"
+            # 寫沒過的那一關與該關分數 (粗篩/驗證/比色), 不再只印「最高相似度」:
+            # 「最高相似度 0.991 卻找不到」其實是比色沒過, 以前看不出來
+            why = gates.text(f)
+            msg = (f"[{no}] 逾時 {timeout}s 未找到「{name}」"
+                   + (f"（{why}）" if why else ""))
             self._record(no, "find", f, "timeout", polls=polls)
             return self._on_not_found(no, msg, on_nf)
 
@@ -1147,6 +1253,7 @@ class Runner:
         self.log(f"[{no}] 已點擊「{name}」→ 等待生效（直到{label}）")
         # 被點的那個位置 (每輪以最新一次查詢更新); 目標已離開原位＝不補做
         cur = {"box": box, "still": None, "fm": None}
+        gates = GateBest()
 
         def check(screen, org):
             fm = cur["fm"] = self._find(no, tgt, screen, org, origin)
@@ -1156,7 +1263,14 @@ class Runner:
             if mode == "gone":
                 return cur["still"] is None, fm
             fc = self._find(no, ctgt, screen, org, self._last_click, kind=kind)
+            gates.see(fc)
             return fc.picked is not None, fc
+
+        def stopped(last, polls, n_clicks):
+            extra = {"polls": polls, "clicks": n_clicks}
+            if mode == "gone":
+                extra["picked"] = findtarget.fmt_box(cur["box"])
+            self._record(no, role, last, "stopped", **extra)
 
         def resend():
             cx, cy = cur["still"].center
@@ -1167,7 +1281,8 @@ class Runner:
 
         ok, f, polls, n_clicks, delay = self._await_effect(
             no, timeout, interval, check,
-            lambda screen, org: cur["still"] is not None, resend)
+            lambda screen, org: cur["still"] is not None, resend,
+            on_stop=stopped)
         extra = {"polls": polls, "clicks": n_clicks,
                  "busy_delay": f"{delay:.2f}"}
         if mode == "gone":
@@ -1179,7 +1294,8 @@ class Runner:
             return None
         self._record(no, role, f, "not_gone" if mode == "gone" else "timeout",
                      **extra)
-        return self._on_not_found(no, fail, on_nf)
+        why = "" if mode == "gone" else gates.text(f)
+        return self._on_not_found(no, fail + (f"（{why}）" if why else ""), on_nf)
 
 
 def _btn_name(b):

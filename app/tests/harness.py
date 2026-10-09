@@ -143,6 +143,17 @@ class Screen:
 COLOR_THRESHOLD = 0.95   # 假偵測器的比色門檻 (同明日方舟 profile)
 
 
+class Miss:
+    """「沒找到、卡在某一關」的安排: stage＝match / verify, score＝該關最高分."""
+
+    def __init__(self, stage, score):
+        self.stage, self.score = stage, float(score)
+
+
+def miss(stage, score):
+    return Miss(stage, score)
+
+
 class Vision:
     """假的螢幕擷取與偵測查詢 (形狀＝引擎的 query, 回 QueryResult).
 
@@ -155,7 +166,8 @@ class Vision:
     有這幾個匹配 (可帶第三個值當分數, 預設 0.99; 第四個值當比色分數, 預設
     0.99——要求比色時低於 COLOR_THRESHOLD 的不算匹配, 同引擎)。只有中心落在這次查詢的
     畫面 (含`限定範圍`裁切) 內的匹配才會被回報。未安排的`範本`一律在 default
-    座標找到。
+    座標找到。`miss("verify", 0.72)` = 沒找到、卡在那一關、該關最高分 (同引擎的
+    failed/score)。
     """
 
     def __init__(self, default=(1000, 500), size=(40, 20), clock=None):
@@ -239,12 +251,15 @@ class Vision:
             self.expected_scales.append((name, expected_scale))
             hit = self._next(name)
         w, h = self.size
-        hits = [] if hit is None else (
-            [hit] if isinstance(hit[0], (int, float)) else list(hit))
         ox, oy = search_region.origin
         sw, sh = search_region.size
         with self._lock:
             self.regions.append((name, (ox, oy, sw, sh)))
+        if isinstance(hit, Miss):
+            return QueryResult(found=False, box=None, score=hit.score,
+                               failed=hit.stage)
+        hits = [] if hit is None else (
+            [hit] if isinstance(hit[0], (int, float)) else list(hit))
         matches, rejected = [], []
         for p in hits:
             box = (int(p[0]) - ox - w // 2, int(p[1]) - oy - h // 2, w, h)
@@ -260,9 +275,13 @@ class Vision:
             matches.append(m)
         matches.sort(key=lambda m: m.score, reverse=True)
         if not matches:
-            failed = "color" if rejected else "match"
+            # 比色全沒過時分數是圖形分數 (同引擎: rejected[0].score)
+            if rejected:
+                return QueryResult(found=False, box=None,
+                                   score=rejected[0].score, failed="color",
+                                   rejected=rejected)
             return QueryResult(found=False, box=None, score=0.0,
-                               failed=failed, rejected=rejected)
+                               failed="match")
         return QueryResult(found=True, box=matches[0].box,
                            score=matches[0].score, matches=matches,
                            rejected=rejected)
