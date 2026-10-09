@@ -1,21 +1,23 @@
-"""`固定矩形`的編輯器拖框 (busy-pause-fixed-rect 票 04).
+"""`固定矩形`的編輯器拖框 (busy-pause-fixed-rect 票 04; coord-anchor 票 04 改相對基準點).
 
 找圖設定子對話框 (找圖步驟與確認圖共用) 的限定範圍選「固定矩形」, 按「在畫面上
-框選」拖一個框, 存成搜尋範圍的比例。拾取覆蓋層以樁取代 (記下是不是在清場裡
-叫的), 對話框照常用 `_Driver` 真的按按鈕、真的發 <<ComboboxSelected>>。
+框選」拖一個框, 存成相對拾取當下`座標基準點`的偏移與寬高 (流程尺度)。拾取覆蓋層
+以樁取代 (記下是不是在清場裡叫的), 校準用的截圖走假偵測器, 對話框照常用 `_Driver`
+真的按按鈕、真的發 <<ComboboxSelected>>。
 """
 import contextlib
 
 import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+from harness import CAL_PAIR
 
 import ui_dialogs
-from test_editor_scale import REGION, _edit, _press, make_app  # noqa: F401
+from test_editor_scale import ANCHOR, REGION, _edit, _press, make_app  # noqa: F401
 from test_template_picker import _all, _btn, _Driver
 
 FIXED_ZH = ui_dialogs.LIMIT_ZH["rect"]
-# REGION＝[100, 200, 800, 600]: 框 (300,350) 400×150 ＝ (25%,25%) 50%×25%
+# ANCHOR＝(150, 230): 框 (300,350) 400×150 ＝ 相對基準點 (+150,+120) 400×150
 BOX = {"screenX": 300, "screenY": 350, "w": 400, "h": 150}
-RATIO = {"kind": "rect", "x": 0.25, "y": 0.25, "w": 0.5, "h": 0.25}
+RECT = {"kind": "rect", "x": 150, "y": 120, "w": 400, "h": 150}
 
 
 def _overlay(monkeypatch):
@@ -64,13 +66,30 @@ def _target_dialog(app, tgt, *actions):
     return got
 
 
-def test_選固定矩形_框選_確定_存成搜尋範圍的比例(make_app, monkeypatch):
-    app = make_app(2.0)    # 比例與編輯器倍率無關
+def test_選固定矩形_框選_確定_存成相對基準點的偏移(make_app, monkeypatch):
+    app = make_app(1.0)
     calls = _overlay(monkeypatch)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
                          _press("在畫面上框選"), _press("確定"))
-    assert got["limit"] == RATIO
+    assert got["limit"] == RECT
     assert calls == [("region", True)], "region 模式, 在清場裡框選"
+    assert app.vision.lookups == list(CAL_PAIR), "框選當下量了校準對"
+
+
+def test_倍率不是1時換回流程尺度(make_app, monkeypatch):
+    app = make_app(2.0)
+    _overlay(monkeypatch)
+    got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
+                         _press("在畫面上框選"), _press("確定"))
+    assert got["limit"] == {"kind": "rect", "x": 75, "y": 60, "w": 200, "h": 75}
+
+
+def test_視窗挪位置後框同一塊_存下的值不變(make_app, monkeypatch):
+    app = make_app(1.0, anchor=(550, 330))   # 基準點挪了 (+400,+100)
+    _overlay(monkeypatch)
+    got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
+                         _press("在畫面上框選"), _press("確定"))
+    assert got["limit"] == {"kind": "rect", "x": -250, "y": 20, "w": 400, "h": 150}
 
 
 def test_重新打開顯示原值_確定不變(make_app, monkeypatch):
@@ -82,25 +101,24 @@ def test_重新打開顯示原值_確定不變(make_app, monkeypatch):
         seen["labels"] = _labels(dr.dlg)
         seen["combo"] = [w.get() for w in _all(dr.dlg)
                          if w.winfo_class() == "TCombobox"]
-    got = _target_dialog(app, {"template": "a", "limit": dict(RATIO)},
+    got = _target_dialog(app, {"template": "a", "limit": dict(RECT)},
                          look, _press("確定"))
     assert FIXED_ZH in seen["combo"]
-    assert "固定矩形 (25.0%,25.0%) 50.0%×25.0%" in seen["labels"]
-    assert got["limit"] == RATIO
+    assert "固定矩形 (+150,+120) 400×150" in seen["labels"]
+    assert got["limit"] == RECT
 
 
 def test_可以重拖(make_app, monkeypatch):
     app = make_app(1.0)
     _overlay(monkeypatch)
-    old = {"kind": "rect", "x": 0.0, "y": 0.0, "w": 0.1, "h": 0.1}
+    old = {"kind": "rect", "x": 0, "y": 0, "w": 10, "h": 10}
     got = _target_dialog(app, {"template": "a", "limit": old},
                          _press("在畫面上框選"), _press("確定"))
-    assert got["limit"] == RATIO
+    assert got["limit"] == RECT
 
 
-def test_沒設搜尋範圍時按鈕不可用_並說明原因(make_app, monkeypatch):
-    app = make_app(1.0)
-    app.scan_region = None
+def test_沒有校準對時按鈕不可用_並說明原因(make_app, monkeypatch):
+    app = make_app(pair=False)
     calls = _overlay(monkeypatch)
     seen = {}
 
@@ -112,8 +130,24 @@ def test_沒設搜尋範圍時按鈕不可用_並說明原因(make_app, monkeypa
         dr.close()
     _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH), look)
     assert seen["disabled"]
-    assert any("要先在主視窗框選搜尋範圍" in t for t in seen["labels"])
+    assert any("設定校準對" in t for t in seen["labels"])
     assert calls == [], "不進清場、不叫拾取層"
+
+
+def test_框選當下找不到校準對_不存並提示重框(make_app, monkeypatch, no_real_dialogs):
+    app = make_app(1.0)
+    app.vision.plan(CAL_PAIR[0], [None])
+    calls = _overlay(monkeypatch)
+    seen = {}
+
+    def look(dr):
+        seen["labels"] = _labels(dr.dlg)
+        dr.close()
+    _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
+                   _press("在畫面上框選"), look)
+    assert calls == [], "量不到就不進拾取"
+    assert "（還沒框選）" in seen["labels"]
+    assert any("搜尋範圍" in m for m in no_real_dialogs["warning"])
 
 
 def test_選了固定矩形卻沒框過_確定時提示_不存空的限定範圍(
@@ -150,4 +184,4 @@ def test_找圖步驟對話框_設定固定矩形後存進步驟(make_app, monke
     got = _edit(app, step, open_sub, title="編輯：找圖點擊")
     if sub.error is not None:
         raise sub.error
-    assert got["target"]["limit"] == RATIO
+    assert got["target"]["limit"] == RECT

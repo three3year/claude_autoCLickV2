@@ -8,9 +8,11 @@ threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分
 執行一個`找圖目標` (automation/findtarget.py): 多個匹配時由挑選規則決定
 點哪一個, 「消失」只看先前挑中的那個位置 (ADR 0007)。
 
-每次執行開頭先`校準` (ADR 0009): 流程自帶`校準對`與`基準距離`, 執行器在畫面上
-找到兩張圖、以中心距離 ÷ 基準距離得出這次的`畫面倍率`——座標乘上它, 每次找圖
-把它當`預期尺度`交給偵測器。量不到 (或流程沒有校準對) 就一個輸入都不送。
+每次執行開頭先`校準` (ADR 0009、0012): 流程自帶`校準對`與`基準距離`, 執行器在
+`搜尋範圍`內找到兩張圖, 中心距離 ÷ 基準距離＝這次的`畫面倍率`, 第一張的中心＝這次的
+`座標基準點`——存檔裡的座標 (絕對座標、固定矩形) 都是相對它的偏移, 落點＝基準點 +
+偏移×倍率; 每次找圖把倍率當`預期尺度`交給偵測器。執行中不重量。量不到 (或流程沒有
+校準對) 就一個輸入都不送。
 
 `生效確認`還沒通過時的`補做` (重送同一個輸入) 有兩道門 (ADR 0008): 距上一次
 輸入已過`補做間隔`, 且畫面上沒有`忙碌指示` (確認沒生效的那一輪用同一張截圖查)。
@@ -203,6 +205,7 @@ class Runner:
         self.scan_region = None
         self.avoid_hover = False
         self.scale = 1.0
+        self.anchor = None   # 這次執行的`座標基準點` (螢幕座標), 開頭校準後才有
         self._set_origin(None)
         self._step = (0, 0)  # (目前步驟序號, 總步驟數); 0 = 尚未進入步驟
         # 開跑前階段: "countdown"＝`開始延遲`未到期 / "templates"＝已到期仍在
@@ -259,6 +262,7 @@ class Runner:
         # 流程的校準資料 {pair, baseline} (不成形＝None); `畫面倍率`由開頭校準得出
         self.calibration = calibration if calib.valid(calibration) else None
         self.scale = 1.0
+        self.anchor = None
         # `補做間隔` (秒) 與`忙碌指示` (找圖目標或 None): 流程層級設定
         self.retry_interval = max(0.0, float(retry_interval))
         self.busy = busy if busy and busy.get("template") else None
@@ -435,12 +439,12 @@ class Runner:
 
     # ---------- 開頭`校準` ----------
     def _calibrate(self):
-        """用流程的`校準對`量這次的`畫面倍率` (ADR 0009).
+        """用流程的`校準對`量這次的`畫面倍率`與`座標基準點` (ADR 0009、0012).
 
-        依搜尋範圍截一張圖, 兩張校準圖用**全範圍**查 (不帶預期尺度——倍率差很多
-        也量得到); 中心距離 ÷ 基準距離＝倍率, 是這次執行唯一的倍率。沒有校準
-        資料、任一張找不到、兩張重疊＝拋錯 (流程一個輸入都不送), 都寫一筆
-        `calibrate` 檔案日誌。
+        依搜尋範圍截一張圖, 兩張校準圖只在範圍內、用**全範圍尺度**查 (不帶預期尺度
+        ——倍率差很多也量得到); 中心距離 ÷ 基準距離＝倍率, 第一張的中心＝座標基準點,
+        都是這次執行唯一的值。沒有校準資料、任一張找不到、兩張重疊＝拋錯 (流程一個
+        輸入都不送), 都寫一筆 `calibrate` 檔案日誌。
         """
         cal = self.calibration
         if cal is None:
@@ -449,30 +453,30 @@ class Runner:
                                "請先在編輯器設定校準對")
         region = getattr(self, "scan_region", None)
         screen, org = self._grab(region)
-        m = calib.measure(self.detector.query, screen, cal["pair"])
-        if m.missing:
+        c = calib.calibrate(self.detector.query, screen, org, cal)
+        m = c.measurement
+        if c.problem == "missing":
             self._log_calibrate(
                 result="missing", pair=",".join(cal["pair"]),
                 missing=",".join(m.missing),
                 best=",".join(f"{m.scores[n]:.3f}" for n in m.missing))
-            names = "、".join(f"「{n}」（最高分數 {m.scores[n]:.3f}）"
-                             for n in m.missing)
-            raise RuntimeError(f"開頭校準失敗：畫面上找不到校準圖{names}"
-                               " → 不執行；請確認遊戲畫面上看得到校準對")
-        centers = ";".join(f"({x + org[0]},{y + org[1]})"
-                           for x, y in (m.centers[n] for n in cal["pair"]))
-        if m.too_close:
+            raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行；"
+                               "請確認搜尋範圍框住了遊戲畫面、畫面上看得到校準對")
+        centers = ";".join(f"({x},{y})" for x, y in (m.centers[n] for n in cal["pair"]))
+        if c.problem == "too_close":
             self._log_calibrate(result="too_close", pair=",".join(cal["pair"]),
                                 centers=centers)
-            raise RuntimeError("開頭校準失敗：兩張校準圖重疊在同一處，"
-                               "不能當比例尺 → 不執行")
-        self.scale = m.scale(cal["baseline"])
+            raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行")
+        self.scale, self.anchor = c.scale, c.anchor
         self._log_calibrate(result="ok", pair=",".join(cal["pair"]),
                             centers=centers, distance=f"{m.distance:.1f}",
                             baseline=f"{float(cal['baseline']):.1f}",
                             scale=f"{self.scale:.3f}")
         self.log(f"開頭校準：畫面倍率 ×{self.scale:.3f}（距離 {m.distance:.1f}px"
                  f" ÷ 基準 {float(cal['baseline']):.1f}px）", "ok")
+        self.log(f"座標基準點 ({self.anchor[0]}, {self.anchor[1]})"
+                 f"（校準對第一張「{cal['pair'][0]}」的中心；絕對座標與固定矩形以它為原點）",
+                 "ok")
 
     def _log_calibrate(self, **fields):
         self._log_file("calibrate", **fields)
@@ -600,14 +604,14 @@ class Runner:
 
     # ---------- 步驟 ----------
     def _abs_origin(self):
-        """`絕對座標`的基準＝目前`搜尋範圍`的左上角.
+        """`絕對座標`的基準＝這次的`座標基準點` (ADR 0012).
 
-        座標存的是相對範圍的偏移, 所以重新框範圍 (或並行時綁到位置不同的視窗)
-        時, 所有絕對座標會自動跟著搬過去, 不必重新拾取。
+        座標存的是相對基準點的偏移, 所以視窗挪位置、搜尋範圍重框時, 所有絕對座標
+        自動跟著搬過去, 不必重新拾取。開頭校準成功後才會執行到步驟, 這裡是防禦線。
         """
-        if not self.scan_region:
-            raise RuntimeError("絕對座標需要「搜尋範圍」當基準，請先框選搜尋範圍")
-        return int(self.scan_region[0]), int(self.scan_region[1])
+        if self.anchor is None:
+            raise RuntimeError("絕對座標需要座標基準點，但開頭校準尚未完成")
+        return self.anchor
 
     def _sc(self, v):
         """步驟偏移 ×`畫面倍率`四捨五入為整數像素 (倍率 1 = 恆等).
@@ -670,14 +674,14 @@ class Runner:
             after = (x, y)
             updates = step.get("updateOrigin", True)
             where = (f"（上一步 {int(step['x']):+d},{int(step['y']):+d}）" if rel
-                     else f"（範圍內 {int(step['x'])},{int(step['y'])}）")
+                     else f"（基準點 {int(step['x']):+d},{int(step['y']):+d}）")
             text = f"點擊 ({x}, {y}){where} {_btn_name(button)}×{clicks}"
             fields = {"at": f"({x},{y})"}
         else:
             x1, y1 = self._sc(step["x1"]), self._sc(step["y1"])
             x2, y2 = self._sc(step["x2"]), self._sc(step["y2"])
             where = (f"（上一步 {x1:+d},{y1:+d} → {x2:+d},{y2:+d}）" if rel
-                     else f"（範圍內 {x1},{y1} → {x2},{y2}）")
+                     else f"（基準點 {x1:+d},{y1:+d} → {x2:+d},{y2:+d}）")
             x1, y1, x2, y2 = (base[0] + x1, base[1] + y1,
                               base[0] + x2, base[1] + y2)
             ms = int(step.get("ms", 300))
@@ -864,7 +868,8 @@ class Runner:
         """執行一個`找圖目標` (經偵測接縫); 範本不存在轉成可讀的執行錯誤."""
         try:
             return findtarget.find(tgt, self.detector, screen, org,
-                                   origin=origin, scale=self.scale)
+                                   origin=origin, scale=self.scale,
+                                   anchor=self.anchor)
         except KeyError:
             raise RuntimeError(
                 f"[{no}] 找不到{kind}圖片: {tgt.get('template', '')}") from None

@@ -37,6 +37,8 @@ class _PickApp(app_mod.App):
         self.logged = []
         self.reloads = 0
         self.shot = None      # `pick_region_raw` 要回傳的假截圖
+        self.shot_anchor = None   # 假截圖當下量到的`座標基準點` (None＝沒有校準對)
+        self.shot_k = 1.0         # 假截圖當下量到的`畫面倍率`
 
     def reload_profile(self):
         self.reloads += 1
@@ -52,6 +54,10 @@ class _PickApp(app_mod.App):
 
     def pick_region_raw(self, hide=()):
         return self.shot
+
+    def pick_region_measured(self, hide=(), parent=None):
+        # 清場與量校準在 test_editor_scale 測; 這裡直接回假截圖與假量測
+        return (self.shot, self.shot_anchor, self.shot_k) if self.shot else None
 
     def _schedule_reregister(self):
         pass       # 測試不跑事件迴圈的延後排程
@@ -292,7 +298,7 @@ def test_左側列出本流程與其他流程存檔(picker):
     other = os.path.join(app.profile_dir, "flows", "morning" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "btn"}}],
-                           "coordSpace": "region"}, {"btn": _png(50)})
+                           "coordSpace": "anchor"}, {"btn": _png(50)})
     d = _Driver(app.root, TITLE)
 
     seen = {}
@@ -314,7 +320,7 @@ def test_展開其他存檔看到它的範本(picker):
     other = os.path.join(app.profile_dir, "flows", "night" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "region"}, {"gear": _png(90, 30, 20)})
+                           "coordSpace": "anchor"}, {"gear": _png(90, 30, 20)})
     d = _Driver(app.root, TITLE)
     seen = {}
 
@@ -341,7 +347,7 @@ def test_按確定才把其他存檔的圖複製進本流程(picker):
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "region"}, {"gear": _png(90)})
+                           "coordSpace": "anchor"}, {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
     def pick(dr):
@@ -360,7 +366,7 @@ def test_按取消時檔案系統完全沒有變化(picker):
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "region"}, {"gear": _png(90)})
+                           "coordSpace": "anchor"}, {"gear": _png(90)})
     before = _snapshot(app.ws)
     d = _Driver(app.root, TITLE)
 
@@ -390,7 +396,7 @@ def test_跨流程複製進來的是獨立副本(picker):
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "region"}, {"gear": _png(90)})
+                           "coordSpace": "anchor"}, {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
     def pick(dr):
@@ -401,7 +407,7 @@ def test_跨流程複製進來的是獨立副本(picker):
     _open(app, d, pick)
     # 來源流程日後改圖
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "region"}, {"gear": _png(10)})
+                           "coordSpace": "anchor"}, {"gear": _png(10)})
     assert open(app.ws.path_of("gear"), "rb").read() == _png(90)
 
 
@@ -411,7 +417,7 @@ def test_撞名自動加序號並寫進執行紀錄(picker):
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "region"}, {"gear": _png(90)})
+                           "coordSpace": "anchor"}, {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
     def pick(dr):
@@ -446,6 +452,7 @@ def test_現場截圖後按確定才落地(picker):
     app = picker
     app.shot = {"img": _img(77, 20, 10), "screenX": 100, "screenY": 200,
                 "w": 20, "h": 10}
+    app.shot_anchor = (60, 180)
     d = _Driver(app.root, TITLE)
 
     def shoot_ok(dr):
@@ -455,7 +462,7 @@ def test_現場截圖後按確定才落地(picker):
     got = _open(app, d, shoot_ok)
     assert got == "tmpl_001"
     assert app.ws.names() == ["tmpl_001"]
-    assert app.ws.pos_of("tmpl_001") == [110, 205], "截圖有記 pos"
+    assert app.ws.pos_of("tmpl_001") == [50, 25], "截圖有記拍攝位置 (相對基準點)"
 
 
 def test_現場截圖後按取消那張圖被丟棄(picker):
@@ -626,7 +633,7 @@ def test_樹狀每一列都帶縮圖_展開時才讀(picker):
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "region"}, {"gear": _png(90)})
+                           "coordSpace": "anchor"}, {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
     seen = {}
 
@@ -650,7 +657,7 @@ def test_未展開的來源不去讀它的圖(picker, monkeypatch):
     other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
     os.makedirs(os.path.dirname(other), exist_ok=True)
     flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "region"}, {"gear": _png(90)})
+                           "coordSpace": "anchor"}, {"gear": _png(90)})
     reads = []
     real = flowfile.template_bytes
     monkeypatch.setattr(ui_dialogs.flowfile if hasattr(ui_dialogs, "flowfile")

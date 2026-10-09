@@ -18,3 +18,7 @@ autoclick.log.1
 *.egg-info/
 build/
 dist/
+# coord-anchor 一次性換算的產物與改前副本 (流程存檔含範本圖, 使用者資料)
+.scratch/coord-anchor/converted/
+.scratch/coord-anchor/backup/
+.scratch/coord-anchor/results/convert.log

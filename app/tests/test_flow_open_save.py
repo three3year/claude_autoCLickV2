@@ -166,12 +166,11 @@ def test_存檔不改寫profile裡的其他流程(tkroot, tmp_path, monkeypatch)
     a = _app(tkroot, tmp_path)
     other = os.path.join(a.flows_dir, "other" + flowfile.EXT)
     flowfile.write(other, {"steps": [{"type": "click", "x": 30, "y": 40}],
-                           "coordSpace": "region"}, {})
+                           "coordSpace": "anchor"}, {})
     before = open(other, "rb").read()
     imgio.imwrite(a.ws.path_of("btn"), _img(90))
     a.steps = [_find("btn")]
     a.flow_cal = {"pair": ["btn", "btn2"], "baseline": 150.0}
-    a.editor_scale = 0.8
     dest = tmp_path / "p" / "flows" / ("f" + flowfile.EXT)
     _stub_save(monkeypatch, dest)
 
@@ -202,7 +201,7 @@ def test_取消存檔對話框不寫任何檔(tkroot, tmp_path, monkeypatch):
 def test_載入本profile的存檔_解到工作區(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, tmp_path)
     src = os.path.join(a.flows_dir, "night" + flowfile.EXT)
-    flowfile.write(src, {"steps": [_find("gear")], "coordSpace": "region",
+    flowfile.write(src, {"steps": [_find("gear")], "coordSpace": "anchor",
                          "scanRegion": [5, 6, 700, 500], "runCount": 3},
                    {"gear": b"GEAR"})
     _stub_open(monkeypatch, src)
@@ -221,7 +220,7 @@ def test_切換流程時工作區整個清空(tkroot, tmp_path, monkeypatch):
     imgio.imwrite(a.ws.path_of("old"), _img(10))
     os.makedirs(os.path.join(a.ws.registered_dir, "old"), exist_ok=True)
     src = os.path.join(a.flows_dir, "other" + flowfile.EXT)
-    flowfile.write(src, {"steps": [_find("new")], "coordSpace": "region"},
+    flowfile.write(src, {"steps": [_find("new")], "coordSpace": "anchor"},
                    {"new": b"N"})
     _stub_open(monkeypatch, src)
 
@@ -236,7 +235,7 @@ def test_工作區被手動刪掉後重新載入能自動重建(tkroot, tmp_path
     import shutil
     a = _app(tkroot, tmp_path)
     src = os.path.join(a.flows_dir, "f" + flowfile.EXT)
-    flowfile.write(src, {"steps": [_find("gear")], "coordSpace": "region"},
+    flowfile.write(src, {"steps": [_find("gear")], "coordSpace": "anchor"},
                    {"gear": b"GEAR"})
     _stub_open(monkeypatch, src)
     a.open_flow()
@@ -251,7 +250,7 @@ def test_工作區被手動刪掉後重新載入能自動重建(tkroot, tmp_path
 
 def _foreign(tmp_path, steps, images, cal=None, stem="foreign"):
     path = tmp_path / (stem + flowfile.EXT)
-    data = {"steps": steps, "coordSpace": "region"}
+    data = {"steps": steps, "coordSpace": "anchor"}
     if cal:
         data["calibration"] = cal
     flowfile.write(str(path), data, images)
@@ -288,7 +287,7 @@ def test_開啟外來存檔_原樣使用不換算_校準對跟著走(tkroot, tmp
     assert a.ws.names() == ["c1", "c2"]
 
 
-def test_舊格式流程可以開可以看_沒有校準對(tkroot, tmp_path, monkeypatch):
+def test_沒有校準對的新格式流程可以開可以看(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, tmp_path)
     src = _foreign(tmp_path, [_find("gear")], {"gear": b"GEAR"})
     _stub_open(monkeypatch, src)
@@ -296,70 +295,72 @@ def test_舊格式流程可以開可以看_沒有校準對(tkroot, tmp_path, mon
     assert len(a.steps) == 1 and a.flow_cal is None
 
 
-# ---------- 讀檔: 舊格式單向轉換 ----------
+# ---------- 讀檔: 舊格式一律拒絕 (ADR 0012) ----------
 
-def _legacy_library(profile_dir, templates):
-    for name, caps in templates.items():
-        d = os.path.join(profile_dir, "templates", *name.split("/"))
-        os.makedirs(d, exist_ok=True)
-        for cap, blob in caps.items():
-            with open(os.path.join(d, cap + ".png"), "wb") as f:
-                f.write(blob)
+def _old_pack(path, data, images):
+    import zipfile
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("flow.json", json.dumps(data, ensure_ascii=False))
+        for n, blob in images.items():
+            z.writestr(f"templates/{n}.png", blob)
 
 
-def test_匯入舊flow_json_轉成新存檔並套用既有規則(tkroot, tmp_path, monkeypatch):
+def _loaded(a, tkroot, tmp_path, monkeypatch):
+    """先開著一份好的流程 (之後開舊檔要拒絕, 這份不能被動到)."""
+    src = os.path.join(a.flows_dir, "good" + flowfile.EXT)
+    flowfile.write(src, {"steps": [_find("gear")], "coordSpace": "anchor",
+                         "scanRegion": [5, 6, 700, 500]}, {"gear": b"GEAR"})
+    _stub_open(monkeypatch, src)
+    a.open_flow()
+    assert a.ws.names() == ["gear"]
+    return src
+
+
+def test_開啟座標相對搜尋範圍的舊存檔_拒絕並說明_目前流程不動(tkroot, tmp_path,
+                                                 monkeypatch, no_real_dialogs):
     a = _app(tkroot, tmp_path)
-    _legacy_library(a.profile_dir, {"cn/V": {"cn": b"V1", "翻新": b"V2"}})
+    good = _loaded(a, tkroot, tmp_path, monkeypatch)
+    old = os.path.join(a.flows_dir, "old" + flowfile.EXT)
+    _old_pack(old, {"steps": [_find("btn"), {"type": "click", "x": 30, "y": 40}],
+                    "coordSpace": "region", "flowFormat": 4,
+                    "calibration": {"pair": ["btn", "x"], "baseline": 100.0}},
+              {"btn": b"B"})
+    _stub_open(monkeypatch, old)
+
+    a.open_flow()
+
+    assert [m for m in no_real_dialogs["warning"] if "舊格式" in m and "座標基準不同" in m]
+    assert a.steps == [_find("gear")], "目前的流程原封不動"
+    assert a.ws.names() == ["gear"] and a.ws.flow_path() == good
+    assert any("舊格式" in m for m in a.logged)
+
+
+def test_開啟舊flow_json與舊流程包_同樣拒絕_profile不多出存檔(tkroot, tmp_path,
+                                                      monkeypatch, no_real_dialogs):
+    a = _app(tkroot, tmp_path)
+    before = flowfile.list_flows(a.profile_dir)
     src = tmp_path / "old.json"
     src.write_text(json.dumps({
-        "steps": [{"type": "find_click", "template": "cn/V.png",
-                   "threshold": 0.85},
+        "steps": [{"type": "find_click", "template": "cn/V.png"},
                   {"type": "click", "x": 300, "y": 250}],
         "scanRegion": [100, 50, 800, 600]}), encoding="utf-8")
     _stub_open(monkeypatch, src)
-
     a.open_flow()
-
-    assert a.steps[0]["target"]["template"] == "V", "範本名去副檔名並拉平"
-    assert "threshold" not in a.steps[0], "每步 threshold 安靜丟棄"
-    assert (a.steps[1]["x"], a.steps[1]["y"]) == (200, 200), "座標空間遷移"
-    assert a.ws.names() == ["V"]
-    assert open(a.ws.path_of("V"), "rb").read() == b"V1", "多截圖取登錄基準張"
-    assert any("降為單張" in m for m in a.logged)
-    assert any("拉平" in m for m in a.logged)
-
-
-def test_匯入舊流程包_多截圖取登錄基準張(tkroot, tmp_path, monkeypatch):
-    import zipfile
-    a = _app(tkroot, tmp_path)
     pack = tmp_path / ("legacy" + flowfile.EXT)
-    with zipfile.ZipFile(pack, "w") as z:
-        z.writestr("flow.json", json.dumps({
-            "steps": [{"type": "find_click", "template": "cn/V.png"}],
-            "coordSpace": "region"}))
-        z.writestr("templates/cn/V/a.png", b"A")
-        z.writestr("templates/cn/V/b.png", b"B")
+    _old_pack(str(pack), {"steps": [{"type": "find_click", "template": "cn/V.png"}],
+                          "coordSpace": "region"}, {"cn/V/a": b"A"})
     _stub_open(monkeypatch, pack)
-
     a.open_flow()
 
-    assert a.steps[0]["target"]["template"] == "V"
-    assert open(a.ws.path_of("V"), "rb").read() == b"A"
-    saved = flowfile.list_flows(a.profile_dir)
-    assert len(saved) == 1 and flowfile.template_names(saved[0]) == ["V"]
+    assert len([m for m in no_real_dialogs["warning"] if "舊格式" in m]) == 2
+    assert flowfile.list_flows(a.profile_dir) == before
+    assert a.steps == [] and a.ws.names() == []
 
 
-def test_匯入同名不覆蓋既有存檔(tkroot, tmp_path, monkeypatch):
+def test_舊格式匯入已退場(tkroot, tmp_path):
     a = _app(tkroot, tmp_path)
-    _legacy_library(a.profile_dir, {"cn/V": {"cn": b"V1"}})
-    src = tmp_path / "dup.json"
-    src.write_text(json.dumps({
-        "steps": [{"type": "find_click", "template": "cn/V"}],
-        "coordSpace": "region"}), encoding="utf-8")
-    _stub_open(monkeypatch, src)
-    a.open_flow()
-    a.open_flow()
-    assert len(flowfile.list_flows(a.profile_dir)) == 2
+    assert not hasattr(a, "_log_conversion")
+    assert not hasattr(flowfile, "import_legacy")
 
 
 # ---------- 新流程 / 草稿 ----------
@@ -403,6 +404,23 @@ def test_當機重開_草稿與工作區的圖一起復原(tkroot, tmp_path):
     assert b.steps == [_find("btn")]
     assert b.scan_region == [1, 2, 300, 200]
     assert b.ws.names() == ["btn"], "還沒存檔的圖也在"
+    draft = json.loads(open(flowfile.draft_path(a.profile_dir), encoding="utf-8").read())
+    assert draft["coordSpace"] == "anchor", "草稿與存檔同一套座標空間"
+
+
+def test_舊格式的草稿不復原_開空白並提示一次(tkroot, tmp_path, no_real_dialogs):
+    a = _app(tkroot, tmp_path)
+    os.makedirs(a.flows_dir, exist_ok=True)
+    with open(flowfile.draft_path(a.profile_dir), "w", encoding="utf-8") as f:
+        json.dump({"steps": [_find("btn"), {"type": "click", "x": 30, "y": 40}],
+                   "coordSpace": "region", "scanRegion": [1, 2, 300, 200]}, f)
+
+    a._load_autosave()
+    a.root.update()   # 提示排在事件迴圈 (主視窗先開)
+
+    assert a.steps == [] and a.scan_region is None
+    assert len([m for m in no_real_dialogs["warning"] if "草稿" in m]) == 1
+    assert any("座標基準不同" in m for m in a.logged)
 
 
 # ---------- 匯出動作已移除 ----------

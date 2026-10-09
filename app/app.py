@@ -106,7 +106,7 @@ def _step_body(s):
         if s.get("mode", "abs") == "prev":
             pos = f"上一步點擊 ({int(s['x']):+d}, {int(s['y']):+d})"
         else:
-            pos = f"範圍內 ({s['x']}, {s['y']})"
+            pos = f"基準點 ({int(s['x']):+d}, {int(s['y']):+d})"
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
         return (f"{pos} {BTN_ZH.get(s.get('button', 'left'))}×{s.get('clicks', 1)}"
                 f"{uo}{_pointer_confirm_desc(s)}")
@@ -131,7 +131,8 @@ def _step_body(s):
             pos = (f"上一步 ({int(s['x1']):+d}, {int(s['y1']):+d}) → "
                    f"({int(s['x2']):+d}, {int(s['y2']):+d})")
         else:
-            pos = f"({s['x1']}, {s['y1']}) → ({s['x2']}, {s['y2']})"
+            pos = (f"基準點 ({int(s['x1']):+d}, {int(s['y1']):+d}) → "
+                   f"({int(s['x2']):+d}, {int(s['y2']):+d})")
         hd = f" 停{s.get('holdMs')}ms" if s.get("holdMs") else ""
         return (f"{pos} {BTN_ZH.get(s.get('button', 'left'))} {s.get('ms', 300)}ms"
                 f"{hd}{_pointer_confirm_desc(s)}")
@@ -378,10 +379,9 @@ class SegListbox(tk.Text):
 
 
 class App:
-    # 目前流程的`校準對`與`基準距離` {pair, baseline}; None＝沒有 (不能執行)
+    # 目前流程的`校準對`與`基準距離` {pair, baseline}; None＝沒有 (不能執行,
+    # 也沒有`座標基準點`——需要基準點的拾取會被擋下)
     flow_cal = None
-    # 編輯器的`畫面倍率`: 開流程/切換流程時為 1, 按「校準」才更新
-    editor_scale = 1.0
     # 流程層級的`補做間隔` (毫秒) 與`忙碌指示` (找圖目標或 None), ADR 0008
     retry_interval_ms = flowfile.RETRY_DEFAULT_MS
     busy_target = None
@@ -568,7 +568,7 @@ class App:
         profile_store.save_state(PROFILES_DIR, {"profile": name})
         self.profile_cb.set(name)
         self._collapsed.clear()
-        self._apply_flow({"steps": [], flowfmt.COORD_SPACE: flowfmt.REGION})
+        self._apply_flow({"steps": [], flowfmt.COORD_SPACE: flowfmt.ANCHOR})
         self._load_autosave()  # 該 profile 的流程草稿隨 profile 走
         self.refresh_templates()
         self.render_steps()
@@ -602,16 +602,16 @@ class App:
         self.switch_profile(name.strip())
         self.log_ui(f"已建立 profile「{name.strip()}」（預設 config 已帶入）", "ok")
 
-    # ================= 校準 (`校準對` / `畫面倍率`, ADR 0009) =================
-    # 校準對與基準距離住在流程存檔裡 (self.flow_cal)。編輯器的倍率只屬於「這次
-    # 編輯這份流程」: 開流程/切換流程時回到 1, 使用者按「校準」才更新——拾取的
-    # 座標與截下的範本都除以它換回`流程尺度`。量測的純邏輯在 calibration 模組。
+    # ================= 校準 (`校準對` / `畫面倍率` / `座標基準點`, ADR 0009、0012) =================
+    # 校準對與基準距離住在流程存檔裡 (self.flow_cal)。編輯器沒有跨操作保存的倍率或
+    # 基準點: 每次拾取都在那張截圖上量 (ui_dialogs.measured_pick → calibrate_frame),
+    # 拾取到的座標與截下的範本當場換回`流程尺度`、相對基準點。量測純邏輯在 calibration。
 
     def _update_cal_ui(self):
-        """校準按鈕常駐顯示目前的編輯器倍率; 旁邊寫出這份流程的校準對."""
+        """「校準」鈕回到只有名字 (量到的倍率只在按下後顯示); 旁邊寫出這份流程的校準對."""
         if getattr(self, "cal_btn", None) is None:
             return
-        self.cal_btn.configure(text=f"校準　×{self.editor_scale:.2f}")
+        self.cal_btn.configure(text="校準")
         cal = self.flow_cal
         if cal:
             text = (f"校準對：{cal['pair'][0]} × {cal['pair'][1]}"
@@ -620,57 +620,63 @@ class App:
             text = "這份流程還沒有校準對（不能執行）"
         self.cal_info.configure(text=text)
 
-    def _calibration_screen(self, names, title):
-        """校準量測用的截圖: 範本就位 → 清場 → 依搜尋範圍截圖.
+    def calibration_ready(self, title, names=None, parent=None):
+        """校準量測前的檢查 (清場「之前」做, 清場中彈窗會隱形卡死): `引擎就緒`、
+        校準對的範本都在本流程裡且載得起來. 回傳是否可以量; 不行時已提示.
 
-        範本是本流程的範本 (校準對就是流程的範本); 有不在本流程裡的就提示並
-        回傳 None。量測前的提示都在清場「之前」彈 (清場中彈窗會隱形卡死)。
+        names: 要查的範本名 (預設＝這份流程的校準對)。
         """
+        parent = parent or self.root
+        if not self.engine_gate(parent):
+            return False
         self.ensure_registered()
+        names = list(names if names is not None else self.flow_cal["pair"])
         for name in dict.fromkeys(names):
             if name not in self.profile.templates:
                 messagebox.showwarning(
                     title, f"找不到校準圖：{name}\n（這張範本已不在本流程裡）",
-                    parent=self.root)
-                return None
+                    parent=parent)
+                return False
             try:
                 self.hub.ensure_template(name)
             except Exception as e:
                 messagebox.showwarning(title, f"校準圖載入失敗：{name}（{e}）",
-                                       parent=self.root)
-                return None
-        with ui_overlay.screen_clear(self.root):
-            self.root.update()
-            time.sleep(0.12)
-            screen, _ = capture.grab(self.scan_region)
-        return screen
+                                       parent=parent)
+                return False
+        return True
 
-    def _pair_distance(self, screen, pair, title):
-        """在截圖上量一對圖的中心距離; 量不到或重疊時提示並回傳 None.
+    def grab_frame(self):
+        """清場「之內」依搜尋範圍截一張圖: 回傳 (影像, 左上角螢幕座標)."""
+        self.root.update()
+        time.sleep(0.12)
+        return capture.grab(self.scan_region)
 
-        查詢不帶預期尺度 (`calibration.measure`): 倍率差很多也量得到。
+    def calibrate_frame(self):
+        """清場「之內」截一張搜尋範圍的圖並用這份流程的校準對`校準`.
+
+        回傳 (calibration.Calibrated, (影像, 左上角)): 成功時帶這次的`座標基準點`
+        與`畫面倍率`——每次拾取、比對測試都各自量一次, 不跨操作保存 (ADR 0012)。
         """
-        m = calibration.measure(self.detector.query, screen, pair)
-        if m.missing:
-            messagebox.showwarning(
-                title, "畫面上找不到：" + "、".join(m.missing) +
-                "\n請切換到兩張圖同時出現的畫面後重試（原本的設定維持不動）",
-                parent=self.root)
-            return None
-        if m.too_close:
-            messagebox.showwarning(
-                title, "兩張圖的位置重疊，無法作為比例尺，"
-                "請改用一對距離較遠的範本", parent=self.root)
-            return None
-        return m.distance
+        screen, org = self.grab_frame()
+        return calibration.calibrate(self.detector.query, screen, org,
+                                     self.flow_cal), (screen, org)
+
+    def _warn_measure(self, title, m):
+        """量不到 (Measurement / Calibrated) 時的提示."""
+        messagebox.showwarning(
+            title, m.describe() + "\n請切換到兩張圖同時出現的畫面、搜尋範圍要框住"
+            "它們，再重試（原本的設定維持不動）", parent=self.root)
 
     def designate_pair(self):
-        """設定 (或更換) 這份流程的`校準對`.
+        """設定 (或更換) 這份流程的`校準對` (ADR 0009、0012).
 
-        還沒有校準對: 當下的畫面就是`流程尺度` (倍率 1), 量到的距離＝基準距離。
-        已有校準對: 先用舊的那對量出倍率, 新的基準距離＝新距離 ÷ 倍率——換對
-        不改變流程尺度; 舊對量不到就拒絕 (寫進錯的基準距離, 整份流程就點偏)。
-        兩對在同一張截圖上量。任何一步失敗都不改動原本的校準資料。
+        還沒有校準對: 當下的畫面就是`流程尺度` (倍率 1), 量到的距離＝基準距離,
+        第一張的中心就是座標基準點 (之後可以開始拾取)。
+        已有校準對: 先用舊的那對量出倍率與舊基準點, 新的基準距離＝新距離 ÷ 倍率
+        (換對不改變流程尺度); 所有存下的座標 (絕對座標、固定矩形、範本拍攝位置) 依
+        新舊兩個基準點的差 (換回流程尺度) 一次平移, 每個落點都不變。舊對量不到就
+        拒絕 (不知道差多少就換基準, 整份流程會點偏)。兩對在同一張截圖上量。
+        任何一步失敗都不改動原本的校準資料與座標。
         """
         if not self.engine_gate():
             return
@@ -679,51 +685,60 @@ class App:
             return
         title = "設定校準對"
         old = self.flow_cal
-        screen = self._calibration_screen(
-            [*pair, *(old["pair"] if old else ())], title)
-        if screen is None:
+        if not self.calibration_ready(title, [*pair, *(old["pair"] if old else ())]):
             return
-        k = 1.0
+        with ui_overlay.screen_clear(self.root):
+            screen, org = self.grab_frame()
+        k, old_anchor = 1.0, None
         if old:
-            d_old = self._pair_distance(screen, old["pair"], "設定校準對"
-                                        "（先用原本的校準對量倍率）")
-            if d_old is None:
+            c = calibration.calibrate(self.detector.query, screen, org, old)
+            if not c.ok:
+                self._warn_measure("設定校準對（先用原本的校準對量倍率與基準點）", c)
                 return
-            k = calibration.snap_identity(d_old / float(old["baseline"]))
-        dist = self._pair_distance(screen, list(pair), title)
-        if dist is None:
+            k, old_anchor = c.scale, c.anchor
+        m = calibration.measure(self.detector.query, screen, list(pair), org)
+        if not m.ok:
+            self._warn_measure(title, m)
             return
-        self.flow_cal = calibration.make(pair, dist / k)
-        self.editor_scale = k
+        self.flow_cal = calibration.make(pair, m.distance / k)
+        moved = 0
+        if old_anchor is not None:
+            # 存下的座標全部改成相對新基準點 (每個落點照舊)
+            moved = (flowfmt.shift_flow(self._ref_data(), old_anchor, m.anchor, k)
+                     + self.ws.shift_pos(old_anchor, m.anchor, k))
         self._autosave()
         self._update_cal_ui()
+        self.render_steps()
         self.log_ui(f"已設定校準對「{pair[0]}」×「{pair[1]}」，"
-                    f"基準距離 {dist / k:.1f}px（目前畫面倍率 ×{k:.3f}）", "ok")
+                    f"基準距離 {m.distance / k:.1f}px（目前畫面倍率 ×{k:.3f}）；"
+                    f"座標基準點 {tuple(m.anchor)}", "ok")
+        if old_anchor is not None:
+            self.log_ui(f"基準點從 {tuple(old_anchor)} 換到 {tuple(m.anchor)}，"
+                        f"已換算 {moved} 個存下的座標（絕對座標、固定矩形、範本拍攝位置），"
+                        "落點不變（捨入誤差內）", "ok")
 
     def calibrate_now(self):
-        """`校準`: 用這份流程的校準對量一次, 更新編輯器倍率.
+        """「校準」鈕: 用這份流程的校準對量一次, 只顯示目前的倍率與基準點 (ADR 0012).
 
-        失敗時保留原本的倍率 (切到兩張圖都看得到的畫面重試即可)。
+        不影響任何存下的值——拾取時會各自重量; 這顆只是讓作者確認畫面大小與位置。
         """
         cal = self.flow_cal
         if cal is None:
             messagebox.showinfo("校準", "這份流程還沒有校準對，"
                                 "請先按「設定校準對」", parent=self.root)
             return
-        if not self.engine_gate():
+        if not self.calibration_ready("校準"):
             return
-        screen = self._calibration_screen(cal["pair"], "校準")
-        if screen is None:
+        with ui_overlay.screen_clear(self.root):
+            c, _frame = self.calibrate_frame()
+        if not c.ok:
+            self._warn_measure("校準", c)
             return
-        dist = self._pair_distance(screen, cal["pair"], "校準")
-        if dist is None:
-            return
-        self.editor_scale = calibration.snap_identity(
-            dist / float(cal["baseline"]))
-        self._update_cal_ui()
-        self.log_ui(f"校準完成：畫面倍率 ×{self.editor_scale:.3f}"
-                    f"（目前距離 {dist:.1f}px ÷ 基準 {float(cal['baseline']):.1f}px）"
-                    "；拾取的座標與截下的範本會換回流程尺度", "ok")
+        m = c.measurement
+        self.cal_btn.configure(text=f"校準　×{c.scale:.2f}")
+        self.log_ui(f"目前畫面倍率 ×{c.scale:.3f}"
+                    f"（距離 {m.distance:.1f}px ÷ 基準 {float(cal['baseline']):.1f}px）、"
+                    f"座標基準點 {tuple(c.anchor)}；只是顯示，拾取時會各自重量", "ok")
 
     # ================= `補做`設定 (補做間隔 / 忙碌指示, ADR 0008) =================
 
@@ -759,8 +774,8 @@ class App:
     def edit_busy_indicator(self):
         """設定/清除`忙碌指示`: 選範本 (同一個選範本對話框) → 找圖設定.
 
-        已設定時先問要不要清除 (否＝重新設定); 新設定時預設限定在搜尋範圍
-        九宮格的下中格 (指示字樣在畫面底部中央)。這次加進來最後沒用到的圖收回。
+        已設定時先問要不要清除 (否＝重新設定); 限定範圍由作者在找圖設定裡框
+        `固定矩形` (指示字樣在畫面底部中央)。這次加進來最後沒用到的圖收回。
         """
         cur = self.busy_target
         if cur and messagebox.askyesno(
@@ -777,8 +792,7 @@ class App:
         added = [n for n in self.list_template_names() if n not in before]
         if name:
             base = (cur if cur and cur["template"] == name
-                    else {"template": name,
-                          "limit": {"kind": "grid", "cells": [8]}})
+                    else {"template": name})
 
             def test(o, parent):
                 ui_dialogs.show_match_test(
@@ -788,10 +802,10 @@ class App:
                 self, self.root, base, "忙碌指示的找圖設定", test_fn=test)
             tgt = findtarget.make_target(name, **opts) if opts else None
             if tgt is not None and findtarget.needs_origin(tgt):
-                # 補做前才查、那時的原點不固定: 只能以搜尋範圍為基準
+                # 補做前才查、那時的原點不固定: 只能用固定矩形或不限定
                 messagebox.showwarning(
                     "忙碌指示", "忙碌指示的限定範圍與指定點不能以原點為基準，"
-                    "請改用九宮格或搜尋範圍", parent=self.root)
+                    "請改用固定矩形或不限定", parent=self.root)
             elif tgt is not None:
                 self.busy_target = tgt
                 self._autosave()
@@ -890,7 +904,7 @@ class App:
         ttk.Button(bar3, text="設定校準對", style="Small.TButton",
                    takefocus=False,
                    command=self.designate_pair).pack(side="left", padx=(8, 6))
-        # 校準按鈕常駐顯示目前的編輯器倍率 (執行時開頭會自動再量一次)
+        # 「校準」鈕只量測並顯示目前倍率與基準點 (拾取與執行各自重量, ADR 0012)
         self.cal_btn = ttk.Button(bar3, text="校準", style="Small.TButton",
                                   takefocus=False, command=self.calibrate_now)
         self.cal_btn.pack(side="left")
@@ -1510,15 +1524,16 @@ class App:
         return imgio.imread(p) if os.path.exists(p) else None
 
     def template_pos(self, name):
-        """範本截圖時的中心螢幕座標 [x, y]; 沒有記錄回傳 None.
+        """範本的拍攝位置 [x, y] (截圖當下的中心, 相對`座標基準點`、流程尺度);
+        沒有記錄回傳 None.
 
-        只有本流程自己拍的圖有 pos——跨流程複製進來與從磁碟上傳的沒有
+        只有本流程自己拍的圖有——跨流程複製進來與從磁碟上傳的沒有
         (相對座標原點只能靠即時找圖或往前推)。
         """
         return self.ws.pos_of(name)
 
     def record_template_pos(self, name, xy):
-        """補記範本的中心螢幕座標 (比對測試找到時, 供相對座標當備援原點)."""
+        """補記範本的拍攝位置 (相對座標基準點; 比對測試找到時, 供相對座標當備援原點)."""
         self.ws.set_pos(name, xy)
 
     def template_bytes(self, name):
@@ -1619,24 +1634,31 @@ class App:
         return ui_overlay.pick(self.root, "region", "拖曳框選要辨識的圖片區域",
                                hide=hide)
 
-    def flow_scale_image(self, img):
-        """截下的範本圖換回`流程尺度`: 除以編輯器倍率 (倍率 1 原圖照存).
+    def pick_region_measured(self, hide=(), parent=None):
+        """框選一個區域並在那張畫面上`校準`: 回傳 (pick_region_raw 的結果, 座標基準點,
+        畫面倍率); 取消時結果為 None, 量不到時整個回 None (已提示).
 
-        上傳的圖不經這裡——不知道它的來源尺度, 照原樣存。
+        截範本的共同入口 (主視窗「截圖框選」、選範本對話框「截圖新增」): 圖要除以
+        當下倍率、拍攝位置要相對當下基準點 (ADR 0012)。沒有校準對＝倍率 1、不記位置。
         """
-        return imgio.to_flow_scale(img, self.editor_scale)
+        return ui_dialogs.measured_pick(
+            self, parent or self.root,
+            lambda anchor, k, frame: self.pick_region_raw(hide=hide),
+            hide=hide, title="截圖框選")
 
-    def save_captured(self, r):
+    def save_captured(self, r, anchor=None, k=1.0):
         """把 pick_region_raw 的結果存成本流程的新範本, 回傳範本名.
 
-        圖落在工作區 (存檔時才進 zip), 先換回流程尺度; 記下`pos`＝截圖當下的
-        中心螢幕座標 (螢幕座標, 不換算)。
+        圖落在工作區 (存檔時才進 zip), 先除以當下的`畫面倍率` k 換回流程尺度
+        (倍率 1 原圖照存; 上傳的圖不經這裡); 拍攝位置＝截圖中心相對當下的`座標基準點`
+        anchor (沒有基準點就不記)。
         """
         name = self.ws.reserve(self.next_template_name())
-        img = self.flow_scale_image(r["img"])
+        img = imgio.to_flow_scale(r["img"], k)
         imgio.imwrite(self.ws.path_of(name), img)
-        self.ws.set_pos(name, [r["screenX"] + r["w"] // 2,
-                               r["screenY"] + r["h"] // 2])
+        pos = ui_dialogs.template_pos_from_shot(r, anchor, k)
+        if pos is not None:
+            self.ws.set_pos(name, pos)
         # 重新探索卡主執行緒 → 延後到視窗還原、畫面喘口氣之後,
         # 「視窗消失」與「程式短暫卡住」兩種感受分開
         self._pending_templates.add(name)
@@ -1681,10 +1703,11 @@ class App:
 
     def capture_template(self, hide=()):
         """截圖框選 → 自動命名存入本流程的範本. 回傳範本名或 None."""
-        r = self.pick_region_raw(hide=hide)
-        if not r:
+        got = self.pick_region_measured(hide=hide)
+        if not got or got[0] is None:
             return None
-        return self.save_captured(r)
+        r, anchor, k = got
+        return self.save_captured(r, anchor, k)
 
     def upload_template(self):
         """從硬碟上傳圖片存為本流程的範本 (可多選).
@@ -1817,7 +1840,7 @@ class App:
             "avoidHover": self.avoid_hover.get(),
             flowfile.RETRY_KEY: self.retry_interval_ms,
             flowfile.BUSY_APPEAR_KEY: self.busy_appear_ms,
-            flowfmt.COORD_SPACE: flowfmt.REGION,
+            flowfmt.COORD_SPACE: flowfmt.ANCHOR,
         })
         return data
 
@@ -1825,17 +1848,10 @@ class App:
         """本流程引用的全部範本名 (步驟 + 校準對 + 忙碌指示; 見 flowfile.flow_refs)."""
         return flowfile.flow_refs(self._ref_data())
 
-    def _log_notes(self, notes):
-        """把遷移提示寫進執行紀錄 (換算失敗的提示以警告等級顯示)."""
-        for note in notes:
-            self.log_ui(note, "warn" if "無法" in note else "info")
-
     def _apply_flow(self, data):
-        # 舊存檔一律先遷移: 座標空間換算、範本名去副檔名、每步 threshold 丟棄
-        self._log_notes(flowfile.migrate_flow(data))
+        """套用一份流程資料 (已是現行格式: 讀檔路徑由 flowfile 擋掉舊格式)."""
         self.steps = data.get("steps", [])
         self.flow_cal = calibration.flow_pair(data)
-        self.editor_scale = 1.0   # 編輯器倍率屬於「這次編輯這份流程」
         self._update_cal_ui()
         self.retry_interval_ms = flowfile.retry_interval_ms(data)
         self.busy_appear_ms = flowfile.busy_appear_ms(data)
@@ -1869,23 +1885,22 @@ class App:
                 "確定要開新流程嗎？", parent=self.root):
             return
         self._switch_workspace(None)
-        self._apply_flow({"steps": [], flowfmt.COORD_SPACE: flowfmt.REGION})
+        self._apply_flow({"steps": [], flowfmt.COORD_SPACE: flowfmt.ANCHOR})
         self.log_ui("已開始一份新流程（工作區已清空）", "ok")
 
     def _switch_workspace(self, flow_path):
-        """切流程的工作區交接: 清空 → (有存檔就) 解到工作區 → 重新探索.
+        """切流程的工作區交接: (有存檔就) 解到工作區 → 清空舊狀態 → 重新探索.
 
-        回傳 flowfile.read() 的結果 (flow_path 為 None 時回 None)。
+        回傳 flowfile.read() 的結果 (flow_path 為 None 時回 None)。存檔讀不進來
+        (舊格式) 時在動到任何狀態之前就拋出, 目前的流程原封不動。
         """
+        r = None if flow_path is None else self.ws.load_flow(flow_path)
         self._cancel_reregister()
         self._pending_templates.clear()
         self._collapsed.clear()
-        r = None
         if flow_path is None:
             self.ws.clear()
             self.ws.set_flow_path(None)
-        else:
-            r = self.ws.load_flow(flow_path)
         self.reload_profile()
         self.refresh_templates()
         return r
@@ -1918,63 +1933,40 @@ class App:
                         + "、".join(missing), "warn")
 
     def open_flow(self):
-        """載入流程存檔; 舊格式與外來檔一律先落地成本 profile 的存檔再開.
+        """載入流程存檔.
 
         - 本 profile 內的存檔: 直接解到工作區
         - 不在本 profile 內的存檔: 原樣複製一份副本進來再開 (原始檔不被動到;
-          不換算——流程自帶尺度與校準對)
-        - 舊 autoClick flow JSON / 舊流程包: 單向轉換成新存檔後開啟
+          不換算——流程自帶尺度、校準對與座標基準)
+        - 舊格式 (座標相對搜尋範圍的存檔、舊 autoClick flow JSON、舊流程包): 拒絕開啟
+          並說明 (ADR 0012), 目前的流程原封不動
         """
         path = filedialog.askopenfilename(
             parent=self.root, title="載入流程", initialdir=self.flows_dir,
-            filetypes=[("AutoClick 流程",
-                        f"*{flowfile.EXT} *.json *.autoclick"),
-                       ("所有檔案", "*.*")])
+            filetypes=[("AutoClick 流程", f"*{flowfile.EXT}"), ("所有檔案", "*.*")])
         if not path:
             return
         try:
-            if flowfile.is_flow_file(path):
-                if flowfile.is_inside_profile(path, self.profile_dir):
-                    r = self._switch_workspace(path)
-                    self._log_notes(r["notes"])
-                    self.log_ui(f"已載入流程 {os.path.basename(path)}"
-                                f"（{len(self.ws.names())} 個範本）", "ok")
-                    self._apply_flow(r["data"])
-                    return
-                # 外來存檔: 原樣複製副本進 profile
-                a = flowfile.adopt_foreign_flow(path, self.profile_dir)
-                r = self._switch_workspace(a["flow_path"])
-                self._log_notes(a["notes"])
-                self.log_ui(
-                    f"已把外來存檔 {os.path.basename(path)} 複製進本 profile → "
-                    f"{os.path.basename(a['flow_path'])}（原始檔未被修改）", "ok")
-                self._apply_flow(a["data"])
+            if flowfile.is_inside_profile(path, self.profile_dir):
+                r = self._switch_workspace(path)
+                self.log_ui(f"已載入流程 {os.path.basename(path)}"
+                            f"（{len(self.ws.names())} 個範本）", "ok")
+                self._apply_flow(r["data"])
                 return
-            # 舊格式: 單向轉換 (ADR 0002)
-            r = flowfile.import_legacy(path, self.profile_dir)
-            self._switch_workspace(r["flow_path"])
-            self._log_notes(r["notes"])
-            msg = (f"已匯入舊格式流程 {os.path.basename(path)} → "
-                   f"{os.path.basename(r['flow_path'])}"
-                   f"（收進 {len(r['templates'])} 個範本）")
-            self.log_ui(msg, "ok")
-            self._log_conversion(r)
-            self._apply_flow(r["data"])
+            # 外來存檔: 原樣複製副本進 profile
+            a = flowfile.adopt_foreign_flow(path, self.profile_dir)
+            r = self._switch_workspace(a["flow_path"])
+            self.log_ui(
+                f"已把外來存檔 {os.path.basename(path)} 複製進本 profile → "
+                f"{os.path.basename(a['flow_path'])}（原始檔未被修改）", "ok")
+            self._apply_flow(a["data"])
+        except flowfile.OldFormatError as e:
+            self.log_ui(f"無法開啟 {os.path.basename(path)}：{e}", "warn")
+            messagebox.showwarning("載入流程",
+                                   f"無法開啟 {os.path.basename(path)}：\n{e}",
+                                   parent=self.root)
         except Exception as e:
             messagebox.showerror("載入流程", f"載入失敗: {e}", parent=self.root)
-
-    def _log_conversion(self, r):
-        """舊格式轉換的副作用進執行紀錄 (改名/降級/缺圖都不彈對話框)."""
-        if r.get("renamed"):
-            self.log_ui("範本名已拉平，撞名自動加序號並同步改寫引用："
-                        + "、".join(f"{k}→{v}" for k, v in
-                                    sorted(r["renamed"].items())), "info")
-        if r.get("downgraded"):
-            self.log_ui("這些範本原本是多截圖，已取登錄基準張降為單張："
-                        + "、".join(r["downgraded"]), "warn")
-        if r.get("missing"):
-            self.log_ui("找不到這些被引用的範本，沒有帶進存檔："
-                        + "、".join(r["missing"]), "warn")
 
     def _autosave(self):
         """自動存檔**只寫步驟草稿**: 圖留在工作區, 不重壓整包 zip.
@@ -1985,7 +1977,17 @@ class App:
         flowfile.write_draft(self.profile_dir, self._flow_data())
 
     def _load_autosave(self):
-        data = flowfile.read_draft(self.profile_dir)
+        """啟動 / 切 profile 時復原步驟草稿; 舊格式的草稿不復原, 開空白並提示一次."""
+        try:
+            data = flowfile.read_draft(self.profile_dir)
+        except flowfile.OldFormatError as e:
+            why = str(e)
+            self.log_ui(f"步驟草稿沒有復原：{why}", "warn")
+            # 啟動期間不在 __init__ 裡擋住: 主視窗先開, 提示排到事件迴圈再彈
+            self.root.after(0, lambda: messagebox.showwarning(
+                "步驟草稿", f"上次的步驟草稿沒有復原，改開空白流程：\n{why}",
+                parent=self.root))
+            return
         if data is not None:
             self._apply_flow(data)
 
@@ -2101,14 +2103,6 @@ class App:
                 "「點到下一步的圖出現」需要下一個步驟是找圖步驟：\n"
                 f"步驟 {', '.join(map(str, bad))} 的下一步不是找圖"
                 "（或已是最後一步）。\n請把下一個找圖步驟排在其後",
-                parent=self.root)
-            return
-        abs_no = [n for n, _ in flowfmt.abs_steps(steps)]
-        if abs_no and not self.scan_region:
-            messagebox.showwarning(
-                "執行",
-                "絕對座標是以「搜尋範圍」左上角為基準的，請先框選搜尋範圍。\n"
-                f"用到絕對座標的步驟：{', '.join(map(str, abs_no))}",
                 parent=self.root)
             return
         delay = {"無": 0, "3 秒": 3, "5 秒": 5, "10 秒": 10}[self.start_delay.get()]

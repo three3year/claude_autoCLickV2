@@ -9,16 +9,18 @@ from harness import Vision
 from automation import findtarget
 
 REGION = (100, 50, 1200, 900)   # 搜尋範圍 (螢幕座標 x, y, w, h)
+ANCHOR = (300, 150)             # `座標基準點` (螢幕座標)
 
 
-def run(hits, target=None, origin=None, scale=1.0, region=REGION):
+def run(hits, target=None, origin=None, scale=1.0, region=REGION,
+        anchor=ANCHOR):
     """畫面上同時有 hits 這幾個匹配 (螢幕座標的框中心), 執行一次找圖目標."""
     vision = Vision()
     vision.plan("t", [list(hits)] if hits else [None])
     screen, org = vision.grab(region)
     tgt = dict({"template": "t"}, **(target or {}))
     return findtarget.find(tgt, vision, screen, org, origin=origin,
-                           scale=scale), vision
+                           scale=scale, anchor=anchor), vision
 
 
 def center(m):
@@ -79,27 +81,38 @@ def test_沒有匹配就是沒挑到():
     assert r.picked is None and r.reason == "none"
 
 
-def test_最接近指定點_以搜尋範圍左上為基準():
-    near = {"pick": {"kind": "near", "base": "region", "x": 500, "y": 300}}
-    # 指定點＝(100+500, 50+300)＝(600, 350)
-    assert picked([(300, 300), (650, 380), (900, 350)], target=near) == (650, 380)
+# ---------- 最接近指定點: 只以`原點`為基準 (coord-anchor 票 06) ----------
 
-
-def test_最接近指定點_以原點為基準():
-    near = {"pick": {"kind": "near", "base": "origin", "x": -100, "y": 0}}
+def test_最接近指定點_原點加偏移():
+    near = {"pick": {"kind": "near", "x": -100, "y": 0}}
     assert picked([(300, 300), (650, 380), (900, 410)], target=near,
                   origin=(1000, 400)) == (900, 410)
 
 
+def test_偏移零就是最接近原點():
+    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
+    assert picked([(300, 300), (650, 380), (900, 410)], target=near,
+                  origin=(640, 390)) == (650, 380)
+
+
 def test_指定點隨畫面倍率換算():
-    near = {"pick": {"kind": "near", "base": "origin", "x": 100, "y": 0}}
+    near = {"pick": {"kind": "near", "x": 100, "y": 0}}
     hits = [(600, 400), (700, 400)]
     assert picked(hits, target=near, origin=(500, 400)) == (600, 400)
     assert picked(hits, target=near, origin=(500, 400), scale=2.0) == (700, 400)
 
 
+def test_指定點與搜尋範圍框法無關():
+    near = {"pick": {"kind": "near", "x": 100, "y": 0}}
+    hits = [(600, 400), (700, 400)]
+    assert picked(hits, target=near, origin=(500, 400),
+                  region=(0, 0, 1920, 1080)) == (600, 400)
+    assert picked(hits, target=near, origin=(500, 400),
+                  region=(400, 300, 800, 600)) == (600, 400)
+
+
 def test_以原點為基準卻沒有原點_無法執行且不查詢():
-    near = {"pick": {"kind": "near", "base": "origin", "x": 0, "y": 0}}
+    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
     r, vision = run([(300, 300)], target=near, origin=None)
     assert r.picked is None and r.reason == "origin"
     assert vision.lookups == []
@@ -137,7 +150,6 @@ def test_比色不符的不算進第N個():
 
 
 # ---------- 限定範圍 (票 05) ----------
-# 搜尋範圍 REGION＝(100, 50, 1200, 900): 九宮格每格 400×300
 
 def test_沒設限定範圍就是整個搜尋範圍():
     r, _ = run([(300, 200)])
@@ -165,20 +177,6 @@ def test_以原點為基準的限定範圍卻沒有原點_無法執行():
     assert r.reason == "origin" and vision.lookups == []
 
 
-def test_九宮格單格():
-    r, _ = run([(700, 500), (200, 100)], target={"limit": {"kind": "grid",
-                                                           "cells": [5]}})
-    assert r.limit == (500, 350, 400, 300)
-    assert [center(m) for m in r.matches] == [(700, 500)]
-
-
-def test_九宮格多格取包住它們的最小矩形():
-    r, _ = run([], target={"limit": {"kind": "grid", "cells": [1, 3]}})
-    assert r.limit == (100, 50, 1200, 300)
-    r, _ = run([], target={"limit": {"kind": "grid", "cells": [6, 8]}})
-    assert r.limit == (500, 350, 800, 600)
-
-
 def test_限定範圍超出搜尋範圍的部分被裁掉():
     lim = {"limit": {"kind": "origin", "x": -100, "y": -100, "w": 300, "h": 300}}
     r, _ = run([(120, 70)], target=lim, origin=(150, 100))
@@ -193,10 +191,11 @@ def test_限定範圍完全在搜尋範圍外_沒有匹配也不查詢():
     assert vision.lookups == []
 
 
-def test_最接近指定點以搜尋範圍為基準_不受限定範圍裁切影響():
-    tgt = {"limit": {"kind": "grid", "cells": [9]},
-           "pick": {"kind": "near", "base": "region", "x": 1200, "y": 900}}
-    r, _ = run([(1000, 800), (1250, 900)], target=tgt)
+def test_最接近指定點不受限定範圍裁切影響():
+    tgt = {"limit": {"kind": "rect", "x": 600, "y": 600, "w": 400, "h": 200},
+           "pick": {"kind": "near", "x": 300, "y": 200}}
+    # 固定矩形 (900,750) 400×200 裁到搜尋範圍底 → (900,750,400,200); 指定點 (1200,900)
+    r, _ = run([(1000, 800), (1250, 900)], target=tgt, origin=(900, 700))
     assert center(r.picked) == (1250, 900)
 
 
@@ -205,12 +204,13 @@ def test_最接近指定點以搜尋範圍為基準_不受限定範圍裁切影�
 def test_組找圖目標_預設值不寫進存檔():
     assert findtarget.make_target("a") == {"template": "a"}
     assert findtarget.make_target(
-        "a", limit={"kind": "grid", "cells": [3, 1]},
+        "a", limit={"kind": "rect", "x": 3, "y": 1, "w": 10, "h": 20},
         pick={"kind": "top", "n": 2}, color=True) == {
-        "template": "a", "limit": {"kind": "grid", "cells": [1, 3]},
+        "template": "a", "limit": {"kind": "rect", "x": 3, "y": 1, "w": 10, "h": 20},
         "pick": {"kind": "top", "n": 2}, "colorCheck": True}
-    assert findtarget.make_target("a", limit={"kind": "grid", "cells": []},
-                                  pick={"kind": "score"}) == {"template": "a"}
+    assert findtarget.make_target("a", limit={"kind": "grid", "cells": [1]},
+                                  pick={"kind": "score"}) == {"template": "a"}, \
+        "九宮格已退場: 不寫進存檔"
 
 
 def test_拾取的螢幕位置反除畫面倍率存成基準尺度():
@@ -225,11 +225,12 @@ def test_步驟清單的簡短標記():
     assert findtarget.tags({"template": "a"}) == []
     assert findtarget.tags({"template": "a", "colorCheck": True,
                             "pick": {"kind": "top", "n": 3},
-                            "limit": {"kind": "grid", "cells": [9]}}) == \
+                            "limit": {"kind": "rect", "x": 0, "y": 0,
+                                      "w": 9, "h": 9}}) == \
         ["限定", "由上到下第3", "比色"]
     assert findtarget.tags({"template": "a",
-                            "pick": {"kind": "near", "base": "origin",
-                                     "x": 0, "y": 0}}) == ["最接近指定點"]
+                            "pick": {"kind": "near", "x": 0, "y": 0}}) == \
+        ["最接近指定點"]
 
 
 def test_設定摘要():
@@ -237,23 +238,15 @@ def test_設定摘要():
     text = findtarget.summary({
         "template": "a", "colorCheck": True,
         "limit": {"kind": "origin", "x": -50, "y": 20, "w": 200, "h": 100},
-        "pick": {"kind": "near", "base": "region", "x": 10, "y": 20}})
-    assert text == ("原點矩形 (-50,+20) 200×100；最接近搜尋範圍左上 (+10,+20)"
-                    "；比色")
+        "pick": {"kind": "near", "x": 10, "y": 20}})
+    assert text == "原點矩形 (-50,+20) 200×100；最接近原點 (+10,+20)；比色"
     assert findtarget.summary({"template": "a",
-                               "limit": {"kind": "grid", "cells": [3, 6]},
+                               "limit": {"kind": "rect", "x": -5, "y": 40,
+                                         "w": 300, "h": 60},
                                "pick": {"kind": "left", "n": 2}}) == \
-        "九宮格 3,6；由左到右第 2 個；不比色"
-
-
-def test_手改壞的九宮格格號_不找也不退成整個範圍():
-    r, vision = run([(300, 300)], target={"limit": {"kind": "grid",
-                                                    "cells": [0, 10]}})
-    assert r.picked is None and r.matches == []
-    assert vision.lookups == []
-    r, _ = run([(700, 500)], target={"limit": {"kind": "grid",
-                                               "cells": [5, 12]}})
-    assert r.limit == (500, 350, 400, 300), "無效格號略過, 有效的照算"
+        "固定矩形 (-5,+40) 300×60；由左到右第 2 個；不比色"
+    assert findtarget.pick_text({"pick": {"kind": "near", "x": -3, "y": 4}}) == \
+        "near(-3,+4)"
 
 
 def test_畫面倍率同時當預期尺度交給偵測器():
@@ -262,45 +255,57 @@ def test_畫面倍率同時當預期尺度交給偵測器():
     assert vision.expected_scales == [("t", 0.9)]
 
 
-# ---------- 固定矩形 (busy-pause-fixed-rect 票 03) ----------
-# 存成搜尋範圍的比例 (左、上、寬、高, 各 0–1); REGION＝(100, 50, 1200, 900)
+# ---------- 固定矩形: 相對`座標基準點` (coord-anchor 票 04) ----------
+# 存的是相對基準點的偏移與寬高 (流程尺度); ANCHOR＝(300, 150), REGION＝(100, 50, 1200, 900)
 
 def rect(x, y, w, h):
     return {"limit": {"kind": "rect", "x": x, "y": y, "w": w, "h": h}}
 
 
-def test_固定矩形_查詢區域是比例乘搜尋範圍():
-    r, _ = run([(700, 600), (300, 200)], target=rect(0.25, 0.5, 0.5, 0.25))
+def test_固定矩形_查詢區域是基準點加偏移():
+    r, _ = run([(700, 600), (300, 200)], target=rect(100, 350, 600, 225))
     assert r.limit == (400, 500, 600, 225)
     assert [center(m) for m in r.matches] == [(700, 600)]
 
 
-def test_固定矩形_搜尋範圍改變後跟著按比例改變():
-    r, _ = run([], target=rect(0.25, 0.5, 0.5, 0.25), region=(0, 0, 800, 400))
-    assert r.limit == (200, 200, 400, 100)
-
-
-def test_固定矩形_不隨畫面倍率換算():
-    r, _ = run([], target=rect(0.25, 0.5, 0.5, 0.25), scale=2.0)
+def test_固定矩形_基準點移動後跟著移動_與搜尋範圍框法無關():
+    tgt = rect(100, 350, 600, 225)
+    r, _ = run([], target=tgt, anchor=(500, 250))
+    assert r.limit == (600, 600, 600, 225)
+    r, _ = run([], target=tgt, region=(0, 0, 1920, 1080))
+    assert r.limit == (400, 500, 600, 225), "搜尋範圍框得鬆緊不影響"
+    r, _ = run([], target=tgt, region=(95, 45, 1210, 910))
     assert r.limit == (400, 500, 600, 225)
 
 
-def test_固定矩形_不需要原點():
-    tgt = rect(0.25, 0.5, 0.5, 0.25)
+def test_固定矩形_隨畫面倍率換算():
+    r, _ = run([], target=rect(100, 350, 600, 225), scale=2.0)
+    assert r.limit == (500, 850, 800, 100), "右下角也 ×2, 再裁到搜尋範圍底"
+    r, _ = run([], target=rect(50, 25, 100, 50), scale=0.5)
+    assert r.limit == (325, 163, 50, 25), "25×0.5＝12.5 進位成 13"
+
+
+def test_固定矩形_不需要原點_但需要座標基準點():
+    tgt = rect(100, 350, 600, 225)
     assert not findtarget.needs_origin(tgt)
+    assert findtarget.needs_anchor(tgt)
+    assert not findtarget.needs_anchor({"template": "t"})
     r, vision = run([(700, 600)], target=tgt, origin=None)
     assert center(r.picked) == (700, 600)
+    r, vision = run([(700, 600)], target=tgt, anchor=None)
+    assert r.picked is None and r.reason == "anchor" and r.failed == "anchor"
+    assert vision.lookups == []
 
 
 def test_固定矩形_超出搜尋範圍的部分被裁掉():
-    r, _ = run([], target=rect(0.75, 0.0, 0.5, 1.0))
+    r, _ = run([], target=rect(700, -500, 600, 2000))
     assert r.limit == (1000, 50, 300, 900)
 
 
 def test_固定矩形_數值不合法或沒有交集_不找也不退成整個範圍():
-    bad = [rect(-0.1, 0, 0.5, 0.5), rect(0, 0, 1.5, 0.5), rect(0, 0, 0, 0.5),
-           rect(1.0, 0, 0.5, 0.5), rect("a", 0, 0.5, 0.5),
-           rect(True, 0, 0.5, 0.5), {"limit": {"kind": "rect", "x": 0.1}}]
+    bad = [rect(0.5, 0, 10, 10), rect(0, 0, 0, 10), rect(0, 0, 10, -1),
+           rect("a", 0, 10, 10), rect(True, 0, 10, 10),
+           {"limit": {"kind": "rect", "x": 1}}, rect(5000, 0, 10, 10)]
     for tgt in bad:
         r, vision = run([(300, 300)], target=tgt)
         assert r.picked is None and r.matches == [], tgt
@@ -308,29 +313,25 @@ def test_固定矩形_數值不合法或沒有交集_不找也不退成整個範
         assert r.limit[2] == 0 or r.limit[3] == 0, tgt
 
 
-def test_固定矩形_組找圖目標保留比例():
-    lim = {"kind": "rect", "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4}
-    assert findtarget.make_target("a", limit=lim) == {"template": "a",
-                                                      "limit": lim}
-
-
 def test_固定矩形_標記與摘要():
-    tgt = dict({"template": "a"}, **rect(0.25, 0.5, 0.5, 0.125))
+    tgt = dict({"template": "a"}, **rect(100, 350, 600, 225))
     assert findtarget.tags(tgt) == ["限定"]
     assert findtarget.tag_text(tgt) == "〔限定〕"
-    assert findtarget.summary(tgt) == \
-        "固定矩形 (25.0%,50.0%) 50.0%×12.5%；分數最高；不比色"
+    assert findtarget.summary(tgt) == "固定矩形 (+100,+350) 600×225；分數最高；不比色"
+    assert findtarget.limit_text({"kind": "rect", "x": 0.1}) == "固定矩形（設定無效）"
 
 
-def test_框選的螢幕矩形換算成搜尋範圍的比例():
-    lim = findtarget.ratio_rect_from_screen((400, 500, 600, 225), REGION)
-    assert lim == {"kind": "rect", "x": 0.25, "y": 0.5, "w": 0.5, "h": 0.25}
+def test_框選的螢幕矩形換算成相對基準點_倍率反除():
+    lim = findtarget.fixed_rect_from_screen((400, 500, 600, 225), ANCHOR, 1.0)
+    assert lim == {"kind": "rect", "x": 100, "y": 350, "w": 600, "h": 225}
     r, _ = run([], target={"limit": lim})
     assert r.limit == (400, 500, 600, 225), "換算回來是同一塊"
+    lim = findtarget.fixed_rect_from_screen((400, 500, 600, 226), ANCHOR, 2.0)
+    assert lim == {"kind": "rect", "x": 50, "y": 175, "w": 300, "h": 113}
 
 
-def test_框選超出搜尋範圍的部分先裁掉_完全在外面是None():
-    lim = findtarget.ratio_rect_from_screen((0, 0, 400, 350), REGION)
-    assert lim == {"kind": "rect", "x": 0.0, "y": 0.0, "w": 0.25,
-                   "h": 0.3333}
-    assert findtarget.ratio_rect_from_screen((2000, 0, 10, 10), REGION) is None
+def test_框選超出搜尋範圍也照存_執行時才裁():
+    lim = findtarget.fixed_rect_from_screen((0, 0, 400, 350), ANCHOR, 1.0)
+    assert lim == {"kind": "rect", "x": -300, "y": -150, "w": 400, "h": 350}
+    r, _ = run([], target={"limit": lim})
+    assert r.limit == (100, 50, 300, 300)

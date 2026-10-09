@@ -1,0 +1,4771 @@
+{
+ "flows": {
+  "早_繁中": {
+   "rects": 197,
+   "max_diff": 0,
+   "abs_steps": [],
+   "pos": 43,
+   "pos_before": {
+    "信用交易所": [
+     1577,
+     171
+    ],
+    "傳遞線索": [
+     1819,
+     493
+    ],
+    "傳遞關閉": [
+     1876,
+     83
+    ]
+   },
+   "pos_after": {
+    "信用交易所": [
+     1557,
+     152
+    ],
+    "傳遞線索": [
+     1799,
+     474
+    ],
+    "傳遞關閉": [
+     1856,
+     64
+    ]
+   },
+   "sample": [
+    {
+     "where": "第 3 步 target",
+     "template": "圓形叉叉",
+     "old": {
+      "kind": "rect",
+      "x": 0.6917,
+      "y": 0.0674,
+      "w": 0.2453,
+      "h": 0.2344
+     },
+     "old_px": [
+      1328,
+      69,
+      471,
+      240
+     ],
+     "new": {
+      "x": 1308,
+      "y": 50,
+      "w": 471,
+      "h": 240,
+      "kind": "rect"
+     },
+     "new_px": [
+      1328,
+      69,
+      471,
+      240
+     ],
+     "diff": 0
+    },
+    {
+     "where": "第 5 步 target",
+     "template": "獲得物資",
+     "old": {
+      "kind": "rect",
+      "x": 0.4531,
+      "y": 0.0488,
+      "w": 0.1068,
+      "h": 0.1875
+     },
+     "old_px": [
+      870,
+      50,
+      205,
+      192
+     ],
+     "new": {
+      "x": 850,
+      "y": 31,
+      "w": 205,
+      "h": 192,
+      "kind": "rect"
+     },
+     "new_px": [
+      870,
+      50,
+      205,
+      192
+     ],
+     "diff": 0
+    },
+    {
+     "where": "第 8 步 target",
+     "template": "基建BASE",
+     "old": {
+      "kind": "rect",
+      "x": 0.7047,
+      "y": 0.7373,
+      "w": 0.1245,
+      "h": 0.1768
+     },
+     "old_px": [
+      1353,
+      755,
+      239,
+      181
+     ],
+     "new": {
+      "x": 1333,
+      "y": 736,
+      "w": 239,
+      "h": 181,
+      "kind": "rect"
+     },
+     "new_px": [
+      1353,
+      755,
+      239,
+      181
+     ],
+     "diff": 0
+    }
+   ],
+   "video_rows": [
+    {
+     "flow": "早_繁中",
+     "where": "第 3 步 target",
+     "template": "圓形叉叉",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 5 步 target",
+     "template": "獲得物資",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 8 步 target",
+     "template": "基建BASE",
+     "video": "demo3",
+     "frame": 0,
+     "old": [
+      1466,
+      814,
+      87,
+      96
+     ],
+     "new": [
+      1466,
+      814,
+      87,
+      96
+     ],
+     "limit_old": [
+      1353,
+      755,
+      239,
+      181
+     ],
+     "limit_new": [
+      1353,
+      755,
+      239,
+      181
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 8 步 target",
+     "template": "基建BASE",
+     "video": "demo3",
+     "frame": 3,
+     "old": [
+      1466,
+      814,
+      87,
+      96
+     ],
+     "new": [
+      1466,
+      814,
+      87,
+      96
+     ],
+     "limit_old": [
+      1353,
+      755,
+      239,
+      181
+     ],
+     "limit_new": [
+      1353,
+      755,
+      239,
+      181
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 8 步 target",
+     "template": "基建BASE",
+     "video": "demo3",
+     "frame": 6,
+     "old": [
+      1466,
+      814,
+      87,
+      96
+     ],
+     "new": [
+      1466,
+      814,
+      87,
+      96
+     ],
+     "limit_old": [
+      1353,
+      755,
+      239,
+      181
+     ],
+     "limit_new": [
+      1353,
+      755,
+      239,
+      181
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 9 步 target",
+     "template": "鈴鐺",
+     "video": "demo3",
+     "frame": 96,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "limit_new": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 9 步 target",
+     "template": "鈴鐺",
+     "video": "demo3",
+     "frame": 174,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "limit_old": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "limit_new": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 9 步 target",
+     "template": "鈴鐺",
+     "video": "demo3",
+     "frame": 180,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "limit_old": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "limit_new": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 9 步 confirmTarget",
+     "template": "待辦事項",
+     "video": "demo3",
+     "frame": 192,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "limit_old": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "limit_new": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 9 步 confirmTarget",
+     "template": "待辦事項",
+     "video": "demo3",
+     "frame": 222,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "limit_old": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "limit_new": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 9 步 confirmTarget",
+     "template": "待辦事項",
+     "video": "demo3",
+     "frame": 252,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "limit_old": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "limit_new": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 12 步 target",
+     "template": "可收穫",
+     "video": "demo3",
+     "frame": 192,
+     "old": [
+      204,
+      964,
+      50,
+      40
+     ],
+     "new": [
+      204,
+      964,
+      50,
+      40
+     ],
+     "limit_old": [
+      164,
+      924,
+      130,
+      100
+     ],
+     "limit_new": [
+      164,
+      924,
+      130,
+      100
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 12 步 target",
+     "template": "可收穫",
+     "video": "demo3",
+     "frame": 204,
+     "old": [
+      204,
+      964,
+      50,
+      40
+     ],
+     "new": [
+      204,
+      964,
+      50,
+      40
+     ],
+     "limit_old": [
+      164,
+      924,
+      130,
+      100
+     ],
+     "limit_new": [
+      164,
+      924,
+      130,
+      100
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 12 步 target",
+     "template": "可收穫",
+     "video": "demo3",
+     "frame": 222,
+     "old": [
+      204,
+      964,
+      50,
+      40
+     ],
+     "new": [
+      204,
+      964,
+      50,
+      40
+     ],
+     "limit_old": [
+      164,
+      924,
+      130,
+      100
+     ],
+     "limit_new": [
+      164,
+      924,
+      130,
+      100
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 14 步 target",
+     "template": "訂單交付",
+     "video": "demo3",
+     "frame": 192,
+     "old": [
+      409,
+      966,
+      47,
+      40
+     ],
+     "new": [
+      409,
+      966,
+      47,
+      40
+     ],
+     "limit_old": [
+      172,
+      926,
+      324,
+      98
+     ],
+     "limit_new": [
+      172,
+      926,
+      324,
+      98
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 14 步 target",
+     "template": "訂單交付",
+     "video": "demo3",
+     "frame": 210,
+     "old": [
+      409,
+      966,
+      47,
+      40
+     ],
+     "new": [
+      409,
+      966,
+      47,
+      40
+     ],
+     "limit_old": [
+      172,
+      926,
+      324,
+      98
+     ],
+     "limit_new": [
+      172,
+      926,
+      324,
+      98
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 14 步 target",
+     "template": "訂單交付",
+     "video": "demo3",
+     "frame": 231,
+     "old": [
+      409,
+      966,
+      47,
+      40
+     ],
+     "new": [
+      409,
+      966,
+      47,
+      40
+     ],
+     "limit_old": [
+      172,
+      926,
+      324,
+      98
+     ],
+     "limit_new": [
+      172,
+      926,
+      324,
+      98
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 16 步 target",
+     "template": "幹員信賴",
+     "video": "demo3",
+     "frame": 192,
+     "old": [
+      600,
+      958,
+      40,
+      46
+     ],
+     "new": [
+      600,
+      958,
+      40,
+      46
+     ],
+     "limit_old": [
+      164,
+      918,
+      516,
+      106
+     ],
+     "limit_new": [
+      164,
+      918,
+      516,
+      106
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 16 步 target",
+     "template": "幹員信賴",
+     "video": "demo3",
+     "frame": 219,
+     "old": [
+      600,
+      958,
+      40,
+      46
+     ],
+     "new": [
+      600,
+      958,
+      40,
+      46
+     ],
+     "limit_old": [
+      164,
+      918,
+      516,
+      106
+     ],
+     "limit_new": [
+      164,
+      918,
+      516,
+      106
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 16 步 target",
+     "template": "幹員信賴",
+     "video": "demo3",
+     "frame": 246,
+     "old": [
+      402,
+      958,
+      40,
+      46
+     ],
+     "new": [
+      402,
+      958,
+      40,
+      46
+     ],
+     "limit_old": [
+      164,
+      918,
+      516,
+      106
+     ],
+     "limit_new": [
+      164,
+      918,
+      516,
+      106
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 19 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 96,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      22,
+      111,
+      128
+     ],
+     "limit_new": [
+      2,
+      22,
+      111,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 19 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 339,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      22,
+      111,
+      128
+     ],
+     "limit_new": [
+      2,
+      22,
+      111,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 19 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 606,
+     "old": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      22,
+      111,
+      128
+     ],
+     "limit_new": [
+      2,
+      22,
+      111,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 22 步 target",
+     "template": "進駐總覽",
+     "video": "demo3",
+     "frame": 96,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "limit_new": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 22 步 target",
+     "template": "進駐總覽",
+     "video": "demo3",
+     "frame": 159,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "limit_old": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "limit_new": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 22 步 target",
+     "template": "進駐總覽",
+     "video": "demo3",
+     "frame": 315,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "limit_old": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "limit_new": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 25 步 target",
+     "template": "無人機加速",
+     "video": "demo3",
+     "frame": 348,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "limit_old": [
+      1783,
+      688,
+      131,
+      128
+     ],
+     "limit_new": [
+      1783,
+      688,
+      131,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 25 步 target",
+     "template": "無人機加速",
+     "video": "demo3",
+     "frame": 363,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "limit_old": [
+      1783,
+      688,
+      131,
+      128
+     ],
+     "limit_new": [
+      1783,
+      688,
+      131,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 25 步 target",
+     "template": "無人機加速",
+     "video": "demo3",
+     "frame": 408,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "limit_old": [
+      1783,
+      688,
+      131,
+      128
+     ],
+     "limit_new": [
+      1783,
+      688,
+      131,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 26 步 target",
+     "template": "最多",
+     "video": "demo3",
+     "frame": 366,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "limit_old": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "limit_new": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 26 步 target",
+     "template": "最多",
+     "video": "demo3",
+     "frame": 375,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "limit_old": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "limit_new": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 26 步 target",
+     "template": "最多",
+     "video": "demo3",
+     "frame": 384,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "limit_old": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "limit_new": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 28 步 target",
+     "template": "確定",
+     "video": "demo3",
+     "frame": 366,
+     "old": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "limit_old": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "limit_new": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 28 步 target",
+     "template": "確定",
+     "video": "demo3",
+     "frame": 372,
+     "old": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "limit_old": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "limit_new": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 28 步 target",
+     "template": "確定",
+     "video": "demo3",
+     "frame": 378,
+     "old": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "limit_old": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "limit_new": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 29 步 target",
+     "template": "收取",
+     "video": "demo3",
+     "frame": 348,
+     "old": [
+      1642,
+      850,
+      50,
+      58
+     ],
+     "new": [
+      1642,
+      850,
+      50,
+      58
+     ],
+     "limit_old": [
+      1602,
+      810,
+      130,
+      138
+     ],
+     "limit_new": [
+      1602,
+      810,
+      130,
+      138
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 29 步 target",
+     "template": "收取",
+     "video": "demo3",
+     "frame": 360,
+     "old": [
+      1642,
+      850,
+      50,
+      58
+     ],
+     "new": [
+      1642,
+      850,
+      50,
+      58
+     ],
+     "limit_old": [
+      1602,
+      810,
+      130,
+      138
+     ],
+     "limit_new": [
+      1602,
+      810,
+      130,
+      138
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 29 步 target",
+     "template": "收取",
+     "video": "demo3",
+     "frame": 411,
+     "old": [
+      1642,
+      850,
+      50,
+      58
+     ],
+     "new": [
+      1642,
+      850,
+      50,
+      58
+     ],
+     "limit_old": [
+      1602,
+      810,
+      130,
+      138
+     ],
+     "limit_new": [
+      1602,
+      810,
+      130,
+      138
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 36 步 confirmTarget",
+     "template": "線索面板",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 40 步 target",
+     "template": "線索交流彈窗",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 44 步 target",
+     "template": "每日線索",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 45 步 target",
+     "template": "領取",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 47 步 target",
+     "template": "接收線索",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 47 步 confirmTarget",
+     "template": "全部收取",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 48 步 confirmTarget",
+     "template": "暫未收到新的線索",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 49 步 confirmTarget",
+     "template": "傳遞線索",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 51 步 target",
+     "template": "CONFIDENTIAL線索",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 51 步 confirmTarget",
+     "template": "全部分頁",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 54 步 confirmTarget",
+     "template": "選中1",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 55 步 target",
+     "template": "來自",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 56 步 confirmTarget",
+     "template": "選中2",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 58 步 confirmTarget",
+     "template": "選中3",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 60 步 confirmTarget",
+     "template": "選中4",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 62 步 confirmTarget",
+     "template": "選中5",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 64 步 confirmTarget",
+     "template": "選中6",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 66 步 confirmTarget",
+     "template": "選中7",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 69 步 target",
+     "template": "快速置入",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 76 步 target",
+     "template": "解鎖線索",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 81 步 target",
+     "template": "快速傳遞",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 83 步 target",
+     "template": "傳遞關閉",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 88 步 target",
+     "template": "非工作區",
+     "video": "demo3",
+     "frame": 483,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      1476,
+      16,
+      262,
+      222
+     ],
+     "limit_new": [
+      1476,
+      16,
+      262,
+      222
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 88 步 target",
+     "template": "非工作區",
+     "video": "demo3",
+     "frame": 591,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "limit_old": [
+      1476,
+      16,
+      262,
+      222
+     ],
+     "limit_new": [
+      1476,
+      16,
+      262,
+      222
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 88 步 target",
+     "template": "非工作區",
+     "video": "demo3",
+     "frame": 699,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "limit_old": [
+      1476,
+      16,
+      262,
+      222
+     ],
+     "limit_new": [
+      1476,
+      16,
+      262,
+      222
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 90 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 483,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 90 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 516,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 90 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 552,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 93 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 483,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 93 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 516,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 93 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 552,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 100 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 540,
+     "old": [
+      884,
+      980,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      980,
+      160,
+      40
+     ],
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 100 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 582,
+     "old": [
+      884,
+      667,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      667,
+      160,
+      40
+     ],
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 100 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 672,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 103 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 540,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 103 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 582,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 103 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 672,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      683
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 109 步 target",
+     "template": "發電站1列",
+     "video": "demo3",
+     "frame": 585,
+     "old": [
+      884,
+      957,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      957,
+      160,
+      36
+     ],
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 109 步 target",
+     "template": "發電站1列",
+     "video": "demo3",
+     "frame": 627,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 109 步 target",
+     "template": "發電站1列",
+     "video": "demo3",
+     "frame": 672,
+     "old": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "limit_old": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "limit_new": [
+      844,
+      0,
+      240,
+      1024
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 114 步 target",
+     "template": "辦公室列",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 118 步 target",
+     "template": "幹員休息",
+     "video": "demo3",
+     "frame": 717,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "limit_old": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "limit_new": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 118 步 target",
+     "template": "幹員休息",
+     "video": "demo3",
+     "frame": 759,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "limit_old": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "limit_new": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 118 步 target",
+     "template": "幹員休息",
+     "video": "demo3",
+     "frame": 786,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "limit_old": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "limit_new": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 120 步 target",
+     "template": "導航",
+     "video": "demo3",
+     "frame": 96,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      264,
+      19,
+      148,
+      127
+     ],
+     "limit_new": [
+      264,
+      19,
+      148,
+      127
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 120 步 target",
+     "template": "導航",
+     "video": "demo3",
+     "frame": 336,
+     "old": [
+      304,
+      59,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      59,
+      68,
+      46
+     ],
+     "limit_old": [
+      264,
+      19,
+      148,
+      127
+     ],
+     "limit_new": [
+      264,
+      19,
+      148,
+      127
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 120 步 target",
+     "template": "導航",
+     "video": "demo3",
+     "frame": 600,
+     "old": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "limit_old": [
+      264,
+      19,
+      148,
+      127
+     ],
+     "limit_new": [
+      264,
+      19,
+      148,
+      127
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 121 步 target",
+     "template": "好友",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 122 步 target",
+     "template": "好友列表",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 123 步 target",
+     "template": "訪問基建",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 125 步 target",
+     "template": "訪問下位",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 129 步 target",
+     "template": "採購中心",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 130 步 target",
+     "template": "信用交易所",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 132 步 target",
+     "template": "收取信用",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 137 步 target",
+     "template": "採購_加急許可",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 137 步 confirmTarget",
+     "template": "購買物品",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 141 步 target",
+     "template": "採購_招聘許可",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 145 步 target",
+     "template": "採購_技巧概要·卷2",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 149 步 target",
+     "template": "採購_技巧概要·卷1",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 153 步 target",
+     "template": "採購_赤金",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 157 步 target",
+     "template": "採購_龍門幣",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 161 步 target",
+     "template": "採購_固源岩",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 165 步 target",
+     "template": "採購_糖",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 169 步 target",
+     "template": "採購_聚酸酯",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 173 步 target",
+     "template": "採購_異鐵",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 177 步 target",
+     "template": "採購_裝置",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 181 步 target",
+     "template": "採購_酮凝集",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 185 步 target",
+     "template": "採購_源岩",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 189 步 target",
+     "template": "採購_代糖",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 193 步 target",
+     "template": "採購_酯原料",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 197 步 target",
+     "template": "採購_異鐵碎片",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 201 步 target",
+     "template": "採購_破損裝置",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 205 步 target",
+     "template": "採購_雙酮",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 209 步 target",
+     "template": "採購_初級作戰記錄",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 213 步 target",
+     "template": "採購_基礎作戰記錄",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 217 步 target",
+     "template": "採購_碳素組",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 221 步 target",
+     "template": "採購_碳素",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 225 步 target",
+     "template": "採購_碳",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 231 步 target",
+     "template": "公開招募",
+     "video": "demo3",
+     "frame": 774,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      1280,
+      318,
+      142,
+      143
+     ],
+     "limit_new": [
+      1280,
+      318,
+      142,
+      143
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 231 步 target",
+     "template": "公開招募",
+     "video": "demo3",
+     "frame": 786,
+     "old": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "limit_old": [
+      1280,
+      318,
+      142,
+      143
+     ],
+     "limit_new": [
+      1280,
+      318,
+      142,
+      143
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "第 231 步 target",
+     "template": "公開招募",
+     "video": "demo3",
+     "frame": 798,
+     "old": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "limit_old": [
+      1280,
+      318,
+      142,
+      143
+     ],
+     "limit_new": [
+      1280,
+      318,
+      142,
+      143
+     ],
+     "ok": true
+    },
+    {
+     "flow": "早_繁中",
+     "where": "忙碌指示",
+     "template": "忙碌指示",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    }
+   ],
+   "video_checked": 63,
+   "video_targets": 78,
+   "no_video": [
+    "CONFIDENTIAL線索",
+    "來自",
+    "信用交易所",
+    "傳遞線索",
+    "傳遞關閉",
+    "全部分頁",
+    "全部收取",
+    "圓形叉叉",
+    "好友",
+    "好友列表",
+    "忙碌指示",
+    "快速傳遞",
+    "快速置入",
+    "採購_代糖",
+    "採購_初級作戰記錄",
+    "採購_加急許可",
+    "採購_固源岩",
+    "採購_基礎作戰記錄",
+    "採購_技巧概要·卷1",
+    "採購_技巧概要·卷2",
+    "採購_招聘許可",
+    "採購_源岩",
+    "採購_異鐵",
+    "採購_異鐵碎片",
+    "採購_破損裝置",
+    "採購_碳",
+    "採購_碳素",
+    "採購_碳素組",
+    "採購_糖",
+    "採購_聚酸酯",
+    "採購_裝置",
+    "採購_赤金",
+    "採購_酮凝集",
+    "採購_酯原料",
+    "採購_雙酮",
+    "採購_龍門幣",
+    "採購中心",
+    "接收線索",
+    "收取信用",
+    "暫未收到新的線索",
+    "每日線索",
+    "獲得物資",
+    "線索交流彈窗",
+    "線索面板",
+    "解鎖線索",
+    "訪問下位",
+    "訪問基建",
+    "購買物品",
+    "辦公室列",
+    "選中1",
+    "選中2",
+    "選中3",
+    "選中4",
+    "選中5",
+    "選中6",
+    "選中7",
+    "領取"
+   ],
+   "mismatch": [],
+   "dest": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\.scratch\\coord-anchor\\converted\\arknights\\flows\\早_繁中.autoclickpack",
+   "draft": {
+    "rects": 197,
+    "max_diff": 0,
+    "scanRegion": [
+     108,
+     74,
+     1718,
+     915
+    ]
+   }
+  },
+  "晚_繁中": {
+   "rects": 30,
+   "max_diff": 0,
+   "abs_steps": [],
+   "pos": 20,
+   "pos_before": {
+    "公開招募": [
+     1351,
+     392
+    ],
+    "可收穫": [
+     277,
+     984
+    ],
+    "基建BASE": [
+     1510,
+     857
+    ]
+   },
+   "pos_after": {
+    "公開招募": [
+     1331,
+     373
+    ],
+    "可收穫": [
+     257,
+     965
+    ],
+    "基建BASE": [
+     1490,
+     838
+    ]
+   },
+   "sample": [
+    {
+     "where": "第 1 步 target",
+     "template": "圓形叉叉",
+     "old": {
+      "kind": "rect",
+      "x": 0.6917,
+      "y": 0.0674,
+      "w": 0.2453,
+      "h": 0.2344
+     },
+     "old_px": [
+      1328,
+      69,
+      471,
+      240
+     ],
+     "new": {
+      "x": 1308,
+      "y": 50,
+      "w": 471,
+      "h": 240,
+      "kind": "rect"
+     },
+     "new_px": [
+      1328,
+      69,
+      471,
+      240
+     ],
+     "diff": 0
+    },
+    {
+     "where": "第 2 步 target",
+     "template": "基建BASE",
+     "old": {
+      "kind": "rect",
+      "x": 0.7396,
+      "y": 0.7422,
+      "w": 0.0875,
+      "h": 0.166
+     },
+     "old_px": [
+      1420,
+      760,
+      168,
+      170
+     ],
+     "new": {
+      "x": 1400,
+      "y": 741,
+      "w": 168,
+      "h": 170,
+      "kind": "rect"
+     },
+     "new_px": [
+      1420,
+      760,
+      168,
+      170
+     ],
+     "diff": 0
+    },
+    {
+     "where": "第 3 步 target",
+     "template": "鈴鐺",
+     "old": {
+      "kind": "rect",
+      "x": 0.9187,
+      "y": 0.0869,
+      "w": 0.0625,
+      "h": 0.1758
+     },
+     "old_px": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "new": {
+      "x": 1744,
+      "y": 70,
+      "w": 120,
+      "h": 180,
+      "kind": "rect"
+     },
+     "new_px": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "diff": 0
+    }
+   ],
+   "video_rows": [
+    {
+     "flow": "晚_繁中",
+     "where": "第 1 步 target",
+     "template": "圓形叉叉",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 2 步 target",
+     "template": "基建BASE",
+     "video": "demo3",
+     "frame": 0,
+     "old": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "new": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "limit_old": [
+      1420,
+      760,
+      168,
+      170
+     ],
+     "limit_new": [
+      1420,
+      760,
+      168,
+      170
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 2 步 target",
+     "template": "基建BASE",
+     "video": "demo3",
+     "frame": 3,
+     "old": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "new": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "limit_old": [
+      1420,
+      760,
+      168,
+      170
+     ],
+     "limit_new": [
+      1420,
+      760,
+      168,
+      170
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 2 步 target",
+     "template": "基建BASE",
+     "video": "demo3",
+     "frame": 6,
+     "old": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "new": [
+      1466,
+      812,
+      88,
+      90
+     ],
+     "limit_old": [
+      1420,
+      760,
+      168,
+      170
+     ],
+     "limit_new": [
+      1420,
+      760,
+      168,
+      170
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 3 步 target",
+     "template": "鈴鐺",
+     "video": "demo3",
+     "frame": 96,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "limit_new": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 3 步 target",
+     "template": "鈴鐺",
+     "video": "demo3",
+     "frame": 174,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "limit_old": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "limit_new": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 3 步 target",
+     "template": "鈴鐺",
+     "video": "demo3",
+     "frame": 180,
+     "old": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "new": [
+      1804,
+      129,
+      40,
+      40
+     ],
+     "limit_old": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "limit_new": [
+      1764,
+      89,
+      120,
+      180
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 3 步 confirmTarget",
+     "template": "待辦事項",
+     "video": "demo3",
+     "frame": 192,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "limit_old": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "limit_new": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 3 步 confirmTarget",
+     "template": "待辦事項",
+     "video": "demo3",
+     "frame": 222,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "limit_old": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "limit_new": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 3 步 confirmTarget",
+     "template": "待辦事項",
+     "video": "demo3",
+     "frame": 252,
+     "old": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "new": [
+      10,
+      962,
+      180,
+      42
+     ],
+     "limit_old": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "limit_new": [
+      0,
+      922,
+      230,
+      102
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 6 步 target",
+     "template": "可收穫",
+     "video": "demo3",
+     "frame": 192,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "limit_old": [
+      160,
+      920,
+      235,
+      104
+     ],
+     "limit_new": [
+      160,
+      920,
+      235,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 6 步 target",
+     "template": "可收穫",
+     "video": "demo3",
+     "frame": 204,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "limit_old": [
+      160,
+      920,
+      235,
+      104
+     ],
+     "limit_new": [
+      160,
+      920,
+      235,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 6 步 target",
+     "template": "可收穫",
+     "video": "demo3",
+     "frame": 222,
+     "old": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "new": [
+      200,
+      960,
+      155,
+      48
+     ],
+     "limit_old": [
+      160,
+      920,
+      235,
+      104
+     ],
+     "limit_new": [
+      160,
+      920,
+      235,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 8 步 target",
+     "template": "訂單交付",
+     "video": "demo3",
+     "frame": 192,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      168,
+      920,
+      210,
+      104
+     ],
+     "limit_new": [
+      168,
+      920,
+      210,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 8 步 target",
+     "template": "訂單交付",
+     "video": "demo3",
+     "frame": 210,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      168,
+      920,
+      210,
+      104
+     ],
+     "limit_new": [
+      168,
+      920,
+      210,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 8 步 target",
+     "template": "訂單交付",
+     "video": "demo3",
+     "frame": 231,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      168,
+      920,
+      210,
+      104
+     ],
+     "limit_new": [
+      168,
+      920,
+      210,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 10 步 target",
+     "template": "幹員信賴",
+     "video": "demo3",
+     "frame": 192,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      161,
+      920,
+      250,
+      104
+     ],
+     "limit_new": [
+      161,
+      920,
+      250,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 10 步 target",
+     "template": "幹員信賴",
+     "video": "demo3",
+     "frame": 219,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      161,
+      920,
+      250,
+      104
+     ],
+     "limit_new": [
+      161,
+      920,
+      250,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 10 步 target",
+     "template": "幹員信賴",
+     "video": "demo3",
+     "frame": 246,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      161,
+      920,
+      250,
+      104
+     ],
+     "limit_new": [
+      161,
+      920,
+      250,
+      104
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 13 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 96,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      23,
+      110,
+      126
+     ],
+     "limit_new": [
+      2,
+      23,
+      110,
+      126
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 13 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 339,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      23,
+      110,
+      126
+     ],
+     "limit_new": [
+      2,
+      23,
+      110,
+      126
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 13 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 606,
+     "old": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      23,
+      110,
+      126
+     ],
+     "limit_new": [
+      2,
+      23,
+      110,
+      126
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 16 步 target",
+     "template": "進駐總覽",
+     "video": "demo3",
+     "frame": 96,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "limit_new": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 16 步 target",
+     "template": "進駐總覽",
+     "video": "demo3",
+     "frame": 159,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "limit_old": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "limit_new": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 16 步 target",
+     "template": "進駐總覽",
+     "video": "demo3",
+     "frame": 315,
+     "old": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "new": [
+      206,
+      150,
+      72,
+      64
+     ],
+     "limit_old": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "limit_new": [
+      166,
+      110,
+      152,
+      144
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 19 步 target",
+     "template": "無人機加速",
+     "video": "demo3",
+     "frame": 348,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "limit_old": [
+      1784,
+      688,
+      128,
+      128
+     ],
+     "limit_new": [
+      1784,
+      688,
+      128,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 19 步 target",
+     "template": "無人機加速",
+     "video": "demo3",
+     "frame": 363,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "limit_old": [
+      1784,
+      688,
+      128,
+      128
+     ],
+     "limit_new": [
+      1784,
+      688,
+      128,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 19 步 target",
+     "template": "無人機加速",
+     "video": "demo3",
+     "frame": 408,
+     "old": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "new": [
+      1824,
+      728,
+      48,
+      48
+     ],
+     "limit_old": [
+      1784,
+      688,
+      128,
+      128
+     ],
+     "limit_new": [
+      1784,
+      688,
+      128,
+      128
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 20 步 target",
+     "template": "最多",
+     "video": "demo3",
+     "frame": 366,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "limit_old": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "limit_new": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 20 步 target",
+     "template": "最多",
+     "video": "demo3",
+     "frame": 375,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "limit_old": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "limit_new": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 20 步 target",
+     "template": "最多",
+     "video": "demo3",
+     "frame": 384,
+     "old": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "new": [
+      1215,
+      470,
+      190,
+      62
+     ],
+     "limit_old": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "limit_new": [
+      1175,
+      430,
+      270,
+      142
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 22 步 target",
+     "template": "確定",
+     "video": "demo3",
+     "frame": 366,
+     "old": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "limit_old": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "limit_new": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 22 步 target",
+     "template": "確定",
+     "video": "demo3",
+     "frame": 372,
+     "old": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "limit_old": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "limit_new": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 22 步 target",
+     "template": "確定",
+     "video": "demo3",
+     "frame": 378,
+     "old": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "new": [
+      1385,
+      788,
+      72,
+      36
+     ],
+     "limit_old": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "limit_new": [
+      1344,
+      747,
+      155,
+      118
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 23 步 target",
+     "template": "收取",
+     "video": "demo3",
+     "frame": 348,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "limit_old": [
+      1596,
+      806,
+      210,
+      146
+     ],
+     "limit_new": [
+      1596,
+      806,
+      210,
+      146
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 23 步 target",
+     "template": "收取",
+     "video": "demo3",
+     "frame": 360,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "limit_old": [
+      1596,
+      806,
+      210,
+      146
+     ],
+     "limit_new": [
+      1596,
+      806,
+      210,
+      146
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 23 步 target",
+     "template": "收取",
+     "video": "demo3",
+     "frame": 411,
+     "old": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "new": [
+      1636,
+      846,
+      130,
+      66
+     ],
+     "limit_old": [
+      1596,
+      806,
+      210,
+      146
+     ],
+     "limit_new": [
+      1596,
+      806,
+      210,
+      146
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 25 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 96,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      25,
+      109,
+      124
+     ],
+     "limit_new": [
+      2,
+      25,
+      109,
+      124
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 25 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 339,
+     "old": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      63,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      25,
+      109,
+      124
+     ],
+     "limit_new": [
+      2,
+      25,
+      109,
+      124
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 25 步 target",
+     "template": "返回",
+     "video": "demo3",
+     "frame": 606,
+     "old": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "new": [
+      42,
+      64,
+      30,
+      46
+     ],
+     "limit_old": [
+      2,
+      25,
+      109,
+      124
+     ],
+     "limit_new": [
+      2,
+      25,
+      109,
+      124
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 29 步 target",
+     "template": "非工作區",
+     "video": "demo3",
+     "frame": 483,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      1598,
+      16,
+      140,
+      136
+     ],
+     "limit_new": [
+      1598,
+      16,
+      140,
+      136
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 29 步 target",
+     "template": "非工作區",
+     "video": "demo3",
+     "frame": 591,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "limit_old": [
+      1598,
+      16,
+      140,
+      136
+     ],
+     "limit_new": [
+      1598,
+      16,
+      140,
+      136
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 29 步 target",
+     "template": "非工作區",
+     "video": "demo3",
+     "frame": 699,
+     "old": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "new": [
+      1638,
+      56,
+      60,
+      56
+     ],
+     "limit_old": [
+      1598,
+      16,
+      140,
+      136
+     ],
+     "limit_new": [
+      1598,
+      16,
+      140,
+      136
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 32 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 483,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 32 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 516,
+     "old": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "new": [
+      884,
+      688,
+      160,
+      40
+     ],
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 32 步 target",
+     "template": "製造站1列",
+     "video": "demo3",
+     "frame": 552,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 37 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 540,
+     "old": [
+      884,
+      979,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      979,
+      160,
+      36
+     ],
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 37 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 582,
+     "old": [
+      884,
+      666,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      666,
+      160,
+      36
+     ],
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 37 步 target",
+     "template": "貿易站1列",
+     "video": "demo3",
+     "frame": 672,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 47 步 target",
+     "template": "發電站1列",
+     "video": "demo3",
+     "frame": 585,
+     "old": [
+      884,
+      957,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      957,
+      160,
+      36
+     ],
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 47 步 target",
+     "template": "發電站1列",
+     "video": "demo3",
+     "frame": 627,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 47 步 target",
+     "template": "發電站1列",
+     "video": "demo3",
+     "frame": 672,
+     "old": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "new": [
+      884,
+      405,
+      160,
+      36
+     ],
+     "limit_old": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "limit_new": [
+      844,
+      138,
+      240,
+      886
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 61 步 target",
+     "template": "幹員休息",
+     "video": "demo3",
+     "frame": 717,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "limit_old": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "limit_new": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 61 步 target",
+     "template": "幹員休息",
+     "video": "demo3",
+     "frame": 759,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "limit_old": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "limit_new": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 61 步 target",
+     "template": "幹員休息",
+     "video": "demo3",
+     "frame": 786,
+     "old": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "new": [
+      1652,
+      930,
+      84,
+      64
+     ],
+     "limit_old": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "limit_new": [
+      1612,
+      890,
+      164,
+      134
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 63 步 target",
+     "template": "導航",
+     "video": "demo3",
+     "frame": 96,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      264,
+      20,
+      148,
+      126
+     ],
+     "limit_new": [
+      264,
+      20,
+      148,
+      126
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 63 步 target",
+     "template": "導航",
+     "video": "demo3",
+     "frame": 336,
+     "old": [
+      304,
+      59,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      59,
+      68,
+      46
+     ],
+     "limit_old": [
+      264,
+      20,
+      148,
+      126
+     ],
+     "limit_new": [
+      264,
+      20,
+      148,
+      126
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 63 步 target",
+     "template": "導航",
+     "video": "demo3",
+     "frame": 600,
+     "old": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "new": [
+      304,
+      60,
+      68,
+      46
+     ],
+     "limit_old": [
+      264,
+      20,
+      148,
+      126
+     ],
+     "limit_new": [
+      264,
+      20,
+      148,
+      126
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 64 步 target",
+     "template": "公開招募",
+     "video": "demo3",
+     "frame": 774,
+     "old": null,
+     "new": null,
+     "limit_old": [
+      1280,
+      323,
+      142,
+      138
+     ],
+     "limit_new": [
+      1280,
+      323,
+      142,
+      138
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 64 步 target",
+     "template": "公開招募",
+     "video": "demo3",
+     "frame": 786,
+     "old": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "limit_old": [
+      1280,
+      323,
+      142,
+      138
+     ],
+     "limit_new": [
+      1280,
+      323,
+      142,
+      138
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "第 64 步 target",
+     "template": "公開招募",
+     "video": "demo3",
+     "frame": 798,
+     "old": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "new": [
+      1320,
+      363,
+      62,
+      58
+     ],
+     "limit_old": [
+      1280,
+      323,
+      142,
+      138
+     ],
+     "limit_new": [
+      1280,
+      323,
+      142,
+      138
+     ],
+     "ok": true
+    },
+    {
+     "flow": "晚_繁中",
+     "where": "忙碌指示",
+     "template": "忙碌指示",
+     "video": null,
+     "frame": null,
+     "old": null,
+     "new": null,
+     "limit_old": null,
+     "limit_new": null,
+     "ok": true,
+     "no_video": true
+    }
+   ],
+   "video_checked": 60,
+   "video_targets": 22,
+   "no_video": [
+    "圓形叉叉",
+    "忙碌指示"
+   ],
+   "mismatch": [],
+   "dest": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\.scratch\\coord-anchor\\converted\\arknights\\flows\\晚_繁中.autoclickpack"
+  }
+ },
+ "ok": true
+}

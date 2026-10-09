@@ -72,7 +72,7 @@ def test_找到時記比色分數(harness):
 
 
 def test_無法執行也寫一筆(harness):
-    near = {"pick": {"kind": "near", "base": "origin", "x": 0, "y": 0}}
+    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
     harness.run([find("card", target=near)])
     [r] = records(harness)
     assert (r["result"], r["failed"]) == ("cannot_run", "origin")
@@ -80,8 +80,8 @@ def test_無法執行也寫一筆(harness):
 
 def test_記下實際的限定矩形(harness):
     harness.vision.plan("btn", [[(1800, 1000)]])
-    harness.run([find("btn", target={"limit": {"kind": "grid",
-                                               "cells": [9]}})])
+    harness.run([find("btn", target={"limit": {"kind": "rect", "x": 1280,
+                                               "y": 720, "w": 640, "h": 360}})])
     [r] = records(harness)
     assert r["limit"] == "(1280,720,640,360)"
 
@@ -148,7 +148,7 @@ def test_寫進真的檔案日誌(tmp_path, monkeypatch):
 
 
 def test_分岔條件沒有原點_紀錄寫無法執行(harness):
-    near = {"pick": {"kind": "near", "base": "origin", "x": 0, "y": 0}}
+    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
     harness.vision.plan("y", [None])
     harness.run([branch_start(), find("x", target=near), click(1, 1),
                  branch_or(), find("y"), click(2, 2), branch_end()])

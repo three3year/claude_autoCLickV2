@@ -3,21 +3,21 @@
 存檔裡的找圖目標是步驟上的巢狀物件 (flowFormat 3)::
 
     {"template": "範本名",
-     "limit":      {"kind": "origin", "x", "y", "w", "h"}   以原點為基準的矩形
-                 | {"kind": "grid", "cells": [1..9]}         搜尋範圍九宮格 (由左上起依列編號)
-                 | {"kind": "rect", "x", "y", "w", "h"}     `固定矩形`: 搜尋範圍的比例 (各 0–1)
+     "limit":      {"kind": "origin", "x", "y", "w", "h"}   以`原點`為基準的矩形
+                 | {"kind": "rect", "x", "y", "w", "h"}     `固定矩形`: 相對`座標基準點`的矩形
      "pick":       {"kind": "top" | "left", "n": N}          由上到下 / 由左到右第 N 個
-                 | {"kind": "near", "base": "origin" | "region", "x", "y"}  最接近指定點
+                 | {"kind": "near", "x", "y"}                最接近指定點 (原點 + 偏移)
      "colorCheck": true}
 
 缺欄位＝不限定 / 分數最高 / 不比色。找圖步驟的找圖目標在 `target`, `確認圖`在
-`confirmTarget`; 「點到下一步的圖出現」沿用下一步的 `target`。像素欄位 (原點
-矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率` (ADR 0009);
-九宮格與固定矩形是搜尋範圍的比例, 與尺度無關。
+`confirmTarget`; 「點到下一步的圖出現」沿用下一步的 `target`。所有像素欄位
+(原點矩形、固定矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率`
+(ADR 0009); 固定矩形再加上`座標基準點`的螢幕位置 (ADR 0012)。九宮格與以搜尋範圍
+為基準的指定點已退場 (舊格式由 flowfile 整份拒絕開啟, 不需要讀檔遷移)。
 
 本模組維持輕量 (不 import cv2/numpy): 編輯器、執行器、影片轉流程都經這裡的
 存取函式讀寫步驟上的找圖目標, 解析並執行一個找圖目標的邏輯也在這裡 (三處行為
-一致)。舊格式的遷移是存檔格式的事, 在 flowfile。
+一致)。
 """
 
 from . import flowfmt
@@ -116,17 +116,19 @@ class Found:
     limit: 實際的限定矩形 (螢幕座標, 已裁到搜尋範圍內; None＝整個搜尋範圍);
     matches: 全部匹配 (螢幕座標, 分數高者在前); picked: 挑選規則挑中的那個或
     None; reason: 沒挑到的原因——"none" 沒有匹配、"count" 匹配不足 N 個、
-    "origin" 以原點為基準卻沒有原點 (無法執行, 沒有查詢); query: 引擎的
-    原始結果 (最高分與未過的關卡, 供紀錄), 沒有查詢時為 None。
+    "origin" 以原點為基準卻沒有原點、"anchor" 固定矩形卻沒有座標基準點 (後兩者
+    無法執行, 沒有查詢); query: 引擎的原始結果 (最高分與未過的關卡, 供紀錄),
+    沒有查詢時為 None。
     """
 
     @property
     def failed(self):
         """沒挑到時未過的那一關: match / verify / color (引擎的門檻)、
-        count (數不到 N 個)、origin (沒有原點)、limit (限定範圍在搜尋範圍外)."""
+        count (數不到 N 個)、origin (沒有原點)、anchor (沒有座標基準點)、
+        limit (限定範圍在搜尋範圍外)."""
         if self.picked is not None:
             return None
-        if self.reason in ("count", "origin"):
+        if self.reason in ("count", "origin", "anchor"):
             return self.reason
         return self.query.failed if self.query is not None else "limit"
 
@@ -146,21 +148,25 @@ class Found:
 
 
 def needs_origin(tgt):
-    """找圖目標的設定是否以`原點`為基準 (沒有原點時無法執行)."""
+    """找圖目標的設定是否以`原點`為基準 (沒有原點時無法執行): 原點矩形、最接近指定點."""
     pick = tgt.get("pick") or {}
     limit = tgt.get("limit") or {}
-    return ((pick.get("kind") == "near" and pick.get("base") == "origin")
-            or limit.get("kind") == "origin")
+    return pick.get("kind") == "near" or limit.get("kind") == "origin"
 
 
-def limit_rect(tgt, region, origin, scale=1.0):
+def needs_anchor(tgt):
+    """找圖目標的設定是否要用到`座標基準點` (`固定矩形`); 沒有基準點時無法執行."""
+    return (tgt.get("limit") or {}).get("kind") == "rect"
+
+
+def limit_rect(tgt, region, origin, scale=1.0, anchor=None):
     """`限定範圍`的螢幕矩形 (x, y, w, h), 已裁到搜尋範圍 region 內.
 
-    None＝不限定 (整個搜尋範圍); 裁完沒有交集時寬高為 0。以原點為基準的
-    矩形 ×`畫面倍率`; 九宮格是搜尋範圍的比例 (格號 1–9 由左上起逐列),
-    勾多格取包住它們的最小矩形; `固定矩形`＝比例 × 搜尋範圍 (不隨倍率換算)。
-    設定壞掉 (格號無效、比例不合法) 時寬高為 0——不找, 絕不退成整個範圍。
-    呼叫端保證以原點為基準時 origin 不是 None。
+    None＝不限定 (整個搜尋範圍); 裁完沒有交集時寬高為 0。以原點為基準的矩形＝
+    原點 + 偏移×`畫面倍率`; `固定矩形`＝`座標基準點` + 偏移×倍率 (ADR 0012), 落在
+    搜尋範圍外的部分照裁 (範圍框太小時被裁掉那塊裡的圖就找不到)。設定壞掉
+    (欄位不是整數、寬高不正) 時寬高為 0——不找, 絕不退成整個範圍。
+    呼叫端保證以原點為基準時 origin、固定矩形時 anchor 都不是 None。
     """
     lim = tgt.get("limit") or {}
     kind = lim.get("kind")
@@ -170,20 +176,11 @@ def limit_rect(tgt, region, origin, scale=1.0):
         y = origin[1] + flowfmt.scale_px(lim.get("y", 0), scale)
         x1 = x + flowfmt.scale_px(lim.get("w", 0), scale)
         y1 = y + flowfmt.scale_px(lim.get("h", 0), scale)
-    elif kind == "grid":
-        cells = [c for c in lim.get("cells") or ()
-                 if isinstance(c, int) and 1 <= c <= 9]
-        if not cells:   # 沒有有效格號 (手改壞的存檔): 不找, 絕不退成整個範圍
-            return (rx, ry, 0, 0)
-        cols = [(c - 1) % 3 for c in cells]
-        rows = [(c - 1) // 3 for c in cells]
-        x, x1 = rx + rw * min(cols) // 3, rx + rw * (max(cols) + 1) // 3
-        y, y1 = ry + rh * min(rows) // 3, ry + rh * (max(rows) + 1) // 3
     elif kind == "rect":
-        if not _valid_ratio_rect(lim):
+        if not _valid_fixed_rect(lim):
             return (rx, ry, 0, 0)
-        x, x1 = rx + round(rw * lim["x"]), rx + round(rw * (lim["x"] + lim["w"]))
-        y, y1 = ry + round(rh * lim["y"]), ry + round(rh * (lim["y"] + lim["h"]))
+        x, y, w, h = flowfmt.rect_to_screen(lim, anchor, scale)
+        x1, y1 = x + w, y + h
     else:
         return None
     x0, y0 = max(x, rx), max(y, ry)
@@ -191,17 +188,16 @@ def limit_rect(tgt, region, origin, scale=1.0):
     return (x0, y0, max(0, x1 - x0), max(0, y1 - y0))
 
 
-def _valid_ratio_rect(lim):
-    """`固定矩形`的四個比例都是 0–1 的數字, 寬高大於 0."""
+def _valid_fixed_rect(lim):
+    """`固定矩形`的四個欄位都是整數 (流程尺度像素), 寬高大於 0."""
     vals = [lim.get(k) for k in ("x", "y", "w", "h")]
-    if not all(isinstance(v, (int, float)) and not isinstance(v, bool)
-               for v in vals):
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in vals):
         return False
-    x, y, w, h = vals
-    return 0 <= x <= 1 and 0 <= y <= 1 and 0 < w <= 1 and 0 < h <= 1
+    return vals[2] > 0 and vals[3] > 0
 
 
-def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
+def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0,
+         anchor=None):
     """執行一個找圖目標: 算限定矩形 → 裁圖 → 查詢 → 座標換回螢幕 → 依挑選規則挑.
 
     detector: 偵測接縫 (`query(範本名, 影像, color_check) → QueryResult`,
@@ -209,13 +205,16 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
     挑選規則根本看不到它們); screen: 整個`搜尋範圍`的截圖, screen_origin 是它
     左上角的螢幕座標; origin: 目前的`原點` (螢幕座標, 可能 None); scale:
     `畫面倍率`——一個倍率兩個用途 (ADR 0009): 找圖目標的像素設定 ×它, 查詢時
-    當`預期尺度`交給偵測器 (範本是流程尺度, 畫面上大約是它的 scale 倍)。
+    當`預期尺度`交給偵測器 (範本是流程尺度, 畫面上大約是它的 scale 倍);
+    anchor: 這次的`座標基準點` (螢幕座標; 固定矩形要用, 沒有＝無法執行)。
     """
     if origin is None and needs_origin(tgt):
         return Found(tgt, reason="origin")
+    if anchor is None and needs_anchor(tgt):
+        return Found(tgt, reason="anchor")
     sh, sw = screen.shape[:2]
     limit = limit_rect(tgt, (screen_origin[0], screen_origin[1], sw, sh),
-                       origin, scale)
+                       origin, scale, anchor)
     image, (ox, oy) = screen, screen_origin
     if limit is not None:
         if limit[2] <= 0 or limit[3] <= 0:
@@ -236,7 +235,7 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0):
     if not matches:
         return Found(tgt, reason="none", query=r, limit=limit,
                      rejected=rejected)
-    chosen = _pick(matches, tgt.get("pick") or {}, origin, screen_origin, scale)
+    chosen = _pick(matches, tgt.get("pick") or {}, origin, scale)
     return Found(tgt, matches, chosen, None if chosen else "count", r, limit,
                  rejected)
 
@@ -258,16 +257,16 @@ def _ordered(matches, axis):
     return [m for g in groups for m in sorted(g, key=lambda m: m.center[other])]
 
 
-def _pick(matches, rule, origin, screen_origin, scale):
+def _pick(matches, rule, origin, scale):
     kind = rule.get("kind", "score")
     if kind in ("top", "left"):
         n = int(rule.get("n", 1))
         ordered = _ordered(matches, 1 if kind == "top" else 0)
         return ordered[n - 1] if 1 <= n <= len(ordered) else None
     if kind == "near":
-        bx, by = origin if rule.get("base") == "origin" else screen_origin
-        px = bx + flowfmt.scale_px(rule.get("x", 0), scale)
-        py = by + flowfmt.scale_px(rule.get("y", 0), scale)
+        # 指定點＝`原點` + 偏移×倍率 (偏移 (0,0)＝最接近原點); 呼叫端保證有原點
+        px, py = flowfmt.to_screen((rule.get("x", 0), rule.get("y", 0)), origin,
+                                   scale)
         return min(matches, key=lambda m: (m.center[0] - px) ** 2
                    + (m.center[1] - py) ** 2)
     return max(matches, key=lambda m: m.score)
@@ -300,14 +299,13 @@ def fmt_match(m):
 
 
 def pick_text(tgt):
-    """挑選規則的短代號: score / top:N / left:N / near:origin(+x,+y)."""
+    """挑選規則的短代號: score / top:N / left:N / near(+x,+y) (相對原點)."""
     pick = tgt.get("pick") or {}
     kind = pick.get("kind", "score")
     if kind in ("top", "left"):
         return f"{kind}:{pick.get('n', 1)}"
     if kind == "near":
-        return (f"near:{pick.get('base', 'region')}"
-                f"({int(pick.get('x', 0)):+d},{int(pick.get('y', 0)):+d})")
+        return f"near({int(pick.get('x', 0)):+d},{int(pick.get('y', 0)):+d})"
     return "score"
 
 
@@ -318,8 +316,6 @@ def make_target(template, limit=None, pick=None, color=False):
     tgt = {"template": template}
     if limit and limit.get("kind") in ("origin", "rect"):
         tgt["limit"] = dict(limit)
-    elif limit and limit.get("kind") == "grid" and limit.get("cells"):
-        tgt["limit"] = {"kind": "grid", "cells": sorted(set(limit["cells"]))}
     if pick and pick.get("kind", "score") != "score":
         tgt["pick"] = dict(pick)
     if color:
@@ -336,26 +332,15 @@ def offset_from_screen(xy, base, k):
 
 def rect_from_screen(box, origin, k):
     """框選到的螢幕矩形 → 以原點為基準的限定範圍 (流程尺度)."""
-    x, y = offset_from_screen(box[:2], origin, k)
-    return {"kind": "origin", "x": x, "y": y,
-            "w": flowfmt.scale_px(box[2], 1.0 / k),
-            "h": flowfmt.scale_px(box[3], 1.0 / k)}
+    return dict(flowfmt.rect_from_screen(box, origin, k), kind="origin")
 
 
-def ratio_rect_from_screen(box, region):
-    """框選到的螢幕矩形 → `固定矩形` (搜尋範圍的比例, 小數 4 位).
+def fixed_rect_from_screen(box, anchor, k):
+    """框選到的螢幕矩形 → `固定矩形` (相對`座標基準點`的偏移與寬高, 流程尺度).
 
-    先裁到搜尋範圍內; 完全在範圍外回 None。比例與尺度無關, 不必反除倍率。
+    不裁到搜尋範圍: 存的是相對基準點的位置, 執行時才依當時的搜尋範圍裁。
     """
-    rx, ry, rw, rh = region
-    x0, y0 = max(box[0], rx), max(box[1], ry)
-    x1 = min(box[0] + box[2], rx + rw)
-    y1 = min(box[1] + box[3], ry + rh)
-    if x1 <= x0 or y1 <= y0:
-        return None
-    return {"kind": "rect",
-            "x": round((x0 - rx) / rw, 4), "y": round((y0 - ry) / rh, 4),
-            "w": round((x1 - x0) / rw, 4), "h": round((y1 - y0) / rh, 4)}
+    return dict(flowfmt.rect_from_screen(box, anchor, k), kind="rect")
 
 
 def tag_text(tgt):
@@ -367,7 +352,7 @@ def tag_text(tgt):
 def tags(tgt):
     """步驟清單上的簡短標記: 有特別設定的屬性 (限定範圍、挑選規則、比色)."""
     out = []
-    if (tgt.get("limit") or {}).get("kind") in ("origin", "grid", "rect"):
+    if (tgt.get("limit") or {}).get("kind") in ("origin", "rect"):
         out.append("限定")
     pick = tgt.get("pick") or {}
     if pick.get("kind") == "top":
@@ -387,13 +372,11 @@ def limit_text(lim):
     if lim.get("kind") == "origin":
         return (f"原點矩形 ({int(lim.get('x', 0)):+d},{int(lim.get('y', 0)):+d})"
                 f" {int(lim.get('w', 0))}×{int(lim.get('h', 0))}")
-    if lim.get("kind") == "grid" and lim.get("cells"):
-        return "九宮格 " + ",".join(str(c) for c in sorted(lim["cells"]))
     if lim.get("kind") == "rect":
-        if not _valid_ratio_rect(lim):
+        if not _valid_fixed_rect(lim):
             return "固定矩形（設定無效）"
-        return (f"固定矩形 ({lim['x']:.1%},{lim['y']:.1%})"
-                f" {lim['w']:.1%}×{lim['h']:.1%}")
+        return (f"固定矩形 ({lim['x']:+d},{lim['y']:+d})"
+                f" {lim['w']}×{lim['h']}")
     return "整個搜尋範圍"
 
 
@@ -407,8 +390,7 @@ def summary(tgt):
     elif kind == "left":
         part2 = f"由左到右第 {pick.get('n', 1)} 個"
     elif kind == "near":
-        base = "原點" if pick.get("base") == "origin" else "搜尋範圍左上"
-        part2 = (f"最接近{base} ({int(pick.get('x', 0)):+d},"
+        part2 = (f"最接近原點 ({int(pick.get('x', 0)):+d},"
                  f"{int(pick.get('y', 0)):+d})")
     else:
         part2 = "分數最高"

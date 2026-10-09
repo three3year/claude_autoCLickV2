@@ -34,34 +34,29 @@ def _no_origin(no, step, why):
 def _target_no_origin(no, what, why):
     raise ToolError(
         f"轉換計畫有誤：步驟 {no}：{what}以原點為基準，但這一步之前沒有原點{why}——"
-        "請在它前面補一個定位找圖（動作「僅等待出現」、更新原點），或改以搜尋範圍"
-        "為基準（九宮格、base: region）")
+        "請在它前面補一個定位找圖（動作「僅等待出現」、更新原點）")
 
 
 def _target(no, name, attrs, origin, why, what):
     """計畫的找圖目標屬性 (影片像素的畫面位置) → 存檔的`找圖目標`.
 
-    以原點為基準的矩形/指定點換成相對 origin 的偏移; 以搜尋範圍為基準的指定點
-    原樣 (影片左上角＝搜尋範圍左上角); 九宮格是比例。影片像素就是`流程尺度`,
-    原樣進存檔 (ADR 0009)。
+    以原點為基準的矩形/指定點換成相對 origin 的偏移 (工具只產出這一種, ADR 0012:
+    九宮格與以搜尋範圍為基準的指定點已退場)。影片像素就是`流程尺度`, 原樣進存檔
+    (ADR 0009)。
     """
     lim, pick = attrs.get("limit"), attrs.get("pick")
     limit = p = None
-    if lim and lim["kind"] == "origin":
+    if lim:
         if origin is None:
             _target_no_origin(no, f"{what}的限定範圍", why)
         x, y, w, h = lim["rect"]
         limit = {"kind": "origin", "x": x - origin[0], "y": y - origin[1],
                  "w": w, "h": h}
-    elif lim:
-        limit = dict(lim)
     if pick and pick["kind"] == "near":
+        if origin is None:
+            _target_no_origin(no, f"{what}的指定點", why)
         x, y = pick["at"]
-        if pick["base"] == "origin":
-            if origin is None:
-                _target_no_origin(no, f"{what}的指定點", why)
-            x, y = x - origin[0], y - origin[1]
-        p = {"kind": "near", "base": pick["base"], "x": x, "y": y}
+        p = {"kind": "near", "x": x - origin[0], "y": y - origin[1]}
     elif pick:
         p = dict(pick)
     return findtarget.make_target(name, limit=limit, pick=p,

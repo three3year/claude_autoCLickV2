@@ -1,7 +1,7 @@
 """執行期`畫面倍率`套用: 三類偏移 (含拖曳兩端點) ×倍率換算落點.
 
 倍率 1 的恆等回歸由既有 runner 測試 (全數未改) 把守; 本檔只驗倍率≠1。
-斷言對象是假 win.click / win.drag 收到的最終落點 (= 中心/基準 + 偏移×倍率)。
+斷言對象是假 win.click / win.drag 收到的最終落點 (= 中心/基準點 + 偏移×倍率)。
 """
 from harness import click, drag, find
 
@@ -13,8 +13,8 @@ def test_找圖偏移乘上倍率(harness):
 
 
 def test_絕對座標乘上倍率(harness):
-    harness.run([click(30, 40)], scan_region=[100, 200, 800, 600], scale=2.0)
-    assert harness.clicks() == [(160, 280)], "範圍原點不換算, 偏移 ×2"
+    harness.run([click(30, 40)], anchor=(100, 200), scale=2.0)
+    assert harness.clicks() == [(160, 280)], "基準點不換算, 偏移 ×2"
 
 
 def test_相對座標乘上倍率(harness):
@@ -25,8 +25,7 @@ def test_相對座標乘上倍率(harness):
 
 
 def test_拖曳兩端點都乘上倍率_絕對(harness):
-    harness.run([drag(10, 10, 60, 80)], scan_region=[100, 200, 800, 600],
-                scale=2.0)
+    harness.run([drag(10, 10, 60, 80)], anchor=(100, 200), scale=2.0)
     ev = [e for e in harness.events if e[0] == "drag"][0]
     assert (ev[1], ev[2], ev[3], ev[4]) == (120, 220, 220, 360)
 

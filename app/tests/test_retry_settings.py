@@ -12,12 +12,13 @@ import flowfile
 import ui_dialogs
 from test_calibration_ui import _CalApp, _warnings
 
-BUSY = {"template": "提交中", "limit": {"kind": "grid", "cells": [8]}}
+BUSY = {"template": "提交中", "limit": {"kind": "rect", "x": 600, "y": 800,
+                                        "w": 300, "h": 100}}
 
 
 def _flow(**extra):
     data = {"steps": [{"type": "find_click", "target": {"template": "a"}}],
-            "coordSpace": "region"}
+            "coordSpace": "anchor"}
     data.update(extra)
     return data
 
@@ -80,7 +81,7 @@ class _SetApp(_CalApp):
         pass
 
 
-def test_設定忙碌指示_預設限定在畫面底部中央(tkroot, monkeypatch, tmp_path):
+def test_設定忙碌指示_限定範圍由作者在找圖設定裡框(tkroot, monkeypatch, tmp_path):
     a = _SetApp(tkroot, tmp_path)
     monkeypatch.setattr(ui_dialogs, "pick_template",
                         lambda app, title, initial=None: "提交中")
@@ -88,10 +89,10 @@ def test_設定忙碌指示_預設限定在畫面底部中央(tkroot, monkeypatc
 
     def opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
         seen["tgt"] = tgt
-        return {"limit": tgt["limit"], "pick": None, "color": False}
+        return {"limit": dict(BUSY["limit"]), "pick": None, "color": False}
     monkeypatch.setattr(ui_dialogs, "edit_target_opts", opts)
     a.edit_busy_indicator()
-    assert seen["tgt"]["limit"] == {"kind": "grid", "cells": [8]}
+    assert "limit" not in seen["tgt"], "沒有九宮格預設 (九宮格已退場)"
     assert a.busy_target == BUSY
     assert a.autosaved == 1
 
@@ -117,7 +118,7 @@ def test_流程資料帶補做設定_開流程時讀回_沒有就是預設(tkroo
     a._mode_ui = lambda: None
     a.render_steps = lambda keep=None: None
     a._update_region_preview = lambda: None
-    a._apply_flow({"steps": [], "coordSpace": "region"})
+    a._apply_flow({"steps": [], "coordSpace": "anchor"})
     assert a.retry_interval_ms == 1000 and a.busy_target is None
 
 

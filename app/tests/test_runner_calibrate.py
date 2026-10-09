@@ -62,7 +62,7 @@ def test_倍率1時落點與原本完全相同(harness):
 def test_量測抖動內貼齊倍率1(harness):
     place(harness, (100, 40), (1099, 40))         # 999/1000: 抖動, 不是縮放
     run(harness, [click(519, 0)])
-    assert harness.clicks() == [(519, 0)]
+    assert harness.clicks() == [(619, 40)], "基準點 (100,40) + 偏移原樣 (倍率貼齊 1)"
 
 
 def test_其中一張找不到_一個輸入都不送_紀錄寫明是哪一張(harness):
@@ -101,12 +101,14 @@ def test_檔案日誌記兩張圖位置_距離_倍率(harness):
     assert rec["distance"] == "800.0" and rec["scale"] == "0.800"
 
 
-def test_校準在搜尋範圍內找_位置是螢幕座標(harness):
+def test_校準在搜尋範圍內找_位置是螢幕座標_第一張中心是基準點(harness):
     place(harness, (300, 240), (1100, 240))
-    run(harness, [click(1, 1)], scan_region=[200, 200, 1200, 700])
+    r = run(harness, [click(1, 1)], scan_region=[200, 200, 1200, 700])
     assert harness.vision.grabs[0] == (200, 200, 1200, 700)
     [rec] = harness.filelog.of("calibrate")
     assert rec["centers"] == "(300,240);(1100,240)"
+    assert "座標基準點 (300, 240)" in harness.log_text(r)
+    assert harness.clicks() == [(301, 241)]
 
 
 def test_校準對列入範本預載(harness):

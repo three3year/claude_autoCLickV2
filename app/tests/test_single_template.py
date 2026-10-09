@@ -19,6 +19,7 @@ class _Root:
 
 def _fake_app(vision, names=("a", "b", "c")):
     return SimpleNamespace(
+        grab_frame=lambda: ui_dialogs.capture.grab(None),
         root=_Root(),
         hub=vision,
         detector=vision,

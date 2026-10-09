@@ -77,8 +77,9 @@ def test_存檔帶草稿的搜尋範圍_不讀profile校準(demo, engine):
 
     r = flowfile.read(res["flow_path"])
     assert r["data"]["scanRegion"] == REGION
-    assert r["data"]["coordSpace"] == "region"
+    assert r["data"]["coordSpace"] == "anchor", "直接是新格式 (ADR 0012)"
     assert "calibration" not in r["data"], "計畫沒指定校準對＝流程沒有校準對"
+    assert r["pos"] == {}, "沒有校準對就沒有座標基準點, 不記拍攝位置"
 
 
 def test_目標檔名已存在時另取不撞名的檔名且原檔不變(demo, engine):

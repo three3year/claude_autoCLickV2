@@ -86,7 +86,7 @@ def test_限定範圍與指定點從影片像素換算成相對原點(tmp_path, 
     bx, by, bw, bh = box("確定")
     second = {"limit": {"kind": "origin", "rect": [bx - 10, by - 10, bw + 20,
                                                    bh + 20]},
-              "pick": {"kind": "near", "base": "origin", "at": center("確定")}}
+              "pick": {"kind": "near", "at": center("確定")}}
     res = run(located_plan(video, profile, second), engine)
 
     assert res["retake"] == {}
@@ -95,22 +95,19 @@ def test_限定範圍與指定點從影片像素換算成相對原點(tmp_path, 
                                     "y": by - 10 - oy, "w": bw + 20,
                                     "h": bh + 20}
     cx, cy = center("確定")
-    assert s["target"]["pick"] == {"kind": "near", "base": "origin",
-                                   "x": cx - ox, "y": cy - oy}
+    assert s["target"]["pick"] == {"kind": "near", "x": cx - ox, "y": cy - oy}
 
 
-def test_以搜尋範圍為基準的指定點與九宮格(tmp_path, engine):
+def test_九宮格與以搜尋範圍為基準的指定點已退場(tmp_path, engine):
     video = demo_video(tmp_path)
     profile = make_profile(tmp_path, region=REGION)
-    second = {"limit": {"kind": "grid", "cells": [5, 6, 8, 9]},
-              "pick": {"kind": "near", "base": "region", "at": [320, 170]}}
-    res = run(located_plan(video, profile, second), engine)
-
-    assert res["retake"] == {}
-    s = saved_steps(res)[1]
-    assert s["target"]["limit"] == {"kind": "grid", "cells": [5, 6, 8, 9]}
-    assert s["target"]["pick"] == {"kind": "near", "base": "region",
-                                   "x": 320, "y": 170}
+    before = snapshot(profile)
+    for second in ({"limit": {"kind": "grid", "cells": [5, 6, 8, 9]}},
+                   {"pick": {"kind": "near", "base": "region", "at": [320, 170]}},
+                   {"pick": {"kind": "near", "base": "origin", "at": [320, 170]}}):
+        with pytest.raises(ToolError):
+            run(located_plan(video, profile, second), engine)
+    assert snapshot(profile) == before
 
 
 def test_profile的舊校準資料不影響_限定範圍與指定點原樣是影片像素(tmp_path, engine):
@@ -124,20 +121,23 @@ def test_profile的舊校準資料不影響_限定範圍與指定點原樣是影
     bx, by, bw, bh = box("確定")
     second = {"limit": {"kind": "origin", "rect": [bx - 10, by - 10, bw + 20,
                                                    bh + 20]},
-              "pick": {"kind": "near", "base": "region", "at": [320, 170]}}
+              "pick": {"kind": "near", "at": [320, 170]}}
     res = run(located_plan(video, profile, second), engine)
 
     s = saved_steps(res)[1]
     assert s["target"]["limit"] == {"kind": "origin", "x": bx - 10 - ox,
                                     "y": by - 10 - oy, "w": bw + 20,
                                     "h": bh + 20}
-    assert (s["target"]["pick"]["x"], s["target"]["pick"]["y"]) == (320, 170)
+    assert (s["target"]["pick"]["x"], s["target"]["pick"]["y"]) == (320 - ox, 170 - oy)
 
 
 def test_限定範圍設錯_目標不在範圍內被標待重拍(tmp_path, engine):
     video = demo_video(tmp_path)
     profile = make_profile(tmp_path, region=REGION)
-    second = {"limit": {"kind": "grid", "cells": [1]}}    # 確定在右下, 不在左上格
+    ox, oy = center("開始")
+    # 原點旁一小塊 (左上), 確定在右下, 不在裡面
+    second = {"limit": {"kind": "origin", "rect": [max(0, ox - 30), max(0, oy - 30),
+                                                   40, 40]}}
     res = run(located_plan(video, profile, second), engine)
     assert list(res["retake"]) == [RETAKE + "確定"]
 
@@ -207,16 +207,16 @@ def test_只差顏色的absent幀_開比色後不再被匹配(greyed, engine):
 
 @pytest.mark.parametrize("bad, why", [
     ({"limit": {"kind": "origin", "rect": [10, 10, 50, 50]}}, "原點"),
-    ({"pick": {"kind": "near", "base": "origin", "at": [10, 10]}}, "原點"),
+    ({"pick": {"kind": "near", "at": [10, 10]}}, "原點"),
     ({"pick": {"kind": "top", "n": 0}}, "N"),
     ({"pick": {"kind": "left"}}, "N"),
-    ({"limit": {"kind": "grid", "cells": [0, 10]}}, "九宮格"),
-    ({"limit": {"kind": "grid", "cells": []}}, "九宮格"),
+    ({"limit": {"kind": "grid", "cells": [8]}}, "九宮格"),
+    ({"pick": {"kind": "near", "base": "region", "at": [1, 1]}}, "near"),
     ({"limit": {"kind": "origin", "rect": [0, 0, 0, 5]}}, "寬高"),
     ({"colorCheck": "yes"}, "colorCheck"),
     ({"pick": {"kind": "best"}}, "pick"),
-], ids=["限定範圍以原點為基準卻沒有原點", "指定點以原點為基準卻沒有原點",
-        "N小於1", "沒寫N", "九宮格格號無效", "九宮格沒勾", "矩形寬高為0",
+], ids=["限定範圍以原點為基準卻沒有原點", "指定點卻沒有原點",
+        "N小於1", "沒寫N", "九宮格已退場", "指定點不再有基準", "矩形寬高為0",
         "colorCheck不是布林", "不認得的挑選規則"])
 def test_組裝拒絕不完整設定且profile不多任何檔案(tmp_path, engine, bad, why):
     video = demo_video(tmp_path)

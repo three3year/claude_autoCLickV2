@@ -11,7 +11,7 @@ from harness import branch_end, branch_or, branch_start, click, find, tgt
 
 AT = (500, 400)
 BUSY_AT = (960, 1000)
-BUSY = tgt("busy", limit={"kind": "grid", "cells": [8]})
+BUSY = tgt("busy", limit={"kind": "rect", "x": 640, "y": 720, "w": 640, "h": 360})
 
 
 def span(harness):

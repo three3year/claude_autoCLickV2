@@ -5,7 +5,8 @@
     讀計畫 → 讀 profile 草稿的`搜尋範圍` → 裁範本 → 組步驟 → 量校準對 → 寫存檔 → 寫報告
 
 影片尺度就是`流程尺度` (ADR 0009): 偏移與範本圖原樣進存檔, 不讀 profile 的
-任何校準資料; `校準對`由計畫指名、`基準距離`在影片影格上量。
+任何校準資料; `校準對`由計畫指名、`基準距離`在影片影格上量, 第一張的中心就是
+`座標基準點` (ADR 0012)——範本拍攝位置相對它 (沒有校準對＝不記拍攝位置)。
 
 存檔一律經 app 既有的 `flowfile.write` 寫出 (格式只由一個地方決定), 檔名走
 既有的「不撞名」規則落在 profile 的流程目錄, 絕不覆蓋。
@@ -60,23 +61,24 @@ def _size_warnings(region, info):
 
 
 def _measure_pair(c, checker, frames):
-    """在影片影格上量`校準對`: 回傳 (流程的校準資料或 None, 量不到的原因或 None).
+    """在影片影格上量`校準對`: 回傳 (流程的校準資料或 None, `座標基準點` (影片像素)
+    或 None, 量不到的原因或 None).
 
     與執行開頭的校準同一套量測 (`calibration.measure`, 全範圍查詢); 影片尺度
-    就是流程尺度, 所以量到的距離直接就是`基準距離`。
+    就是流程尺度, 所以量到的距離直接就是`基準距離`、第一張的中心就是基準點。
     """
     if c is None:
-        return None, None
+        return None, None, None
     pair, frame = c["pair"], c["frame"]
     unregistered = [n for n in pair if n not in checker.registered]
     if unregistered:
-        return None, f"引擎無法登錄 {'、'.join(unregistered)}"
+        return None, None, f"引擎無法登錄 {'、'.join(unregistered)}"
     m = calibration.measure(checker.detector.query, frames[frame], pair)
     if m.missing:
-        return None, f"第 {frame} 幀上找不到 {'、'.join(m.missing)}"
+        return None, None, f"第 {frame} 幀上找不到 {'、'.join(m.missing)}"
     if m.too_close:
-        return None, f"第 {frame} 幀上兩張圖重疊，不能當比例尺"
-    return calibration.make(pair, round(m.distance, 1)), None
+        return None, None, f"第 {frame} 幀上兩張圖重疊，不能當比例尺"
+    return calibration.make(pair, round(m.distance, 1)), m.anchor, None
 
 
 def _crop(frames, name, t, info):
@@ -122,19 +124,20 @@ def assemble(plan, engine=None, report_path=None):
     steps = defaults.apply(origin_mod.derive(p["steps"], p["templates"],
                                              checker.locate))
     checked = checker.finish()
-    cal, cal_problem = _measure_pair(p["calibration"], checker, frames)
+    cal, anchor, cal_problem = _measure_pair(p["calibration"], checker, frames)
     found = {n: r["boxes"] for n, r in checked.items()}
     # 驗證沒過的範本: 名稱加`待重拍`前綴、步驟引用 (含確認圖) 同步改寫
     images = {n: _png(img) for n, img in crops.items()}
-    # 範本元資料 pos＝取材當下的中心螢幕座標 (編輯器推算預設原點的備援):
-    # 影片像素＝螢幕像素, 以影片左上角對齊搜尋範圍左上角近似
+    # 範本元資料 pos＝拍攝位置 (取材框的中心, 相對影片上量到的`座標基準點`, 倍率 1;
+    # 編輯器推算預設原點的備援); 沒有校準對就沒有基準點, 不記
     pos = {}
-    for n, t in p["templates"].items():
-        x, y, w, h = t["box"]
-        pos[n] = [region[0] + x + w // 2, region[1] + y + h // 2]
+    if anchor is not None:
+        for n, t in p["templates"].items():
+            x, y, w, h = t["box"]
+            pos[n] = list(flowfmt.from_screen((x + w // 2, y + h // 2), anchor))
     data = {"steps": steps, "runMode": "count", "runCount": 1,
             "scanRegion": region, "avoidHover": bool(draft.get("avoidHover", False)),
-            flowfmt.COORD_SPACE: flowfmt.REGION}
+            flowfmt.COORD_SPACE: flowfmt.ANCHOR}
     if cal:
         data[calibration.FLOW_KEY] = cal
     if p["retry_interval_ms"] is not None:
@@ -150,7 +153,8 @@ def assemble(plan, engine=None, report_path=None):
             new = plan_mod.RETAKE_PREFIX + name
             flowfile.rename_flow_refs(data, name, new)   # 步驟與校準對一起改
             images[new] = images.pop(name)
-            pos[new] = pos.pop(name)
+            if name in pos:
+                pos[new] = pos.pop(name)
             retake[new] = r["reasons"]
 
     flows = flowfile.flows_dir(profile)

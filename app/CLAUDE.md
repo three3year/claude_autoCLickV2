@@ -40,12 +40,11 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   imgio/ui_dialogs/ui_overlay 都是函式內延後 import，`subject_detection`
   套件頂層是 PEP 562 惰性再匯出——新程式碼別把這些改回頂層 import
   （`app/tests/test_import_slim.py` 的子程序探針會擋下）
-- **匹配門檻在 profile `config.yaml`**（match/verify 兩關），步驟層級沒有 threshold；
-  讀舊檔時 `flowfile.migrate_flow()` 會把每步 threshold 安靜丟棄、範本引用去 .png
+- **匹配門檻在 profile `config.yaml`**（match/verify 兩關），步驟層級沒有 threshold
 - **一份流程＝一個自包自足的存檔（ADR 0006）**：`flows/<名稱>.autoclickpack` 是
   zip，裡面同時裝著步驟、`校準對`與`基準距離`、**這份流程引用到的每一張範本圖**與範本元資料。
   格式規則／打包範圍（只包被引用的）／撞名加序號並改寫引用／`工作區`生命週期／
-  舊格式單向匯入／一次性轉換規則**全部只在 `flowfile.py`**，UI 與 runner 只呼叫它。
+  舊格式的拒絕**全部只在 `flowfile.py`**，UI 與 runner 只呼叫它。
   - **本機沒有範本庫**：profile 只剩 `config.yaml`、`flows/`（含步驟草稿
     `_autosave.json`）、`workspace/`（可重建快取）。
     profile 判定看的是 `config.yaml` 在不在，不是目錄
@@ -63,14 +62,14 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     新增流程層級的找圖設定時要一併納入，否則存檔一整理那張圖就不見
   - **匯出動作已移除**（存檔本身就是可搬移的檔）；開啟不在本 profile 內的存檔＝
     `adopt_foreign_flow()` 原樣複製副本進來再開，原始檔不動、不換算
-- 流程存檔有 `coordSpace` 標記：**沒有這個鍵＝舊格式**（絕對座標是螢幕座標），載入時由
-  `flowfile.migrate_flow()`（內含 `flowfmt.to_region_space()`）換算成範圍座標。
-  任何讀存檔的新路徑都要記得先過這一關，否則舊檔的座標會被當成新格式而整批偏掉。
-  另有 `flowFormat` 標記分辨「自包自足存檔」與「舊流程包」（兩者都是含 flow.json
-  的 zip，沒有標記就分不出該直接開還是該走單向轉換）。`flowFormat` ≥ 2＝自包自足；
-  寫檔一律蓋 4（3：範本名收進`找圖目標` `target`/`confirmTarget`，2 的存檔與步驟草稿讀入時由
-  `migrate_flow` 遷移——讀範本名一律經 `findtarget.template()` 等存取函式；4：flow.json
-  帶 `calibration`，3 以前讀進來＝沒有校準對）
+- 流程存檔的格式標記：`flowFormat`（寫檔一律蓋 5）與 `coordSpace`（寫檔一律蓋
+  `anchor`＝座標相對`座標基準點`，ADR 0012）。**兩者任一不是現行值＝舊格式，一律拒絕開啟**
+  （`flowfile.check_format` 丟 `OldFormatError`，訊息「這是舊格式，座標基準不同」）：
+  座標相對搜尋範圍的格式 4、更早的 2/3、舊 autoClick flow JSON、舊流程包、舊草稿都不讀、不猜、
+  不換算——舊檔沒記當時視窗在哪，自動換算會靜靜換錯；在用的四份已一次性換算
+  （`.scratch/coord-anchor/`）。以前的遷移（螢幕→範圍座標、範本名收進找圖目標、去副檔名、
+  丟每步 threshold、舊流程包單向匯入）已全部退場，不要加回去。任何讀存檔的新路徑
+  （含步驟草稿 `read_draft`、`write_draft` 也蓋同一套標記）一律先過 `check_format`
 - **一份流程一個尺度（ADR 0009，取代 0005；詞彙見 app/CONTEXT.md「尺度與畫面倍率」）**：
   座標與範本圖都是`流程尺度`；`校準對`＋`基準距離`在 flow.json 的 `calibration`
   （`calibration.flow_pair`），profile 不存任何校準資料。量測純邏輯在 `calibration.py`
@@ -79,21 +78,33 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     `findtarget.find(scale=…)` 當`預期尺度`交給引擎（只掃它附近 5 格）。新增找圖入口一律走
     `findtarget.find`，倍率才不會只用到一半
   - 執行器開頭自己校準（`runner.start(calibration=…)` → `_calibrate`，延遲之後、第一個動作
-    之前）：校準查詢**不帶**預期尺度；量不到或沒有校準對＝零輸入結束，寫 `calibrate` 日誌。
-    抖動內貼齊 1（`snap_identity`）——倍率 1 時座標原樣、網格對準 1.0
-  - 編輯器倍率 `App.editor_scale`：開流程/切流程歸 1，按「校準」才更新；拾取座標
-    （`_unscale`）與截下的範本（`App.flow_scale_image`）都除以它，上傳的圖不縮放。
-    新增拾取或截圖入口要照做，流程裡才只有一種尺度。例外：`固定矩形`與九宮格存的是搜尋範圍的
-    比例（`findtarget.ratio_rect_from_screen`），與倍率無關，不除
-  - 換校準對要先用舊對量倍率（`App.designate_pair`），否則流程尺度會被改掉
+    之前）：`calibration.calibrate` 一次得出`畫面倍率`與`座標基準點`（`Runner.anchor`，校準對
+    第一張的中心，ADR 0012）；校準查詢**不帶**預期尺度、只在搜尋範圍內截圖；量不到或沒有
+    校準對＝零輸入結束，寫 `calibrate` 日誌。抖動內貼齊 1（`snap_identity`）——倍率 1 時座標
+    原樣、網格對準 1.0。執行中不重量
+  - **存下的座標一律相對座標基準點、流程尺度**：絕對座標（`_abs_origin`＝anchor）、`固定矩形`
+    （`findtarget.limit_rect(anchor=…)`）、範本拍攝位置 `pos`。換算只有 `flowfmt.to_screen`／
+    `from_screen`（與 `rect_*` 版）一對純函式，執行器、編輯器、換算工具都用它
+  - **編輯器沒有跨操作保存的倍率或基準點**（`App.editor_scale` 已移除）：每次拾取都走
+    `ui_dialogs.measured_pick`——清場前檢查（`App.calibration_ready`）、清場中先
+    `App.calibrate_frame()` 在這次的截圖上量基準點與倍率，再做拾取，清場後提示。拾取到的座標
+    （`flowfmt.from_screen`／`_unscale`）、截下的範本（`imgio.to_flow_scale`）、拍攝位置
+    （`ui_dialogs.template_pos_from_shot`）都用當下的值換回；量不到＝不存並提示重框搜尋範圍；
+    沒有校準對＝需要基準點的拾取（絕對座標、固定矩形）擋下，只依原點的照常（倍率 1）。
+    **新增拾取、截圖或比對測試入口一律走 `measured_pick`**。「校準」鈕只量測顯示，不存任何值
+  - 換校準對（`App.designate_pair`）：同一張截圖先用舊對量倍率與舊基準點（量不到就拒絕），
+    新基準距離＝新距離 ÷ 倍率，再依新舊基準點的差把所有存下的座標平移
+    （`flowfmt.shift_flow`＋`Workspace.shift_pos`），落點不變
 - `Runner` 可注入舞台；**不注入時完全走原本的單流程路徑**，改 runner 時務必保住這條回歸線
-- 範本元資料只有 `pos` 鍵：各範本截圖當下的中心螢幕座標（相對座標預設原點的備援）。
+- 範本元資料只有 `pos` 鍵：各範本的拍攝位置＝截圖當下的中心，**相對座標基準點、流程尺度**
+  （相對座標預設原點的備援；◎ 退用它時以當下基準點換回螢幕）。
   住在工作區的 `workspace/_meta.json`，存檔時寫進 zip 的 `templates/_meta.json`。
-  **只有本流程自己拍的圖有 pos**——跨流程複製進來與從磁碟上傳的沒有。
-  舊專案的 `rot` 鍵與 `_orig/` 旋轉原圖機制已隨旋轉功能移除，讀舊 meta 時安靜丟棄
+  **只有本流程自己拍的圖有 pos**——跨流程複製進來與從磁碟上傳的沒有（比對測試找到時補記）；
+  沒有校準對時拍的圖也沒有（沒有基準點）
 - 已移除（不要加回去）：並行執行 UI 與 ParallelRun、旋轉比對與旋轉範本工具、
   flood-fill 去背工具、翻新解析度工具、`_orig` 範本鏡像、舊 matcher、每步 threshold、
-  **profile 範本庫與登錄產物目錄、多截圖範本、匯出流程包、範本資料夾層級**
+  **profile 範本庫與登錄產物目錄、多截圖範本、匯出流程包、範本資料夾層級**、
+  舊格式遷移與匯入、九宮格限定範圍、以搜尋範圍為基準的指定點、編輯器倍率
 
 ## 建置與部署
 
@@ -127,11 +138,13 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - 程序啟動即設 DPI-aware（`win.set_dpi_aware()`），全程使用**實體像素**
 - 多螢幕虛擬桌面原點可為負；**螢幕配置會變動，不要寫死假設**，用 `win.virtual_screen()` 查當下配置
 - mss 截圖座標 == GetWindowRect == SetCursorPos 座標，不要混入未設 DPI-aware 的程序取得的座標
-- **步驟裡的座標一律是「偏移量」，沒有一個是螢幕座標**：`相對座標`相對原點、`絕對座標`相對搜尋範圍左上角。
-  螢幕座標只出現在三個地方：搜尋範圍本身、`templates/_meta.json` 的 `pos`、
-  以及執行期換算後送進 `win.click` 的最終落點。改動座標相關程式碼前先確認自己在哪一個座標系
-- 步驟偏移量是`流程尺度`（ADR 0009）：偏移量 → 螢幕像素要 ×`畫面倍率`（runner `_sc`、
-  預設原點推算）；螢幕像素 → 偏移量要反除倍率（拾取 `_unscale`）。倍率 1 時兩者都是恆等
+- **存檔裡的座標一律是「偏移量」，沒有一個是螢幕座標**：`相對座標`相對原點、`絕對座標`、
+  `固定矩形`、範本拍攝位置 `pos` 都相對`座標基準點`（ADR 0012）。螢幕座標只出現在兩個地方：
+  搜尋範圍本身（存檔裡唯一的螢幕座標，要先有它才找得到基準點）、以及執行期或拾取當下才有的值
+  （基準點、原點、送進 `win.click` 的最終落點）。改動座標相關程式碼前先確認自己在哪一個座標系
+- 步驟偏移量是`流程尺度`（ADR 0009）：偏移量 → 螢幕像素要 ×`畫面倍率`再加基準點
+  （`flowfmt.to_screen`，runner `_sc`、預設原點推算）；螢幕像素 → 偏移量要減基準點、反除倍率
+  （`flowfmt.from_screen`、拾取 `_unscale`）。倍率 1、基準點 (0,0) 時兩者都是恆等
 
 ## 踩過的坑（不要再犯）
 
@@ -210,7 +223,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - modal 對話框 `grab_set` 會卡住背景測試程序 → 截圖/關閉動作放在 thread 或 `after()` 裡
 - **一次性 GUI 冒煙腳本開頭必須先呼叫 `tests/nodialogs.py` 的 `stub_dialogs()`**（pytest 由
   conftest 自動套用）：messagebox/filedialog 是原生 modal，驅動時序不對觸發了驗證警告
-  （例如「九宮格至少要勾一格」）就會整個卡死、等使用者來按掉；跑完印出它回傳的紀錄
+  （例如「固定矩形還沒框選」）就會整個卡死、等使用者來按掉；跑完印出它回傳的紀錄。
+  **會建真的 `App` 的路徑也一樣**（`test_import_slim` 的子程序探針）：啟動期的提示
+  （舊草稿不復原）排在 `after(0)`、不在 `__init__` 裡擋，且 repo 的 `profiles/` 草稿要是現行格式
 - 測 runner 點擊邏輯時 monkeypatch `automation.runner.win.click`，不要真的動使用者滑鼠
 - 驗證文字顏色不能用像素找色：ClearType 次像素渲染會在白字邊緣產生橙/藍彩邊造成誤判，
   改用 `tk.Text.bbox` 量字元位置、或放大截圖目視
@@ -249,8 +264,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   截圖；**按確定才複製進本流程**，取消時檔案系統完全沒有變化。`確認圖`走同一個
   對話框——舊的「截圖即時存檔、取消對話框圖仍留下」語意已經改掉，別再加回去
 - 找圖搜尋範圍只有主視窗的全域設定，步驟不各自設範圍
-- 座標點擊基準只有兩種：絕對座標（基準＝搜尋範圍左上角，沒設範圍就不能拾取也不能執行）、
-  相對上一步（原點語意見找圖三態條目；拾取用拖線：起點=基準、終點=目標）
+- 座標點擊基準只有兩種：絕對座標（基準＝`座標基準點`，沒有校準對就不能拾取；執行開頭校準
+  後才有基準點）、相對上一步（原點語意見找圖三態條目；拾取用拖線：起點=基準、終點=目標）
 - 重複/分岔區段都是平面標記步驟（loop_start/end、branch_start/or/end，非巢狀資料結構），
   runner 用堆疊與跳轉解譯；區段必須完整巢狀不可交錯，執行前由 `_flow_error` 堆疊掃描擋下
 - 分岔的拍板語意：每個分支開頭必須是找圖步驟＝該分支條件，執行時輪詢先找到誰走誰；

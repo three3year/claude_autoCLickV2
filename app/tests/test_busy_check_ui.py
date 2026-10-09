@@ -25,7 +25,7 @@ from test_template_picker import _all
 def test_忙碌檢查與忙碌出現等候存檔往返(tmp_path):
     path = str(tmp_path / ("f" + flowfile.EXT))
     steps = [click(1, 2, busyCheck=True), find("a"), key("esc", busyCheck=True)]
-    flowfile.write(path, {"steps": steps, "coordSpace": "region",
+    flowfile.write(path, {"steps": steps, "coordSpace": "anchor",
                           "busyAppearMs": 800}, {"a": b"A"})
     data = flowfile.read(path)["data"]
     assert [s.get("busyCheck") for s in data["steps"]] == [True, None, True]
@@ -35,7 +35,7 @@ def test_忙碌檢查與忙碌出現等候存檔往返(tmp_path):
 def test_舊存檔讀進來沒勾_出現等候是預設(tmp_path):
     path = str(tmp_path / ("f" + flowfile.EXT))
     flowfile.write(path, {"steps": [click(1, 2), find("a")],
-                          "coordSpace": "region"}, {"a": b"A"})
+                          "coordSpace": "anchor"}, {"a": b"A"})
     data = flowfile.read(path)["data"]
     assert all("busyCheck" not in s for s in data["steps"])
     assert flowfile.busy_appear_ms(data) == 1000
@@ -150,9 +150,9 @@ def test_流程資料帶忙碌出現等候_開流程時讀回_沒有就是預設
     a.busy_lbl = SimpleNamespace(configure=lambda **kw: None)
     a.retry_var = tk.StringVar(master=tkroot, value="")
     a.busy_appear_var = tk.StringVar(master=tkroot, value="")
-    a._apply_flow({"steps": [], "coordSpace": "region"})
+    a._apply_flow({"steps": [], "coordSpace": "anchor"})
     assert a.busy_appear_ms == 1000 and a.busy_appear_var.get() == "1000"
-    a._apply_flow({"steps": [], "coordSpace": "region", "busyAppearMs": 1500})
+    a._apply_flow({"steps": [], "coordSpace": "anchor", "busyAppearMs": 1500})
     assert a.busy_appear_ms == 1500 and a.busy_appear_var.get() == "1500"
 
 

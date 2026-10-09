@@ -91,5 +91,5 @@ def test_出現等候上限存檔往返(tmp_path):
     import flowfile
     path = str(tmp_path / ("f" + flowfile.EXT))
     flowfile.write(path, {"steps": [_find_step(appearLimitMs=800)],
-                          "coordSpace": "region"}, {"busy": b"B"})
+                          "coordSpace": "anchor"}, {"busy": b"B"})
     assert flowfile.read(path)["data"]["steps"][0]["appearLimitMs"] == 800

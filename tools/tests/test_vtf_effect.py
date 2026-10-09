@@ -64,11 +64,9 @@ def test_流程層級的補做間隔與忙碌指示_出現等候上限(demo, eng
     steps = [find("開始"), find("確定", action="wait_gone", appearLimitMs=1000),
              find("下一步")]
     data = saved(run(demo, engine, steps, retryIntervalMs=800,
-                     busyTarget={"template": "下一步",
-                                 "limit": {"kind": "grid", "cells": [8]}}))
+                     busyTarget={"template": "下一步", "colorCheck": True}))
     assert flowfile.retry_interval_ms(data) == 800
-    assert flowfile.busy_target(data) == {
-        "template": "下一步", "limit": {"kind": "grid", "cells": [8]}}
+    assert flowfile.busy_target(data) == {"template": "下一步", "colorCheck": True}
     assert data["steps"][1]["appearLimitMs"] == 1000
 
 
@@ -82,7 +80,7 @@ def test_流程層級的補做間隔與忙碌指示_出現等候上限(demo, eng
     ([find("開始", appearLimitMs=500)], {}, "出現等候上限"),
     ([find("開始")], {"busyTarget": {"template": "沒這張"}}, "忙碌指示的範本"),
     ([find("開始")], {"busyTarget": {"template": "開始", "limit": {
-        "kind": "origin", "rect": [0, 0, 10, 10]}}}, "九宮格"),
+        "kind": "origin", "rect": [0, 0, 10, 10]}}}, "限定範圍"),
     ([find("開始")], {"retryIntervalMs": -1}, "retryIntervalMs"),
     ([find("開始", action="none"), {"type": "click", "at": [5, 5]},
       {"type": "drag", "from": [5, 5], "to": [5, 50], "confirm": "gone"}],

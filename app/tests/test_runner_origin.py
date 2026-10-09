@@ -65,7 +65,7 @@ def test_找圖偏移後的位置才是原點(harness):
 
 def test_測試選取片段_以原點為基準的找圖目標在原點來源之前就擋下():
     import app as app_mod
-    near = {"pick": {"kind": "near", "base": "origin", "x": 0, "y": 0}}
+    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
     limit = {"limit": {"kind": "origin", "x": 0, "y": 0, "w": 9, "h": 9}}
     check = app_mod.App._fragment_origin_error
     assert check(None, [find("a", target=near)], 4) == [5]

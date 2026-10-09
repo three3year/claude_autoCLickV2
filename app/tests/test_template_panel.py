@@ -135,7 +135,7 @@ def test_切換流程時面板跟著換(tkroot, tmp_path):
         other = os.path.join(str(tmp_path), "other" + flowfile.EXT)
         flowfile.write(other, {"steps": [{"type": "find_click",
                                           "target": {"template": "new"}}],
-                               "coordSpace": "region"}, {"new": b"N"})
+                               "coordSpace": "anchor"}, {"new": b"N"})
         app.ws.load_flow(other)
         app.refresh_templates()
         app.root.update()

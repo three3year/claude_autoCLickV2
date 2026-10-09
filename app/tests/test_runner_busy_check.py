@@ -13,7 +13,7 @@ from harness import (branch_end, branch_or, branch_start, click, drag, find,
 
 AT = (500, 400)
 BUSY_AT = (960, 1000)
-BUSY = tgt("busy", limit={"kind": "grid", "cells": [8]})
+BUSY = tgt("busy", limit={"kind": "rect", "x": 640, "y": 720, "w": 640, "h": 360})
 # 送出後 0.5s 出現、3.0s 消失 (輪詢 0.5s: 0.0 沒有, 0.5..2.5 在, 3.0 消失)
 APPEAR_THEN_GONE = [None] + [BUSY_AT] * 5 + [None]
 

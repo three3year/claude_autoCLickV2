@@ -75,7 +75,7 @@ def test_點到下一步的圖出現套用下一步的挑選規則(harness):
 
 
 def test_點到下一步的圖出現用點擊後的原點(harness):
-    near = {"pick": {"kind": "near", "base": "origin", "x": 0, "y": 0}}
+    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("card", [CARDS])
     # a 不更新原點, 之前也沒有任何原點 → 下一步的找圖目標無從判定
@@ -114,7 +114,7 @@ def test_分支條件套用條件步驟的找圖目標(harness):
 
 
 def test_以原點為基準卻沒有原點_步驟無法執行而跳過(harness):
-    near = {"pick": {"kind": "near", "base": "origin", "x": 0, "y": 0}}
+    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
     harness.vision.plan("card", [CARDS])
     r = harness.run([find("card", target=near, onNotFound="stop")])
     assert r.ended == "done", "與相對座標同處理: 跳過, 不走找不到時"
@@ -150,18 +150,20 @@ def test_灰色按鈕開比色時不會被點(harness):
 
 
 # ---------- 限定範圍 (票 05) ----------
-# harness 的搜尋範圍預設 (0, 0, 1920, 1080): 九宮格每格 640×360
+# harness 的搜尋範圍預設 (0, 0, 1920, 1080)、座標基準點 (0, 0)
+
+BOTTOM_RIGHT = {"limit": {"kind": "rect", "x": 1280, "y": 720, "w": 640, "h": 360}}
+
 
 def test_限定範圍外的同款不被找到也不被點(harness):
     harness.vision.plan("btn", [[(100, 100, 0.99), (1800, 1000, 0.90)]])
-    harness.run([find("btn", target={"limit": {"kind": "grid", "cells": [9]}})])
+    harness.run([find("btn", target=BOTTOM_RIGHT)])
     assert harness.clicks() == [(1800, 1000)]
 
 
 def test_目標不在限定範圍內時逾時走找不到時(harness):
     harness.vision.plan("btn", [[(100, 100)]])
-    r = harness.run([find("btn", target={"limit": {"kind": "grid",
-                                                   "cells": [9]}},
+    r = harness.run([find("btn", target=BOTTOM_RIGHT,
                           timeout=1, interval=0.2, onNotFound="stop")])
     assert harness.clicks() == []
     assert r.ended == "error"
@@ -184,17 +186,17 @@ def test_以原點為基準的限定範圍卻沒有原點_步驟跳過(harness):
     assert r.ended == "done" and harness.clicks() == []
 
 
-# ---------- 固定矩形 (busy-pause-fixed-rect 票 03) ----------
-# harness 的搜尋範圍預設 (0, 0, 1920, 1080)
+# ---------- 固定矩形 (busy-pause-fixed-rect 票 03; coord-anchor 票 04 改相對基準點) ----------
+# harness 的搜尋範圍預設 (0, 0, 1920, 1080)、座標基準點預設 (0, 0)
 
-FIXED = {"limit": {"kind": "rect", "x": 0.5, "y": 0.5, "w": 0.25, "h": 0.25}}
+FIXED = {"limit": {"kind": "rect", "x": 960, "y": 540, "w": 480, "h": 270}}
 
 
 def _find_rec(harness, role="find"):
     return [r for r in harness.filelog.of("find.target") if r["role"] == role]
 
 
-def test_固定矩形_只在比例乘搜尋範圍那一塊裡找(harness):
+def test_固定矩形_只在基準點加偏移那一塊裡找(harness):
     harness.vision.plan("btn", [[(100, 100, 0.99), (1000, 600, 0.90)]])
     harness.run([find("btn", target=FIXED)])
     assert harness.clicks() == [(1000, 600)]
@@ -202,24 +204,25 @@ def test_固定矩形_只在比例乘搜尋範圍那一塊裡找(harness):
     assert rec["limit"] == "(960,540,480,270)"
 
 
-def test_固定矩形_跟著搜尋範圍走(harness):
-    harness.vision.plan("btn", [(600, 450)])
-    harness.run([find("btn", target=FIXED)], scan_region=[200, 100, 800, 600])
-    assert harness.clicks() == [(600, 450)]
+def test_固定矩形_跟著基準點走_不跟搜尋範圍(harness):
+    harness.vision.plan("btn", [(1200, 700)])
+    harness.run([find("btn", target=FIXED)], scan_region=[200, 100, 1500, 900],
+                anchor=(240, 160))
+    assert harness.clicks() == [(1200, 700)]
     [rec] = _find_rec(harness)
-    assert rec["limit"] == "(600,400,200,150)"
+    assert rec["limit"] == "(1200,700,480,270)"
 
 
-def test_固定矩形_畫面倍率不是1也不換算(harness):
-    harness.vision.plan("btn", [(1000, 600)])
+def test_固定矩形_隨畫面倍率換算(harness):
+    harness.vision.plan("btn", [(1500, 900)])
     harness.run([find("btn", target=FIXED)], scale=1.5)
     [rec] = _find_rec(harness)
-    assert rec["limit"] == "(960,540,480,270)"
+    assert rec["limit"] == "(1440,810,480,270)", "右下角 (2160,1215) 裁到搜尋範圍"
 
 
 def test_固定矩形_不合法就不找_逾時走找不到時(harness):
     harness.vision.plan("btn", [(1000, 600)])
-    bad = {"limit": {"kind": "rect", "x": 0.5, "y": 0.5, "w": 0, "h": 0.25}}
+    bad = {"limit": {"kind": "rect", "x": 960, "y": 540, "w": 0, "h": 270}}
     r = harness.run([find("btn", target=bad, timeout=1, interval=0.2,
                           onNotFound="stop")])
     assert r.ended == "error" and harness.clicks() == []

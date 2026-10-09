@@ -20,7 +20,7 @@
       ],
       "calibration": {"pair": ["標題列圖示", "關閉鈕"], "frame": 120},
       "retryIntervalMs": 1000,
-      "busyTarget": {"template": "提交中", "limit": {"kind": "grid", "cells": [8]}},
+      "busyTarget": {"template": "提交中", "colorCheck": true},
       "report": {"branches": ["…"], "unexplained": ["…"], "keys": ["…"]}
     }
 
@@ -31,10 +31,11 @@
 (mode) 由組裝產生, 計畫寫了就報錯。
 
 找圖步驟 (與確認圖 `confirmTarget`) 的`找圖目標`屬性: `colorCheck` (比色)、
-`pick` (挑選規則: {kind: top/left, n} 或 {kind: near, base: origin/region,
-at: [x, y]})、`limit` (限定範圍: {kind: origin, rect: [x, y, w, h]} 或
-{kind: grid, cells: [1..9]})。矩形與指定點同樣寫影片像素的畫面位置, 組裝依該步的
-原點換成相對值 (確認圖用點擊後的原點)。`confirmTemplate` 是只有範本的確認圖簡寫。
+`pick` (挑選規則: {kind: top/left, n} 或 {kind: near, at: [x, y]})、`limit`
+(限定範圍: {kind: origin, rect: [x, y, w, h]})。矩形與指定點同樣寫影片像素的畫面
+位置, 組裝依該步的`原點`換成相對值 (確認圖用點擊後的原點); 工具只產出以原點為基準的
+設定 (`固定矩形`相對`座標基準點`, 請在 app 的找圖設定裡框)。`confirmTemplate` 是
+只有範本的確認圖簡寫。
 
 `calibration` 指名這份流程的`校準對` (兩個計畫裡的範本, 例: 遊戲視窗標題列的
 圖示＋關閉鈕) 與量基準距離的那一幀 (預設＝第一張的取材幀)。影片尺度就是流程
@@ -43,8 +44,8 @@ at: [x, y]})、`limit` (限定範圍: {kind: origin, rect: [x, y, w, h]} 或
 
 `生效確認` (ADR 0008): 座標點擊與拖曳也可寫 confirm (gone＝`原點的圖離開`、
 appear、next) 與 confirmTemplate/confirmTarget、timeout、interval、onNotFound;
-流程層級的`補做間隔` (retryIntervalMs) 與`忙碌指示` (busyTarget: 範本＋比色＋
-九宮格限定範圍); 等待消失的`出現等候上限` (appearLimitMs)。
+流程層級的`補做間隔` (retryIntervalMs) 與`忙碌指示` (busyTarget: 範本＋比色,
+不限定範圍); 等待消失的`出現等候上限` (appearLimitMs)。
 """
 from __future__ import annotations
 
@@ -137,13 +138,10 @@ def _target_attrs(where, d):
                 _err(where, f"pick 的第 N 個（n）要是從 1 起算的整數，收到 {n!r}")
             d["pick"] = {"kind": kind, "n": n}
         else:
-            if set(p) - {"kind", "base", "at"} or p.get("base") not in (
-                    "origin", "region") or "at" not in p:
-                _err(where, "pick 的 near 要寫 base（origin＝以原點為基準 / "
-                     "region＝以搜尋範圍為基準）與 at（影片像素的指定點畫面位置），"
-                     f"收到 {p!r}")
-            d["pick"] = {"kind": "near", "base": p["base"],
-                         "at": _xy(where + " pick.at", p["at"])}
+            if set(p) - {"kind", "at"} or "at" not in p:
+                _err(where, "pick 的 near 只寫 at（影片像素的指定點畫面位置，組裝換成"
+                     f"相對原點的偏移；沒有以搜尋範圍為基準這回事），收到 {p!r}")
+            d["pick"] = {"kind": "near", "at": _xy(where + " pick.at", p["at"])}
     if "limit" in d:
         lim = d["limit"]
         kind = lim.get("kind") if isinstance(lim, dict) else None
@@ -156,18 +154,10 @@ def _target_attrs(where, d):
                 _err(where, "limit 的 rect 要寫成 [x, y, w, h] 整數（影片像素的畫面"
                      f"位置）且寬高 > 0，收到 {lim!r}")
             d["limit"] = {"kind": "origin", "rect": list(r)}
-        elif kind == "grid":
-            cells = lim.get("cells")
-            if (set(lim) - {"kind", "cells"} or not isinstance(cells, list)
-                    or not cells
-                    or not all(isinstance(c, int) and not isinstance(c, bool)
-                               and 1 <= c <= 9 for c in cells)):
-                _err(where, "limit 的九宮格 cells 要是 1–9 的格號清單（由左上起逐列），"
-                     f"至少一格，收到 {lim!r}")
-            d["limit"] = {"kind": "grid", "cells": sorted(set(cells))}
         else:
-            _err(where, "limit（限定範圍）的 kind 只能是 origin（以原點為基準的矩形）"
-                 f"或 grid（搜尋範圍九宮格），收到 {lim!r}")
+            _err(where, "limit（限定範圍）的 kind 只能是 origin（以原點為基準的矩形；"
+                 "九宮格已退場，固定矩形請在 app 的找圖設定裡框），"
+                 f"收到 {lim!r}")
 
 
 def load(plan):
@@ -292,9 +282,10 @@ def _retry_interval(raw):
 
 
 def _busy(raw, templates):
-    """`忙碌指示`: {template, colorCheck, limit (九宮格)}; 沒寫回傳 None.
+    """`忙碌指示`: {template, colorCheck}; 沒寫回傳 None.
 
-    忙碌指示在補做前查, 沒有可依靠的原點——限定範圍只能是九宮格。
+    忙碌指示在補做前查, 沒有可依靠的原點——工具不產出它的限定範圍 (`固定矩形`相對
+    `座標基準點`, 請在 app 的找圖設定裡框)。
     """
     if raw is None:
         return None
@@ -304,9 +295,9 @@ def _busy(raw, templates):
     if raw.get("template") not in templates:
         _err(where, f"忙碌指示的範本「{raw.get('template')}」不在計畫的範本清單裡")
     d = dict(raw)
+    if "limit" in d:
+        _err(where, "忙碌指示不寫限定範圍（沒有原點可依靠；固定矩形請在 app 的找圖設定裡框）")
     _target_attrs(where, d)
-    if (d.get("limit") or {}).get("kind") == "origin":
-        _err(where, "忙碌指示的限定範圍只能用九宮格（grid），沒有原點可依靠")
     return d
 
 

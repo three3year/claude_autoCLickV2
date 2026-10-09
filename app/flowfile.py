@@ -5,7 +5,8 @@
     flow.json               步驟與流程層級設定 (含 coordSpace、`校準對`與`基準距離`、
                             `補做間隔`、`忙碌指示`)
     templates/<名稱>.png    本流程引用到的範本圖 (一範本一張圖, 名稱平面無層級)
-    templates/_meta.json    範本元資料: {"pos": {範本名: [x, y]}}
+    templates/_meta.json    範本元資料: {"pos": {範本名: [x, y]}}——拍攝位置 (截圖當下的中心),
+                            相對`座標基準點`、`流程尺度` (ADR 0012)
 
 存檔**只寫入被引用的**範本 (步驟的找圖目標含`確認圖`, 以及流程的`校準對`與
 `忙碌指示`, 見 `flow_refs`): 刪掉引用它的步驟再存檔, 那張圖就離開存檔——檔案內容永遠等於
@@ -15,11 +16,12 @@
 的範本圖與引擎的`登錄產物`都放這。**存檔是真相來源, 工作區只是快取**——被刪或
 毀損時自動重建; 切換流程時整個清空 (圖與登錄產物一起刪)。
 
-舊格式的單向匯入 (舊 autoClick flow JSON、舊流程包) 與一次性轉換所需的規則
-(多截圖取`登錄基準張`、範本名拉平、撞名加序號並改寫引用) 都在本模組, 不另立
-門戶: 格式規則只有一個地方說得上話。存檔原樣搬到哪台機器、哪個 profile 都一樣
-(尺度與比例尺跟著流程走, ADR 0009), 所以開外來檔與匯入都不換算座標。
-(更早版本存檔裡的 calibration.json / calibration/ 項目讀檔時安靜忽略。)
+**舊格式一律拒絕開啟** (ADR 0012): 座標空間標記不是現行值的存檔、步驟草稿、舊 autoClick
+flow JSON、舊流程包都不讀, 回報「這是舊格式, 座標基準不同」——舊檔沒記當時視窗在哪,
+自動換算可能靜靜換錯; 在用的流程已一次性換算。以前的舊格式遷移 (螢幕→搜尋範圍座標、
+範本名收進找圖目標、去副檔名、丟每步門檻、舊流程包單向匯入) 隨之退場。
+存檔原樣搬到哪台機器、哪個 profile 都一樣 (尺度、比例尺與座標基準跟著流程走), 所以開
+外來檔不換算座標。格式規則只有這一個地方說得上話。
 """
 import json
 import os
@@ -41,10 +43,9 @@ META_ENTRY = "templates/_meta.json"
 # 自包自足存檔的格式標記: 舊流程包同樣是「zip 內含 flow.json」, 沒有標記就無從
 # 分辨「直接開得起來的存檔」與「要走單向轉換的舊流程包」
 FORMAT_KEY = "flowFormat"
-FORMAT = 4                 # 寫檔一律蓋這個版本 (3: 範本收進`找圖目標`, ADR 0007;
-                           # 4: 流程自帶`校準對`與`基準距離`, ADR 0009)
-SELF_CONTAINED_SINCE = 2   # 2 起就是自包自足存檔; 2 → 3 只是步驟結構遷移;
-                           # 3 以前沒有校準對 (讀進來＝沒有校準對, 不能執行)
+FORMAT = 5                 # 寫檔一律蓋這個版本 (3: 範本收進`找圖目標`, ADR 0007;
+                           # 4: 流程自帶`校準對`與`基準距離`, ADR 0009;
+                           # 5: 座標相對`座標基準點`, coordSpace＝anchor, ADR 0012)
 
 _IMG_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
 
@@ -52,7 +53,7 @@ _IMG_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
 # ================= 範本名稱與步驟引用 =================
 
 def strip_ext(name):
-    """範本引用去 .png 副檔名 (舊 flow → 引擎範本名; 已無副檔名時不動)."""
+    """圖檔名去 .png 副檔名 → 範本名 (已無副檔名時不動)."""
     return name[:-4] if name.lower().endswith(".png") else name
 
 
@@ -64,15 +65,6 @@ def clean_name(name):
     """
     name = re.sub(r'[\\/:*?"<>|]', "_", str(name)).strip().strip(".")
     return re.sub(r"_+", "_", name)
-
-
-def flatten_name(name):
-    """一次性轉換用: 舊的相對路徑範本名拉平成平面名稱 (`cn/V` → `V`).
-
-    子路徑前綴在新格式裡失去意義 (一份流程的範本不需要命名空間), 拿掉之後
-    範本面板上的名字才乾淨好認; 拉平撞名由 `free_name` 加序號解決。
-    """
-    return clean_name(str(name).replace("\\", "/").rsplit("/", 1)[-1]) or "template"
 
 
 def free_name(name, taken):
@@ -180,59 +172,48 @@ def used_templates(steps):
     return sorted(findtarget.referenced_templates(steps))
 
 
-# flowFormat 2 的步驟欄位: 範本名直接掛在步驟上 → 3 的`找圖目標`
-_V2_KEYS = (("template", findtarget.TARGET),
-            ("confirmTemplate", findtarget.CONFIRM_TARGET))
+# ================= 格式檢查: 舊格式一律拒絕 =================
+
+class OldFormatError(ValueError):
+    """舊格式 (座標基準不同) 或根本不是流程存檔: 不開, 訊息給使用者看."""
 
 
-def _migrate_step(step):
-    """flowFormat 2 → 3: 範本名與確認圖範本名搬進對應的找圖目標 (就地, 冪等).
+OLD_FORMAT_MSG = ("這是舊格式的存檔，座標基準不同（舊格式的座標相對搜尋範圍，"
+                  "現在一律相對校準對第一張圖的中心），無法開啟。"
+                  "在用的流程已一次性換算；其餘舊檔請刪除或重新建立")
 
-    空的確認圖範本名不留空目標。
+
+def format_problem(data):
+    """這份流程資料開不開得起來: 舊格式回傳說明, 現行格式回傳 None.
+
+    現行格式＝flowFormat ≥ 5 且座標空間標記是 anchor; 任一不符都是舊格式
+    (座標相對搜尋範圍、或更早的螢幕座標), 一律拒絕——不猜、不換算。
     """
-    for old, new in _V2_KEYS:
-        if old not in step:
-            continue
-        name = step.pop(old)
-        if isinstance(name, str) and name and not isinstance(step.get(new), dict):
-            step[new] = {"template": name}
+    if not isinstance(data, dict):
+        return OLD_FORMAT_MSG
+    try:
+        fmt = int(data.get(FORMAT_KEY, 0))
+    except (TypeError, ValueError):
+        fmt = 0
+    if fmt < FORMAT or not flowfmt.is_anchor_space(data):
+        return OLD_FORMAT_MSG
+    return None
 
 
-def _migrate_steps(steps):
-    """flowFormat 2 → 3 的步驟結構遷移 (冪等): 範本名搬進`找圖目標`."""
-    for s in steps or []:
-        _migrate_step(s)
+def check_format(data):
+    """舊格式就丟 OldFormatError; 所有讀檔路徑 (存檔、步驟草稿) 一律先過這一關."""
+    problem = format_problem(data)
+    if problem:
+        raise OldFormatError(problem)
 
 
-def migrate_flow(data):
-    """舊 flow dict 就地遷移成新格式, 回傳提示訊息 list.
-
-    座標空間 (螢幕→範圍)、範本名搬進`找圖目標` (flowFormat 2 → 3)、範本引用
-    去副檔名、每步 threshold 丟棄。對已是新格式的資料是 no-op, 所有讀檔路徑
-    (存檔、步驟草稿、舊 JSON、舊流程包) 一律先過這一關。
-    """
-    notes = []
-    note = flowfmt.to_region_space(data)
-    if note:
-        notes.append(note)
-    # 退場的`來源基準`標記 (ADR 0009 前的匯入換算): 帶著的舊存檔安靜忽略
-    data.pop("sourceBaseline", None)
-    for s in data.get("steps") or []:
-        s.pop("threshold", None)
-        _migrate_step(s)
-        for _, t in findtarget.step_targets(s):
-            if t.get("template"):
-                t["template"] = strip_ext(t["template"])
-    return notes
-
-
-# ================= 目錄掃描 (舊範本庫 / 工作區) =================
+# ================= 目錄掃描 (工作區) =================
 
 def scan_templates(root):
     """掃一個範本圖目錄成`範本清單`: {範本名: [圖檔路徑, ...]}.
 
     範本名＝相對路徑不含副檔名; 「只含影像檔的資料夾」是一個多截圖範本
-    (舊範本庫的形式), 含子資料夾的資料夾是命名空間。工作區是平面的單張圖,
+    (引擎仍認得的形式), 含子資料夾的資料夾是命名空間。工作區是平面的單張圖,
     同一套規則掃得出來——引擎的`範本清單`由此組出。
     """
     root = Path(root)
@@ -264,14 +245,6 @@ def scan_templates(root):
     return found
 
 
-def baseline_capture(paths):
-    """多截圖範本降為單張時保留的那一張＝`登錄基準張` (排序後第一張).
-
-    與引擎登錄時的排序一致, 所以降級後的圖就是原本的參考影像來源。
-    """
-    return sorted(paths)[0]
-
-
 # ================= 流程存檔 (zip) =================
 
 def _blob(src):
@@ -290,9 +263,7 @@ def write(path, data, images, pos=None):
     寫進執行紀錄即可。
     """
     images = images or {}
-    stamped = json.loads(json.dumps(data))  # 深拷貝: 不改呼叫端的資料
-    _migrate_steps(stamped.get("steps"))     # 寫出的步驟一律是 v3 結構
-    stamped[FORMAT_KEY] = FORMAT
+    stamped = _stamped(data)
     refs = flow_refs(stamped)
     pos = pos or {}
     missing = [n for n in refs if n not in images]
@@ -306,6 +277,19 @@ def write(path, data, images, pos=None):
                 z.writestr(f"{TMPL_PREFIX}{n}.png", _blob(images[n]))
     os.replace(tmp, path)   # 寫壞的存檔不會取代舊的那份
     return missing
+
+
+def _stamped(data):
+    """寫檔用的深拷貝 (不改呼叫端的資料), 蓋上現行版本與座標空間標記.
+
+    呼叫端必須明確標了 coordSpace＝anchor: 沒標或標舊值的資料 (座標相對搜尋範圍、
+    或更早的螢幕座標) 寫成現行標記＝把舊數字當新偏移, 絕不能發生。
+    """
+    if not flowfmt.is_anchor_space(data):
+        raise ValueError("流程資料沒有標明座標相對座標基準點 (coordSpace=anchor), 不能寫出")
+    stamped = json.loads(json.dumps(data))
+    stamped[FORMAT_KEY] = FORMAT
+    return stamped
 
 
 def _entry_names(z, prefix):
@@ -322,18 +306,22 @@ def _entry_names(z, prefix):
     return sorted(out)
 
 
-def is_flow_file(path):
-    """這份檔案是本 app 的自包自足存檔嗎 (不是＝舊格式, 要走單向轉換).
-
-    只讀 zip 內的 flow.json 判標記; 不是 zip、讀不出來都算不是。
-    """
+def _flow_json(path):
+    """zip 內的 flow.json; 不是 zip、沒有 flow.json、不是 JSON 都算舊格式/不是存檔."""
+    if not zipfile.is_zipfile(path):
+        raise OldFormatError(OLD_FORMAT_MSG)
     try:
-        if not zipfile.is_zipfile(path):
-            return False
         with zipfile.ZipFile(path) as z:
-            data = json.loads(z.read(FLOW_ENTRY).decode("utf-8"))
-        return int(data.get(FORMAT_KEY, 0)) >= SELF_CONTAINED_SINCE
-    except (OSError, KeyError, ValueError, TypeError):
+            return json.loads(z.read(FLOW_ENTRY).decode("utf-8"))
+    except (OSError, KeyError, ValueError) as e:
+        raise OldFormatError(OLD_FORMAT_MSG) from e
+
+
+def is_flow_file(path):
+    """這份檔案是本 app 現行格式的存檔嗎 (舊格式、舊 JSON、舊流程包、非 zip 都不是)."""
+    try:
+        return format_problem(_flow_json(path)) is None
+    except OldFormatError:
         return False
 
 
@@ -353,22 +341,22 @@ def template_bytes(path, name):
 
 
 def read(path):
-    """讀一份流程存檔, 回傳資料進資料出的 dict.
+    """讀一份流程存檔, 回傳資料進資料出的 dict; 舊格式丟 OldFormatError (不開).
 
-    keys: data (已過 migrate_flow 的流程資料, 校準對在 data 裡)、notes (遷移
-    提示)、images ({範本名: bytes})、pos。
+    keys: data (流程資料, 校準對在 data 裡)、images ({範本名: bytes})、pos
+    (範本拍攝位置, 相對座標基準點)。
     """
+    data = _flow_json(path)
+    check_format(data)
     with zipfile.ZipFile(path) as z:
-        data = json.loads(z.read(FLOW_ENTRY).decode("utf-8"))
-        notes = migrate_flow(data)
         try:
             meta = json.loads(z.read(META_ENTRY).decode("utf-8"))
         except (KeyError, ValueError):
             meta = {}
-        pos = meta.get("pos", meta) if isinstance(meta, dict) else {}
+        pos = meta.get("pos", {}) if isinstance(meta, dict) else {}
         images = {n: z.read(f"{TMPL_PREFIX}{n}.png")
                   for n in _entry_names(z, TMPL_PREFIX)}
-    return {"data": data, "notes": notes, "images": images,
+    return {"data": data, "images": images,
             "pos": {k: v for k, v in pos.items() if k in images}}
 
 
@@ -398,18 +386,20 @@ def write_draft(profile_dir, data):
     """自動存檔: **只寫步驟草稿** (輕量 JSON), 圖留在工作區.
 
     拖曳排序一次動作就存一次, 若每次都重壓整包 zip (幾十張圖) 會卡頓;
-    圖已經在工作區裡, 當機重開時草稿與工作區的圖一起復原。
+    圖已經在工作區裡, 當機重開時草稿與工作區的圖一起復原。草稿與存檔同一套
+    格式標記 (版本與座標空間), 讀回時過同一關。
     """
+    stamped = _stamped(data)
     try:
         os.makedirs(flows_dir(profile_dir), exist_ok=True)
         with open(draft_path(profile_dir), "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
+            json.dump(stamped, f, ensure_ascii=False)
     except OSError:
         pass
 
 
 def read_draft(profile_dir):
-    """讀步驟草稿 (已過遷移); 缺檔/壞檔回傳 None."""
+    """讀步驟草稿; 缺檔/壞檔回傳 None; 舊格式丟 OldFormatError (不復原, 呼叫端開空白並提示)."""
     try:
         with open(draft_path(profile_dir), encoding="utf-8") as f:
             data = json.load(f)
@@ -417,7 +407,7 @@ def read_draft(profile_dir):
         return None
     if not isinstance(data, dict):
         return None
-    migrate_flow(data)
+    check_format(data)
     return data
 
 
@@ -520,8 +510,8 @@ class Workspace:
         """加一張範本進本流程; 撞名自動加序號. 回傳最終採用的範本名.
 
         `blob` 是 bytes 或來源圖檔路徑 (跨流程複製進來的是獨立副本, 來源日後
-        改圖不影響本流程)。`pos`＝截圖當下的中心螢幕座標, 只有本流程自己拍的
-        圖才有 (跨流程複製與磁碟上傳的沒有)。
+        改圖不影響本流程)。`pos`＝拍攝位置 (截圖當下的中心, 相對`座標基準點`、
+        流程尺度), 只有本流程自己拍的圖才有 (跨流程複製與磁碟上傳的沒有)。
         """
         final = self.reserve(name)
         with open(self.path_of(final), "wb") as f:
@@ -572,7 +562,7 @@ class Workspace:
     # ---- 範本元資料 (pos) ----
 
     def pos(self):
-        """{範本名: [x, y]}: 各範本截圖當下的中心螢幕座標 (缺檔＝空)."""
+        """{範本名: [x, y]}: 各範本的拍攝位置 (相對`座標基準點`, 流程尺度; 缺檔＝空)."""
         try:
             with open(self._meta_path, encoding="utf-8") as f:
                 data = json.load(f)
@@ -597,6 +587,16 @@ class Workspace:
 
     def pos_of(self, name):
         return self.pos().get(name)
+
+    def shift_pos(self, old_anchor, new_anchor, k=1.0):
+        """換`校準對`時所有拍攝位置改成相對新基準點 (同 flowfmt.shift_flow 的換算)."""
+        pos = self.pos()
+        if not pos:
+            return 0
+        self._write_pos({n: list(flowfmt.from_screen(flowfmt.to_screen(xy, old_anchor, k),
+                                                     new_anchor, k))
+                         for n, xy in pos.items()})
+        return len(pos)
 
     # ---- 當前流程 ----
 
@@ -639,127 +639,17 @@ class Workspace:
         return missing
 
 
-# ================= 一次性轉換 / 舊格式匯入的共用規則 =================
-
-def collect_flow_templates(steps, library, taken=()):
-    """把一份舊流程引用的範本收成新存檔要的平面`範本清單`, 並就地改寫引用.
-
-    `library`: {舊範本名: [圖檔路徑, ...]} (`scan_templates` 的結果)。
-    規則: 範本名拉平 → 撞名加序號並同步改寫步驟引用 → 多截圖取`登錄基準張`。
-
-    回傳 dict: images ({新名稱: 圖檔路徑})、mapping ({舊名: 新名}, 全部收進來
-    的都列)、renamed (mapping 中真的改了名的)、downgraded (原本是多截圖、降為
-    單張的新名稱)、missing (範本庫裡找不到的舊名)。
-    """
-    images, mapping, downgraded, missing = {}, {}, [], []
-    used = set(taken)
-    for old in used_templates(steps):
-        caps = library.get(old)
-        if not caps:
-            missing.append(old)
-            continue
-        new = free_name(flatten_name(old), used)
-        used.add(new)
-        images[new] = baseline_capture(caps)
-        mapping[old] = new
-        if len(caps) > 1:
-            downgraded.append(new)
-        if new != old:
-            rename_refs(steps, old, new)
-    return {"images": images, "mapping": mapping,
-            "renamed": {k: v for k, v in mapping.items() if k != v},
-            "downgraded": sorted(downgraded), "missing": sorted(missing)}
-
-
-# ================= 舊格式匯入 =================
-
-def _pack_library(z, refs):
-    """舊流程包 (zip) 內的範本佈局 → {舊範本名: [zip 內項目名, ...]}.
-
-    對應規則與舊 pack 落地時相同: 整個路徑 (去副檔名) 是被引用的範本 → 單截圖;
-    上層目錄才是被引用的範本 → 多截圖範本目錄裡的一張截圖。
-    """
-    lib = {}
-    for fn in z.namelist():
-        if (not fn.startswith(TMPL_PREFIX) or fn.endswith("/")
-                or fn.startswith(TMPL_PREFIX + "_orig/")
-                or not fn.lower().endswith(_IMG_EXTS)):
-            continue
-        rel = fn[len(TMPL_PREFIX):]
-        name = strip_ext(rel)
-        parent = name.rsplit("/", 1)[0] if "/" in name else ""
-        tname = parent if (parent in refs and name not in refs) else name
-        lib.setdefault(tname, []).append(fn)
-    return {k: sorted(v) for k, v in lib.items()}
-
-
-def import_legacy(path, profile_dir, stem=None):
-    """匯入舊格式 (舊 autoClick flow JSON 或舊流程包) → 一份新存檔.
-
-    單向轉換 (ADR 0002): 舊格式進得來、出不去。回傳 dict:
-    flow_path (落地的新存檔)、data、notes、templates (帶進來的範本名)、
-    renamed、downgraded、missing。舊格式沒有流程層級的`校準對`: 匯入後的流程
-    可以開、可以看, 設定校準對之前不能執行。
-    """
-    stem = stem or os.path.splitext(os.path.basename(path))[0]
-    if zipfile.is_zipfile(path):
-        with zipfile.ZipFile(path) as z:
-            data = json.loads(z.read(FLOW_ENTRY).decode("utf-8"))
-            notes = migrate_flow(data)
-            refs = set(used_templates(data.get("steps") or []))
-            lib = _pack_library(z, refs)
-            try:
-                meta = json.loads(z.read(META_ENTRY).decode("utf-8"))
-            except (KeyError, ValueError):
-                meta = {}
-            pos_in = meta.get("pos", meta) if isinstance(meta, dict) else {}
-            r = collect_flow_templates(data.get("steps") or [], lib)
-            images = {n: z.read(entry) for n, entry in r["images"].items()}
-    else:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        notes = migrate_flow(data)
-        # 舊 flow JSON 只有步驟, 範本要從舊範本庫 (同 profile 的 templates/) 收
-        lib = scan_templates(os.path.join(profile_dir, "templates"))
-        r = collect_flow_templates(data.get("steps") or [], lib)
-        images = dict(r["images"])
-        pos_in = legacy_meta_pos(os.path.join(profile_dir, "templates"))
-
-    pos = {}
-    for old, new in r["mapping"].items():
-        p = pos_in.get(old) or pos_in.get(old + ".png")
-        if p:
-            pos[new] = p
-    os.makedirs(flows_dir(profile_dir), exist_ok=True)
-    flow_path = free_path(flows_dir(profile_dir), stem, EXT)
-    write(flow_path, data, images, pos)
-    return {"flow_path": flow_path, "data": data, "notes": notes,
-            "templates": sorted(r["images"]), "renamed": r["renamed"],
-            "downgraded": r["downgraded"], "missing": r["missing"]}
-
-
-def legacy_meta_pos(templates_dir):
-    """讀舊範本庫的 `_meta.json` pos 表 (舊平面格式 name→[x,y] 一併遷移)."""
-    try:
-        with open(os.path.join(templates_dir, "_meta.json"),
-                  encoding="utf-8") as f:
-            meta = json.load(f)
-    except (OSError, ValueError):
-        return {}
-    if meta and "pos" not in meta and "rot" not in meta:
-        return meta  # 舊格式 (name→[x,y])
-    return meta.get("pos", {})
-
+# ================= 開啟外來檔 =================
 
 def adopt_foreign_flow(path, profile_dir):
     """開啟不在本 profile 裡的存檔: 原樣複製副本進 profile 再開 (原檔不被動到).
 
-    不換算: 流程自帶尺度與校準對 (ADR 0009), 搬到哪裡都一樣, 執行開頭自己量。
-    回傳 dict: flow_path (副本)、data、notes。
+    不換算: 流程自帶尺度、校準對與座標基準 (ADR 0009、0012), 搬到哪裡都一樣,
+    執行開頭自己量。舊格式由 read 拒絕。回傳 dict: flow_path (副本)、data。
     """
     r = read(path)
     os.makedirs(flows_dir(profile_dir), exist_ok=True)
     stem = os.path.splitext(os.path.basename(path))[0]
     dest = free_path(flows_dir(profile_dir), stem, EXT)
     write(dest, r["data"], r["images"], r["pos"])
-    return {"flow_path": dest, "data": r["data"], "notes": r["notes"]}
+    return {"flow_path": dest, "data": r["data"]}

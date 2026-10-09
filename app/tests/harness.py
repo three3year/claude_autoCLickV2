@@ -15,9 +15,11 @@
   (見 app/CLAUDE.md「測 runner 點擊邏輯時 monkeypatch
   automation.runner.win.click」)。
 - 時間用虛擬時鐘, `等待` 不真的睡, 整份測試在數秒內跑完。
-- 每次執行開頭都會`校準` (ADR 0009): `run()` 預設交一對校準圖 (CAL_PAIR) 給
-  執行器, 並在畫面上擺好讓量出來的`畫面倍率`剛好是 `scale` (預設 1)——
-  不在意校準的測試照舊寫; 要測校準本身就自己給 `calibration=` 與 plan。
+- 每次執行開頭都會`校準` (ADR 0009、0012): `run()` 預設交一對校準圖 (CAL_PAIR) 給
+  執行器, 並在畫面上擺好讓量出來的`畫面倍率`剛好是 `scale` (預設 1)、`座標基準點`
+  剛好在搜尋範圍左上角 (預設範圍 (0,0) 起 → 基準點 (0,0), 絕對座標的數字就是
+  螢幕座標)——不在意校準的測試照舊寫; 要測校準本身就自己給 `calibration=` 與 plan,
+  要測基準點就用 `anchor=` 指定它的螢幕位置。
 - 斷言對象是「事件序列」——誰在什麼順序做了什麼——不是內部欄位。
 """
 import os
@@ -167,6 +169,7 @@ class Vision:
         self.lookups = []    # 每次查詢的範本名稱
         self.color_checks = []   # 每次查詢的 (範本名稱, 是否要求比色)
         self.expected_scales = []   # 每次查詢的 (範本名稱, 收到的`預期尺度`)
+        self.regions = []    # 每次查詢收到的搜尋區域的螢幕矩形 (範本名稱, (x, y, w, h))
         # ---- 生命週期假件 (enginehub.EngineHub 的形狀, 票 01) ----
         self.state = enginehub.READY   # 測試可撥成 LOADING / FAILED
         self.preloads = []         # 每次`範本預載`收到的名單
@@ -240,6 +243,8 @@ class Vision:
             [hit] if isinstance(hit[0], (int, float)) else list(hit))
         ox, oy = search_region.origin
         sw, sh = search_region.size
+        with self._lock:
+            self.regions.append((name, (ox, oy, sw, sh)))
         matches, rejected = [], []
         for p in hits:
             box = (int(p[0]) - ox - w // 2, int(p[1]) - oy - h // 2, w, h)
@@ -381,24 +386,26 @@ class Harness:
         return runner_mod.Runner(self.vision, stage=stage,
                                  filelog=self.filelog)
 
-    def place_calibration(self, scale, region):
-        """在搜尋範圍左上附近擺好 CAL_PAIR, 中心距離＝基準距離×scale."""
-        x, y = int(region[0]) + 10, int(region[1]) + 10
+    def place_calibration(self, scale, anchor):
+        """把 CAL_PAIR 擺在畫面上: 第一張的中心＝anchor (`座標基準點`),
+        第二張在它右邊、中心距離＝基準距離×scale."""
+        x, y = int(anchor[0]), int(anchor[1])
         self.vision.plan(CAL_PAIR[0], [(x, y)])
         self.vision.plan(CAL_PAIR[1], [(x + round(CAL_BASELINE * scale), y)])
 
-    def start(self, runner, steps, scale=1.0, **kw):
+    def start(self, runner, steps, scale=1.0, anchor=None, **kw):
         """以測試預設值啟動執行器 (不等它結束).
 
-        start_delay 預設 0; `搜尋範圍`預設原點 (0,0)，這樣`絕對座標`的數字
-        就等於螢幕座標，測試好讀 (絕對座標＝相對範圍左上角的偏移)。
-        沒給 `calibration` 時交 CAL_PAIR, 開頭量出來的倍率＝scale。
+        start_delay 預設 0; `搜尋範圍`預設 (0,0) 起; 沒給 `calibration` 時交
+        CAL_PAIR, 擺在 anchor (預設＝搜尋範圍左上角), 開頭量出來的倍率＝scale——
+        預設下基準點是 (0,0), `絕對座標`的數字就等於螢幕座標, 測試好讀。
         """
         kw.setdefault("start_delay", 0)
         kw.setdefault("scan_region", [0, 0, 1920, 1080])
         if "calibration" not in kw:
             kw["calibration"] = cal()
-            self.place_calibration(scale, kw["scan_region"] or (0, 0))
+            region = kw["scan_region"] or (0, 0)
+            self.place_calibration(scale, anchor or (region[0], region[1]))
         self.runner = runner
         runner.start(steps, **kw)
 
@@ -440,6 +447,11 @@ class Harness:
         """步驟查詢收到的`預期尺度`, 不含開頭校準 (那兩次不帶預期尺度)."""
         skip = self._cal_names()
         return [(n, s) for n, s in self.vision.expected_scales if n not in skip]
+
+    def query_regions(self):
+        """步驟查詢實際收到的搜尋區域 (範本名, 螢幕矩形)——限定範圍裁了什麼就看這裡."""
+        skip = self._cal_names()
+        return [(n, r) for n, r in self.vision.regions if n not in skip]
 
     def logs(self, runner=None):
         r = runner or self.runner
