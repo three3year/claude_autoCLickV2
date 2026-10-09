@@ -1,0 +1,1557 @@
+{
+ "早_簡中": {
+  "flow": "早_簡中",
+  "path": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\.scratch\\scale-range\\converted\\arknights\\flows\\早_簡中.autoclickpack",
+  "steps_before": 266,
+  "steps_after": 265,
+  "pair": {
+   "k": 1.0,
+   "old_anchor": [
+    115,
+    76
+   ],
+   "new_anchor": [
+    148,
+    137
+   ],
+   "moved": 200,
+   "calibration": {
+    "pair": [
+     "主画面设置钮",
+     "主画面仓库"
+    ],
+    "baseline": 1719.1931246954193,
+    "fallback": {
+     "pair": [
+      "標題列圖示",
+      "標題列關閉鈕"
+     ],
+     "baseline": 1650.0,
+     "offset": [
+      33,
+      61
+     ]
+    }
+   }
+  },
+  "rects": [
+   {
+    "where": "第 2 步 target",
+    "template": "忙碌指示",
+    "size": [
+     237,
+     21
+    ],
+    "old": {
+     "x": 855,
+     "y": 719,
+     "w": 317,
+     "h": 101,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 847,
+     "y": 719,
+     "w": 333,
+     "h": 101
+    }
+   },
+   {
+    "where": "第 18 步 confirmTarget",
+    "template": "待辦事項",
+    "size": [
+     152,
+     52
+    ],
+    "old": {
+     "x": -61,
+     "y": 738,
+     "w": 208,
+     "h": 102,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": -64,
+     "y": 738,
+     "w": 214,
+     "h": 102
+    }
+   },
+   {
+    "where": "第 37 步 target",
+    "template": "确定",
+    "size": [
+     260,
+     50
+    ],
+    "old": {
+     "x": 1007,
+     "y": 560,
+     "w": 340,
+     "h": 130,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 995,
+     "y": 560,
+     "w": 364,
+     "h": 130
+    }
+   },
+   {
+    "where": "第 49 步 target",
+    "template": "线索交流结果",
+    "size": [
+     600,
+     70
+    ],
+    "old": {
+     "x": 257,
+     "y": 30,
+     "w": 680,
+     "h": 150,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 177,
+     "y": 30,
+     "w": 840,
+     "h": 150
+    }
+   },
+   {
+    "where": "第 54 步 target",
+    "template": "領取",
+    "size": [
+     204,
+     52
+    ],
+    "old": {
+     "x": 837,
+     "y": 566,
+     "w": 284,
+     "h": 132,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 836,
+     "y": 566,
+     "w": 286,
+     "h": 132
+    }
+   },
+   {
+    "where": "第 60 步 target",
+    "template": "CONFIDENTIAL线索",
+    "size": [
+     84,
+     140
+    ],
+    "old": {
+     "x": 1501,
+     "y": 541,
+     "w": 124,
+     "h": 180,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1501,
+     "y": 533,
+     "w": 124,
+     "h": 196
+    }
+   },
+   {
+    "where": "第 63 步 confirmTarget",
+    "template": "选中1",
+    "size": [
+     46,
+     46
+    ],
+    "old": {
+     "x": 1246,
+     "y": 26,
+     "w": 54,
+     "h": 54,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1240,
+     "y": 20,
+     "w": 66,
+     "h": 66
+    }
+   },
+   {
+    "where": "第 65 步 confirmTarget",
+    "template": "选中2",
+    "size": [
+     46,
+     46
+    ],
+    "old": {
+     "x": 1302,
+     "y": 26,
+     "w": 54,
+     "h": 54,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1296,
+     "y": 20,
+     "w": 66,
+     "h": 66
+    }
+   },
+   {
+    "where": "第 67 步 confirmTarget",
+    "template": "选中3",
+    "size": [
+     46,
+     46
+    ],
+    "old": {
+     "x": 1358,
+     "y": 26,
+     "w": 54,
+     "h": 54,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1352,
+     "y": 20,
+     "w": 66,
+     "h": 66
+    }
+   },
+   {
+    "where": "第 69 步 confirmTarget",
+    "template": "选中4",
+    "size": [
+     46,
+     46
+    ],
+    "old": {
+     "x": 1414,
+     "y": 26,
+     "w": 54,
+     "h": 54,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1408,
+     "y": 20,
+     "w": 66,
+     "h": 66
+    }
+   },
+   {
+    "where": "第 71 步 confirmTarget",
+    "template": "选中5",
+    "size": [
+     46,
+     46
+    ],
+    "old": {
+     "x": 1470,
+     "y": 26,
+     "w": 54,
+     "h": 54,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1464,
+     "y": 20,
+     "w": 66,
+     "h": 66
+    }
+   },
+   {
+    "where": "第 73 步 confirmTarget",
+    "template": "选中6",
+    "size": [
+     46,
+     46
+    ],
+    "old": {
+     "x": 1526,
+     "y": 26,
+     "w": 54,
+     "h": 54,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1520,
+     "y": 20,
+     "w": 66,
+     "h": 66
+    }
+   },
+   {
+    "where": "第 75 步 confirmTarget",
+    "template": "选中7",
+    "size": [
+     46,
+     46
+    ],
+    "old": {
+     "x": 1582,
+     "y": 26,
+     "w": 54,
+     "h": 54,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1576,
+     "y": 20,
+     "w": 66,
+     "h": 66
+    }
+   },
+   {
+    "where": "第 133 步 target",
+    "template": "好友列表",
+    "size": [
+     160,
+     44
+    ],
+    "old": {
+     "x": -61,
+     "y": 148,
+     "w": 218,
+     "h": 124,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": -64,
+     "y": 148,
+     "w": 224,
+     "h": 124
+    }
+   },
+   {
+    "where": "第 136 步 target",
+    "template": "访问下位",
+    "size": [
+     150,
+     50
+    ],
+    "old": {
+     "x": 1453,
+     "y": 681,
+     "w": 204,
+     "h": 130,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1450,
+     "y": 681,
+     "w": 210,
+     "h": 130
+    }
+   },
+   {
+    "where": "第 137 步 target",
+    "template": "访问下位",
+    "size": [
+     150,
+     50
+    ],
+    "old": {
+     "x": 1453,
+     "y": 681,
+     "w": 204,
+     "h": 130,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1450,
+     "y": 681,
+     "w": 210,
+     "h": 130
+    }
+   },
+   {
+    "where": "第 149 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 150 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 154 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 155 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 159 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 160 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 164 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 165 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 169 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 170 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 174 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 175 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 179 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 180 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 184 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 185 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 189 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 190 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 194 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 195 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 199 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 200 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 204 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 205 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 209 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 210 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 214 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 215 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 219 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 220 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 224 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 225 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 229 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 230 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 234 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 235 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 239 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 240 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 244 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 245 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 249 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 250 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 254 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 255 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 259 步 confirmTarget",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "第 260 步 target",
+    "template": "购买物品",
+    "size": [
+     236,
+     36
+    ],
+    "old": {
+     "x": 947,
+     "y": 570,
+     "w": 316,
+     "h": 116,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 939,
+     "y": 570,
+     "w": 332,
+     "h": 116
+    }
+   },
+   {
+    "where": "忙碌指示",
+    "template": "忙碌指示",
+    "size": [
+     237,
+     21
+    ],
+    "old": {
+     "x": 855,
+     "y": 719,
+     "w": 317,
+     "h": 101,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 847,
+     "y": 719,
+     "w": 333,
+     "h": 101
+    }
+   }
+  ],
+  "removed_step": {
+   "type": "find_click",
+   "interval": 0.3,
+   "confirm": "none",
+   "action": "wait_gone",
+   "timeout": 60,
+   "onNotFound": "stop",
+   "appearLimitMs": 3000,
+   "offsetX": 0,
+   "offsetY": 0,
+   "button": "left",
+   "clicks": 1,
+   "updateOrigin": false,
+   "target": {
+    "template": "忙碌指示",
+    "limit": {
+     "kind": "rect",
+     "x": 847,
+     "y": 719,
+     "w": 333,
+     "h": 101
+    }
+   }
+  },
+  "templates": 87
+ },
+ "晚_簡中": {
+  "flow": "晚_簡中",
+  "path": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\.scratch\\scale-range\\converted\\arknights\\flows\\晚_簡中.autoclickpack",
+  "steps_before": 64,
+  "steps_after": 64,
+  "pair": {
+   "k": 1.0,
+   "old_anchor": [
+    115,
+    76
+   ],
+   "new_anchor": [
+    148,
+    137
+   ],
+   "moved": 30,
+   "calibration": {
+    "pair": [
+     "主画面设置钮",
+     "主画面仓库"
+    ],
+    "baseline": 1719.1931246954193,
+    "fallback": {
+     "pair": [
+      "標題列圖示",
+      "標題列關閉鈕"
+     ],
+     "baseline": 1650.0,
+     "offset": [
+      33,
+      61
+     ]
+    }
+   }
+  },
+  "rects": [
+   {
+    "where": "第 3 步 confirmTarget",
+    "template": "待辦事項",
+    "size": [
+     152,
+     52
+    ],
+    "old": {
+     "x": -61,
+     "y": 738,
+     "w": 208,
+     "h": 102,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": -64,
+     "y": 738,
+     "w": 214,
+     "h": 102
+    }
+   },
+   {
+    "where": "第 22 步 target",
+    "template": "确定",
+    "size": [
+     260,
+     50
+    ],
+    "old": {
+     "x": 1007,
+     "y": 560,
+     "w": 340,
+     "h": 130,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 995,
+     "y": 560,
+     "w": 364,
+     "h": 130
+    }
+   },
+   {
+    "where": "忙碌指示",
+    "template": "忙碌指示",
+    "size": [
+     237,
+     21
+    ],
+    "old": {
+     "x": 855,
+     "y": 719,
+     "w": 317,
+     "h": 101,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 847,
+     "y": 719,
+     "w": 333,
+     "h": 101
+    }
+   }
+  ],
+  "removed_step": null,
+  "templates": 28
+ }
+}

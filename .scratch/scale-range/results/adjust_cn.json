@@ -1,0 +1,187 @@
+{
+ "flow": "早_簡中",
+ "changes": [
+  {
+   "step": 132,
+   "key": "target",
+   "template": "好友列表",
+   "old": {
+    "limit": {
+     "kind": "rect",
+     "x": -64,
+     "y": 148,
+     "w": 224,
+     "h": 124
+    },
+    "colorCheck": true
+   },
+   "new": {
+    "limit": {
+     "x": -107,
+     "y": 168,
+     "w": 288,
+     "h": 84,
+     "kind": "rect"
+    },
+    "colorCheck": null
+   }
+  },
+  {
+   "step": 140,
+   "key": "target",
+   "template": "信用交易所",
+   "old": {
+    "colorCheck": true
+   },
+   "new": {
+    "colorCheck": null
+   }
+  }
+ ],
+ "friends_check": {
+  "frame": [
+   "demo1",
+   2769
+  ],
+  "rect": {
+   "x": -107,
+   "y": 168,
+   "w": 288,
+   "h": 84,
+   "kind": "rect"
+  },
+  "rows": [
+   [
+    0.85,
+    true,
+    1,
+    0.867
+   ],
+   [
+    0.883,
+    true,
+    1,
+    0.861
+   ],
+   [
+    1.0,
+    true,
+    1,
+    0.861
+   ],
+   [
+    1.13,
+    true,
+    1,
+    0.849
+   ],
+   [
+    1.15,
+    true,
+    1,
+    0.857
+   ]
+  ]
+ },
+ "credit_check": [
+  {
+   "frame": [
+    "demo1",
+    4446
+   ],
+   "rows": [
+    [
+     0.85,
+     true,
+     1
+    ],
+    [
+     0.883,
+     false,
+     0
+    ],
+    [
+     1.0,
+     false,
+     0
+    ],
+    [
+     1.13,
+     false,
+     0
+    ],
+    [
+     1.15,
+     false,
+     0
+    ]
+   ]
+  },
+  {
+   "frame": [
+    "demo1",
+    4449
+   ],
+   "rows": [
+    [
+     0.85,
+     true,
+     1
+    ],
+    [
+     0.883,
+     false,
+     0
+    ],
+    [
+     1.0,
+     false,
+     0
+    ],
+    [
+     1.13,
+     false,
+     0
+    ],
+    [
+     1.15,
+     false,
+     0
+    ]
+   ]
+  },
+  {
+   "frame": [
+    "demo1",
+    4452
+   ],
+   "rows": [
+    [
+     0.85,
+     true,
+     1
+    ],
+    [
+     0.883,
+     false,
+     0
+    ],
+    [
+     1.0,
+     false,
+     0
+    ],
+    [
+     1.13,
+     false,
+     0
+    ],
+    [
+     1.15,
+     false,
+     0
+    ]
+   ]
+  }
+ ]
+}

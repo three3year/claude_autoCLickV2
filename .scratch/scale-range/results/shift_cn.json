@@ -1,0 +1,3381 @@
+{
+ "早_簡中": {
+  "flow": "早_簡中",
+  "before": 27,
+  "after": 24,
+  "steps_total": 262,
+  "log": [
+   "找 製造站1列 → 定位 标题_制造站 窄帶 y≈635 (捲 0; 列名偏移 (35, 51) 於 f('demo4', 390))",
+   "刪 首列 制造站首列 (偏移 (28, 27) 於 f('demo4', 390))",
+   "找 製造站1列 → 定位 标题_制造站 窄帶 y≈635 (捲 0; 列名偏移 (35, 51) 於 f('demo4', 390))",
+   "找 製造站1列 → 定位 标题_制造站 窄帶 y≈273 (捲 362; 列名偏移 (35, 51) 於 f('demo4', 390))",
+   "刪 首列 制造站首列 (偏移 (28, 27) 於 f('demo4', 390))",
+   "找 製造站1列 → 定位 标题_制造站 窄帶 y≈273 (捲 362; 列名偏移 (35, 51) 於 f('demo4', 390))",
+   "找 貿易站1列 → 定位 标题_贸易站 窄帶 y≈623 (捲 748; 列名偏移 (35, 51) 於 f('demo4', 450))",
+   "刪 首列 贸易站首列 (偏移 (28, 28) 於 f('demo4', 450))",
+   "找 貿易站1列 → 定位 标题_贸易站 窄帶 y≈623 (捲 748; 列名偏移 (35, 51) 於 f('demo4', 450))",
+   "找 发电站1列 → 定位 标题_发电站 窄帶 y≈513 (捲 1248; 列名偏移 (36, 55) 於 f('demo4', 540))",
+   "找 办公室列 → 定位 标题_办公室 窄帶 y≈606 (捲 1718; 列名偏移 (52, 55) 於 f('demo4', 600))"
+  ],
+  "checks": [
+   {
+    "header": "标题_制造站",
+    "scrolled": 0,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       390
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1715,
+         733
+        ],
+        [
+         1719,
+         736
+        ],
+        5.0
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       400
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1715,
+         733
+        ],
+        [
+         1719,
+         736
+        ],
+        5.0
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       410
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1715,
+         733
+        ],
+        [
+         1719,
+         736
+        ],
+        5.0
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       420
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1715,
+         733
+        ],
+        [
+         1719,
+         736
+        ],
+        5.0
+       ]
+      ],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_制造站",
+    "scrolled": 0,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       390
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       400
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       410
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       420
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_制造站",
+    "scrolled": 362,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       440
+      ],
+      "drift": -237,
+      "header": [
+       916,
+       508
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         507.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         508.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         508.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1717,
+         782
+        ],
+        [
+         1719,
+         783
+        ],
+        2.2
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       390
+      ],
+      "drift": -362,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1717,
+         909
+        ],
+        [
+         1719,
+         736
+        ],
+        173.0
+       ]
+      ],
+      "ok": false
+     },
+     {
+      "frame": [
+       "demo4",
+       400
+      ],
+      "drift": -362,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1717,
+         909
+        ],
+        [
+         1719,
+         736
+        ],
+        173.0
+       ]
+      ],
+      "ok": false
+     },
+     {
+      "frame": [
+       "demo4",
+       410
+      ],
+      "drift": -362,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1717,
+         909
+        ],
+        [
+         1719,
+         736
+        ],
+        173.0
+       ]
+      ],
+      "ok": false
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_制造站",
+    "scrolled": 362,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       440
+      ],
+      "drift": -237,
+      "header": [
+       916,
+       508
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         507.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         508.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         508.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       390
+      ],
+      "drift": -362,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       400
+      ],
+      "drift": -362,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       410
+      ],
+      "drift": -362,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_贸易站",
+    "scrolled": 748,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       460
+      ],
+      "drift": -87,
+      "header": [
+       916,
+       709
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         708.2
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         709.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         709.6
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         802
+        ],
+        [
+         1719,
+         810
+        ],
+        8.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       470
+      ],
+      "drift": -109,
+      "header": [
+       916,
+       733
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         731.8
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         733.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         733.0
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         826
+        ],
+        [
+         1719,
+         834
+        ],
+        8.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       480
+      ],
+      "drift": -111,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         828
+        ],
+        [
+         1719,
+         836
+        ],
+        8.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       490
+      ],
+      "drift": -111,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         828
+        ],
+        [
+         1719,
+         836
+        ],
+        8.1
+       ]
+      ],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_贸易站",
+    "scrolled": 748,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       460
+      ],
+      "drift": -87,
+      "header": [
+       916,
+       709
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         708.2
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         709.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         709.6
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       470
+      ],
+      "drift": -109,
+      "header": [
+       916,
+       733
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         731.8
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         733.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         733.0
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       480
+      ],
+      "drift": -111,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       490
+      ],
+      "drift": -111,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_发电站",
+    "scrolled": 1248,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       560
+      ],
+      "drift": -51,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       570
+      ],
+      "drift": -51,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       580
+      ],
+      "drift": -51,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       590
+      ],
+      "drift": -51,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_办公室",
+    "scrolled": 1718,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       720
+      ],
+      "drift": 29,
+      "header": [
+       916,
+       577
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         576.5
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         577.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         577.4
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1717,
+         653
+        ],
+        [
+         1719,
+         677
+        ],
+        24.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo1",
+       2526
+      ],
+      "drift": -55,
+      "header": [
+       916,
+       660
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         660.0
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         660.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         660.9
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1717,
+         736
+        ],
+        [
+         1719,
+         761
+        ],
+        25.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo5",
+       1752
+      ],
+      "drift": 56,
+      "header": [
+       916,
+       550
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         549.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         550.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         550.4
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1717,
+         626
+        ],
+        [
+         1719,
+         433
+        ],
+        193.0
+       ]
+      ],
+      "ok": false
+     },
+     {
+      "frame": [
+       "demo1",
+       2418
+      ],
+      "drift": -156,
+      "header": [
+       916,
+       764
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         763.5
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         764.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         764.3
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1717,
+         840
+        ],
+        [
+         1719,
+         647
+        ],
+        193.0
+       ]
+      ],
+      "ok": false
+     }
+    ],
+    "ok": true
+   }
+  ],
+  "tops": {
+   "标题_控制中枢": [
+    916,
+    201
+   ],
+   "标题_会客室": [
+    916,
+    418
+   ],
+   "标题_制造站": [
+    916,
+    635
+   ],
+   "标题_贸易站": [
+    916,
+    1371
+   ],
+   "标题_发电站": [
+    916,
+    1761
+   ],
+   "标题_办公室": [
+    916,
+    2324
+   ]
+  },
+  "templates_gone": [
+   "制造站首列",
+   "办公室列",
+   "发电站1列",
+   "製造站1列",
+   "貿易站1列",
+   "贸易站首列"
+  ],
+  "templates": 85
+ },
+ "晚_簡中": {
+  "flow": "晚_簡中",
+  "before": 29,
+  "after": 26,
+  "steps_total": 61,
+  "log": [
+   "找 製造站1列 → 定位 标题_制造站 窄帶 y≈635 (捲 0; 列名偏移 (35, 51) 於 f('demo4', 390))",
+   "找 製造站1列 → 定位 标题_制造站 窄帶 y≈311 (捲 324; 列名偏移 (35, 51) 於 f('demo4', 390))",
+   "找 贸易站1列 → 定位 标题_贸易站 窄帶 y≈723 (捲 648; 列名偏移 (36, 50) 於 f('demo4', 450))",
+   "刪 首列 贸易站首列 (偏移 (28, 28) 於 f('demo4', 450))",
+   "找 贸易站1列 → 定位 标题_贸易站 窄帶 y≈723 (捲 648; 列名偏移 (36, 50) 於 f('demo4', 450))",
+   "找 贸易站1列 → 定位 标题_贸易站 窄帶 y≈391 (捲 980; 列名偏移 (36, 50) 於 f('demo4', 450))",
+   "找 发电站1列 → 定位 标题_发电站 窄帶 y≈448 (捲 1313; 列名偏移 (36, 55) 於 f('demo4', 540))",
+   "刪 首列 发电站首列 (偏移 (35, 26) 於 f('demo4', 540))",
+   "找 发电站1列 → 定位 标题_发电站 窄帶 y≈448 (捲 1313; 列名偏移 (36, 55) 於 f('demo4', 540))",
+   "找 发电站1列 → 定位 标题_发电站 窄帶 y≈304 (捲 1457; 列名偏移 (36, 55) 於 f('demo4', 540))",
+   "刪 首列 发电站首列 (偏移 (35, 26) 於 f('demo4', 540))"
+  ],
+  "checks": [
+   {
+    "header": "标题_制造站",
+    "scrolled": 0,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       390
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       400
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       410
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       420
+      ],
+      "drift": 0,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_制造站",
+    "scrolled": 324,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       440
+      ],
+      "drift": -199,
+      "header": [
+       916,
+       508
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         507.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         508.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         508.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       390
+      ],
+      "drift": -324,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       400
+      ],
+      "drift": -324,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       410
+      ],
+      "drift": -324,
+      "header": [
+       916,
+       635
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         634.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         635.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         635.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_贸易站",
+    "scrolled": 648,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       470
+      ],
+      "drift": -9,
+      "header": [
+       916,
+       733
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         731.8
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         733.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         733.0
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1711,
+         443
+        ],
+        [
+         1719,
+         443
+        ],
+        8.0
+       ],
+       [
+        [
+         1711,
+         618
+        ],
+        [
+         1719,
+         617
+        ],
+        8.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       480
+      ],
+      "drift": -11,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1711,
+         445
+        ],
+        [
+         1719,
+         445
+        ],
+        8.0
+       ],
+       [
+        [
+         1711,
+         620
+        ],
+        [
+         1719,
+         619
+        ],
+        8.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       490
+      ],
+      "drift": -11,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1711,
+         445
+        ],
+        [
+         1719,
+         445
+        ],
+        8.0
+       ],
+       [
+        [
+         1711,
+         620
+        ],
+        [
+         1719,
+         445
+        ],
+        175.2
+       ]
+      ],
+      "ok": false
+     },
+     {
+      "frame": [
+       "demo4",
+       500
+      ],
+      "drift": -11,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1711,
+         445
+        ],
+        [
+         1719,
+         445
+        ],
+        8.0
+       ],
+       [
+        [
+         1711,
+         620
+        ],
+        [
+         1719,
+         445
+        ],
+        175.2
+       ]
+      ],
+      "ok": false
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_贸易站",
+    "scrolled": 648,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       470
+      ],
+      "drift": -9,
+      "header": [
+       916,
+       733
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         731.8
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         733.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         733.0
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       480
+      ],
+      "drift": -11,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       490
+      ],
+      "drift": -11,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       500
+      ],
+      "drift": -11,
+      "header": [
+       916,
+       735
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         734.1
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         735.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         735.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_贸易站",
+    "scrolled": 980,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       540
+      ],
+      "drift": 39,
+      "header": [
+       916,
+       351
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         350.6
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         351.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         351.3
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       550
+      ],
+      "drift": 188,
+      "header": [
+       916,
+       201
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         201.2
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         201.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         201.7
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       460
+      ],
+      "drift": -319,
+      "header": [
+       916,
+       709
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         708.2
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         709.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         709.6
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       470
+      ],
+      "drift": -341,
+      "header": [
+       916,
+       733
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         731.8
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         733.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         733.0
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_发电站",
+    "scrolled": 1313,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       560
+      ],
+      "drift": -116,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         444
+        ],
+        [
+         1719,
+         447
+        ],
+        3.2
+       ],
+       [
+        [
+         1718,
+         663
+        ],
+        [
+         1719,
+         664
+        ],
+        1.4
+       ],
+       [
+        [
+         1718,
+         835
+        ],
+        [
+         1719,
+         838
+        ],
+        3.2
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       570
+      ],
+      "drift": -116,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         444
+        ],
+        [
+         1719,
+         447
+        ],
+        3.2
+       ],
+       [
+        [
+         1718,
+         663
+        ],
+        [
+         1719,
+         664
+        ],
+        1.4
+       ],
+       [
+        [
+         1718,
+         835
+        ],
+        [
+         1719,
+         838
+        ],
+        3.2
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       580
+      ],
+      "drift": -116,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         444
+        ],
+        [
+         1719,
+         447
+        ],
+        3.2
+       ],
+       [
+        [
+         1718,
+         663
+        ],
+        [
+         1719,
+         664
+        ],
+        1.4
+       ],
+       [
+        [
+         1718,
+         835
+        ],
+        [
+         1719,
+         838
+        ],
+        3.2
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       590
+      ],
+      "drift": -116,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         444
+        ],
+        [
+         1719,
+         447
+        ],
+        3.2
+       ],
+       [
+        [
+         1718,
+         663
+        ],
+        [
+         1719,
+         664
+        ],
+        1.4
+       ],
+       [
+        [
+         1718,
+         835
+        ],
+        [
+         1719,
+         838
+        ],
+        3.2
+       ]
+      ],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_发电站",
+    "scrolled": 1313,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       560
+      ],
+      "drift": -116,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       570
+      ],
+      "drift": -116,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       580
+      ],
+      "drift": -116,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       590
+      ],
+      "drift": -116,
+      "header": [
+       916,
+       563
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         562.4
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         563.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         563.5
+        ],
+        "is_header": true
+       }
+      },
+      "points": [],
+      "ok": true
+     }
+    ],
+    "ok": true
+   },
+   {
+    "header": "标题_发电站",
+    "scrolled": 1457,
+    "rows": [
+     {
+      "frame": [
+       "demo4",
+       610
+      ],
+      "drift": 4,
+      "header": [
+       916,
+       298
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         297.6
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         298.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         298.3
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         742
+        ],
+        [
+         1719,
+         746
+        ],
+        4.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       620
+      ],
+      "drift": 13,
+      "header": [
+       916,
+       289
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         288.2
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         289.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         289.6
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         733
+        ],
+        [
+         1719,
+         737
+        ],
+        4.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       630
+      ],
+      "drift": 13,
+      "header": [
+       916,
+       289
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         288.2
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         289.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         289.6
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         733
+        ],
+        [
+         1719,
+         737
+        ],
+        4.1
+       ]
+      ],
+      "ok": true
+     },
+     {
+      "frame": [
+       "demo4",
+       640
+      ],
+      "drift": 13,
+      "header": [
+       916,
+       289
+      ],
+      "scales": {
+       "0.85": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.3,
+         288.2
+        ],
+        "is_header": true
+       },
+       "1.0": {
+        "found": true,
+        "n": 2,
+        "center": [
+         916.0,
+         289.0
+        ],
+        "is_header": true
+       },
+       "1.15": {
+        "found": true,
+        "n": 2,
+        "center": [
+         915.7,
+         289.6
+        ],
+        "is_header": true
+       }
+      },
+      "points": [
+       [
+        [
+         1718,
+         733
+        ],
+        [
+         1719,
+         737
+        ],
+        4.1
+       ]
+      ],
+      "ok": true
+     }
+    ],
+    "ok": true
+   }
+  ],
+  "tops": {
+   "标题_控制中枢": [
+    916,
+    201
+   ],
+   "标题_会客室": [
+    916,
+    418
+   ],
+   "标题_制造站": [
+    916,
+    635
+   ],
+   "标题_贸易站": [
+    916,
+    1371
+   ],
+   "标题_发电站": [
+    916,
+    1761
+   ],
+   "标题_办公室": [
+    916,
+    2324
+   ]
+  },
+  "templates_gone": [
+   "发电站1列",
+   "发电站首列",
+   "製造站1列",
+   "贸易站1列",
+   "贸易站首列"
+  ],
+  "templates": 26
+ }
+}

@@ -1,0 +1,346 @@
+{
+ "早_繁中": {
+  "flow": "早_繁中",
+  "path": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\.scratch\\scale-range\\converted\\arknights\\flows\\早_繁中.autoclickpack",
+  "steps_before": 231,
+  "steps_after": 231,
+  "pair": {
+   "k": 1.0,
+   "old_anchor": [
+    20,
+    19
+   ],
+   "new_anchor": [
+    60,
+    86
+   ],
+   "moved": 197,
+   "calibration": {
+    "pair": [
+     "主畫面設定鈕",
+     "主畫面倉庫"
+    ],
+    "baseline": 1942.435841926317,
+    "fallback": {
+     "pair": [
+      "標題列圖示",
+      "標題列關閉鈕"
+     ],
+     "baseline": 1868.0,
+     "offset": [
+      40,
+      67
+     ]
+    }
+   }
+  },
+  "rects": [
+   {
+    "where": "第 9 步 confirmTarget",
+    "template": "待辦事項",
+    "size": [
+     180,
+     42
+    ],
+    "old": {
+     "x": -60,
+     "y": 836,
+     "w": 230,
+     "h": 102,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": -71,
+     "y": 836,
+     "w": 252,
+     "h": 102
+    }
+   },
+   {
+    "where": "第 51 步 target",
+    "template": "CONFIDENTIAL線索",
+    "size": [
+     96,
+     154
+    ],
+    "old": {
+     "x": 1694,
+     "y": 614,
+     "w": 136,
+     "h": 194,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1694,
+     "y": 603,
+     "w": 136,
+     "h": 216
+    }
+   },
+   {
+    "where": "第 54 步 confirmTarget",
+    "template": "選中1",
+    "size": [
+     50,
+     50
+    ],
+    "old": {
+     "x": 1406,
+     "y": 31,
+     "w": 58,
+     "h": 58,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1400,
+     "y": 25,
+     "w": 70,
+     "h": 70
+    }
+   },
+   {
+    "where": "第 56 步 confirmTarget",
+    "template": "選中2",
+    "size": [
+     50,
+     50
+    ],
+    "old": {
+     "x": 1469,
+     "y": 31,
+     "w": 58,
+     "h": 58,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1463,
+     "y": 25,
+     "w": 70,
+     "h": 70
+    }
+   },
+   {
+    "where": "第 58 步 confirmTarget",
+    "template": "選中3",
+    "size": [
+     50,
+     50
+    ],
+    "old": {
+     "x": 1532,
+     "y": 31,
+     "w": 58,
+     "h": 58,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1526,
+     "y": 25,
+     "w": 70,
+     "h": 70
+    }
+   },
+   {
+    "where": "第 60 步 confirmTarget",
+    "template": "選中4",
+    "size": [
+     50,
+     50
+    ],
+    "old": {
+     "x": 1596,
+     "y": 31,
+     "w": 58,
+     "h": 58,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1590,
+     "y": 25,
+     "w": 70,
+     "h": 70
+    }
+   },
+   {
+    "where": "第 62 步 confirmTarget",
+    "template": "選中5",
+    "size": [
+     50,
+     50
+    ],
+    "old": {
+     "x": 1659,
+     "y": 31,
+     "w": 58,
+     "h": 58,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1653,
+     "y": 25,
+     "w": 70,
+     "h": 70
+    }
+   },
+   {
+    "where": "第 64 步 confirmTarget",
+    "template": "選中6",
+    "size": [
+     50,
+     50
+    ],
+    "old": {
+     "x": 1722,
+     "y": 31,
+     "w": 58,
+     "h": 58,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1716,
+     "y": 25,
+     "w": 70,
+     "h": 70
+    }
+   },
+   {
+    "where": "第 66 步 confirmTarget",
+    "template": "選中7",
+    "size": [
+     50,
+     50
+    ],
+    "old": {
+     "x": 1785,
+     "y": 31,
+     "w": 58,
+     "h": 58,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 1779,
+     "y": 25,
+     "w": 70,
+     "h": 70
+    }
+   },
+   {
+    "where": "忙碌指示",
+    "template": "忙碌指示",
+    "size": [
+     272,
+     25
+    ],
+    "old": {
+     "x": 969,
+     "y": 818,
+     "w": 352,
+     "h": 105,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 954,
+     "y": 818,
+     "w": 382,
+     "h": 105
+    }
+   }
+  ],
+  "removed_step": null,
+  "templates": 84
+ },
+ "晚_繁中": {
+  "flow": "晚_繁中",
+  "path": "C:\\Users\\three\\我的電腦\\AiProject\\claude_autoClickV2\\.scratch\\scale-range\\converted\\arknights\\flows\\晚_繁中.autoclickpack",
+  "steps_before": 64,
+  "steps_after": 64,
+  "pair": {
+   "k": 1.0,
+   "old_anchor": [
+    20,
+    19
+   ],
+   "new_anchor": [
+    60,
+    86
+   ],
+   "moved": 30,
+   "calibration": {
+    "pair": [
+     "主畫面設定鈕",
+     "主畫面倉庫"
+    ],
+    "baseline": 1942.435841926317,
+    "fallback": {
+     "pair": [
+      "標題列圖示",
+      "標題列關閉鈕"
+     ],
+     "baseline": 1868.0,
+     "offset": [
+      40,
+      67
+     ]
+    }
+   }
+  },
+  "rects": [
+   {
+    "where": "第 3 步 confirmTarget",
+    "template": "待辦事項",
+    "size": [
+     180,
+     42
+    ],
+    "old": {
+     "x": -60,
+     "y": 836,
+     "w": 230,
+     "h": 102,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": -71,
+     "y": 836,
+     "w": 252,
+     "h": 102
+    }
+   },
+   {
+    "where": "忙碌指示",
+    "template": "忙碌指示",
+    "size": [
+     272,
+     25
+    ],
+    "old": {
+     "x": 969,
+     "y": 818,
+     "w": 352,
+     "h": 105,
+     "kind": "rect"
+    },
+    "new": {
+     "kind": "rect",
+     "x": 954,
+     "y": 818,
+     "w": 382,
+     "h": 105
+    }
+   }
+  ],
+  "removed_step": null,
+  "templates": 28
+ }
+}
