@@ -8,9 +8,21 @@
 
     calibration   {"pair": [兩個範本名], "baseline": 基準距離 (流程尺度, px)}
 
+`備用校準對` (可不設): 主對任一張找不到 (彈窗蓋住、不在主畫面) 時改量的第二組, 住在
+校準資料的 `fallback` 鍵::
+
+    calibration   {"pair": [...], "baseline": ...,
+                   "fallback": {"pair": [兩個範本名], "baseline": 它自己的基準距離,
+                                "offset": [dx, dy]}}   備用第一張中心 → 座標基準點 (流程尺度)
+
+用備用對量時基準點＝備用第一張的中心 + 偏移×倍率, 所以存下的座標一律仍相對同一個
+`座標基準點`, 不因用了哪一組而改變; 倍率是備用對量出來的 (同樣貼齊 1)。
+
 執行器、編輯器、影片轉流程三處量測都走這裡的 `measure` / `calibrate`, 行為一致由此保證。
 """
 import math
+
+from automation import flowfmt
 
 
 def valid(cal):
@@ -54,6 +66,51 @@ def flow_pair(data):
 def make(pair, baseline):
     """組一份流程層級的校準資料."""
     return {"pair": [str(pair[0]), str(pair[1])], "baseline": float(baseline)}
+
+
+# ---------- `備用校準對` ----------
+
+FALLBACK_KEY = "fallback"
+
+
+def make_fallback(pair, baseline, offset):
+    """組備用組: 兩個範本名、它自己的基準距離、「備用第一張中心 → 座標基準點」的偏移 (流程尺度整數)."""
+    return {"pair": [str(pair[0]), str(pair[1])], "baseline": float(baseline),
+            "offset": [int(offset[0]), int(offset[1])]}
+
+
+def _fallback_valid(fb):
+    if not valid(fb):
+        return False
+    off = fb.get("offset")
+    return (isinstance(off, list) and len(off) == 2
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                    for v in off))
+
+
+def fallback_pair(cal):
+    """校準資料上的備用組 {pair, baseline, offset}; 沒有或不成形回傳 None."""
+    fb = (cal or {}).get(FALLBACK_KEY) if isinstance(cal, dict) else None
+    return fb if _fallback_valid(fb) else None
+
+
+def fallback_problem(cal):
+    """備用組不成形時的說明 (讀檔時警告用); 沒設或成形回傳 None."""
+    if not isinstance(cal, dict) or FALLBACK_KEY not in cal:
+        return None
+    if _fallback_valid(cal[FALLBACK_KEY]):
+        return None
+    return "備用校準對的設定不成形（範本名缺、基準距離非正、或偏移缺），當作沒有備用對"
+
+
+def fallback_offset(anchor, fb_first, k):
+    """設定備用對時算偏移: (座標基準點 − 備用第一張中心) ÷ 倍率, 流程尺度整數."""
+    return flowfmt.from_screen(anchor, fb_first, k)
+
+
+def fallback_anchor(fb_first, offset, k):
+    """用備用對量時的`座標基準點`: 備用第一張中心 + 偏移×倍率 (螢幕座標)."""
+    return flowfmt.to_screen(offset, fb_first, k)
 
 
 class Measurement:
@@ -136,25 +193,57 @@ def measure(query, screen, pair, origin=(0, 0)):
 
 class Calibrated:
     """一次`校準`的結論: 量測 + 這份流程的基準距離 → 成功時有`座標基準點` (螢幕座標)
-    與`畫面倍率`; 失敗時 problem / describe() 說明原因 (同 Measurement), 不得寫入任何座標。"""
+    與`畫面倍率`; 失敗時 problem / describe() 說明原因, 不得寫入任何座標。
 
-    def __init__(self, measurement, baseline):
-        self.measurement = measurement
-        self.problem = measurement.problem
-        self.anchor = measurement.anchor if self.ok else None
-        self.scale = measurement.scale(baseline) if self.ok else None
+    used: 用的是哪一組 ("main" 主對 / "fallback" 備用對); main: 主對的量測;
+    fallback: 備用對的量測 (主對找得到或沒設備用對時 None); measurement: 用的那一組的
+    量測; pair / baseline: 用的那一組的校準對與基準距離。
+    """
+
+    def __init__(self, main, baseline, pair, fallback=None, fb=None):
+        self.main = main
+        self.fallback = fallback
+        if fallback is not None:
+            self.used, self.measurement = "fallback", fallback
+            self.pair, self.baseline = list(fb["pair"]), float(fb["baseline"])
+        else:
+            self.used, self.measurement = "main", main
+            self.pair, self.baseline = list(pair), float(baseline)
+        self.problem = self.measurement.problem
+        self.anchor = self.scale = None
+        if self.ok:
+            self.scale = self.measurement.scale(self.baseline)
+            if self.used == "fallback":
+                self.anchor = fallback_anchor(fallback.anchor, fb["offset"],
+                                              self.scale)
+            else:
+                self.anchor = main.anchor
 
     @property
     def ok(self):
         return self.problem is None
 
     def describe(self):
-        return self.measurement.describe()
+        """量不到的原因一句話; 用到備用對仍失敗時兩組各說一遍."""
+        if self.fallback is None:
+            return self.main.describe()
+        if self.ok:
+            return ""
+        return (f"主校準對：{self.main.describe()}；"
+                f"備用校準對：{self.fallback.describe()}")
 
 
 def calibrate(query, screen, origin, cal):
-    """用流程的校準資料 cal ({pair, baseline}) 在一張`搜尋範圍`截圖上量一次 (回傳 `Calibrated`).
+    """用流程的校準資料 cal ({pair, baseline[, fallback]}) 在一張`搜尋範圍`截圖上量一次
+    (回傳 `Calibrated`).
 
-    執行開頭與編輯器每次拾取都走這裡: 兩邊的座標基準點與倍率才會是同一個量法。
+    先量主對; 主對任一張找不到、且有設`備用校準對`, 才量備用對 (主對兩張重疊不算
+    找不到, 不退備用)。執行開頭與編輯器每次拾取都走這裡: 各處的座標基準點與倍率
+    才會是同一個量法。
     """
-    return Calibrated(measure(query, screen, cal["pair"], origin), cal["baseline"])
+    main = measure(query, screen, cal["pair"], origin)
+    fb = fallback_pair(cal)
+    if main.problem == "missing" and fb is not None:
+        return Calibrated(main, cal["baseline"], cal["pair"],
+                          measure(query, screen, fb["pair"], origin), fb)
+    return Calibrated(main, cal["baseline"], cal["pair"])

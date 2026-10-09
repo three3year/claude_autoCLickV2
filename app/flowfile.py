@@ -137,27 +137,30 @@ def busy_target(data):
 
 def flow_refs(data):
     """一份流程引用的全部範本名 (已排序): 步驟的`找圖目標` + 流程層級設定
-    (`校準對`、`忙碌指示`).
+    (`校準對`、`備用校準對`、`忙碌指示`).
 
     規則在 findtarget.referenced_templates (範本預載也照它): 存檔只打包它們、
     對話框收回未使用的新圖時保留它們——校準對不被步驟引用, 漏了它, 存檔一整理
     流程就不能執行。
     """
     cal = calibration.flow_pair(data)
+    fb = calibration.fallback_pair(cal)
     busy = busy_target(data)
-    extra = [*(cal["pair"] if cal else ()), *([busy["template"]] if busy else ())]
+    extra = [*(cal["pair"] if cal else ()), *(fb["pair"] if fb else ()),
+             *([busy["template"]] if busy else ())]
     return sorted(findtarget.referenced_templates(data.get("steps") or [], extra))
 
 
 def rename_flow_refs(data, old, new):
-    """把整份流程對 `old` 的引用 (步驟 + 校準對 + 忙碌指示) 就地改成 `new`;
-    回傳改動筆數."""
+    """把整份流程對 `old` 的引用 (步驟 + 校準對 + 備用校準對 + 忙碌指示) 就地改成
+    `new`; 回傳改動筆數."""
     changed = rename_refs(data.get("steps") or [], old, new)
     cal = calibration.flow_pair(data)
-    if cal:
-        for i, n in enumerate(cal["pair"]):
+    fb = calibration.fallback_pair(cal)
+    for pair in [cal["pair"] if cal else [], fb["pair"] if fb else []]:
+        for i, n in enumerate(pair):
             if n == old:
-                cal["pair"][i] = new
+                pair[i] = new
                 changed += 1
     busy = busy_target(data)
     if busy and busy["template"] == old:

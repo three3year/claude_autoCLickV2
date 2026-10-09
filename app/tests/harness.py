@@ -453,8 +453,11 @@ class Harness:
                 if e[0] in ("click", "drag", "keys")]
 
     def _cal_names(self):
+        """校準對 (含備用對) 的範本名: 事件查詢時略過它們的查詢."""
+        import calibration
         cal = getattr(getattr(self, "runner", None), "calibration", None)
-        return set(cal["pair"]) if cal else set()
+        fb = calibration.fallback_pair(cal)
+        return (set(cal["pair"]) | set(fb["pair"] if fb else ())) if cal else set()
 
     def lookups(self):
         """步驟的查詢 (範本名序列), 不含開頭校準查校準對的那兩次."""

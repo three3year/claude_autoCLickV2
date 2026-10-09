@@ -474,6 +474,9 @@ class Runner:
         跑到一半才炸。每次執行都重掃 (登錄快取有效性由引擎那層把關)。
         """
         extra = list(self.calibration["pair"]) if self.calibration else []
+        fb = calib.fallback_pair(self.calibration)
+        if fb:
+            extra += fb["pair"]
         if self.busy:
             extra.append(self.busy["template"])
         # 流程層級設定 (開頭校準、補做判斷要查) 引用的也是被引用的範本
@@ -517,28 +520,40 @@ class Runner:
         screen, org = self._grab(region)
         c = calib.calibrate(self.detector.query, screen, org, cal)
         m = c.measurement
+        # 用了備用對: 檔案紀錄標明, 主對缺哪一張也記
+        used = ({"used": "fallback", "main_missing": ",".join(c.main.missing)}
+                if c.used == "fallback" else {})
         if c.problem == "missing":
-            self._log_calibrate(
-                result="missing", pair=",".join(cal["pair"]),
-                missing=",".join(m.missing),
-                best=",".join(f"{m.scores[n]:.3f}" for n in m.missing))
+            fields = dict(result="missing", pair=",".join(cal["pair"]),
+                          missing=",".join(c.main.missing),
+                          best=",".join(f"{c.main.scores[n]:.3f}"
+                                        for n in c.main.missing))
+            if c.fallback is not None:
+                fields.update(fallback_pair=",".join(c.pair),
+                              fallback_missing=",".join(m.missing))
+            self._log_calibrate(**fields)
             raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行；"
                                "請確認搜尋範圍框住了遊戲畫面、畫面上看得到校準對")
-        centers = ";".join(f"({x},{y})" for x, y in (m.centers[n] for n in cal["pair"]))
+        centers = ";".join(f"({x},{y})" for x, y in (m.centers[n] for n in c.pair))
         if c.problem == "too_close":
-            self._log_calibrate(result="too_close", pair=",".join(cal["pair"]),
-                                centers=centers)
+            self._log_calibrate(result="too_close", pair=",".join(c.pair),
+                                centers=centers, **used)
             raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行")
         self.scale, self.anchor = c.scale, c.anchor
-        self._log_calibrate(result="ok", pair=",".join(cal["pair"]),
+        self._log_calibrate(result="ok", pair=",".join(c.pair),
                             centers=centers, distance=f"{m.distance:.1f}",
-                            baseline=f"{float(cal['baseline']):.1f}",
-                            scale=f"{self.scale:.3f}")
+                            baseline=f"{c.baseline:.1f}",
+                            scale=f"{self.scale:.3f}", **used)
+        if c.used == "fallback":
+            self.log(f"主校準對找不到（缺「{'」「'.join(c.main.missing)}」），"
+                     f"改用備用校準對「{c.pair[0]}」×「{c.pair[1]}」，座標誤差略大",
+                     "warn")
         self.log(f"開頭校準：畫面倍率 ×{self.scale:.3f}（距離 {m.distance:.1f}px"
-                 f" ÷ 基準 {float(cal['baseline']):.1f}px）", "ok")
+                 f" ÷ 基準 {c.baseline:.1f}px）", "ok")
+        where = (f"校準對第一張「{c.pair[0]}」的中心" if c.used == "main" else
+                 f"備用校準對第一張「{c.pair[0]}」的中心加上設定時量好的偏移")
         self.log(f"座標基準點 ({self.anchor[0]}, {self.anchor[1]})"
-                 f"（校準對第一張「{cal['pair'][0]}」的中心；絕對座標與固定矩形以它為原點）",
-                 "ok")
+                 f"（{where}；絕對座標與固定矩形以它為原點）", "ok")
 
     def _log_calibrate(self, **fields):
         self._log_file("calibrate", **fields)
