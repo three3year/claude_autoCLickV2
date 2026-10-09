@@ -85,13 +85,18 @@ def rect_margin(tgt, template_size):
 
 # ================= 縮放餘裕 =================
 
-def _scaled(screen, screen_origin, anchor, origin, s):
-    """整張截圖等比縮 s 倍; 螢幕座標的原點、基準點、原點都跟著乘 s (幾何關係不變)."""
+def resize_image(screen, s):
+    """整張截圖等比縮 s 倍 (縮小 INTER_AREA、放大 INTER_LINEAR)."""
     import cv2
     h, w = screen.shape[:2]
     size = (max(1, round(w * s)), max(1, round(h * s)))
     interp = cv2.INTER_AREA if s < 1 else cv2.INTER_LINEAR
-    img = cv2.resize(screen, size, interpolation=interp)
+    return cv2.resize(screen, size, interpolation=interp)
+
+
+def _scaled(screen, screen_origin, anchor, origin, s):
+    """整張截圖等比縮 s 倍; 螢幕座標的原點、基準點、原點都跟著乘 s (幾何關係不變)."""
+    img = resize_image(screen, s)
 
     def pt(p):
         return None if p is None else (round(p[0] * s), round(p[1] * s))

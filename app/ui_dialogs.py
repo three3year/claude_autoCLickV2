@@ -168,22 +168,23 @@ def ask_string(root, title, prompt, initialvalue=""):
     return result[0]
 
 
-def pick_cal_pair(app):
-    """選擇`校準對`: 從本流程的範本挑兩個. 取消回傳 None.
+def pick_cal_pair(app, fallback=False):
+    """選擇`校準對` (fallback＝`備用校準對`): 從本流程的範本挑兩個. 取消回傳 None.
 
     兩張圖必須在執行開頭的畫面上同時看得到 (作為這份流程的比例尺); 選好後由
-    呼叫端立刻量一次距離 (見 App.designate_pair)。
+    呼叫端立刻量一次距離 (見 App.designate_pair / designate_fallback_pair)。
     """
     root = app.root
     names = app.list_template_names()
+    title = "設定備用校準對" if fallback else "設定校準對"
     if len(names) < 2:
-        messagebox.showinfo("設定校準對",
+        messagebox.showinfo(title,
                             "至少需要兩個範本才能作為比例尺，"
                             "請先用「截圖框選」建立範本", parent=root)
         return None
 
     dlg = tk.Toplevel(root)
-    dlg.title("設定校準對")
+    dlg.title(title)
     dlg.configure(bg=C["panel"])
     dlg.resizable(False, False)
     dlg.transient(root)
@@ -191,15 +192,21 @@ def pick_cal_pair(app):
     body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
     body.pack(fill="both", expand=True)
     cur = app.flow_cal
-    how = ("已有校準對：會先用原本那一對量出目前的倍率，再換算新那一對的基準距離"
-           "（流程尺度不變）。" if cur else
-           "這份流程還沒有校準對：目前的畫面大小就是這份流程的尺度，"
-           "量到的距離就是基準距離。")
-    ttk.Label(body, text="從本流程選兩個「執行開頭一定同時出現在畫面上」的範本"
-                         "作為比例尺\n（例：遊戲視窗標題列的圖示與關閉鈕）；"
-                         "按確定後立刻量一次。\n" + how,
-              style="Muted.TLabel", justify="left", wraplength=460).pack(
-        anchor="w", pady=(0, 10))
+    if fallback:
+        intro = ("從本流程選兩個「任何畫面都看得到」的範本當備用校準對\n"
+                 "（例：遊戲視窗標題列的圖示與關閉鈕）；主校準對被彈窗蓋住、不在主畫面時"
+                 "執行會改用它。\n按確定時主對與備用對都要在畫面上，才量得出備用對對"
+                 "座標基準點的偏移。")
+    else:
+        how = ("已有校準對：會先用原本那一對量出目前的倍率，再換算新那一對的基準距離"
+               "（流程尺度不變）。" if cur else
+               "這份流程還沒有校準對：目前的畫面大小就是這份流程的尺度，"
+               "量到的距離就是基準距離。")
+        intro = ("從本流程選兩個「執行開頭一定同時出現在畫面上」、在遊戲畫面內相距夠遠的"
+                 "固定圖當比例尺\n（標題列圖示＋關閉鈕量到的倍率會偏小，留給備用校準對）；"
+                 "按確定後立刻量一次。\n" + how)
+    ttk.Label(body, text=intro, style="Muted.TLabel", justify="left",
+              wraplength=460).pack(anchor="w", pady=(0, 10))
     vars_ = []
     for label in ("範本一", "範本二"):
         fr = ttk.Frame(body, style="Panel.TFrame")
@@ -216,10 +223,10 @@ def pick_cal_pair(app):
     def on_ok():
         a, b = vars_[0].get(), vars_[1].get()
         if not a or not b:
-            messagebox.showwarning("設定校準對", "請選滿兩個範本", parent=dlg)
+            messagebox.showwarning(title, "請選滿兩個範本", parent=dlg)
             return
         if a == b:
-            messagebox.showwarning("設定校準對", "兩個範本不能相同", parent=dlg)
+            messagebox.showwarning(title, "兩個範本不能相同", parent=dlg)
             return
         result[0] = (a, b)
         dlg.destroy()
@@ -272,6 +279,10 @@ class _Source:
         """拍攝位置 (截圖當下的中心, 相對`座標基準點`); 沒有就 None (跨流程複製與上傳的都沒有)."""
         return None
 
+    def check(self, name):
+        """拾取當下的 (截圖, 基準點, 倍率), 供`拾取檢查`的縮放餘裕; 沒有＝None."""
+        return None
+
 
 class _Staged(_Source):
     """還沒落地的新圖 (現場截圖 / 從磁碟挑的): 取消就整批丟掉."""
@@ -290,6 +301,10 @@ class _Staged(_Source):
     def pos(self, name):
         item = self._pending.get(name)
         return item["pos"] if item else None
+
+    def check(self, name):
+        item = self._pending.get(name)
+        return item.get("check") if item else None
 
 
 class _CurrentFlow(_Source):
@@ -473,11 +488,11 @@ def pick_template(app, title="選擇範本", initial=None):
     tree.bind("<<TreeviewSelect>>", lambda e: show())
     tree.bind("<<TreeviewOpen>>", on_open)
 
-    def _stage(name, blob, pos=None):
+    def _stage(name, blob, pos=None, check=None):
         """把一張新圖暫存起來 (還沒落地); 名稱在暫存區內不重複."""
         final = flowfile.free_name(flowfile.clean_name(name) or "template",
                                    pending)
-        pending[final] = {"blob": blob, "pos": pos}
+        pending[final] = {"blob": blob, "pos": pos, "check": check}
         render(select=(NEW_LABEL, final))
         return final
 
@@ -503,7 +518,8 @@ def pick_template(app, title="選擇範本", initial=None):
         r, anchor, k = got
         _stage(app.next_template_name(taken=pending),
                imgio.encode_png(imgio.to_flow_scale(r["img"], k)),
-               pos=template_pos_from_shot(r, anchor, k))
+               pos=template_pos_from_shot(r, anchor, k),
+               check=(r.get("frame"), anchor, k))
 
     tools = ttk.Frame(body, style="Panel.TFrame")
     tools.grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
@@ -536,6 +552,9 @@ def pick_template(app, title="選擇範本", initial=None):
                    "；建議跑一次「比對測試」確認畫面上找得到", "ok")
         result[0] = final
         dlg.destroy()
+        chk = src.check(name)
+        if chk is not None:   # 現場截圖: 登錄完成後跑縮放餘裕 (拾取當下的整張截圖)
+            app.check_template_scale(final, *chk)
 
     foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
     foot.pack(fill="x")
@@ -597,6 +616,9 @@ def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取")
         c, frame = app.calibrate_frame()
         if c.ok:
             r = body(c.anchor, c.scale, frame)
+    if c.ok and c.used == "fallback":
+        app.log_ui(f"{title}：主校準對找不到（缺「{'」「'.join(c.main.missing)}」），"
+                   "改用備用校準對量座標基準點與倍率", "warn")
     if not c.ok:
         messagebox.showwarning(
             title, f"拾取當下{c.describe()}。\n這次沒有存下任何座標；"
@@ -724,6 +746,42 @@ def _target_opts(tgt):
     """找圖目標 → 表單值 (findtarget.make_target 的參數)."""
     return {"limit": tgt.get("limit"), "pick": tgt.get("pick"),
             "color": bool(tgt.get("colorCheck"))}
+
+
+def pick_check_now(app, tgt, hide=(), origin_fn=None,
+                   kinds=(pickcheck.SCALE, pickcheck.UNIQUE)):
+    """找圖目標設好之後的`拾取檢查`: 清場 → 截一張當下的搜尋範圍 (有校準對就在上面量) →
+    照目標的限定範圍跑唯一 (與縮放餘裕) → 警告寫紀錄區並標記範本. 回傳警告清單.
+
+    只是檢查, 不擋確定: 引擎沒就緒、範本不在清單、校準量不到都安靜略過 (量不到寫一行)。
+    origin_fn(anchor, k): 這個找圖目標判定時的預設原點 (以原點為基準的設定才需要;
+    推算不出來就略過, 不請使用者點)。
+    """
+    name = tgt.get("template", "")
+    if not app.template_ready(name):
+        return []
+    cal = app.flow_cal
+    if cal is not None:
+        for n in cal["pair"]:
+            if not app.template_ready(n):
+                return []
+    with ui_overlay.screen_clear(app.root, extra=hide):
+        if cal is None:
+            frame, anchor, k = app.grab_frame(), None, 1.0
+        else:
+            c, frame = app.calibrate_frame()
+            if not c.ok:
+                app.log_ui(f"拾取檢查略過：{c.describe()}", "warn")
+                return []
+            anchor, k = c.anchor, c.scale
+        origin = None
+        if origin_fn is not None and findtarget.needs_origin(tgt):
+            origin = origin_fn(anchor, k)
+    screen, org = frame
+    warns = pickcheck.check(app.detector, screen, org, tgt, anchor, k,
+                            origin=origin, kinds=kinds)
+    app.note_pick_warnings(name, warns)
+    return warns
 
 
 def _origin_or_click(root, origin_fn, anchor, k, hide):
@@ -991,6 +1049,10 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
         opts = checked()
         if opts is not None:
             result[0] = opts
+            # 找圖目標設好了: 照它的限定範圍查唯一 (與縮放餘裕), 只警告不擋
+            pick_check_now(app, findtarget.make_target(tgt.get("template", ""),
+                                                       **opts),
+                           hide=(sub,), origin_fn=origin_fn)
             sub.destroy()
 
     foot = ttk.Frame(sub, style="Panel.TFrame", padding=(16, 0, 16, 14))
@@ -1917,6 +1979,10 @@ def show_match_test(app, target, hide=(), origin_fn=None):
     f = findtarget.find(target, app.detector, screen, org, origin=origin,
                         scale=k, anchor=anchor)
     annotated = _annotate_find(screen, org, f, origin, anchor)
+    # `拾取檢查`: 同一張截圖再跑縮放餘裕與唯一, 結果與比對測試一起顯示 (ADR 0013)
+    warns = pickcheck.check(app.detector, screen, org, target, anchor, k,
+                            origin=origin, kinds=(pickcheck.SCALE, pickcheck.UNIQUE))
+    app.note_pick_warnings(template_name, warns)
 
     win_ = tk.Toplevel(root)
     win_.title("比對測試結果")
@@ -1961,6 +2027,10 @@ def show_match_test(app, target, hide=(), origin_fn=None):
              font=FONT).pack(padx=12, pady=(12, 2))
     tk.Label(win_, text=f"找圖設定：{findtarget.summary(target)}{scope}",
              bg=C["panel"], fg=C["muted"], font=FONT).pack(padx=12, pady=(0, 2))
+    tk.Label(win_, text=("拾取檢查：" + ("通過（縮放餘裕、唯一）" if not warns else
+                                     "\n".join(f"⚠ {w}" for w in warns))),
+             bg=C["panel"], fg=C["accent"] if not warns else C["warn"],
+             font=FONT, justify="left", wraplength=1200).pack(padx=12, pady=(0, 2))
     tk.Label(win_, text="藍框＝限定範圍　綠框＝匹配（分數 c比色）　黃粗框＝挑中、"
                         "執行時會點的　紅框＝比色不符／最接近的候選　◎＝原點　⊕＝座標基準點",
              bg=C["panel"], fg=C["muted"],

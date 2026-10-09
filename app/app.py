@@ -36,7 +36,7 @@ import ui_dialogs
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import capture, findtarget, flowfmt, hotkey, imgio, win
+from automation import capture, findtarget, flowfmt, hotkey, imgio, pickcheck, win
 from automation.runner import (Runner, branch_layout, has_busy_check,
                                confirm_next_connected, origin_source,
                                uses_confirm_next, uses_origin_leaves)
@@ -616,6 +616,10 @@ class App:
         if cal:
             text = (f"校準對：{cal['pair'][0]} × {cal['pair'][1]}"
                     f"（{float(cal['baseline']):.0f}px）")
+            fb = calibration.fallback_pair(cal)
+            if fb:
+                text += (f"；備用：{fb['pair'][0]} × {fb['pair'][1]}"
+                         f"（{float(fb['baseline']):.0f}px）")
         else:
             text = "這份流程還沒有校準對（不能執行）"
         self.cal_info.configure(text=text)
@@ -685,13 +689,20 @@ class App:
             return
         title = "設定校準對"
         old = self.flow_cal
+        fb = calibration.fallback_pair(old)
+        if fb and set(pair) == set(fb["pair"]):
+            messagebox.showwarning(title, "新的校準對與備用校準對相同；"
+                                   "請挑別的兩張，或先改備用對", parent=self.root)
+            return
         if not self.calibration_ready(title, [*pair, *(old["pair"] if old else ())]):
             return
         with ui_overlay.screen_clear(self.root):
             screen, org = self.grab_frame()
         k, old_anchor = 1.0, None
         if old:
-            c = calibration.calibrate(self.detector.query, screen, org, old)
+            # 只用舊主對量 (不退備用對: 換對要知道舊基準點在哪)
+            c = calibration.calibrate(self.detector.query, screen, org,
+                                      calibration.make(old["pair"], old["baseline"]))
             if not c.ok:
                 self._warn_measure("設定校準對（先用原本的校準對量倍率與基準點）", c)
                 return
@@ -706,6 +717,13 @@ class App:
             # 存下的座標全部改成相對新基準點 (每個落點照舊)
             moved = (flowfmt.shift_flow(self._ref_data(), old_anchor, m.anchor, k)
                      + self.ws.shift_pos(old_anchor, m.anchor, k))
+            if fb:
+                # 備用對的偏移跟著重算: 備用第一張的中心不動, 指向新基準點
+                fb_first = flowfmt.to_screen((-fb["offset"][0], -fb["offset"][1]),
+                                             old_anchor, k)
+                self.flow_cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
+                    fb["pair"], fb["baseline"],
+                    calibration.fallback_offset(m.anchor, fb_first, k))
         self._autosave()
         self._update_cal_ui()
         self.render_steps()
@@ -715,7 +733,54 @@ class App:
         if old_anchor is not None:
             self.log_ui(f"基準點從 {tuple(old_anchor)} 換到 {tuple(m.anchor)}，"
                         f"已換算 {moved} 個存下的座標（絕對座標、固定矩形、範本拍攝位置），"
-                        "落點不變（捨入誤差內）", "ok")
+                        "落點不變（捨入誤差內）"
+                        + ("；備用校準對的偏移已跟著重算" if fb else ""), "ok")
+
+    def designate_fallback_pair(self):
+        """設定 (或更換) 這份流程的`備用校準對` (ADR 0013).
+
+        要先有校準對 (主對)。沿用挑兩張的對話框; 按確定時在當下畫面同時量主對與備用對:
+        主對找不到就拒絕 (沒有基準點可對齊); 量到的備用距離 ÷ 當下倍率＝它的基準距離,
+        (主基準點 − 備用第一張中心) ÷ 倍率＝偏移 (流程尺度)。存進流程、草稿跟著存。
+        """
+        if not self.engine_gate():
+            return
+        title = "設定備用校準對"
+        main = self.flow_cal
+        if main is None:
+            messagebox.showinfo(title, "請先按「設定校準對」設定主校準對，"
+                                "備用對才有可對齊的座標基準點", parent=self.root)
+            return
+        pair = ui_dialogs.pick_cal_pair(self, fallback=True)
+        if not pair:
+            return
+        if set(pair) == set(main["pair"]):
+            messagebox.showwarning(title, "備用校準對不能與校準對相同；"
+                                   "備用對是主對被擋住時用的另外兩張圖", parent=self.root)
+            return
+        if not self.calibration_ready(title, [*pair, *main["pair"]]):
+            return
+        with ui_overlay.screen_clear(self.root):
+            screen, org = self.grab_frame()
+        c = calibration.calibrate(self.detector.query, screen, org,
+                                  calibration.make(main["pair"], main["baseline"]))
+        if not c.ok:
+            self._warn_measure("設定備用校準對（先用校準對量倍率與基準點）", c)
+            return
+        m = calibration.measure(self.detector.query, screen, list(pair), org)
+        if not m.ok:
+            self._warn_measure(title, m)
+            return
+        k = c.scale
+        fb = calibration.make_fallback(pair, m.distance / k,
+                                       calibration.fallback_offset(c.anchor, m.anchor, k))
+        self.flow_cal = dict(main, **{calibration.FALLBACK_KEY: fb})
+        self._autosave()
+        self._update_cal_ui()
+        self.log_ui(f"已設定備用校準對「{pair[0]}」×「{pair[1]}」，基準距離 "
+                    f"{fb['baseline']:.1f}px，對座標基準點的偏移 "
+                    f"({fb['offset'][0]:+d},{fb['offset'][1]:+d})（目前畫面倍率 ×{k:.3f}）；"
+                    "主校準對找不到時執行會改用它", "ok")
 
     def calibrate_now(self):
         """「校準」鈕: 用這份流程的校準對量一次, 只顯示目前的倍率與基準點 (ADR 0012).
@@ -735,9 +800,12 @@ class App:
             self._warn_measure("校準", c)
             return
         m = c.measurement
-        self.cal_btn.configure(text=f"校準　×{c.scale:.2f}")
+        used = "（備用）" if c.used == "fallback" else ""
+        self.cal_btn.configure(text=f"校準　×{c.scale:.2f}{used}")
+        which = ("用備用校準對量（主對缺「" + "」「".join(c.main.missing) + "」）"
+                 if c.used == "fallback" else "用校準對量")
         self.log_ui(f"目前畫面倍率 ×{c.scale:.3f}"
-                    f"（距離 {m.distance:.1f}px ÷ 基準 {float(cal['baseline']):.1f}px）、"
+                    f"（距離 {m.distance:.1f}px ÷ 基準 {c.baseline:.1f}px，{which}）、"
                     f"座標基準點 {tuple(c.anchor)}；只是顯示，拾取時會各自重量", "ok")
 
     # ================= `補做`設定 (補做間隔 / 忙碌指示, ADR 0008) =================
@@ -904,6 +972,9 @@ class App:
         ttk.Button(bar3, text="設定校準對", style="Small.TButton",
                    takefocus=False,
                    command=self.designate_pair).pack(side="left", padx=(8, 6))
+        ttk.Button(bar3, text="設定備用校準對", style="Small.TButton",
+                   takefocus=False,
+                   command=self.designate_fallback_pair).pack(side="left", padx=(0, 6))
         # 「校準」鈕只量測並顯示目前倍率與基準點 (拾取與執行各自重量, ADR 0012)
         self.cal_btn = ttk.Button(bar3, text="校準", style="Small.TButton",
                                   takefocus=False, command=self.calibrate_now)
@@ -1575,13 +1646,14 @@ class App:
             self._show_thumb()
 
     def refresh_templates(self):
-        """本流程的範本清單 (平面, 沒有資料夾層級)."""
+        """本流程的範本清單 (平面, 沒有資料夾層級); 有`拾取檢查`警告的範本標 ⚠."""
         names = self.list_template_names()
         sel = self._sel_template()
         self._tmpl_names = names
+        flagged = self.pick_warnings()
         self.tmpl_list.delete(0, "end")
         for n in names:
-            self.tmpl_list.insert("end", f" 🖼 {n}")
+            self.tmpl_list.insert("end", f" {'⚠' if n in flagged else '🖼'} {n}")
         if sel in names:
             i = names.index(sel)
             self.tmpl_list.selection_set(i)
@@ -1607,10 +1679,57 @@ class App:
         self.thumb_lbl.configure(image=photo, text="")
         self.thumb_lbl._photo = photo
         if img is not None:
-            self.thumb_info.configure(
-                text=f"{name}　{img.shape[1]}×{img.shape[0]}px")
+            text = f"{name}　{img.shape[1]}×{img.shape[0]}px"
         else:
-            self.thumb_info.configure(text=name if name else "")
+            text = name if name else ""
+        if name and name in self.pick_warnings():
+            text += "　⚠ 拾取檢查有警告（見執行紀錄）"
+        self.thumb_info.configure(text=text)
+
+    # ================= `拾取檢查` (ADR 0013) =================
+    # 判斷在 automation/pickcheck.py (影片轉流程也用它); 這裡只接線: 截範本後的
+    # 縮放餘裕、找圖設定確定與比對測試的唯一 (ui_dialogs), 警告寫紀錄區並在面板標記。
+    # 標記不進存檔: 只活在這一次編輯 session, 下一次檢查通過時消失。
+
+    def pick_warnings(self):
+        """{範本名: [警告文字]}: 目前帶著拾取檢查警告的範本 (面板標 ⚠)."""
+        return self.__dict__.setdefault("_tmpl_warnings", {})
+
+    def note_pick_warnings(self, name, warns):
+        """記下某範本這次拾取檢查的結果: 有警告→寫紀錄區、面板標記; 通過→清掉標記."""
+        flagged = self.pick_warnings()
+        if warns:
+            flagged[name] = [str(w) for w in warns]
+            for w in warns:
+                self.log_ui(f"拾取檢查「{name}」{w}", "warn")
+        elif flagged.pop(name, None) is not None:
+            self.log_ui(f"拾取檢查「{name}」這次通過，標記已清除", "ok")
+        self.refresh_templates()
+
+    def template_ready(self, name):
+        """範本能不能拿來查 (引擎就緒、已在範本清單、登錄產物載得起來); 不行就安靜略過."""
+        if not name or not self.hub.ready or self.profile is None:
+            return False
+        self.ensure_registered()
+        if name not in self.profile.templates:
+            return False
+        try:
+            self.hub.ensure_template(name)
+        except Exception as e:
+            self.log_ui(f"拾取檢查略過：範本「{name}」載入失敗（{e}）", "warn")
+            return False
+        return True
+
+    def check_template_scale(self, name, frame, anchor, k):
+        """截範本後的`縮放餘裕`: 用拾取當下的整張截圖 frame (影像, 左上角), 等該範本登錄
+        完成才查; 沒有截圖 (沒有校準對) 或引擎沒就緒就略過. 回傳警告清單."""
+        if frame is None or not self.template_ready(name):
+            return []
+        screen, org = frame
+        warns = pickcheck.scale_margin(self.detector, screen, org,
+                                       {"template": name}, anchor, k)
+        self.note_pick_warnings(name, warns)
+        return warns
 
     # ---- 新增範本 ----
 
@@ -1640,11 +1759,15 @@ class App:
 
         截範本的共同入口 (主視窗「截圖框選」、選範本對話框「截圖新增」): 圖要除以
         當下倍率、拍攝位置要相對當下基準點 (ADR 0012)。沒有校準對＝倍率 1、不記位置。
+        結果多帶 "frame"＝校準用的那張搜尋範圍截圖 (`拾取檢查`的縮放餘裕用它)。
         """
-        return ui_dialogs.measured_pick(
-            self, parent or self.root,
-            lambda anchor, k, frame: self.pick_region_raw(hide=hide),
-            hide=hide, title="截圖框選")
+        def body(anchor, k, frame):
+            r = self.pick_region_raw(hide=hide)
+            if r:
+                r["frame"] = frame
+            return r
+        return ui_dialogs.measured_pick(self, parent or self.root, body,
+                                        hide=hide, title="截圖框選")
 
     def save_captured(self, r, anchor=None, k=1.0):
         """把 pick_region_raw 的結果存成本流程的新範本, 回傳範本名.
@@ -1707,7 +1830,9 @@ class App:
         if not got or got[0] is None:
             return None
         r, anchor, k = got
-        return self.save_captured(r, anchor, k)
+        name = self.save_captured(r, anchor, k)
+        self.check_template_scale(name, r.get("frame"), anchor, k)
+        return name
 
     def upload_template(self):
         """從硬碟上傳圖片存為本流程的範本 (可多選).
@@ -1760,6 +1885,9 @@ class App:
                                    parent=self.root)
             return
         changed = flowfile.rename_flow_refs(self._ref_data(), old, final)
+        flagged = self.pick_warnings()
+        if old in flagged:
+            flagged[final] = flagged.pop(old)
         self.reload_profile()
         self.refresh_templates()
         self.render_steps()
@@ -1789,6 +1917,7 @@ class App:
             return
         self.ws.remove(name)
         self._pending_templates.discard(name)
+        self.pick_warnings().pop(name, None)
         self.reload_profile()
         self.refresh_templates()
         self.render_steps()
@@ -1852,6 +1981,10 @@ class App:
         """套用一份流程資料 (已是現行格式: 讀檔路徑由 flowfile 擋掉舊格式)."""
         self.steps = data.get("steps", [])
         self.flow_cal = calibration.flow_pair(data)
+        problem = calibration.fallback_problem(self.flow_cal)
+        if problem:
+            self.log_ui(problem, "warn")
+            self.flow_cal.pop(calibration.FALLBACK_KEY, None)
         self._update_cal_ui()
         self.retry_interval_ms = flowfile.retry_interval_ms(data)
         self.busy_appear_ms = flowfile.busy_appear_ms(data)
@@ -1897,6 +2030,7 @@ class App:
         r = None if flow_path is None else self.ws.load_flow(flow_path)
         self._cancel_reregister()
         self._pending_templates.clear()
+        self.pick_warnings().clear()   # 標記只屬於這一次編輯, 不進存檔
         self._collapsed.clear()
         if flow_path is None:
             self.ws.clear()

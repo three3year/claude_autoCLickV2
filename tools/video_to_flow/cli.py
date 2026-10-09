@@ -98,6 +98,8 @@ def main(argv=None):
             if not res["calibration"]:
                 why = res["calibration_problem"] or "計畫沒有指定"
                 print(f"警告：沒有校準對（{why}）——這份流程不能執行")
+            elif res.get("fallback_problem"):
+                print(f"警告：備用校準對量不到（{res['fallback_problem']}）——流程不帶備用對")
             if res["verification"] == "coarse":
                 print("警告：驗證不完整——深度驗證模型無法載入，只做了粗篩")
             for name, why in res["retake"].items():

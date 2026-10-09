@@ -13,14 +13,22 @@ def _fmt_region(r):
 
 
 def _calibration_line(res):
-    """`校準對`一行: 有＝名稱與基準距離; 沒有/量不到＝流程不能執行."""
+    """`校準對`一行: 有＝名稱與基準距離 (與備用對); 沒有/量不到＝流程不能執行."""
     cal = res["calibration"]
     if cal:
         a, b = cal["pair"]
-        return (f"{a} × {b}，基準距離 {float(cal['baseline']):.1f}px"
+        text = (f"{a} × {b}，基準距離 {float(cal['baseline']):.1f}px"
                 f"（第 {res['calibration_frame']} 幀量得；影片尺度就是流程尺度）")
-    how = ("在計畫的 calibration 指名兩張執行開頭一定看得到的範本"
-           "（遊戲視窗標題列的圖示＋關閉鈕）重新組裝，或在編輯器按「設定校準對」")
+        fb = res.get("fallback")
+        if fb:
+            text += (f"；備用校準對：{fb['pair'][0]} × {fb['pair'][1]}，基準距離 "
+                     f"{float(fb['baseline']):.1f}px，對座標基準點的偏移 "
+                     f"({fb['offset'][0]:+d},{fb['offset'][1]:+d})")
+        elif res.get("fallback_problem"):
+            text += f"；**備用校準對量不到**（{res['fallback_problem']}），流程不帶備用對"
+        return text
+    how = ("在計畫的 calibration 指名兩張執行開頭一定看得到、遊戲畫面內相距夠遠的固定圖"
+           "（標題列圖示＋關閉鈕留給 fallback 當備用對）重新組裝，或在編輯器按「設定校準對」")
     if res["calibration_problem"]:
         return (f"**量不到**（{res['calibration_problem']}）——這份流程不能執行；"
                 f"請{how}")

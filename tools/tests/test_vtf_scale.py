@@ -166,3 +166,44 @@ def test_自我驗證的查詢帶預期尺度1(tmp_path, engine):
     assert verify and all(s == 1.0 for s in verify)
     cal = [s for n, s in spy.seen if n in ("圖示", "關閉")]
     assert None in cal, "量基準距離與執行開頭的校準一樣用全範圍查"
+
+
+# ---------- 備用校準對 (scale-range 票 08) ----------
+
+def test_計畫寫備用組_同一幀量兩組_偏移對齊座標基準點(tmp_path, engine):
+    """主對＝畫面內的「開始」＋標題列「關閉」, 備用＝標題列圖示＋關閉鈕."""
+    plan = title_plan(tmp_path, pair=("開始", "關閉"))
+    plan["calibration"]["fallback"] = {"pair": ["圖示", "關閉"]}
+    res = video_to_flow.assemble(plan, engine=engine)
+    cal = calibration.flow_pair(flowfile.read(res["flow_path"])["data"])
+    fb = calibration.fallback_pair(cal)
+    (ix, iy), (cx, cy) = title_center("圖示"), title_center("關閉")
+    assert fb["pair"] == ["圖示", "關閉"]
+    assert fb["baseline"] == float(abs(cx - ix))
+    ax, ay = center("開始")
+    assert fb["offset"] == [ax - ix, ay - iy], "備用第一張中心 → 座標基準點 (影片像素＝流程尺度)"
+    assert calibration.fallback_anchor((ix, iy), fb["offset"], 1.0) == (ax, ay)
+    text = open(res["report_path"], encoding="utf-8").read()
+    assert "備用校準對：圖示 × 關閉" in text
+
+
+def test_備用對量不到_流程不帶備用對_報告寫明(tmp_path, engine):
+    plan = title_plan(tmp_path, pair=("圖示", "關閉"))
+    plan["calibration"]["frame"] = 35
+    plan["calibration"]["fallback"] = {"pair": ["開始", "關閉"]}   # 第 35 幀沒有「開始」
+    res = video_to_flow.assemble(plan, engine=engine)
+    cal = calibration.flow_pair(flowfile.read(res["flow_path"])["data"])
+    assert cal["pair"] == ["圖示", "關閉"]
+    assert calibration.fallback_pair(cal) is None
+    text = open(res["report_path"], encoding="utf-8").read()
+    assert "備用校準對量不到" in text and "開始" in text
+
+
+def test_備用組與主對相同_計畫被拒(tmp_path, engine):
+    import pytest
+
+    from video_to_flow.errors import ToolError
+    plan = title_plan(tmp_path)
+    plan["calibration"]["fallback"] = {"pair": ["關閉", "圖示"]}
+    with pytest.raises(ToolError, match="相同"):
+        video_to_flow.assemble(plan, engine=engine)

@@ -352,6 +352,9 @@ def _match_test_app(make_app, monkeypatch, scale, **kw):
     monkeypatch.setattr(ui_dialogs, "_annotate_find",
                         lambda screen, org, f, origin=None, anchor=None:
                         np.zeros((60, 80, 3), np.uint8))
+    # 比對測試順帶跑`拾取檢查`的縮放餘裕, 要縮假畫面 (不是 numpy 陣列)
+    from automation import pickcheck
+    monkeypatch.setattr(pickcheck, "resize_image", lambda img, s: img.resized(s))
     return app, seen
 
 
@@ -365,7 +368,7 @@ def test_比對測試用當下量到的基準點與倍率(make_app, monkeypatch)
     app, seen = _match_test_app(make_app, monkeypatch, 0.9)
     ui_dialogs.show_match_test(app, {"template": "a"})
     _close_result(app)
-    assert seen == [(0.9, ANCHOR, (100, 200))]
+    assert seen[0] == (0.9, ANCHOR, (100, 200)), "第一次是比對測試本身 (之後是拾取檢查)"
 
 
 def test_比對測試_固定矩形但沒有校準對_擋下(make_app, monkeypatch, no_real_dialogs):

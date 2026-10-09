@@ -18,7 +18,8 @@
         {"type": "key", "keys": "esc"},
         {"type": "loop_start", "count": 5}, ..., {"type": "loop_end"}
       ],
-      "calibration": {"pair": ["標題列圖示", "關閉鈕"], "frame": 120},
+      "calibration": {"pair": ["左上圖示", "右下按鈕"], "frame": 120,
+                      "fallback": {"pair": ["標題列圖示", "關閉鈕"]}},
       "retryIntervalMs": 1000,
       "busyTarget": {"template": "提交中", "colorCheck": true},
       "report": {"branches": ["…"], "unexplained": ["…"], "keys": ["…"]}
@@ -37,10 +38,12 @@
 設定 (`固定矩形`相對`座標基準點`, 請在 app 的找圖設定裡框)。`confirmTemplate` 是
 只有範本的確認圖簡寫。
 
-`calibration` 指名這份流程的`校準對` (兩個計畫裡的範本, 例: 遊戲視窗標題列的
-圖示＋關閉鈕) 與量基準距離的那一幀 (預設＝第一張的取材幀)。影片尺度就是流程
-尺度 (ADR 0009): 組裝在那一幀上量兩張的中心距離當`基準距離`。沒寫＝產出的
-流程沒有校準對, 不能執行 (交付報告會寫明)。
+`calibration` 指名這份流程的`校準對` (兩個計畫裡的範本: 遊戲畫面內相距夠遠的兩張
+固定圖) 與量基準距離的那一幀 (預設＝第一張的取材幀)。影片尺度就是流程尺度
+(ADR 0009): 組裝在那一幀上量兩張的中心距離當`基準距離`。沒寫＝產出的流程沒有
+校準對, 不能執行 (交付報告會寫明)。可選的 `fallback` 指名`備用校準對` (例: 標題列
+圖示＋關閉鈕, 任何畫面都在): 組裝在同一幀上量它的基準距離與「備用第一張中心 →
+座標基準點」的偏移 (ADR 0013); 量不到＝流程不帶備用對, 報告寫明。
 
 `生效確認` (ADR 0008): 座標點擊與拖曳也可寫 confirm (gone＝`原點的圖離開`、
 appear、next) 與 confirmTemplate/confirmTarget、timeout、interval、onNotFound;
@@ -253,23 +256,37 @@ def _templates(raw):
     return out
 
 
-def _calibration(raw, templates):
-    """`校準對`: {"pair": [兩個範本名], "frame": 量測幀}; 沒寫回傳 None."""
-    if raw is None:
-        return None
-    where = "calibration"
-    if not isinstance(raw, dict) or set(raw) - {"pair", "frame"}:
-        _err(where, f"要是 {{pair, frame}} 物件，收到 {raw!r}")
-    pair = raw.get("pair")
+def _pair(where, pair, templates, what):
     if (not isinstance(pair, list) or len(pair) != 2
             or not all(isinstance(n, str) for n in pair) or pair[0] == pair[1]):
         _err(where, f"pair 要是兩個不同的範本名，收到 {pair!r}")
     for n in pair:
         if n not in templates:
-            _err(where, f"校準對的範本「{n}」不在計畫的範本清單裡")
+            _err(where, f"{what}的範本「{n}」不在計畫的範本清單裡")
+    return list(pair)
+
+
+def _calibration(raw, templates):
+    """`校準對`: {"pair": [兩個範本名], "frame": 量測幀, "fallback": {"pair": [...]}};
+    沒寫回傳 None; fallback (備用校準對) 沒寫＝None."""
+    if raw is None:
+        return None
+    where = "calibration"
+    if not isinstance(raw, dict) or set(raw) - {"pair", "frame", "fallback"}:
+        _err(where, f"要是 {{pair, frame, fallback}} 物件，收到 {raw!r}")
+    pair = _pair(where, raw.get("pair"), templates, "校準對")
     frame = (_frame(where + " frame", raw["frame"]) if "frame" in raw
              else templates[pair[0]]["frame"])
-    return {"pair": list(pair), "frame": frame}
+    fallback = None
+    if raw.get("fallback") is not None:
+        fb = raw["fallback"]
+        if not isinstance(fb, dict) or set(fb) - {"pair"}:
+            _err(where + " fallback", f"要是 {{pair}} 物件（兩張備用校準對的範本），收到 {fb!r}")
+        fb_pair = _pair(where + " fallback", fb.get("pair"), templates, "備用校準對")
+        if set(fb_pair) == set(pair):
+            _err(where + " fallback", "備用校準對不能與校準對相同")
+        fallback = {"pair": fb_pair}
+    return {"pair": pair, "frame": frame, "fallback": fallback}
 
 
 def _retry_interval(raw):

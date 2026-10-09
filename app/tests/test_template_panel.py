@@ -283,3 +283,23 @@ def test_沒選範本時比對測試提示先選一個(tkroot, tmp_path, monkeyp
         assert infos and "選擇一個範本" in infos[0]
     finally:
         app.destroy()
+
+
+def test_有拾取檢查警告的範本標示_通過後消失(tkroot, tmp_path):
+    from automation import pickcheck
+    app = _panel(tkroot, tmp_path, names=("a", "b"))
+    try:
+        app.note_pick_warnings("a", [pickcheck.Warning(pickcheck.UNIQUE, "a",
+                                                       "有 2 個匹配", matches=[])])
+        rows = [r.strip() for r in app.tmpl_list.get(0, "end")]
+        assert rows == ["⚠ a", "🖼 b"]
+        assert any("拾取檢查" in m and "2 個匹配" in m for m in app.logged)
+        _select(app, "a")
+        assert "⚠" in app.thumb_info.cget("text")
+        app.note_pick_warnings("a", [])
+        rows = [r.strip() for r in app.tmpl_list.get(0, "end")]
+        assert rows == ["🖼 a", "🖼 b"]
+        _select(app, "a")
+        assert "⚠" not in app.thumb_info.cget("text")
+    finally:
+        app.destroy()

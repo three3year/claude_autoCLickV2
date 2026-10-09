@@ -139,6 +139,11 @@ class Screen:
         return Screen((self.origin[0] + x0, self.origin[1] + y0),
                       (max(0, x1 - x0), max(0, y1 - y0)))
 
+    def resized(self, s):
+        """等比縮 s 倍的假畫面 (拾取檢查的縮放餘裕用; 原點也跟著乘 s)."""
+        return Screen((round(self.origin[0] * s), round(self.origin[1] * s)),
+                      (max(1, round(self.size[0] * s)), max(1, round(self.size[1] * s))))
+
 
 COLOR_THRESHOLD = 0.95   # 假偵測器的比色門檻 (同明日方舟 profile)
 

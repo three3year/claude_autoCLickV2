@@ -60,25 +60,43 @@ def _size_warnings(region, info):
             "錄的，且執行時遊戲畫面落在搜尋範圍內；錄影若有縮放，範本與偏移都會對不上"]
 
 
+def _measure_one(pair, frame, checker, frames):
+    """在第 frame 幀上量一對: 回傳 (Measurement 或 None, 量不到的原因或 None)."""
+    unregistered = [n for n in pair if n not in checker.registered]
+    if unregistered:
+        return None, f"引擎無法登錄 {'、'.join(unregistered)}"
+    m = calibration.measure(checker.detector.query, frames[frame], pair)
+    if m.missing:
+        return None, f"第 {frame} 幀上找不到 {'、'.join(m.missing)}"
+    if m.too_close:
+        return None, f"第 {frame} 幀上兩張圖重疊，不能當比例尺"
+    return m, None
+
+
 def _measure_pair(c, checker, frames):
-    """在影片影格上量`校準對`: 回傳 (流程的校準資料或 None, `座標基準點` (影片像素)
-    或 None, 量不到的原因或 None).
+    """在影片影格上量`校準對` (與`備用校準對`): 回傳 (流程的校準資料或 None, `座標基準點`
+    (影片像素) 或 None, 主對量不到的原因或 None, 備用對量不到的原因或 None).
 
     與執行開頭的校準同一套量測 (`calibration.measure`, 全範圍查詢); 影片尺度
     就是流程尺度, 所以量到的距離直接就是`基準距離`、第一張的中心就是基準點。
+    備用對在同一幀上量: 它自己的距離當基準距離, (基準點 − 備用第一張中心) 當偏移
+    (ADR 0013); 備用對量不到只是少了備用, 主對照寫。
     """
     if c is None:
-        return None, None, None
+        return None, None, None, None
     pair, frame = c["pair"], c["frame"]
-    unregistered = [n for n in pair if n not in checker.registered]
-    if unregistered:
-        return None, None, f"引擎無法登錄 {'、'.join(unregistered)}"
-    m = calibration.measure(checker.detector.query, frames[frame], pair)
-    if m.missing:
-        return None, None, f"第 {frame} 幀上找不到 {'、'.join(m.missing)}"
-    if m.too_close:
-        return None, None, f"第 {frame} 幀上兩張圖重疊，不能當比例尺"
-    return calibration.make(pair, round(m.distance, 1)), m.anchor, None
+    m, problem = _measure_one(pair, frame, checker, frames)
+    if m is None:
+        return None, None, problem, None
+    cal = calibration.make(pair, round(m.distance, 1))
+    fb_problem = None
+    if c.get("fallback"):
+        fb, fb_problem = _measure_one(c["fallback"]["pair"], frame, checker, frames)
+        if fb is not None:
+            cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
+                c["fallback"]["pair"], round(fb.distance, 1),
+                calibration.fallback_offset(m.anchor, fb.anchor, 1.0))
+    return cal, m.anchor, None, fb_problem
 
 
 def _crop(frames, name, t, info):
@@ -124,7 +142,8 @@ def assemble(plan, engine=None, report_path=None):
     steps = defaults.apply(origin_mod.derive(p["steps"], p["templates"],
                                              checker.locate))
     checked = checker.finish()
-    cal, anchor, cal_problem = _measure_pair(p["calibration"], checker, frames)
+    cal, anchor, cal_problem, fb_problem = _measure_pair(p["calibration"], checker,
+                                                         frames)
     found = {n: r["boxes"] for n, r in checked.items()}
     # 驗證沒過的範本: 名稱加`待重拍`前綴、步驟引用 (含確認圖) 同步改寫
     images = {n: _png(img) for n, img in crops.items()}
@@ -173,6 +192,8 @@ def assemble(plan, engine=None, report_path=None):
         "calibration": data.get(calibration.FLOW_KEY),
         "calibration_frame": (p["calibration"] or {}).get("frame"),
         "calibration_problem": cal_problem,
+        "fallback": calibration.fallback_pair(data.get(calibration.FLOW_KEY)),
+        "fallback_problem": fb_problem,
         "busy": flowfile.busy_target(data),
         "retry_interval_ms": flowfile.retry_interval_ms(data),
         "steps": len(steps),
