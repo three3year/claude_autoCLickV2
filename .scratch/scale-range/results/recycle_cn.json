@@ -1,0 +1,393 @@
+{
+ "info": {
+  "office_y": 606,
+  "final_scroll": 2051,
+  "drag": 333,
+  "recycle_y": 490,
+  "rel": [
+   801,
+   100
+  ]
+ },
+ "steps": [
+  {
+   "type": "branch_start"
+  },
+  {
+   "type": "find_click",
+   "target": {
+    "template": "标题_办公室",
+    "limit": {
+     "x": 713,
+     "y": 367,
+     "w": 124,
+     "h": 204,
+     "kind": "rect"
+    },
+    "pick": {
+     "kind": "top",
+     "n": 1
+    }
+   },
+   "action": "none",
+   "timeout": 3,
+   "interval": 0.3,
+   "onNotFound": "skip",
+   "updateOrigin": true,
+   "offsetX": 0,
+   "offsetY": 0
+  },
+  {
+   "type": "drag",
+   "ms": 500,
+   "holdMs": 500,
+   "mode": "prev",
+   "x1": 626,
+   "y1": 172,
+   "x2": 626,
+   "y2": -161,
+   "button": "left",
+   "confirm": "gone",
+   "timeout": 10,
+   "interval": 0.3,
+   "onNotFound": "break",
+   "busyCheck": true
+  },
+  {
+   "type": "find_click",
+   "target": {
+    "template": "标题_回收站",
+    "limit": {
+     "x": 713,
+     "y": 251,
+     "w": 124,
+     "h": 204,
+     "kind": "rect"
+    },
+    "pick": {
+     "kind": "top",
+     "n": 1
+    }
+   },
+   "action": "none",
+   "timeout": 10,
+   "interval": 0.3,
+   "onNotFound": "break",
+   "updateOrigin": true,
+   "offsetX": 0,
+   "offsetY": 0
+  },
+  {
+   "type": "click",
+   "mode": "prev",
+   "x": 801,
+   "y": 100,
+   "button": "left",
+   "clicks": 1,
+   "updateOrigin": true,
+   "busyCheck": true
+  },
+  {
+   "type": "branch_end"
+  }
+ ],
+ "insert_at": 124,
+ "check": {
+  "recycle": [
+   {
+    "frame": 168,
+    "ok": true,
+    "scales": {
+     "0.85": {
+      "n": 2,
+      "found": true,
+      "center": [
+       915,
+       489
+      ],
+      "score": 0.992,
+      "is_header": true,
+      "point": [
+       1716,
+       589
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 3.1,
+      "ok": true
+     },
+     "1.0": {
+      "n": 2,
+      "found": true,
+      "center": [
+       916,
+       490
+      ],
+      "score": 1.0,
+      "is_header": true,
+      "point": [
+       1717,
+       590
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 2.2,
+      "ok": true
+     },
+     "1.15": {
+      "n": 2,
+      "found": true,
+      "center": [
+       916,
+       490
+      ],
+      "score": 0.995,
+      "is_header": true,
+      "point": [
+       1717,
+       590
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 2.4,
+      "ok": true
+     }
+    }
+   },
+   {
+    "frame": 176,
+    "ok": true,
+    "scales": {
+     "0.85": {
+      "n": 2,
+      "found": true,
+      "center": [
+       915,
+       489
+      ],
+      "score": 0.992,
+      "is_header": true,
+      "point": [
+       1716,
+       589
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 3.1,
+      "ok": true
+     },
+     "1.0": {
+      "n": 2,
+      "found": true,
+      "center": [
+       916,
+       490
+      ],
+      "score": 1.0,
+      "is_header": true,
+      "point": [
+       1717,
+       590
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 2.2,
+      "ok": true
+     },
+     "1.15": {
+      "n": 2,
+      "found": true,
+      "center": [
+       916,
+       490
+      ],
+      "score": 0.995,
+      "is_header": true,
+      "point": [
+       1717,
+       590
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 2.4,
+      "ok": true
+     }
+    }
+   },
+   {
+    "frame": 196,
+    "ok": true,
+    "scales": {
+     "0.85": {
+      "n": 2,
+      "found": true,
+      "center": [
+       915,
+       489
+      ],
+      "score": 0.992,
+      "is_header": true,
+      "point": [
+       1716,
+       589
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 3.1,
+      "ok": true
+     },
+     "1.0": {
+      "n": 2,
+      "found": true,
+      "center": [
+       916,
+       490
+      ],
+      "score": 1.0,
+      "is_header": true,
+      "point": [
+       1717,
+       590
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 2.2,
+      "ok": true
+     },
+     "1.15": {
+      "n": 2,
+      "found": true,
+      "center": [
+       916,
+       490
+      ],
+      "score": 0.995,
+      "is_header": true,
+      "point": [
+       1717,
+       590
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 2.4,
+      "ok": true
+     }
+    }
+   },
+   {
+    "frame": 230,
+    "ok": true,
+    "scales": {
+     "0.85": {
+      "n": 2,
+      "found": true,
+      "center": [
+       915,
+       489
+      ],
+      "score": 0.979,
+      "is_header": true,
+      "point": [
+       1716,
+       589
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 3.1,
+      "ok": true
+     },
+     "1.0": {
+      "n": 2,
+      "found": true,
+      "center": [
+       916,
+       490
+      ],
+      "score": 0.986,
+      "is_header": true,
+      "point": [
+       1717,
+       590
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 2.2,
+      "ok": true
+     },
+     "1.15": {
+      "n": 2,
+      "found": true,
+      "center": [
+       916,
+       490
+      ],
+      "score": 0.977,
+      "is_header": true,
+      "point": [
+       1717,
+       590
+      ],
+      "swap": [
+       1719,
+       591
+      ],
+      "dist": 2.4,
+      "ok": true
+     }
+    }
+   }
+  ],
+  "pre_drag": {
+   "0.85": {
+    "found": true,
+    "n": 1,
+    "center": [
+     915,
+     651
+    ],
+    "ok": true
+   },
+   "1.0": {
+    "found": true,
+    "n": 1,
+    "center": [
+     916,
+     651
+    ],
+    "ok": true
+   },
+   "1.15": {
+    "found": true,
+    "n": 1,
+    "center": [
+     916,
+     651
+    ],
+    "ok": true
+   }
+  },
+  "ok": true
+ }
+}
