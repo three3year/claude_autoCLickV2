@@ -313,6 +313,9 @@ class Input:
     def virtual_screen(self):
         return {"x": 0, "y": 0, "w": 1920, "h": 1080}
 
+    def monitor_rect_at(self, x, y):
+        return (0, 0, 1920, 1080)
+
 
 class FakeStage(stage_mod.Stage):
     """假舞台: 把取得/讓出/退出記進同一條事件序列, 方便斷言交錯順序.
@@ -375,7 +378,7 @@ class Harness:
         monkeypatch.setattr(runner_mod, "time", self.clock)
         monkeypatch.setattr(runner_mod.capture, "grab", self.vision.grab)
         for name in ("click", "drag", "press_keys", "move", "cursor_pos",
-                     "virtual_screen"):
+                     "virtual_screen", "monitor_rect_at"):
             monkeypatch.setattr(runner_mod.win, name, getattr(self.input, name))
 
     def make_stage(self, acquire_returns=None, block=False):

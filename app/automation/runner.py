@@ -839,22 +839,25 @@ class Runner:
             return end + 1
 
     def _avoid_cursor(self, region):
-        """找圖前把滑鼠移到離搜尋範圍最遠的虛擬桌面角落, 消除 hover 反白.
+        """找圖前把滑鼠停到搜尋範圍左下角外側 (不遮畫面), 消除 hover 反白.
 
         截圖本身不含游標 (GDI), 但游標停留會讓底下 UI 反白, 干擾比對.
+        停點緊貼範圍左下角的外側; 範圍貼著螢幕邊緣時夾回該螢幕內 (游標落在
+        範圍的邊緣像素上, 底下通常沒有可反白的 UI)。用範圍所在螢幕的實際範圍夾,
+        不用虛擬桌面: 多螢幕大小不一時虛擬桌面的角落可能根本不在螢幕上,
+        SetCursorPos 到不了, 每次截圖都會白等一次。
         """
-        vs = win.virtual_screen()
-        corners = [(vs["x"] + 2, vs["y"] + 2),
-                   (vs["x"] + vs["w"] - 3, vs["y"] + 2),
-                   (vs["x"] + 2, vs["y"] + vs["h"] - 3),
-                   (vs["x"] + vs["w"] - 3, vs["y"] + vs["h"] - 3)]
         if region:
+            x, y = region[0] - 2, region[1] + region[3] + 1
             cx, cy = region[0] + region[2] / 2.0, region[1] + region[3] / 2.0
         else:
+            vs = win.virtual_screen()
             cx, cy = vs["x"] + vs["w"] / 2.0, vs["y"] + vs["h"] / 2.0
-        x, y = max(corners, key=lambda c: (c[0] - cx) ** 2 + (c[1] - cy) ** 2)
+            x, y = vs["x"], vs["y"] + vs["h"]
+        x1, y1, x2, y2 = win.monitor_rect_at(cx, cy)
+        x, y = min(max(x, x1), x2 - 1), min(max(y, y1), y2 - 1)
         if win.cursor_pos() == (x, y):
-            return  # 已在角落, 不必再等
+            return  # 已在停點, 不必再等
         win.move(x, y)
         self._sleep(0.08)  # 等 hover 反白消退與重繪
 

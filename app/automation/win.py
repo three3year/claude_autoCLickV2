@@ -58,6 +58,21 @@ def monitor_work_area(hwnd):
     return (vs["x"], vs["y"], vs["x"] + vs["w"], vs["y"] + vs["h"])
 
 
+def monitor_rect_at(x, y):
+    """回傳離 (x, y) 最近的螢幕範圍 (x1, y1, x2, y2, 含工作列); 失敗回傳虛擬桌面範圍.
+
+    多螢幕大小不一時, 虛擬桌面的角落可能不在任何螢幕上 (SetCursorPos 會被夾回),
+    要停游標得用實際螢幕的範圍。
+    """
+    mon = user32.MonitorFromPoint(_POINT(int(x), int(y)), MONITOR_DEFAULTTONEAREST)
+    mi = _MONITORINFO()
+    mi.cbSize = ctypes.sizeof(_MONITORINFO)
+    if mon and user32.GetMonitorInfoW(mon, ctypes.byref(mi)):
+        return tuple(mi.rcMonitor)
+    vs = virtual_screen()
+    return (vs["x"], vs["y"], vs["x"] + vs["w"], vs["y"] + vs["h"])
+
+
 GWL_EXSTYLE = -20
 WS_EX_LAYERED = 0x00080000
 WS_EX_TRANSPARENT = 0x00000020
@@ -70,6 +85,8 @@ class _POINT(ctypes.Structure):
 
 user32.WindowFromPoint.argtypes = [_POINT]
 user32.WindowFromPoint.restype = wintypes.HWND
+user32.MonitorFromPoint.argtypes = [_POINT, ctypes.c_ulong]
+user32.MonitorFromPoint.restype = wintypes.HMONITOR
 # 回傳視窗代號的函式一律宣告 restype: 預設的 c_int 會把代號截斷/符號延伸,
 # 比對就會失準 (被遮蓋偵測的 top == hwnd 比對因此恆判失敗)
 user32.GetAncestor.restype = wintypes.HWND
