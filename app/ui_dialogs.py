@@ -15,7 +15,7 @@ from tkinter import filedialog, messagebox, ttk
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import capture, findtarget, flowfmt, win
+from automation import capture, findtarget, flowfmt, pickcheck, win
 from automation.runner import BUSY_CHECK_KEY, sends_input
 from ui_theme import C, FONT
 
@@ -836,9 +836,21 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     fixed_fr = add_row("")
     has_pair = app.flow_cal is not None
 
+    def template_size():
+        """這個找圖目標的範本大小 (流程尺度 w, h); 還沒選範本＝None (矩形餘裕跳過)."""
+        name = tgt.get("template", "")
+        img = app.template_image(name) if name else None
+        return (img.shape[1], img.shape[0]) if img is not None else None
+
     def show_fixed():
         fixed_lbl.configure(text=findtarget.limit_text(fixed[0]) if fixed[0]
                             else "（還沒框選）")
+        # `拾取檢查`的矩形餘裕: 框完立刻對照範本大小 (只警告, 確定照存; ADR 0013)
+        warns = (pickcheck.rect_margin(
+            findtarget.make_target(tgt.get("template", ""), limit=fixed[0]),
+            template_size()) if fixed[0] else [])
+        fixed_warn.configure(text="\n".join(f"⚠ {w.text}" for w in warns))
+        fixed_warn.grid() if warns else fixed_warn.grid_remove()
 
     def pick_fixed():
         def body(anchor, k, _frame):
@@ -859,13 +871,16 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     fixed_btn.pack(side="left")
     fixed_lbl = ttk.Label(fixed_fr, style="Muted.TLabel")
     fixed_lbl.pack(side="left", padx=(8, 0))
+    fixed_warn = add_note("")
+    fixed_warn.configure(foreground=C["warn"])
     show_fixed()
     if not has_pair:
         fixed_btn.state(["disabled"])
     fixed_note = add_note(
         "在畫面上拖一個框，存成相對座標基準點（校準對第一張圖的中心）的位置，"
         "視窗挪位置、搜尋範圍重框都不用重設；用在位置固定的圖，會捲動的清單把框"
-        "沿捲動方向拉長" if has_pair else
+        "沿捲動方向拉長；框要比範本每邊多 20%（餘裕不足會在上面警告，但照樣可存）"
+        if has_pair else
         "要先在主視窗設定校準對才能框選（固定矩形相對座標基準點）")
 
     # ---- 挑選規則 ----
@@ -921,6 +936,10 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
             w.grid() if lk == "origin" else w.grid_remove()
         for w in (fixed_fr, fixed_note):
             w.grid() if lk == "rect" else w.grid_remove()
+        if lk == "rect" and fixed_warn.cget("text"):
+            fixed_warn.grid()
+        else:
+            fixed_warn.grid_remove()
         pk = _key_of(PICK_ZH, v_pick.get())
         n_fr.grid() if pk in ("top", "left") else n_fr.grid_remove()
         near_fr.grid() if pk == "near" else near_fr.grid_remove()
