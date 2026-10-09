@@ -10,12 +10,17 @@
   present 可寫明新位置)——同款多張時其他位置也有匹配不算錯
 - absent 幀 (還沒出現的那幾幀): 整張影格上沒有任何匹配
 - 計畫標示 clean: false (找不到乾淨影格): 不論結果都待重拍
+- `拾取檢查`的縮放餘裕 (ADR 0013): 取材幀縮到 ×0.85 與放大到 ×1.15 各找一次 (影片尺度＝
+  流程尺度, 以倍率 1 為基準), 找不到或粗篩/驗證貼門檻＝待重拍
 
 引用它的每個找圖步驟, 在該步驟的 frame 上照**步驟的`找圖目標`**完整執行一次
 (與執行器同一個模組: 裁限定範圍 → 查詢 → 比色 → 挑選規則, 原點用組裝推算的
 那一步之前的原點): 要挑得到, 且步驟的點擊位置 `at` 落在挑中的框附近 (框外最多
 再一個框寬高; 沒寫 at 而該幀就是取材幀時, 挑中的要是取材的那一個)——挑中的框就是
 原點推算用的框, 挑錯同款圖偏移就全錯。驗證通過＝執行時會挑到同一個。
+再跑`拾取檢查`的唯一: 照步驟的找圖目標 (含限定範圍) 在那一幀上匹配多於一個＝待重拍
+(設了「第 N 個」「最接近」挑選規則的不查)。三項判斷都只呼叫 app 的 pickcheck 模組, 與
+編輯器同一套標準。
 """
 from __future__ import annotations
 
@@ -24,7 +29,7 @@ import tempfile
 
 import cv2
 
-from automation import findtarget
+from automation import findtarget, pickcheck
 
 from .errors import ToolError
 from .geom import center as _center
@@ -129,6 +134,7 @@ class Checker:
             if name in self._registered:
                 for color in _color_modes(name, steps, extra_targets):
                     self._check_template(name, t, color)
+                    self._check_scale(name, t, color)
             if not t["clean"]:
                 self.results[name]["reasons"].append("找不到乾淨影格（計畫標示）")
 
@@ -165,6 +171,13 @@ class Checker:
             if self._matches(name, frame, color):
                 res["reasons"].append(f"出現前就匹配（第 {frame} 幀不該找得到）")
 
+    def _check_scale(self, name, t, color):
+        """`拾取檢查`的縮放餘裕: 取材幀 ×0.85 / ×1.15 各查一次 (pickcheck 的標準)."""
+        probe = {"template": name, "colorCheck": color}
+        for w in pickcheck.scale_margin(self.detector, self.frames[t["frame"]], (0, 0),
+                                        probe, anchor=None, scale=1.0):
+            self.results[name]["reasons"].append(f"縮放餘裕：{w.text}")
+
     def locate(self, i, step, target, origin):
         """照找圖步驟的找圖目標在它那一幀挑一次; 回傳挑中的框 (影片像素),
         挑不到或範本登錄失敗時回傳取材的裁切框 (範本會標待重拍).
@@ -190,6 +203,10 @@ class Checker:
         got = f.picked.box
         res["boxes"][frame] = got
         gx, gy = _center(got)
+        # `拾取檢查`的唯一: 照這一步的找圖目標 (限定範圍、比色、挑選規則豁免) 查
+        for w in pickcheck.unique(self.detector, self.frames[frame], (0, 0), target,
+                                  anchor=None, scale=1.0, origin=origin):
+            res["reasons"].append(f"步驟 {no} 唯一：{w.text}")
         if "at" in step:
             if abs(step["at"][0] - gx) > got[2] or abs(step["at"][1] - gy) > got[3]:
                 res["reasons"].append(
@@ -213,6 +230,10 @@ class Checker:
 
 RETAKE_ADVICE = {
     "找不到乾淨影格": "在遊戲裡停在這個畫面、游標移開後，用編輯器的範本面板重新拾取",
+    "縮放餘裕": "範本在縮放後貼近門檻（視窗模式／最大化會縮放畫面）；重截或裁小：框按鈕本體、"
+             "避開會變的數字與透出的背景，或換一幀",
+    "唯一": "畫面上有多個同款：這張圖不能當參考點；加限定範圍（以原點為基準）、換一張畫面上唯一"
+          "的圖當參考點，或設挑選規則（第 N 個／最接近指定點）",
     "出現前就匹配": "範本框到了畫面上本來就有的東西；重新框只屬於這個按鈕的部分（文字、圖示）；"
                "只差顏色時開比色",
     "位置不符": "畫面上可能有長得一樣的東西；框大一點把周邊有辨識度的部分包進來，"

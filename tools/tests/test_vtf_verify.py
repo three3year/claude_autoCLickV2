@@ -205,3 +205,62 @@ def test_該點的那一幀找到的是別處的同款圖時標待重拍原因�
 
     assert list(res["retake"]) == [RETAKE + "開始"]
     assert any("位置不符" in why for why in res["retake"][RETAKE + "開始"])
+
+
+# ---------- `拾取檢查` (scale-range 票 06): 縮放餘裕與唯一 ----------
+
+def twin_video(tmp_path, dx=150):
+    """每一幀都有兩個一模一樣的「開始」(第二個在右邊 dx 處, 同一列)."""
+    from vtf_synth import POS
+    x, y = POS["開始"]
+    frames = [screen([(BUTTONS["開始"], x, y), (BUTTONS["開始"], x + dx, y)])] * 30
+    return write_video(tmp_path / "twin.mp4", frames)
+
+
+def test_同款不只一個_沒設挑選規則_標待重拍原因寫唯一(tmp_path, engine):
+    video = twin_video(tmp_path)
+    profile = make_profile(tmp_path, region=REGION)
+    templates = {"開始": {"frame": 5, "box": box("開始")}}
+    res = run(demo_plan(video, profile, steps=[find("開始")], templates=templates),
+              engine)
+    assert list(res["retake"]) == [RETAKE + "開始"]
+    why = res["retake"][RETAKE + "開始"]
+    assert any("唯一" in w and "2 個匹配" in w for w in why), why
+    text = report(res)
+    assert "不能當參考點" in text, "待重拍建議表有唯一的修法"
+
+
+def test_同款不只一個_設了由上到下第1個_不查唯一(tmp_path, engine):
+    video = twin_video(tmp_path)
+    profile = make_profile(tmp_path, region=REGION)
+    templates = {"開始": {"frame": 5, "box": box("開始")}}
+    steps = [find("開始", pick={"kind": "top", "n": 1})]
+    res = run(demo_plan(video, profile, steps=steps, templates=templates), engine)
+    assert res["retake"] == {}
+
+
+def test_縮放餘裕沒過_標待重拍並寫原因與分數(demo, engine, monkeypatch):
+    from automation import pickcheck
+    video, profile = demo
+    real = pickcheck.scale_margin
+
+    def flaky(detector, screen_, origin_, tgt, anchor=None, scale=1.0, origin=None):
+        if tgt["template"] == "確定":
+            return [pickcheck.Warning(pickcheck.SCALE, "確定",
+                                      "縮到 ×0.85（畫面倍率 ×0.850）時範本「確定」粗篩最高 0.620 貼近門檻（要 ≥ 0.7）",
+                                      scale=0.85, gate="match", score=0.62)]
+        return real(detector, screen_, origin_, tgt, anchor, scale, origin)
+    monkeypatch.setattr(pickcheck, "scale_margin", flaky)
+    res = run(demo_plan(video, profile), engine)
+    assert list(res["retake"]) == [RETAKE + "確定"]
+    [why] = res["retake"][RETAKE + "確定"]
+    assert why.startswith("縮放餘裕：") and "0.620" in why and "×0.85" in why
+    assert "重截或裁小" in report(res)
+    assert saved(res)["data"]["steps"][1]["target"]["template"] == RETAKE + "確定"
+
+
+def test_合成按鈕的縮放餘裕本身通過(demo, engine):
+    """真的跑拾取檢查 (沒有樁): 清楚的按鈕縮到 ×0.85 / ×1.15 都還找得到."""
+    video, profile = demo
+    res = run(demo_plan(video, profile), engine)
+    assert res["retake"] == {}
