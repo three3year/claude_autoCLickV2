@@ -157,7 +157,7 @@ def has_busy_check(step):
     return sends_input(step) and bool(step.get(BUSY_CHECK_KEY))
 
 
-GATE_ZH = {"match": "粗篩", "verify": "驗證", "color": "比色"}
+GATE_ZH = findtarget.GATE_ZH
 
 
 class GateBest:
@@ -995,7 +995,8 @@ class Runner:
         if f.picked is not None:
             fields["picked"] = findtarget.fmt_box(f.picked.box)
         # not_appeared 也記: 分得出「真的沒出現」與「範本/限定範圍對不上」
-        if result in ("timeout", "cannot_run", "not_appeared", "stopped"):
+        # not_gone (該離開的沒離開) 也記: best＝仍在原位那個匹配的分數、failed＝still_there
+        if result in ("timeout", "cannot_run", "not_appeared", "stopped", "not_gone"):
             fields.update(gate_fields(f))
         fields.update(extra)
         self._log_file("find.target", **fields)

@@ -26,10 +26,10 @@ RECT_MARGIN = 0.20   # 矩形餘裕: 固定矩形每邊至少比範本多 20%
 
 SCALE, RECT, UNIQUE = "scale", "rect", "unique"
 KIND_ZH = {SCALE: "縮放餘裕", RECT: "矩形餘裕", UNIQUE: "唯一"}
-GATE_ZH = {"match": "粗篩", "verify": "驗證", "color": "比色"}
+GATE_ZH = findtarget.GATE_ZH
 
 
-class Warning:
+class PickWarning:
     """一則拾取檢查的警告: 種類、一句人看的話、關鍵分數 (供報告與測試)."""
     __slots__ = ("kind", "template", "text", "scores")
 
@@ -40,7 +40,7 @@ class Warning:
         self.scores = scores
 
     def __repr__(self):
-        return f"Warning({self.kind}, {self.template!r}, {self.scores})"
+        return f"PickWarning({self.kind}, {self.template!r}, {self.scores})"
 
     def __str__(self):
         return f"〔{KIND_ZH[self.kind]}〕{self.text}"
@@ -67,7 +67,7 @@ def rect_margin(tgt, template_size):
     lim = tgt.get("limit") or {}
     if lim.get("kind") != "rect" or template_size is None:
         return []
-    if not findtarget._valid_fixed_rect(lim):
+    if not findtarget.valid_fixed_rect(lim):
         return []
     w, h = int(template_size[0]), int(template_size[1])
     need_w, need_h = min_rect((w, h))
@@ -79,7 +79,7 @@ def rect_margin(tgt, template_size):
             f"（每邊至少多 {int(RECT_MARGIN * 100)}%：左右各 {margin_px(w)}px、"
             f"上下各 {margin_px(h)}px），至少要框 {need_w}×{need_h}；"
             "餘裕太小時視窗縮放、基準點量測誤差就會把圖切掉")
-    return [Warning(RECT, name, text, rect=(lw, lh), size=(w, h),
+    return [PickWarning(RECT, name, text, rect=(lw, lh), size=(w, h),
                     min=(need_w, need_h))]
 
 
@@ -138,17 +138,17 @@ def scale_margin(detector, screen, screen_origin, tgt, anchor=None, scale=1.0,
             gate = GATE_ZH.get(f.query.failed, "")
             text = (f"{where}找不到範本「{name}」（{gate}最高 {f.query.score:.3f}）"
                     "：範本在縮放後找不到，建議重截（裁小、框按鈕本體或換一幀）")
-            out.append(Warning(SCALE, name, text, scale=s, gate=f.query.failed,
+            out.append(PickWarning(SCALE, name, text, scale=s, gate=f.query.failed,
                                score=float(f.query.score)))
         elif match is not None and match < MATCH_MIN:
             text = (f"{where}範本「{name}」粗篩最高 {match:.3f} 貼近門檻"
                     f"（要 ≥ {MATCH_MIN}）：縮放後可能找不到，建議重截（裁小或換一幀）")
-            out.append(Warning(SCALE, name, text, scale=s, gate="match",
+            out.append(PickWarning(SCALE, name, text, scale=s, gate="match",
                                score=float(match)))
         elif verify is not None and verify < VERIFY_MIN:
             text = (f"{where}範本「{name}」驗證最高 {verify:.3f} 貼近門檻"
                     f"（要 ≥ {VERIFY_MIN}）：縮放後可能找不到，建議重截（框按鈕本體或換一幀）")
-            out.append(Warning(SCALE, name, text, scale=s, gate="verify",
+            out.append(PickWarning(SCALE, name, text, scale=s, gate="verify",
                                score=float(verify)))
     return out
 
@@ -182,7 +182,7 @@ def unique(detector, screen, screen_origin, tgt, anchor=None, scale=1.0,
     text = (f"{where}有 {len(f.matches)} 個匹配："
             + "、".join(f"({x},{y})" for x, y in centers)
             + f"——範本「{name}」不唯一，不能當參考點；換一張、加限定範圍或設挑選規則")
-    return [Warning(UNIQUE, name, text, matches=centers)]
+    return [PickWarning(UNIQUE, name, text, matches=centers)]
 
 
 # ================= 一次全查 =================

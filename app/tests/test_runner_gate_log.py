@@ -102,6 +102,22 @@ def test_找圖點擊確認圖逾時_find_target紀錄與訊息(harness):
     assert "驗證最高 0.700" in msg
 
 
+def test_等待消失仍未消失_紀錄帶仍在原位的分數與still_there(harness):
+    harness.vision.plan("a", [(300, 300, 0.93)])
+    harness.run([find("a", action="wait_gone", timeout=1, interval=0.5,
+                      onNotFound="skip")])
+    [rec] = records(harness, role="wait_gone")
+    assert (rec["result"], rec["best"], rec["failed"]) == ("not_gone", "0.930", "still_there")
+
+
+def test_找圖點擊目標圖沒消失_紀錄帶still_there(harness):
+    harness.vision.plan("a", [(300, 300, 0.91)])
+    harness.run([find("a", confirm="gone", timeout=1, interval=0.5,
+                      onNotFound="skip")], retry_interval=0)
+    [rec] = records(harness, role="confirm_gone")
+    assert (rec["result"], rec["failed"]) == ("not_gone", "still_there")
+
+
 # ---------- 手動停止也寫最後一筆 ----------
 
 def _stop_at(harness, n_sleep):

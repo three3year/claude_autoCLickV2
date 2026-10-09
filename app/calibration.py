@@ -113,6 +113,11 @@ def fallback_anchor(fb_first, offset, k):
     return flowfmt.to_screen(offset, fb_first, k)
 
 
+def fallback_first(anchor, offset, k):
+    """反過來: 由座標基準點與偏移推回備用第一張的中心 (換主校準對時重算偏移用)."""
+    return flowfmt.to_screen((-int(offset[0]), -int(offset[1])), anchor, k)
+
+
 class Measurement:
     """一次`校準`量測: 校準對兩張圖的匹配框中心 (螢幕座標) 與分數.
 

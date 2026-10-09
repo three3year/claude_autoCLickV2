@@ -182,12 +182,16 @@ def test_先警告後通過_標記消失(make_app, monkeypatch):
     assert _check_logs(app)[-1][0] == "ok"
 
 
-def test_沒有校準對時截範本不查縮放餘裕(make_app, monkeypatch):
+def test_沒有校準對時截範本也查縮放餘裕_以倍率1為基準(make_app, monkeypatch):
     app = make_app(pair=False)
     _engine(app, monkeypatch)
+    app.vision.plan("tmpl_001", [miss("match", 0.55), (300, 400)])
     monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20))
     app.capture_template()
-    assert app.vision.lookups == [] and _check_logs(app) == []
+    scales = [round(s, 3) for n, s in app.vision.expected_scales if n == "tmpl_001"]
+    assert scales == [0.85, 1.15]
+    [(lvl, m)] = _check_logs(app)
+    assert lvl == "warn" and "粗篩最高 0.550" in m
 
 
 def test_選範本對話框現場截圖_確定後也查縮放餘裕(make_app, monkeypatch):

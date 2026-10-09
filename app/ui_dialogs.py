@@ -590,7 +590,8 @@ NO_PAIR_MSG = ("這份流程還沒有校準對，就沒有座標基準點可以�
                "請先在主視窗「設定校準對」（例：遊戲視窗標題列的圖示與關閉鈕）")
 
 
-def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取"):
+def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取",
+                  quiet=False):
     """一次`拾取`的共同骨架 (ADR 0012): 清場前檢查 → 清場 → 先在這次的截圖上`校準` →
     body(anchor, k, frame) 做實際的拾取 → 清場後提示.
 
@@ -600,7 +601,8 @@ def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取")
     - 流程沒有校準對: need_anchor 的拾取 (絕對座標、固定矩形) 擋下並提示先設校準對;
       只依原點的拾取照常, anchor＝None、k＝1 (新流程還沒有尺度, 當下畫面就是)。
     - 有校準對: 量不到 (範圍內找不到、兩張重疊) ＝不存、提示重框搜尋範圍。
-    所有提示都在清場「之外」彈 (清場中彈 modal 會隱形卡死)。
+    所有提示都在清場「之外」彈 (清場中彈 modal 會隱形卡死)。quiet＝只是檢查 (拾取檢查):
+    引擎沒就緒、校準圖載不起來、量不到都不彈 modal, 寫一行紀錄區就回 None。
     """
     cal = app.flow_cal
     if cal is None:
@@ -609,7 +611,10 @@ def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取")
             return None
         with ui_overlay.screen_clear(app.root, extra=hide):
             return body(None, 1.0, None), None, 1.0
-    if not app.calibration_ready(title, parent=parent):
+    if quiet:
+        if not all(app.template_ready(n) for n in cal["pair"]):
+            return None
+    elif not app.calibration_ready(title, parent=parent):
         return None
     r = None
     with ui_overlay.screen_clear(app.root, extra=hide):
@@ -620,6 +625,9 @@ def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取")
         app.log_ui(f"{title}：主校準對找不到（缺「{'」「'.join(c.main.missing)}」），"
                    "改用備用校準對量座標基準點與倍率", "warn")
     if not c.ok:
+        if quiet:
+            app.log_ui(f"{title}略過：{c.describe()}", "warn")
+            return None
         messagebox.showwarning(
             title, f"拾取當下{c.describe()}。\n這次沒有存下任何座標；"
             "請重新框選搜尋範圍（要框住校準對兩張圖，例如遊戲視窗的標題列）後再試",
@@ -760,23 +768,19 @@ def pick_check_now(app, tgt, hide=(), origin_fn=None,
     name = tgt.get("template", "")
     if not app.template_ready(name):
         return []
-    cal = app.flow_cal
-    if cal is not None:
-        for n in cal["pair"]:
-            if not app.template_ready(n):
-                return []
-    with ui_overlay.screen_clear(app.root, extra=hide):
-        if cal is None:
-            frame, anchor, k = app.grab_frame(), None, 1.0
-        else:
-            c, frame = app.calibrate_frame()
-            if not c.ok:
-                app.log_ui(f"拾取檢查略過：{c.describe()}", "warn")
-                return []
-            anchor, k = c.anchor, c.scale
+
+    def body(anchor, k, frame):
+        if frame is None:   # 沒有校準對: 這裡才截圖 (有的話用量校準的那張)
+            frame = app.grab_frame()
         origin = None
         if origin_fn is not None and findtarget.needs_origin(tgt):
             origin = origin_fn(anchor, k)
+        return frame, origin
+
+    got = measured_pick(app, app.root, body, hide=hide, title="拾取檢查", quiet=True)
+    if not got or got[0] is None:
+        return []
+    (frame, origin), anchor, k = got
     screen, org = frame
     warns = pickcheck.check(app.detector, screen, org, tgt, anchor, k,
                             origin=origin, kinds=kinds)

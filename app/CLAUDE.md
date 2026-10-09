@@ -94,7 +94,21 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     **新增拾取、截圖或比對測試入口一律走 `measured_pick`**。「校準」鈕只量測顯示，不存任何值
   - 換校準對（`App.designate_pair`）：同一張截圖先用舊對量倍率與舊基準點（量不到就拒絕），
     新基準距離＝新距離 ÷ 倍率，再依新舊基準點的差把所有存下的座標平移
-    （`flowfmt.shift_flow`＋`Workspace.shift_pos`），落點不變
+    （`flowfmt.shift_flow`＋`Workspace.shift_pos`），落點不變；有備用對時偏移跟著重算
+  - **`備用校準對`（ADR 0013）**：校準資料可帶 `fallback {pair, baseline, offset}`
+    （`calibration.fallback_pair`／`make_fallback`）。`calibration.calibrate` 先量主對、主對缺一張才量
+    備用對，`Calibrated.used` 說用的是哪一組；用備用對時基準點＝備用第一張中心＋偏移×倍率
+    （`fallback_anchor`／`fallback_offset` 互逆），存下的座標永遠相對同一個基準點。執行器、編輯器拾取、
+    影片轉流程三處都只走這個入口；執行紀錄印一行警告照跑；主備皆無才不執行。主對該選**遊戲畫面內**兩張
+    固定圖，標題列圖示＋關閉鈕量到的倍率偏小 0.4%，只當備用
+  - **`拾取檢查`（`automation/pickcheck.py`，ADR 0013）**：只警告不擋存檔。截範本後跑縮放餘裕
+    （`App.check_template_scale`，用拾取當下的整張截圖 `frame`，等 `ensure_registered` 後查）、找圖設定
+    按確定與比對測試跑唯一＋縮放餘裕（`ui_dialogs.pick_check_now`，走 `measured_pick(quiet=True)`：
+    只是檢查，引擎沒就緒／校準量不到都不彈 modal、不過 `engine_gate`，寫一行紀錄區就略過——這是
+    「新增辨識入口要過 gate」的唯一例外）、固定矩形框完跑矩形餘裕。警告經
+    `App.note_pick_warnings` 寫紀錄區並在範本面板標 ⚠（`pick_warnings()`，只活在這次編輯，不進存檔）。
+    三個常數（粗篩 0.7、驗證 0.85、矩形 20%）住在模組，改它們要改 ADR 0013。影片轉流程的自我驗證
+    （`tools/video_to_flow/verify.py`）呼叫同一個模組，不要另寫一套判斷
 - `Runner` 可注入舞台；**不注入時完全走原本的單流程路徑**，改 runner 時務必保住這條回歸線
 - 範本元資料只有 `pos` 鍵：各範本的拍攝位置＝截圖當下的中心，**相對座標基準點、流程尺度**
   （相對座標預設原點的備援；◎ 退用它時以當下基準點換回螢幕）。

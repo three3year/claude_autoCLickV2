@@ -719,8 +719,7 @@ class App:
                      + self.ws.shift_pos(old_anchor, m.anchor, k))
             if fb:
                 # 備用對的偏移跟著重算: 備用第一張的中心不動, 指向新基準點
-                fb_first = flowfmt.to_screen((-fb["offset"][0], -fb["offset"][1]),
-                                             old_anchor, k)
+                fb_first = calibration.fallback_first(old_anchor, fb["offset"], k)
                 self.flow_cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
                     fb["pair"], fb["baseline"],
                     calibration.fallback_offset(m.anchor, fb_first, k))
@@ -1722,7 +1721,8 @@ class App:
 
     def check_template_scale(self, name, frame, anchor, k):
         """截範本後的`縮放餘裕`: 用拾取當下的整張截圖 frame (影像, 左上角), 等該範本登錄
-        完成才查; 沒有截圖 (沒有校準對) 或引擎沒就緒就略過. 回傳警告清單."""
+        完成才查; 沒有校準對時 anchor 是 None、倍率 1; 沒有截圖或引擎沒就緒就略過
+        (只是檢查, 不經 engine_gate 的 modal). 回傳警告清單."""
         if frame is None or not self.template_ready(name):
             return []
         screen, org = frame
@@ -1764,7 +1764,8 @@ class App:
         def body(anchor, k, frame):
             r = self.pick_region_raw(hide=hide)
             if r:
-                r["frame"] = frame
+                # 沒有校準對時沒有校準用的截圖: 拾取檢查仍要一張整張截圖 (倍率 1)
+                r["frame"] = frame if frame is not None else self.grab_frame()
             return r
         return ui_dialogs.measured_pick(self, parent or self.root, body,
                                         hide=hide, title="截圖框選")

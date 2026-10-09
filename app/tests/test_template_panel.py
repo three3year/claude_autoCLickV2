@@ -289,7 +289,7 @@ def test_有拾取檢查警告的範本標示_通過後消失(tkroot, tmp_path):
     from automation import pickcheck
     app = _panel(tkroot, tmp_path, names=("a", "b"))
     try:
-        app.note_pick_warnings("a", [pickcheck.Warning(pickcheck.UNIQUE, "a",
+        app.note_pick_warnings("a", [pickcheck.PickWarning(pickcheck.UNIQUE, "a",
                                                        "有 2 個匹配", matches=[])])
         rows = [r.strip() for r in app.tmpl_list.get(0, "end")]
         assert rows == ["⚠ a", "🖼 b"]

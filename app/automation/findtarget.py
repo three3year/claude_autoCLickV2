@@ -188,12 +188,18 @@ def limit_rect(tgt, region, origin, scale=1.0, anchor=None):
     return (x0, y0, max(0, x1 - x0), max(0, y1 - y0))
 
 
-def _valid_fixed_rect(lim):
+def valid_fixed_rect(lim):
     """`固定矩形`的四個欄位都是整數 (流程尺度像素), 寬高大於 0."""
     vals = [lim.get(k) for k in ("x", "y", "w", "h")]
     if not all(isinstance(v, int) and not isinstance(v, bool) for v in vals):
         return False
     return vals[2] > 0 and vals[3] > 0
+
+
+_valid_fixed_rect = valid_fixed_rect
+
+# 引擎沒過的那一關的中文名 (執行紀錄、拾取檢查共用; QueryResult.failed 的值)
+GATE_ZH = {"match": "粗篩", "verify": "驗證", "color": "比色"}
 
 
 def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0,

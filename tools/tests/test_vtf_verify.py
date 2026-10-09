@@ -227,7 +227,7 @@ def test_同款不只一個_沒設挑選規則_標待重拍原因寫唯一(tmp_p
     why = res["retake"][RETAKE + "開始"]
     assert any("唯一" in w and "2 個匹配" in w for w in why), why
     text = report(res)
-    assert "不能當參考點" in text, "待重拍建議表有唯一的修法"
+    assert "加限定範圍（以原點為基準）" in text, "待重拍建議表有唯一的修法"
 
 
 def test_同款不只一個_設了由上到下第1個_不查唯一(tmp_path, engine):
@@ -246,7 +246,7 @@ def test_縮放餘裕沒過_標待重拍並寫原因與分數(demo, engine, monk
 
     def flaky(detector, screen_, origin_, tgt, anchor=None, scale=1.0, origin=None):
         if tgt["template"] == "確定":
-            return [pickcheck.Warning(pickcheck.SCALE, "確定",
+            return [pickcheck.PickWarning(pickcheck.SCALE, "確定",
                                       "縮到 ×0.85（畫面倍率 ×0.850）時範本「確定」粗篩最高 0.620 貼近門檻（要 ≥ 0.7）",
                                       scale=0.85, gate="match", score=0.62)]
         return real(detector, screen_, origin_, tgt, anchor, scale, origin)
