@@ -14,14 +14,9 @@ if not exist dist\AutoClick\AutoClick.exe (
     exit /b 1
 )
 
-echo [AutoClick] 放入 arknights profile (只在不存在時建立, 絕不覆蓋使用者資料)...
-rem profile 只剩引擎參數與流程存檔目錄 (ADR 0006): 範本圖住在流程存檔裡,
-rem 沒有範本庫也沒有登錄產物要複製; 流程存檔是使用者自己的資料, 不隨包出貨。
-if not exist dist\AutoClick\profiles\arknights (
-    mkdir dist\AutoClick\profiles\arknights\flows
-    copy /y ..\profiles\arknights\config.yaml dist\AutoClick\profiles\arknights\ >nul
-)
+rem 打包版資料夾裡沒有使用者資料 (ADR 0015): 流程資料夾在 %USERPROFILE%\AutoClick\,
+rem 本機狀態與日誌在 %LOCALAPPDATA%\AutoClick\ ; 不必放任何東西到 exe 旁。
 
 echo.
 echo 完成! 交付物: %~dp0dist\AutoClick\  (執行 AutoClick.exe, 開啟時跳 UAC)
-echo 部署到既有機器 = 只覆蓋 AutoClick*.exe 與 _internal\ , 不動 profiles\
+echo 部署到既有機器 = 整個 AutoClick\ 資料夾換掉

@@ -12,15 +12,18 @@
 
 ```bash
 .venv/Scripts/pip install -e .[app]        # 另需 mss / pynput
-.venv/Scripts/python app/app.py            # 從原始碼啟動 (用 repo 的 profiles/)
+.venv/Scripts/python app/app.py            # 從原始碼啟動
 ```
 
-- 遊戲設定檔在 `profiles/<game>/`(範本庫 + flows + config);UI 可切換與建立。
-- 舊 autoClick 的 flow JSON 與 `.autoclickpack` 可由「讀檔」單向匯入;
-  「匯出」產生自包自足的新格式 pack(flow + 引用範本)。
+- 一份流程＝一個資料夾:`flow.yaml`(步驟與流程設定)+ `templates/`(範本圖)+ `.cache/`
+  (可重建的快取)。預設放在 `%USERPROFILE%\AutoClick\`;開檔選資料夾裡的 `flow.yaml`。
+- 引擎參數＝引擎內建預設 + 流程 `flow.yaml` 的 `engine:` 段覆蓋。
+- 開 app 自動開上次的流程;本機狀態與日誌在 `%LOCALAPPDATA%\AutoClick\`
+  (從原始碼執行時在 repo 的 `.local\`)。
 - 打包可攜版:`app\build.bat`(PyInstaller onedir,torch CPU 與 DINOv2 權重
   隨包,目標機免 Python 免網路;交付物 = `app\dist\AutoClick\` 整個資料夾,
-  以系統管理員權限執行)。細節見 `app/CLAUDE.md`「建置與部署」。
+  以系統管理員權限執行;部署＝整個資料夾換掉,裡面沒有使用者資料)。細節見
+  `app/CLAUDE.md`「建置與部署」。
 
 ## 安裝
 
