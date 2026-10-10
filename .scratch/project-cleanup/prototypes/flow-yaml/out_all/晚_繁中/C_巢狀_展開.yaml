@@ -1,0 +1,210 @@
+# PROTOTYPE 樣本 — 晚_繁中（由 晚_繁中.autoclickpack 轉出，票 02）
+format: 1
+scan_region: [0, 0, 1920, 1024]
+calibration:
+  pair: [主畫面設定鈕, 主畫面倉庫]
+  baseline: 1942.4
+  fallback:
+    pair: [標題列圖示, 標題列關閉鈕]
+    baseline: 1868.0
+    offset: [40, 67]
+busy:
+  template: 忙碌指示
+  within: [954, 818, 382, 105]
+template_pos:
+  主畫面倉庫: [1760, 824]
+  主畫面設定鈕: [0, 0]
+  公開招募: [1291, 306]
+  可收穫: [217, 898]
+  基建BASE: [1450, 771]
+  導航: [278, -3]
+  幹員休息: [1634, 876]
+  幹員信賴: [621, 898]
+  收取: [1641, 793]
+  最多: [1250, 415]
+  無人機加速: [1788, 666]
+  生產面板箭頭: [553, 741]
+  確定: [1361, 720]
+  訂單交付: [410, 898]
+  返回: [-3, 1]
+  進駐總覽: [182, 96]
+  鈴鐺: [1764, 123]
+  非工作區: [1608, -2]
+steps:
+- find_click: 圓形叉叉
+  within: [1268, -17, 471, 240]
+  confirm: gone
+  timeout: 2
+  on_fail: skip
+  busy_check: true
+- find_click: 基建BASE
+  within: [1360, 674, 168, 170]
+  confirm: gone
+  timeout: 30
+- find_click: 鈴鐺
+  within: [1704, 3, 120, 180]
+  offset: [-2, -1]
+  confirm:
+    appear: 待辦事項
+    within: [-71, 836, 252, 102]
+  timeout: 15
+  on_fail: skip
+- repeat: 3
+  steps:
+  - branch:
+    - if:
+        find_click: 可收穫
+        within: [100, 834, 235, 104]
+        confirm: gone
+        timeout: 3
+        on_fail: skip
+        busy_check: true
+    - if:
+        find_click: 訂單交付
+        within: [108, 834, 210, 104]
+        confirm: gone
+        timeout: 3
+        on_fail: skip
+    - if:
+        find_click: 幹員信賴
+        within: [101, 834, 250, 104]
+        confirm: gone
+        timeout: 3
+        on_fail: skip
+        busy_check: true
+    on_break: break
+- find: 返回
+  within: [-58, -63, 110, 126]
+  timeout: 5
+- click: [500, 204]
+- wait: 0.5
+- find: 進駐總覽
+  within: [106, 24, 152, 144]
+- click: [269, 551]
+  confirm: next
+- find_click: 生產面板箭頭
+  confirm: next
+  timeout: 15
+- find_click: 無人機加速
+  within: [1724, 602, 128, 128]
+  confirm: next
+- find_click: 最多
+  within: [1115, 344, 270, 142]
+  offset: [47, 0]
+- wait: 0.3
+- find_click: 確定
+  within: [1284, 661, 155, 118]
+  confirm: gone
+  busy_check: true
+- find_click: 收取
+  within: [1536, 720, 210, 146]
+  offset: [1, 0]
+  timeout: 3
+  on_fail: skip
+- wait: 0.5
+- find_click: 返回
+  within: [-58, -61, 109, 124]
+- wait: 1
+- find_click: 返回
+  within: [-58, -63, 110, 126]
+  offset: [0, 1]
+  confirm: next
+- find_click: 進駐總覽
+  within: [106, 24, 152, 144]
+  timeout: 15
+- find: 非工作區
+  within: [1538, -70, 140, 136]
+- wait: 0.5
+- click: [164, 432]
+  busy_check: true
+- find: 標題_製造站
+  within: [800, 459, 140, 204]
+  pick:
+    top: 1
+- drag: [798, 212]
+  to: [798, -179]
+  confirm: gone
+  busy_check: true
+- find: 標題_製造站
+  within: [800, 68, 140, 204]
+  pick:
+    top: 1
+- drag: [798, 591]
+  to: [798, 200]
+  confirm: gone
+  busy_check: true
+- branch:
+  - if:
+      find: 標題_貿易站
+      within: [800, 510, 140, 204]
+      pick:
+        top: 1
+      timeout: 3
+      on_fail: skip
+    then:
+    - click: [902, -331]
+      busy_check: true
+    - click: [0, 196]
+      busy_check: true
+- find: 標題_貿易站
+  within: [800, 510, 140, 204]
+  pick:
+    top: 1
+- drag: [798, 138]
+  to: [798, -214]
+  confirm: gone
+  busy_check: true
+- find: 標題_貿易站
+  within: [800, 158, 140, 204]
+  pick:
+    top: 1
+- drag: [798, 479]
+  to: [798, 128]
+  confirm: gone
+  busy_check: true
+- branch:
+  - if:
+      find: 標題_發電站
+      within: [800, 248, 140, 204]
+      pick:
+        top: 1
+      timeout: 3
+      on_fail: skip
+    then:
+    - click: [910, -133]
+      busy_check: true
+    - click: [0, 246]
+      busy_check: true
+    - click: [0, 196]
+      busy_check: true
+- find: 標題_發電站
+  within: [800, 248, 140, 204]
+  pick:
+    top: 1
+- drag: [798, 218]
+  to: [798, 56]
+  confirm: gone
+  busy_check: true
+- branch:
+  - if:
+      find: 標題_發電站
+      within: [800, 86, 140, 204]
+      pick:
+        top: 1
+      timeout: 3
+      on_fail: skip
+    then:
+    - click: [910, 507]
+      busy_check: true
+- find_click: 非工作區
+  within: [1538, -70, 140, 136]
+- find_click: 幹員休息
+  within: [1552, 804, 164, 134]
+  timeout: 3
+  on_fail: skip
+- wait: 0.5
+- find_click: 導航
+  within: [204, -66, 148, 126]
+  confirm: next
+- find_click: 公開招募
+  within: [1220, 237, 142, 138]

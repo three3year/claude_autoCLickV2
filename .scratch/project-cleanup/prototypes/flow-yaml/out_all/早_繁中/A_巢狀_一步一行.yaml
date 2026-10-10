@@ -1,0 +1,274 @@
+# PROTOTYPE 樣本 — 早_繁中（由 早_繁中.autoclickpack 轉出，票 02）
+format: 1
+scan_region: [0, 0, 1920, 1024]
+calibration:
+  pair: [標題列圖示, 標題列關閉鈕]
+  baseline: 1868.0
+  fallback: {pair: [主畫面設定鈕, 主畫面倉庫], baseline: 1942.4, offset: [-40, -67]}
+busy: {template: 忙碌指示, within: [994, 885, 382, 105]}
+template_pos:
+  主畫面倉庫: [1800, 891]
+  主畫面設定鈕: [40, 67]
+  信用交易所: [1557, 152]
+  傳遞線索: [1799, 474]
+  傳遞關閉: [1856, 64]
+  公開招募: [1331, 373]
+  可收穫: [209, 965]
+  圓形叉叉: [1650, 153]
+  基建BASE: [1416, 821]
+  好友: [1640, 64]
+  好友列表: [55, 293]
+  導航: [318, 64]
+  幹員休息: [1674, 943]
+  幹員信賴: [205, 962]
+  忙碌指示: [1185, 937]
+  快速傳遞: [118, 962]
+  快速置入: [1710, 924]
+  採購中心: [1629, 364]
+  收取: [1647, 860]
+  收取信用: [1577, 67]
+  最多: [1290, 482]
+  會客室: [414, 263]
+  每日線索: [1800, 240]
+  無人機加速: [1828, 733]
+  獲得物資: [952, 127]
+  生產面板箭頭: [593, 808]
+  確定: [1401, 787]
+  線索交流彈窗: [46, 259]
+  線索面板: [349, 940]
+  解鎖線索: [929, 867]
+  訂單交付: [412, 967]
+  訪問下位: [1723, 897]
+  訪問基建: [1322, 232]
+  購買物品: [1208, 784]
+  返回: [37, 68]
+  進駐總覽: [222, 163]
+  鈴鐺: [1804, 190]
+  非工作區: [1648, 65]
+  領取: [1145, 781]
+steps:
+  - repeat: 6    # 1
+    steps:
+      - branch:    # 2
+          - if: {find_click: 圓形叉叉, within: [1308, 50, 471, 240], confirm: gone, timeout: 5, on_fail: skip, busy_check: true}    # 3
+          - if: {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 5, on_fail: skip, busy_check: true}    # 5
+        on_break: break
+  - {find_click: 基建BASE, within: [1333, 736, 239, 181], offset: [0, 1], confirm: gone, timeout: 30}    # 8
+  - {find_click: 鈴鐺, within: [1744, 70, 120, 180], offset: [-2, -1], confirm: {appear: 待辦事項, within: [-31, 903, 252, 102]}, timeout: 15, on_fail: skip}    # 9
+  - repeat: 3    # 10
+    steps:
+      - branch:    # 11
+          - if: {find_click: 可收穫, within: [144, 905, 130, 100], confirm: gone, timeout: 3, on_fail: skip, busy_check: true}    # 12
+          - if: {find_click: 訂單交付, within: [152, 907, 324, 98], confirm: gone, timeout: 3, on_fail: skip}    # 14
+          - if: {find_click: 幹員信賴, within: [144, 899, 516, 106], confirm: gone, timeout: 3, on_fail: skip, busy_check: true}    # 16
+        on_break: break
+  - {find: 返回, within: [-18, 3, 111, 128], timeout: 5}    # 19
+  - {click: [500, 204]}    # 20
+  - {wait: 0.5}    # 21
+  - {find: 進駐總覽, within: [146, 91, 152, 144]}    # 22
+  - {click: [269, 551], confirm: next}    # 23
+  - {find_click: 生產面板箭頭, confirm: next, timeout: 15}    # 24
+  - {find_click: 無人機加速, within: [1763, 669, 131, 128], confirm: next}    # 25
+  - {find_click: 最多, within: [1155, 411, 270, 142], offset: [47, 0]}    # 26
+  - {wait: 0.3}    # 27
+  - {find_click: 確定, within: [1324, 728, 155, 118], confirm: gone, busy_check: true}    # 28
+  - {find_click: 收取, within: [1582, 791, 130, 138], timeout: 3, on_fail: skip}    # 29
+  - {wait: 0.5}    # 30
+  - {find_click: 返回, within: [-18, 3, 111, 128]}    # 31
+  - {wait: 1}    # 32
+  - {find_click: 返回, within: [-18, 3, 111, 128], offset: [0, 1], confirm: next}    # 33
+  - {find: 進駐總覽, within: [146, 91, 152, 144]}    # 34
+  - {drag: [1274, 308], to: [324, 408], confirm: next}    # 35
+  - {find_click: 會客室, confirm: {appear: 線索面板, within: [276, 863, 146, 142]}, timeout: 15}    # 36
+  - {find_click: 線索面板, within: [276, 863, 146, 142], timeout: 15}    # 37
+  - {wait: 1}    # 38
+  - branch:    # 39
+      - if: {find: 線索交流彈窗, within: [-20, 163, 132, 192], timeout: 1.5, on_fail: skip}    # 40
+        then:
+          - {find_click: 返回, within: [-18, 3, 111, 128], timeout: 5, on_fail: break}    # 41
+          - {wait: 0.8}    # 42
+  - {find_click: 每日線索, within: [1736, 173, 128, 134], timeout: 3, on_fail: skip}    # 44
+  - {find_click: 領取, within: [1073, 725, 143, 111], confirm: gone, timeout: 3, on_fail: skip}    # 45
+  - branch:    # 46
+      - if: {find_click: 接收線索, within: [1730, 291, 138, 138], confirm: {appear: 全部收取, within: [1494, 899, 272, 106]}, timeout: 5, on_fail: break}    # 47
+        then:
+          - {find_click: 全部收取, within: [1494, 899, 272, 106], confirm: {appear: 暫未收到新的線索, within: [1497, 459, 274, 107]}, timeout: 8, on_fail: skip}    # 48
+          - {click: [-486, -208], confirm: {appear: 傳遞線索, within: [1730, 405, 138, 138]}, timeout: 5, on_fail: skip}    # 49
+  - {find_click: CONFIDENTIAL線索, within: [1734, 670, 136, 216], confirm: {appear: 全部分頁, within: [1398, 13, 122, 86]}, timeout: 5, on_fail: skip}    # 51
+  - branch:    # 52
+      - if: {find: 全部分頁, within: [1398, 13, 122, 86], timeout: 2, on_fail: skip}    # 53
+        then:
+          - {click: [16, 71], confirm: {appear: 選中1, within: [1440, 92, 70, 70]}, timeout: 3, on_fail: break, update_origin: false}    # 54
+          - {find: 來自, within: [1519, 248, 121, 82], timeout: 1, on_fail: break, update_origin: false}    # 55
+          - {click: [79, 71], confirm: {appear: 選中2, within: [1503, 92, 70, 70]}, timeout: 3, on_fail: break, update_origin: false}    # 56
+          - {find: 來自, within: [1519, 248, 121, 82], timeout: 1, on_fail: break, update_origin: false}    # 57
+          - {click: [142, 71], confirm: {appear: 選中3, within: [1566, 92, 70, 70]}, timeout: 3, on_fail: break, update_origin: false}    # 58
+          - {find: 來自, within: [1519, 248, 121, 82], timeout: 1, on_fail: break, update_origin: false}    # 59
+          - {click: [206, 71], confirm: {appear: 選中4, within: [1630, 92, 70, 70]}, timeout: 3, on_fail: break, update_origin: false}    # 60
+          - {find: 來自, within: [1519, 248, 121, 82], timeout: 1, on_fail: break, update_origin: false}    # 61
+          - {click: [269, 71], confirm: {appear: 選中5, within: [1693, 92, 70, 70]}, timeout: 3, on_fail: break, update_origin: false}    # 62
+          - {find: 來自, within: [1519, 248, 121, 82], timeout: 1, on_fail: break, update_origin: false}    # 63
+          - {click: [332, 71], confirm: {appear: 選中6, within: [1756, 92, 70, 70]}, timeout: 3, on_fail: break, update_origin: false}    # 64
+          - {find: 來自, within: [1519, 248, 121, 82], timeout: 1, on_fail: break, update_origin: false}    # 65
+          - {click: [395, 71], confirm: {appear: 選中7, within: [1819, 92, 70, 70]}, timeout: 3, on_fail: break, update_origin: false}    # 66
+          - {find: 來自, within: [1519, 248, 121, 82], timeout: 1, on_fail: break, update_origin: false}    # 67
+          - {click: [-279, 615], confirm: gone, timeout: 3, on_fail: break, update_origin: false}    # 68
+          - {find_click: 快速置入, within: [1650, 865, 120, 118], color: true, timeout: 2, on_fail: skip}    # 69
+  - branch:    # 71
+      - if: {find: 全部分頁, within: [1398, 13, 122, 86], timeout: 1, on_fail: skip}    # 72
+        then:
+          - {click: [-279, 615], confirm: gone, timeout: 3, on_fail: skip, update_origin: false}    # 73
+  - branch:    # 75
+      - if: {find_click: 解鎖線索, within: [804, 801, 250, 132], color: true, offset: [1, 0], timeout: 2, on_fail: skip}    # 76
+        then:
+          - {wait: 2}    # 77
+  - {find_click: 線索面板, within: [276, 863, 146, 142], timeout: 2, on_fail: skip}    # 79
+  - {find_click: 傳遞線索, within: [1730, 405, 138, 138], confirm: next, busy_check: true}    # 80
+  - {find_click: 快速傳遞, within: [40, 883, 156, 122], timeout: 15}    # 81
+  - {wait: 0.8}    # 82
+  - {find_click: 傳遞關閉, within: [1792, 0, 108, 128], confirm: gone}    # 83
+  - {find_click: 返回, within: [-18, 3, 111, 128]}    # 84
+  - {wait: 1}    # 85
+  - {find_click: 返回, within: [-18, 3, 111, 128], offset: [0, 1], confirm: next}    # 86
+  - {find_click: 進駐總覽, within: [146, 91, 152, 144], timeout: 15}    # 87
+  - {find: 非工作區, within: [1456, -3, 262, 222]}    # 88
+  - {wait: 0.5}    # 89
+  - {find: 標題_製造站, within: [840, 526, 140, 204], pick: {top: 1}}    # 90
+  - {drag: [808, 23], to: [808, -198], confirm: gone, busy_check: true}    # 91
+  - branch:    # 92
+      - if: {find: 標題_製造站, within: [840, 305, 140, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 93
+        then:
+          - {click: [910, 123], busy_check: true}    # 94
+          - {click: [0, 196], busy_check: true}    # 95
+  - {find: 標題_製造站, within: [840, 305, 140, 204], pick: {top: 1}}    # 97
+  - {drag: [798, 419], to: [798, -11], confirm: gone, busy_check: true}    # 98
+  - {find: 標題_貿易站, within: [840, 708, 140, 204], pick: {top: 1}}    # 99
+  - {drag: [798, -9], to: [798, -419], confirm: gone, busy_check: true}    # 100
+  - branch:    # 101
+      - if: {find: 標題_貿易站, within: [840, 298, 140, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 102
+        then:
+          - {click: [910, 122], busy_check: true}    # 103
+  - {find: 標題_貿易站, within: [840, 298, 140, 204], pick: {top: 1}}    # 105
+  - {drag: [798, 391], to: [798, 0], confirm: gone, busy_check: true}    # 106
+  - {find: 標題_發電站, within: [840, 348, 140, 204], pick: {top: 1}}    # 107
+  - {drag: [798, 332], to: [798, -450], confirm: gone, busy_check: true}    # 108
+  - branch:    # 109
+      - if: {find: 標題_辦公室, within: [840, 203, 140, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 110
+        then:
+          - {click: [910, 114], busy_check: true}    # 111
+  - {find_click: 非工作區, within: [1456, -3, 262, 222]}    # 113
+  - {find_click: 幹員休息, within: [1592, 871, 164, 134], offset: [59, -12], timeout: 3, on_fail: skip}    # 114
+  - {wait: 0.5}    # 115
+  - {find_click: 導航, within: [244, 0, 148, 127], confirm: next}    # 116
+  - {find_click: 好友, within: [1569, -6, 143, 137]}    # 117
+  - {find_click: 好友列表, within: [3, 232, 104, 122], confirm: next, timeout: 30}    # 118
+  - {find_click: 訪問基建, within: [1250, -19, 144, 1024], pick: {top: 1}, timeout: 15}    # 119
+  - repeat: 10    # 120
+    steps:
+      - {find_click: 訪問下位, within: [1657, 828, 132, 138], offset: [0, 2], timeout: 30, on_fail: break}    # 121
+      - {wait_gone: 訪問下位, within: [1657, 828, 132, 138], timeout: 5, on_fail: skip}    # 122
+  - {find_click: 導航, within: [244, 0, 148, 127], confirm: next, timeout: 20}    # 124
+  - {find_click: 採購中心, within: [1552, 289, 154, 151]}    # 125
+  - {find_click: 信用交易所, within: [1470, 91, 175, 122], timeout: 20}    # 126
+  - branch:    # 127
+      - if: {find_click: 收取信用, within: [1460, 3, 235, 128], offset: [-1, 0], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 3, on_fail: break}    # 128
+        then:
+          - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 129
+  - repeat: 10    # 131
+    steps:
+      - branch:    # 132
+          - if: {find_click: 採購_加急許可, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 133
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 134
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 135
+          - if: {find_click: 採購_招聘許可, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 137
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 138
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 139
+          - if: {find_click: 採購_技巧概要·卷2, within: [11, 261, 1509, 574], pick: {top: 1}, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 141
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 142
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 143
+          - if: {find_click: 採購_技巧概要·卷1, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 145
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 146
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 147
+          - if: {find_click: 採購_赤金, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 149
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 150
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 151
+          - if: {find_click: 採購_龍門幣, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 153
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 154
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 155
+          - if: {find_click: 採購_固源岩, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 157
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 158
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 159
+          - if: {find_click: 採購_糖, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 161
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 162
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 163
+          - if: {find_click: 採購_聚酸酯, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 165
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 166
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 167
+          - if: {find_click: 採購_異鐵, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 169
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 170
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 171
+          - if: {find_click: 採購_裝置, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 173
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 174
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 175
+          - if: {find_click: 採購_酮凝集, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 177
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 178
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 179
+          - if: {find_click: 採購_源岩, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 181
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 182
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 183
+          - if: {find_click: 採購_代糖, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 185
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 186
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 187
+          - if: {find_click: 採購_酯原料, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 189
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 190
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 191
+          - if: {find_click: 採購_異鐵碎片, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 193
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 194
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 195
+          - if: {find_click: 採購_破損裝置, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 197
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 198
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 199
+          - if: {find_click: 採購_雙酮, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 201
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 202
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 203
+          - if: {find_click: 採購_初級作戰記錄, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 205
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 206
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 207
+          - if: {find_click: 採購_基礎作戰記錄, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 209
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 210
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 211
+          - if: {find_click: 採購_碳素組, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 213
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 214
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 215
+          - if: {find_click: 採購_碳素, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 217
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 218
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 219
+          - if: {find_click: 採購_碳, within: [11, 261, 1509, 574], pick: {top: 1}, color: true, confirm: {appear: 購買物品, within: [1140, 721, 136, 126]}, timeout: 1.5, on_fail: break}    # 221
+            then:
+              - {find_click: 購買物品, within: [1140, 721, 136, 126], confirm: {appear: 獲得物資, within: [850, 31, 205, 192]}, timeout: 4, on_fail: break}    # 222
+              - {find_click: 獲得物資, within: [850, 31, 205, 192], confirm: gone, timeout: 8, on_fail: break}    # 223
+        on_break: break
+  - {find_click: 導航, within: [244, 0, 148, 127], confirm: next}    # 226
+  - {find_click: 公開招募, within: [1260, 299, 142, 143]}    # 227

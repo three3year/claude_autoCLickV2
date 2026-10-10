@@ -1,0 +1,1143 @@
+# PROTOTYPE 樣本 — 早_簡中（由 早_簡中.autoclickpack 轉出，票 02）
+format: 1
+scan_region: [87, 57, 1718, 920]
+calibration:
+  pair: [標題列圖示, 標題列關閉鈕]
+  baseline: 1650.0
+  fallback:
+    pair: [主画面设置钮, 主画面仓库]
+    baseline: 1719.2
+    offset: [-33, -61]
+busy:
+  template: 忙碌指示
+  within: [880, 780, 333, 101]
+template_pos:
+  主画面仓库: [1596, 778]
+  主画面设置钮: [33, 61]
+  今日配给: [827, 141]
+  会客室: [247, 180]
+  传递关闭: [1642, 52]
+  传递线索: [1586, 423]
+  信用交易所: [1443, 123]
+  全部收取: [1435, 856]
+  公告关闭: [1509, 104]
+  公开招募: [1147, 293]
+  制造中: [462, 799]
+  可收获: [220, 861]
+  基建入口: [1190, 688]
+  好友: [1458, 54]
+  好友列表: [62, 271]
+  导航（好友基建）: [256, 52]
+  干员休整: [1536, 835]
+  干员信赖: [572, 861]
+  待办铃铛: [1585, 120]
+  快捷传递重复线索: [135, 840]
+  快速置入: [1564, 823]
+  接收线索: [1582, 321]
+  收取: [1489, 782]
+  收取信用: [1437, 63]
+  无人机加速: [1622, 653]
+  最多: [1131, 429]
+  每日线索: [1503, 166]
+  活动关闭: [1464, 173]
+  确定: [1202, 686]
+  签到关闭: [1442, 141]
+  线索: [295, 838]
+  线索交流结果: [668, 154]
+  获得物资: [827, 141]
+  解锁线索: [869, 771]
+  订单交付: [400, 861]
+  访问下位: [1593, 807]
+  访问基建: [1139, 211]
+  购买物品: [1043, 632]
+  返回: [15, 58]
+  进驻总览: [163, 149]
+  采购中心: [1443, 319]
+  非工作区: [1479, 61]
+  領取: [1004, 693]
+steps:
+- repeat: 6
+  steps:
+  - branch:
+    - if:
+        find_click: 签到关闭
+        within: [1101, 49, 453, 221]
+        offset: [8, -5]
+        confirm: gone
+        timeout: 5
+        on_fail: skip
+        busy_check: true
+    - if:
+        find_click: 活动关闭
+        within: [1404, 105, 136, 136]
+        confirm: gone
+        timeout: 5
+        on_fail: skip
+        busy_check: true
+    - if:
+        find_click: 公告关闭
+        within: [1449, 36, 136, 136]
+        confirm: gone
+        timeout: 5
+        on_fail: skip
+        busy_check: true
+    - if:
+        find: 今日配给
+        within: [730, 31, 210, 220]
+        timeout: 5
+        on_fail: skip
+      then:
+      - click: [23, 632]
+        confirm: gone
+    - if:
+        find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 5
+        on_fail: skip
+      then:
+      - click: [-63, 623]
+        confirm: gone
+        busy_check: true
+    on_break: break
+- find_click: 基建入口
+  within: [1162, 650, 312, 185]
+  offset: [1, 1]
+  confirm: gone
+  timeout: 30
+- find_click: 待办铃铛
+  within: [1535, 62, 116, 168]
+  confirm:
+    appear: 待辦事項
+    within: [-31, 799, 214, 102]
+  timeout: 15
+  on_fail: skip
+- repeat: 3
+  steps:
+  - branch:
+    - if:
+        find_click: 可收获
+        within: [118, 793, 220, 108]
+        confirm: gone
+        timeout: 3
+        on_fail: skip
+        busy_check: true
+    - if:
+        find_click: 订单交付
+        within: [121, 793, 400, 108]
+        confirm: gone
+        timeout: 3
+        on_fail: skip
+    - if:
+        find_click: 干员信赖
+        within: [117, 793, 577, 108]
+        confirm: gone
+        timeout: 3
+        on_fail: skip
+        busy_check: true
+    on_break: break
+- find: 返回
+  within: [-28, -9, 117, 132]
+  timeout: 5
+- click: [419, 142]
+- wait: 0.5
+- find: 进驻总览
+  within: [70, 79, 202, 140]
+- click: [265, 472]
+  confirm: next
+- find_click: 制造中
+  confirm: next
+  timeout: 15
+- find_click: 无人机加速
+  within: [1565, 588, 125, 130]
+  confirm: next
+- find_click: 最多
+  within: [1012, 361, 254, 136]
+  offset: [43, -1]
+- wait: 0.3
+- find_click: 确定
+  within: [1028, 621, 364, 130]
+  offset: [-36, -1]
+  confirm: gone
+  busy_check: true
+- find_click: 收取
+  within: [1382, 712, 230, 140]
+  offset: [1, 0]
+  timeout: 3
+  on_fail: skip
+- wait: 0.5
+- find_click: 返回
+  within: [-28, -9, 117, 132]
+- wait: 1
+- find_click: 返回
+  within: [-28, -9, 117, 132]
+  offset: [0, 2]
+  confirm: next
+- find: 进驻总览
+  within: [70, 79, 202, 140]
+- drag: [1298, 319]
+  to: [348, 419]
+  confirm: next
+- find_click: 会客室
+  confirm:
+    appear: 线索
+    within: [243, 781, 120, 114]
+  timeout: 15
+- find_click: 线索
+  within: [243, 781, 120, 114]
+  timeout: 15
+- wait: 1
+- branch:
+  - if:
+      find: 线索交流结果
+      within: [210, 91, 840, 150]
+      timeout: 1.5
+      on_fail: skip
+    then:
+    - find_click: 返回
+      within: [-28, -9, 117, 132]
+      timeout: 5
+      on_fail: break
+    - wait: 0.8
+- find_click: 每日线索
+  within: [1530, 163, 122, 120]
+  timeout: 3
+  on_fail: skip
+- find_click: 領取
+  within: [869, 627, 286, 132]
+  confirm: gone
+  timeout: 3
+  on_fail: skip
+- branch:
+  - if:
+      find_click: 接收线索
+      within: [1525, 259, 131, 125]
+      confirm:
+        appear: 全部收取
+        within: [1318, 793, 250, 108]
+      timeout: 5
+      on_fail: break
+    then:
+    - find_click: 全部收取
+      within: [1318, 793, 250, 108]
+      confirm:
+        appear: 暂未收到新的线索
+        within: [1321, 404, 251, 104]
+      timeout: 8
+      on_fail: skip
+    - click: [-429, -184]
+      confirm:
+        appear: 传递线索
+        within: [1528, 358, 134, 130]
+      timeout: 5
+      on_fail: skip
+- find_click: CONFIDENTIAL线索
+  within: [1534, 594, 124, 196]
+  confirm:
+    appear: 全部分页
+    within: [1232, 9, 120, 82]
+  timeout: 5
+  on_fail: skip
+- branch:
+  - if:
+      find: 全部分页
+      within: [1232, 9, 120, 82]
+      timeout: 2
+      on_fail: skip
+    then:
+    - click: [14, 64]
+      confirm:
+        appear: 选中1
+        within: [1273, 81, 66, 66]
+      timeout: 3
+      on_fail: break
+      update_origin: false
+    - find: 来自
+      within: [1342, 219, 114, 78]
+      timeout: 1
+      on_fail: break
+      update_origin: false
+    - click: [70, 64]
+      confirm:
+        appear: 选中2
+        within: [1329, 81, 66, 66]
+      timeout: 3
+      on_fail: break
+      update_origin: false
+    - find: 来自
+      within: [1342, 219, 114, 78]
+      timeout: 1
+      on_fail: break
+      update_origin: false
+    - click: [126, 64]
+      confirm:
+        appear: 选中3
+        within: [1385, 81, 66, 66]
+      timeout: 3
+      on_fail: break
+      update_origin: false
+    - find: 来自
+      within: [1342, 219, 114, 78]
+      timeout: 1
+      on_fail: break
+      update_origin: false
+    - click: [182, 64]
+      confirm:
+        appear: 选中4
+        within: [1441, 81, 66, 66]
+      timeout: 3
+      on_fail: break
+      update_origin: false
+    - find: 来自
+      within: [1342, 219, 114, 78]
+      timeout: 1
+      on_fail: break
+      update_origin: false
+    - click: [238, 64]
+      confirm:
+        appear: 选中5
+        within: [1497, 81, 66, 66]
+      timeout: 3
+      on_fail: break
+      update_origin: false
+    - find: 来自
+      within: [1342, 219, 114, 78]
+      timeout: 1
+      on_fail: break
+      update_origin: false
+    - click: [294, 64]
+      confirm:
+        appear: 选中6
+        within: [1553, 81, 66, 66]
+      timeout: 3
+      on_fail: break
+      update_origin: false
+    - find: 来自
+      within: [1342, 219, 114, 78]
+      timeout: 1
+      on_fail: break
+      update_origin: false
+    - click: [350, 64]
+      confirm:
+        appear: 选中7
+        within: [1609, 81, 66, 66]
+      timeout: 3
+      on_fail: break
+      update_origin: false
+    - find: 来自
+      within: [1342, 219, 114, 78]
+      timeout: 1
+      on_fail: break
+      update_origin: false
+    - click: [-217, 146]
+      confirm: gone
+      timeout: 3
+      on_fail: break
+      update_origin: false
+    - find_click: 快速置入
+      within: [1452, 759, 238, 128]
+      color: true
+      offset: [9, -2]
+      timeout: 2
+      on_fail: skip
+- branch:
+  - if:
+      find: 全部分页
+      within: [1232, 9, 120, 82]
+      timeout: 1
+      on_fail: skip
+    then:
+    - click: [-217, 146]
+      confirm: gone
+      timeout: 3
+      on_fail: skip
+      update_origin: false
+- branch:
+  - if:
+      find_click: 解锁线索
+      within: [391, 701, 664, 140]
+      color: true
+      offset: [3, 2]
+      timeout: 2
+      on_fail: skip
+    then:
+    - wait: 2
+- find_click: 线索
+  within: [243, 781, 120, 114]
+  timeout: 2
+  on_fail: skip
+- branch:
+  - if:
+      find_click: 传递线索
+      within: [1528, 358, 134, 130]
+      offset: [-3, -12]
+      confirm: next
+      timeout: 3
+      on_fail: skip
+      busy_check: true
+    then:
+    - find_click: 快捷传递重复线索
+      within: [38, 775, 210, 126]
+      offset: [66, 0]
+      timeout: 15
+      on_fail: break
+    - wait: 0.8
+    - find_click: 传递关闭
+      within: [1585, -13, 105, 130]
+      offset: [1, -1]
+      confirm: gone
+      on_fail: break
+- find_click: 返回
+  within: [-28, -9, 117, 132]
+- wait: 1
+- find_click: 返回
+  within: [-28, -9, 117, 132]
+  confirm: next
+- find_click: 进驻总览
+  within: [70, 79, 202, 140]
+  timeout: 15
+- find: 非工作区
+  within: [1387, 1, 200, 120]
+- wait: 0.5
+- branch:
+  - if:
+      find: 标题_制造站
+      within: [746, 457, 124, 204]
+      pick:
+        top: 1
+      timeout: 3
+      on_fail: skip
+    then:
+    - click: [799, 98]
+      busy_check: true
+- find: 标题_制造站
+  within: [746, 457, 124, 204]
+  pick:
+    top: 1
+- drag: [626, 134]
+  to: [626, -228]
+  confirm: gone
+  busy_check: true
+- branch:
+  - if:
+      find: 标题_制造站
+      within: [746, 95, 124, 204]
+      pick:
+        top: 1
+      timeout: 3
+      on_fail: skip
+    then:
+    - click: [801, 274]
+      busy_check: true
+- find: 标题_制造站
+  within: [746, 95, 124, 204]
+  pick:
+    top: 1
+- drag: [626, 482]
+  to: [626, 96]
+  confirm: gone
+  busy_check: true
+- branch:
+  - if:
+      find: 标题_贸易站
+      within: [746, 445, 124, 204]
+      pick:
+        top: 1
+      timeout: 3
+      on_fail: skip
+    then:
+    - click: [802, 93]
+      busy_check: true
+- find: 标题_贸易站
+  within: [746, 445, 124, 204]
+  pick:
+    top: 1
+- drag: [626, 207]
+  to: [626, -293]
+  confirm: gone
+  busy_check: true
+- find: 标题_发电站
+  within: [746, 335, 124, 204]
+  pick:
+    top: 1
+- drag: [625, 196]
+  to: [625, -274]
+  confirm: gone
+  busy_check: true
+- branch:
+  - if:
+      find: 标题_办公室
+      within: [746, 428, 124, 204]
+      pick:
+        top: 1
+      timeout: 3
+      on_fail: skip
+    then:
+    - click: [801, 76]
+      busy_check: true
+- branch:
+  - if:
+      find: 标题_办公室
+      within: [746, 428, 124, 204]
+      pick:
+        top: 1
+      timeout: 3
+      on_fail: skip
+    then:
+    - drag: [626, 172]
+      to: [626, -161]
+      confirm: gone
+      on_fail: break
+      busy_check: true
+    - find: 标题_回收站
+      within: [746, 312, 124, 204]
+      pick:
+        top: 1
+      on_fail: break
+    - click: [801, 100]
+      busy_check: true
+- find_click: 非工作区
+  within: [1387, 1, 200, 120]
+  offset: [1, 0]
+- find_click: 干员休整
+  within: [1429, 770, 231, 130]
+  offset: [1, 0]
+  timeout: 3
+  on_fail: skip
+- wait: 0.5
+- find_click: 导航（好友基建）
+  within: [189, -11, 150, 127]
+  confirm: next
+- find_click: 好友
+  within: [1395, -19, 143, 139]
+- find_click: 好友列表
+  within: [-74, 229, 288, 84]
+  offset: [-9, 0]
+  confirm: next
+  timeout: 30
+- find_click: 访问基建
+  within: [1084, -19, 126, 920]
+  pick:
+    top: 1
+  timeout: 15
+- repeat: 10
+  steps:
+  - find_click: 访问下位
+    within: [1483, 742, 210, 130]
+    offset: [1, 0]
+    timeout: 30
+    on_fail: break
+  - wait_gone: 访问下位
+    within: [1483, 742, 210, 130]
+    timeout: 5
+    on_fail: skip
+- find_click: 导航（好友基建）
+  within: [189, -11, 150, 127]
+  confirm: next
+  timeout: 20
+- find_click: 采购中心
+  within: [1371, 209, 160, 185]
+- find_click: 信用交易所
+  within: [1346, 63, 210, 120]
+  offset: [1, 0]
+  timeout: 20
+- branch:
+  - if:
+      find_click: 收取信用
+      within: [1310, -1, 270, 128]
+      confirm:
+        appear: 获得物资
+        within: [730, 31, 210, 220]
+      timeout: 3
+      on_fail: break
+    then:
+    - find: 获得物资
+      within: [730, 31, 210, 220]
+      timeout: 8
+      on_fail: break
+    - click: [4, 668]
+      confirm: gone
+- repeat: 10
+  steps:
+  - branch:
+    - if:
+        find_click: 採購_加急許可
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_招聘許可
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_技巧概要·卷2
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_技巧概要·卷1
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_赤金
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_龍門幣
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_固源岩
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_糖
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_聚酸酯
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_異鐵
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_裝置
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_酮凝集
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_源岩
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_代糖
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_酯原料
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_異鐵碎片
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_破損裝置
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_雙酮
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_初級作戰記錄
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_基礎作戰記錄
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_碳素組
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_碳素
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    - if:
+        find_click: 採購_碳
+        within: [-8, 216, 1366, 539]
+        pick:
+          top: 1
+        color: true
+        confirm:
+          appear: 购买物品
+          within: [972, 631, 332, 116]
+        timeout: 1.5
+        on_fail: break
+      then:
+      - find_click: 购买物品
+        within: [972, 631, 332, 116]
+        confirm:
+          appear: 获得物资
+          within: [730, 31, 210, 220]
+        timeout: 4
+        on_fail: break
+      - find: 获得物资
+        within: [730, 31, 210, 220]
+        timeout: 8
+        on_fail: break
+      - click: [-16, 642]
+        confirm: gone
+    on_break: break
+- find_click: 导航（好友基建）
+  within: [189, -11, 150, 127]
+  offset: [0, -1]
+  confirm: next
+- find_click: 公开招募
+  within: [1045, 176, 220, 200]
+  offset: [-3, -3]
