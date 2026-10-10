@@ -70,7 +70,7 @@ def test_其中一張找不到_一個輸入都不送_紀錄寫明是哪一張(ha
     place(harness, (100, 40), None)
     r = run(harness, [click(10, 10), find("a"), drag(1, 1, 5, 5)])
     assert r.ended == "error"
-    assert harness.events == []
+    assert harness.kinds() == []
     assert PAIR[1] in harness.log_text(r)
     assert harness.lookups() == [], "沒校準成功就不往下找圖"
     [rec] = harness.filelog.of("calibrate")
@@ -81,7 +81,7 @@ def test_其中一張找不到_一個輸入都不送_紀錄寫明是哪一張(ha
 def test_沒有校準資料_一個輸入都不送_紀錄寫明要先設定校準對(harness):
     r = harness.run([click(10, 10), find("a")], calibration=None)
     assert r.ended == "error"
-    assert harness.events == []
+    assert harness.kinds() == []
     assert "校準對" in harness.log_text(r)
     [rec] = harness.filelog.of("calibrate")
     assert rec["result"] == "no_pair"
@@ -90,7 +90,7 @@ def test_沒有校準資料_一個輸入都不送_紀錄寫明要先設定校準
 def test_兩張重疊在同一處_不能當比例尺(harness):
     place(harness, (100, 40), (100, 40))
     r = run(harness, [click(10, 10)])
-    assert r.ended == "error" and harness.events == []
+    assert r.ended == "error" and harness.kinds() == []
 
 
 def test_檔案日誌記兩張圖位置_距離_倍率(harness):
@@ -119,7 +119,7 @@ def test_校準對列入範本預載(harness):
 
 def test_校準在第一個動作之前_延遲之後(harness):
     place(harness, (100, 40), (900, 40))
-    r = run(harness, [click(1, 1)], start_delay=2)
+    r = run(harness, [click(1, 1)], start_delay=3)
     logs = harness.logs(r)
     i_delay = next(i for i, m in enumerate(logs) if "秒後開始執行" in m)
     i_cal = next(i for i, m in enumerate(logs) if "校準" in m)

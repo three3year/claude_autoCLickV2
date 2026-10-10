@@ -39,9 +39,7 @@ class _CalApp(app_mod.App):
         self.scan_region = None
         self.profile_dir = str(profile_dir)
         self._pending_templates = set()
-        self.start_delay = SimpleNamespace(get=lambda: "無")
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")
-        self.avoid_hover = SimpleNamespace(get=lambda: False)
         self.flow_cal = cal
         self._names = (list(cal["pair"]) if cal else []) if names is None \
             else names
@@ -418,7 +416,7 @@ def test_沒有校準對時按校準_提示先設定(tkroot, monkeypatch, tmp_pa
 def test_開流程或切換流程時校準鈕回到只有名字(tkroot, monkeypatch, tmp_path):
     a, _ = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
     a.cal_btn.text = "校準　×0.90"
-    for attr in ("run_mode", "run_count", "avoid_hover"):
+    for attr in ("run_mode", "run_count"):
         setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))
     a.scan_lbl = _Btn()
     a._mode_ui = lambda: None

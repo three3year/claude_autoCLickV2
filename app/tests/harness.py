@@ -32,7 +32,6 @@ from subject_detection.engine import Match, QueryResult  # noqa: E402
 
 import enginehub  # noqa: E402
 from automation import runner as runner_mod  # noqa: E402
-from automation import stage as stage_mod  # noqa: E402
 
 
 # ---------- 校準 ----------
@@ -305,13 +304,23 @@ class Vision:
         return plan[min(i, len(plan) - 1)]
 
 
+# 預設搜尋範圍 (0,0,1920,1080) 的`避開游標`停點 (左下角外側夾回螢幕內)
+PARK_DEFAULT = (0, 1079)
+
+
 class Input:
-    """假的滑鼠鍵盤: 只記錄事件, 不送出任何真實輸入."""
+    """假的滑鼠鍵盤: 只記錄事件, 不送出任何真實輸入.
+
+    `避開游標`一律開: 假游標一開始就停在預設搜尋範圍的停點, 點擊與拖曳預設不搬
+    假游標 (track_clicks=False)——否則每次點擊後的截圖前都要停游標＋等 0.08s,
+    與避開游標無關的測試的虛擬時間全被打亂。要測「點完再停一次」的設 True。
+    """
 
     def __init__(self, events, lock=None, clock=None):
         self.events = events
         self._lock = lock or threading.Lock()
-        self._cursor = (0, 0)
+        self._cursor = PARK_DEFAULT
+        self.track_clicks = False
         self.clock = clock   # 虛擬時鐘 (None＝不記時間)
         self.times = []      # 每個事件發生的虛擬時間 (與 events 同序)
 
@@ -323,14 +332,14 @@ class Input:
 
     def click(self, x, y, button="left", clicks=1, **kw):
         self._rec(("click", int(x), int(y), button, int(clicks)))
-        self._cursor = (int(x), int(y))
+        if self.track_clicks:
+            self._cursor = (int(x), int(y))
 
     def drag(self, x1, y1, x2, y2, button="left", duration_ms=300, hold_ms=0):
-        self._rec(("drag", int(x1), int(y1), int(x2), int(y2), button))
-        self._cursor = (int(x2), int(y2))
-
-    def press_keys(self, combo):
-        self._rec(("keys", combo))
+        self._rec(("drag", int(x1), int(y1), int(x2), int(y2), button,
+                   int(duration_ms), int(hold_ms)))
+        if self.track_clicks:
+            self._cursor = (int(x2), int(y2))
 
     def move(self, x, y):
         self._rec(("move", int(x), int(y)))
@@ -348,43 +357,6 @@ class Input:
 
     def monitor_rect_at(self, x, y):
         return (0, 0, 1920, 1080)
-
-
-class FakeStage(stage_mod.Stage):
-    """假舞台: 把取得/讓出/退出記進同一條事件序列, 方便斷言交錯順序.
-
-    acquire_returns 可安排逐次回傳值 (False = 整場執行已結束)。
-    block=True 時 acquire 會真的阻塞 (模擬`排隊`), 直到 cancel() 被呼叫。
-    """
-
-    def __init__(self, events, acquire_returns=None, block=False):
-        self.events = events
-        self._returns = list(acquire_returns or [])
-        self._n = 0
-        self.left = 0
-        self._block = block
-        self.blocked = threading.Event()   # acquire 已經卡住了
-        self._cancelled = threading.Event()
-
-    def acquire(self):
-        self.events.append(("acquire",))
-        i = self._n
-        self._n += 1
-        if self._block:
-            self.blocked.set()
-            self._cancelled.wait(5)
-            return False  # 被喚醒 = 輪不到你了
-        return self._returns[i] if i < len(self._returns) else True
-
-    def release(self):
-        self.events.append(("release",))
-
-    def cancel(self):
-        self._cancelled.set()
-
-    def leave(self):
-        self.left += 1
-        self.events.append(("leave",))
 
 
 class FileLog:
@@ -410,17 +382,12 @@ class Harness:
         self.input = Input(self.events, self.lock, self.clock)
         monkeypatch.setattr(runner_mod, "time", self.clock)
         monkeypatch.setattr(runner_mod.capture, "grab", self.vision.grab)
-        for name in ("click", "drag", "press_keys", "move", "park", "cursor_pos",
+        for name in ("click", "drag", "move", "park", "cursor_pos",
                      "virtual_screen", "monitor_rect_at"):
             monkeypatch.setattr(runner_mod.win, name, getattr(self.input, name))
 
-    def make_stage(self, acquire_returns=None, block=False):
-        self.stage = FakeStage(self.events, acquire_returns, block)
-        return self.stage
-
-    def make_runner(self, stage=None):
-        return runner_mod.Runner(self.vision, stage=stage,
-                                 filelog=self.filelog)
+    def make_runner(self):
+        return runner_mod.Runner(self.vision, filelog=self.filelog)
 
     def place_calibration(self, scale, anchor):
         """把 CAL_PAIR 擺在畫面上: 第一張的中心＝anchor (`座標基準點`),
@@ -432,9 +399,10 @@ class Harness:
     def start(self, runner, steps, scale=1.0, anchor=None, **kw):
         """以測試預設值啟動執行器 (不等它結束).
 
-        start_delay 預設 0; `搜尋範圍`預設 (0,0) 起; 沒給 `calibration` 時交
-        CAL_PAIR, 擺在 anchor (預設＝搜尋範圍左上角), 開頭量出來的倍率＝scale——
-        預設下基準點是 (0,0), `絕對座標`的數字就等於螢幕座標, 測試好讀。
+        start_delay 預設 0 (固定的 3 秒只在測開始延遲時才交); `搜尋範圍`預設
+        (0,0) 起; 沒給 `calibration` 時交 CAL_PAIR, 擺在 anchor (預設＝搜尋範圍左上角),
+        開頭量出來的倍率＝scale——預設下基準點是 (0,0), `固定矩形`的數字就等於螢幕座標,
+        測試好讀。
         """
         kw.setdefault("start_delay", 0)
         kw.setdefault("scan_region", [0, 0, 1920, 1080])
@@ -445,9 +413,9 @@ class Harness:
         self.runner = runner
         runner.start(steps, **kw)
 
-    def run(self, steps, timeout=10.0, stage=None, **kw):
+    def run(self, steps, timeout=10.0, **kw):
         """跑完一份流程並回傳執行器 (已結束); 預設值見 `start`."""
-        r = self.make_runner(stage)
+        r = self.make_runner()
         self.start(r, steps, **kw)
         r._thread.join(timeout)
         assert not r._thread.is_alive(), "執行緒逾時未結束"
@@ -459,12 +427,13 @@ class Harness:
         return [(e[1], e[2]) for e in self.events if e[0] == "click"]
 
     def kinds(self):
-        return [e[0] for e in self.events]
+        """送出的輸入種類序列 (不含避開游標的停游標)."""
+        return [e[0] for e in self.events if e[0] not in ("park", "move")]
 
     def input_times(self):
-        """送出輸入 (點擊/拖曳/按鍵) 的 (種類, 虛擬時間) 序列, 不含移動游標."""
+        """送出輸入 (點擊/拖曳) 的 (種類, 虛擬時間) 序列, 不含移動游標."""
         return [(e[0], t) for e, t in zip(self.events, self.input.times)
-                if e[0] in ("click", "drag", "keys")]
+                if e[0] in ("click", "drag")]
 
     def _cal_names(self):
         """校準對 (含備用對) 的範本名: 事件查詢時略過它們的查詢."""

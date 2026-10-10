@@ -48,7 +48,6 @@ class _FlowApp(app_mod.App):
         self._collapsed = set()
         self.run_mode = _Var("執行次數")
         self.run_count = _Var(1)
-        self.avoid_hover = _Var(False)
         self.scan_lbl = SimpleNamespace(configure=lambda **kw: None)
         self.logged = []
         self.rendered = 0

@@ -44,9 +44,7 @@ class _GateApp(app_mod.App):
         self.profile_dir = "_no_such_profile"
         self.flow_cal = {"pair": ["a", "b"], "baseline": 100.0}  # 流程可執行
         self._pending_templates = set()
-        self.start_delay = SimpleNamespace(get=lambda: "無")
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")
-        self.avoid_hover = SimpleNamespace(get=lambda: False)
 
     def _run_count(self):
         return 1

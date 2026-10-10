@@ -107,14 +107,6 @@ def test_出現等候內沒看到_等滿才放行(harness):
     assert "picked" not in rec
 
 
-def test_忙碌出現等候是流程設定(harness):
-    harness.vision.plan("busy", [None])
-    harness.run([here(), click(100, 100, busyCheck=True), click(9, 9)], busy=BUSY,
-                busy_appear=0.3)
-    assert gap(harness) == pytest.approx(0.3, abs=0.01)
-    assert checks(harness)[0]["waited"] == "0.30"
-
-
 def test_確認條件已成立仍等滿出現等候(harness):
     harness.vision.plan("busy", [None])
     harness.vision.plan("ok", [(300, 300)])   # 一開始就在

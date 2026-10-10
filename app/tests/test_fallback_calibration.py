@@ -224,7 +224,7 @@ def test_執行器主備皆無_不送任何輸入_訊息列出兩組各缺哪張
     harness.vision.plan(FB[1], [(1514, 20)])
     r = harness.run([click(1, 1), find("a")], calibration=with_fallback())
     assert r.ended == "error"
-    assert harness.events == []
+    assert harness.kinds() == []
     text = harness.log_text(r)
     assert MAIN[0] in text and FB[0] in text
     [rec] = harness.filelog.of("calibrate")

@@ -158,7 +158,7 @@ def test_拾取當下主對找不到_改用備用對並提示(make_app, monkeypa
 
 def test_讀檔時備用組不成形_當沒有並警告(tkroot, monkeypatch, tmp_path):
     a, _ = _fb_editor(tkroot, monkeypatch, tmp_path)
-    for attr in ("run_mode", "run_count", "avoid_hover"):
+    for attr in ("run_mode", "run_count"):
         setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))
     a.scan_lbl = _Btn()
     a._mode_ui = lambda: None

@@ -36,12 +36,11 @@ def _calibration_line(res):
 
 
 def _busy_line(res):
-    """`忙碌指示`與`補做間隔`一行."""
+    """`忙碌指示`一行 (補做間隔是固定的 1 秒)."""
     b = res["busy"]
-    retry = f"補做間隔 {res['retry_interval_ms']}ms"
     if b:
-        return f"「{b['template']}」{findtarget.tag_text(b)}（{retry}）"
-    return f"沒有（補做只看{retry}）"
+        return f"「{b['template']}」{findtarget.tag_text(b)}"
+    return "沒有（補做只看固定的補做間隔）"
 
 
 def render(res, plan):

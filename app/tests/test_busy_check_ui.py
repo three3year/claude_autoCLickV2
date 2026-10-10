@@ -1,5 +1,5 @@
-"""`忙碌檢查`與`忙碌出現等候`的存檔、對話框、步驟摘要、主視窗設定與執行前檢查
-(busy-check 票 02/03, ADR 0011).
+"""`忙碌檢查`的存檔、對話框、步驟摘要與執行前檢查 (busy-check 票 02/03, ADR 0011).
+`忙碌出現等候`是固定行為 (1 秒), 不進存檔、主視窗沒有欄位.
 
 存檔照 test_flowfile 的手法真檔案測; 對話框沿用 test_editor_scale 的最小 App ＋
 `_Driver` 真的按按鈕、真的點勾選框; 主視窗設定與執行前檢查沿用 test_retry_settings /
@@ -22,24 +22,20 @@ from test_template_picker import _all
 
 # ---------- 存檔 ----------
 
-def test_忙碌檢查與忙碌出現等候存檔往返(tmp_path):
+def test_忙碌檢查存檔往返(tmp_path):
     path = str(tmp_path / ("f" + flowfile.EXT))
     steps = [click(1, 2, busyCheck=True), find("a"), drag(1, 2, 3, 4, busyCheck=True)]
-    flowfile.write(path, {"steps": steps, "coordSpace": "anchor",
-                          "busyAppearMs": 800}, {"a": b"A"})
+    flowfile.write(path, {"steps": steps, "coordSpace": "anchor"}, {"a": b"A"})
     data = flowfile.read(path)["data"]
     assert [s.get("busyCheck") for s in data["steps"]] == [True, None, True]
-    assert flowfile.busy_appear_ms(data) == 800
 
 
-def test_舊存檔讀進來沒勾_出現等候是預設(tmp_path):
+def test_舊存檔讀進來沒勾(tmp_path):
     path = str(tmp_path / ("f" + flowfile.EXT))
     flowfile.write(path, {"steps": [click(1, 2), find("a")],
                           "coordSpace": "anchor"}, {"a": b"A"})
     data = flowfile.read(path)["data"]
     assert all("busyCheck" not in s for s in data["steps"])
-    assert flowfile.busy_appear_ms(data) == 1000
-    assert flowfile.busy_appear_ms({"busyAppearMs": "壞"}) == 1000
 
 
 # ---------- 對話框 ----------
@@ -128,52 +124,6 @@ def test_步驟摘要顯示忙碌檢查():
     for s in (click(1, 2), find("a"), find("a", action="none", busyCheck=True),
               find("a", action="wait_gone", busyCheck=True)):
         assert "忙碌檢查" not in app_mod.step_desc(s), s
-
-
-# ---------- 主視窗設定 ----------
-
-def test_流程資料帶忙碌出現等候_開流程時讀回_沒有就是預設(tkroot, tmp_path):
-    a = _SetApp(tkroot, tmp_path)
-    a.busy_appear_ms = 700
-    a.run_count = SimpleNamespace(get=lambda: 1)
-    assert a._flow_data()["busyAppearMs"] == 700
-    for attr in ("run_mode", "run_count", "avoid_hover"):
-        setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))
-    a.scan_lbl = SimpleNamespace(configure=lambda **kw: None)
-    a._mode_ui = lambda: None
-    a.render_steps = lambda keep=None: None
-    a._update_region_preview = lambda: None
-    # 流程設定列的元件 (開舊流程要顯示 1000)
-    a.busy_lbl = SimpleNamespace(configure=lambda **kw: None)
-    a.retry_var = tk.StringVar(master=tkroot, value="")
-    a.busy_appear_var = tk.StringVar(master=tkroot, value="")
-    a._apply_flow({"steps": [], "coordSpace": "anchor"})
-    assert a.busy_appear_ms == 1000 and a.busy_appear_var.get() == "1000"
-    a._apply_flow({"steps": [], "coordSpace": "anchor", "busyAppearMs": 1500})
-    assert a.busy_appear_ms == 1500 and a.busy_appear_var.get() == "1500"
-
-
-def test_改忙碌出現等候欄位_寫進草稿(tkroot, tmp_path):
-    a = _SetApp(tkroot, tmp_path)
-    a.busy_appear_var = tk.StringVar(master=tkroot, value="1000")
-    a.busy_appear_var.set("2500")
-    a._on_busy_appear_change()
-    assert a.busy_appear_ms == 2500 and a.autosaved == 1
-    a.busy_appear_var.set("x")
-    a._on_busy_appear_change()
-    assert a.busy_appear_ms == 2500 and a.autosaved == 1, "不合法的輸入先不理"
-
-
-def test_執行時把忙碌出現等候交給執行器(tkroot, monkeypatch, tmp_path):
-    _warnings(monkeypatch)
-    a = _SetApp(tkroot, tmp_path)
-    a.busy_target = dict(BUSY)
-    a.busy_appear_ms = 1500
-    a.steps = [click(1, 2, busyCheck=True)]
-    a.scan_region = [0, 0, 100, 100]
-    a.start_run()
-    kw = a.runner.started[0][1]
-    assert kw["busy_appear"] == 1.5 and kw["busy"] == BUSY
 
 
 # ---------- 執行前檢查 ----------

@@ -3,7 +3,7 @@
 **一份`流程`＝一個自包自足的存檔** (副檔名 `.autoclickpack`, zip)::
 
     flow.json               步驟與流程層級設定 (含 coordSpace、`校準對`與`基準距離`、
-                            `補做間隔`、`忙碌指示`)
+                            `忙碌指示`)
     templates/<名稱>.png    本流程引用到的範本圖 (一範本一張圖, 名稱平面無層級)
     templates/_meta.json    範本元資料: {"pos": {範本名: [x, y]}}——拍攝位置 (截圖當下的中心),
                             相對`座標基準點`、`流程尺度` (ADR 0012)
@@ -102,31 +102,9 @@ def rename_refs(steps, old, new):
     return changed
 
 
-# 流程層級的`補做`設定 (ADR 0008; 存法比照 avoidHover, 缺鍵＝預設值, 舊存檔不必遷移)
-RETRY_KEY = "retryIntervalMs"   # `補做間隔` (毫秒)
-RETRY_DEFAULT_MS = 1000
-BUSY_KEY = "busyTarget"         # `忙碌指示`: 一個`找圖目標`, 不設＝沒有這個鍵
-# `忙碌出現等候` (ADR 0011): `忙碌檢查`送出輸入後最多等忙碌指示出現的毫秒數
-BUSY_APPEAR_KEY = "busyAppearMs"
-BUSY_APPEAR_DEFAULT_MS = 1000
-
-
-def _ms_setting(data, key, default):
-    """流程層級的毫秒設定; 缺鍵或壞值＝預設."""
-    try:
-        return max(0, int((data or {}).get(key, default)))
-    except (TypeError, ValueError):
-        return default
-
-
-def retry_interval_ms(data):
-    """流程的`補做間隔` (毫秒); 缺或壞＝預設 1000."""
-    return _ms_setting(data, RETRY_KEY, RETRY_DEFAULT_MS)
-
-
-def busy_appear_ms(data):
-    """流程的`忙碌出現等候` (毫秒); 缺或壞＝預設 1000."""
-    return _ms_setting(data, BUSY_APPEAR_KEY, BUSY_APPEAR_DEFAULT_MS)
+# 流程層級的`忙碌指示` (ADR 0008): 一個`找圖目標`, 不設＝沒有這個鍵。
+# 補做間隔、忙碌出現等候、開始延遲、避開游標是固定行為, 不進存檔 (舊存檔帶著也不讀)
+BUSY_KEY = "busyTarget"
 
 
 def busy_target(data):

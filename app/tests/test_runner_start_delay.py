@@ -12,6 +12,16 @@ from harness import click
 
 from automation import runner as runner_mod
 
+
+def test_開始延遲_補做間隔_忙碌出現等候是固定行為():
+    """不是設定: app 不傳, 執行器用常數 (參數只留給測試縮短虛擬時間)."""
+    import inspect
+    params = inspect.signature(runner_mod.Runner.start).parameters
+    assert params["start_delay"].default == runner_mod.START_DELAY == 3.0
+    assert params["retry_interval"].default == runner_mod.RETRY_INTERVAL == 1.0
+    assert params["busy_appear"].default == runner_mod.BUSY_APPEAR == 1.0
+    assert "avoid_hover" not in params, "避開游標一律開"
+
 DELAY_LINE = "3 秒後開始執行 (按 F12 可隨時停止)"
 WAITING = "等待準備範本完成"
 
@@ -67,8 +77,8 @@ def test_預載超過延遲_預載一完成就校準(harness):
         DELAY_LINE, "準備範本中…（2 張）", WAITING, "範本就緒"]
 
 
-def test_延遲無_不寫0秒_一定寫等待範本(harness):
-    r = harness.run([click(1, 1)], start_delay=0)
+def test_按下後已超過延遲才啟動_不寫倒數_一定寫等待範本(harness):
+    r = harness.run([click(1, 1)], start_delay=3, pressed_at=harness.clock.t - 5)
     assert r.ended == "done"
     assert prerun_logs(harness, r) == [
         "準備範本中…（2 張）", WAITING, "範本就緒"]
@@ -88,7 +98,7 @@ def test_預載失敗_立刻報錯_不等倒數_不校準(harness):
     assert r.ended == "error"
     assert harness.clock.t - t0 < 0.01, "不空等倒數"
     assert harness.vision.grabs == []
-    assert harness.events == []
+    assert harness.kinds() == []
 
 
 def test_倒數剩餘等待中停止_不校準不送輸入(harness):
@@ -98,7 +108,7 @@ def test_倒數剩餘等待中停止_不校準不送輸入(harness):
     start_and_join(harness, runner, start_delay=3)
     assert runner.ended == "stopped"
     assert harness.vision.grabs == []
-    assert harness.events == []
+    assert harness.kinds() == []
 
 
 def test_預載超過延遲_預載途中停止_不校準不送輸入(harness):
@@ -108,7 +118,7 @@ def test_預載超過延遲_預載途中停止_不校準不送輸入(harness):
     start_and_join(harness, runner, start_delay=3)
     assert runner.ended == "stopped"
     assert harness.vision.grabs == []
-    assert harness.events == []
+    assert harness.kinds() == []
 
 
 # ---------- 開跑前階段 (票 02) ----------
@@ -122,7 +132,7 @@ def test_開跑前階段_到期前倒數中_到期後等待範本(harness):
     assert seen == ["countdown", "templates"]
 
 
-def test_延遲無_啟動當下與預載期間都是等待範本(harness):
+def test_啟動當下已到期_啟動當下與預載期間都是等待範本(harness):
     harness.vision.preload_cost = 0.5
     runner = harness.make_runner()
     seen = watch_prerun_per_load(harness, runner)
@@ -131,7 +141,7 @@ def test_延遲無_啟動當下與預載期間都是等待範本(harness):
     runner.log = lambda msg, level="info": (
         at_first_log or at_first_log.append(runner.status()["prerun"]),
         log(msg, level))
-    start_and_join(harness, runner, start_delay=0)
+    start_and_join(harness, runner, start_delay=3, pressed_at=harness.clock.t - 5)
     assert runner.ended == "done"
     assert at_first_log == ["templates"], "不閃一下「倒數啟動中…」"
     assert seen == ["templates", "templates"]

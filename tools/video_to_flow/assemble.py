@@ -155,12 +155,9 @@ def assemble(plan, engine=None, report_path=None):
             x, y, w, h = t["box"]
             pos[n] = list(flowfmt.from_screen((x + w // 2, y + h // 2), anchor))
     data = {"steps": steps, "runMode": "count", "runCount": 1,
-            "scanRegion": region, "avoidHover": bool(draft.get("avoidHover", False)),
-            flowfmt.COORD_SPACE: flowfmt.ANCHOR}
+            "scanRegion": region, flowfmt.COORD_SPACE: flowfmt.ANCHOR}
     if cal:
         data[calibration.FLOW_KEY] = cal
-    if p["retry_interval_ms"] is not None:
-        data[flowfile.RETRY_KEY] = p["retry_interval_ms"]
     if p["busy"]:
         b = p["busy"]
         data[flowfile.BUSY_KEY] = findtarget.make_target(
@@ -195,7 +192,6 @@ def assemble(plan, engine=None, report_path=None):
         "fallback": calibration.fallback_pair(data.get(calibration.FLOW_KEY)),
         "fallback_problem": fb_problem,
         "busy": flowfile.busy_target(data),
-        "retry_interval_ms": flowfile.retry_interval_ms(data),
         "steps": len(steps),
         "templates": len(used),
         "verification": "coarse" if engine.coarse_only else "full",

@@ -18,7 +18,6 @@
       ],
       "calibration": {"pair": ["左上圖示", "右下按鈕"], "frame": 120,
                       "fallback": {"pair": ["標題列圖示", "關閉鈕"]}},
-      "retryIntervalMs": 1000,
       "busyTarget": {"template": "提交中", "colorCheck": true},
       "report": {"branches": ["…"], "unexplained": ["…"], "keys": ["…"]}
     }
@@ -47,8 +46,8 @@
 
 `生效確認` (ADR 0008): 座標點擊與拖曳也可寫 confirm (gone＝`原點的圖離開`、
 appear、next) 與 confirmTemplate/confirmTarget、timeout、interval、onNotFound;
-流程層級的`補做間隔` (retryIntervalMs) 與`忙碌指示` (busyTarget: 範本＋比色,
-不限定範圍)。
+流程層級的`忙碌指示` (busyTarget: 範本＋比色, 不限定範圍)。`補做間隔`是固定行為
+(1 秒), 計畫寫 retryIntervalMs 會報錯。
 """
 from __future__ import annotations
 
@@ -185,7 +184,9 @@ def load(plan):
         raise ToolError("轉換計畫的最外層要是 JSON 物件")
 
     known = {"video", "profile", "name", "templates", "steps", "report",
-             "reportPath", "calibration", "retryIntervalMs", "busyTarget"}
+             "reportPath", "calibration", "busyTarget"}
+    if "retryIntervalMs" in plan:
+        _err("retryIntervalMs", "補做間隔已退場成固定行為（1 秒，不再是設定），計畫不要寫")
     extra = sorted(set(plan) - known)
     if extra:
         _err("最外層", f"不認得的欄位 {', '.join(extra)}")
@@ -209,7 +210,6 @@ def load(plan):
     }
     out["steps"] = _steps(plan.get("steps"), out["templates"])
     out["calibration"] = _calibration(plan.get("calibration"), out["templates"])
-    out["retry_interval_ms"] = _retry_interval(plan.get("retryIntervalMs"))
     out["busy"] = _busy(plan.get("busyTarget"), out["templates"])
     origin.derive(out["steps"], out["templates"], None)  # 相對座標前要有原點
     return out
@@ -288,15 +288,6 @@ def _calibration(raw, templates):
             _err(where + " fallback", "備用校準對不能與校準對相同")
         fallback = {"pair": fb_pair}
     return {"pair": pair, "frame": frame, "fallback": fallback}
-
-
-def _retry_interval(raw):
-    """`補做間隔` (毫秒); 沒寫回傳 None (存檔不寫＝預設 1000)."""
-    if raw is None:
-        return None
-    if not isinstance(raw, int) or isinstance(raw, bool) or raw < 0:
-        _err("retryIntervalMs", f"要是非負整數（毫秒），收到 {raw!r}")
-    return raw
 
 
 def _busy(raw, templates):

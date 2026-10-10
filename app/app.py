@@ -366,11 +366,8 @@ class App:
     # 目前流程的`校準對`與`基準距離` {pair, baseline}; None＝沒有 (不能執行,
     # 也沒有`座標基準點`——需要基準點的拾取會被擋下)
     flow_cal = None
-    # 流程層級的`補做間隔` (毫秒) 與`忙碌指示` (找圖目標或 None), ADR 0008
-    retry_interval_ms = flowfile.RETRY_DEFAULT_MS
+    # 流程層級的`忙碌指示` (找圖目標或 None), ADR 0008; 補做間隔與忙碌出現等候是固定行為
     busy_target = None
-    # 流程層級的`忙碌出現等候` (毫秒), ADR 0011
-    busy_appear_ms = flowfile.BUSY_APPEAR_DEFAULT_MS
 
     def __init__(self, root):
         self.root = root
@@ -795,36 +792,15 @@ class App:
                     f"（距離 {m.distance:.1f}px ÷ 基準 {c.baseline:.1f}px，{which}）、"
                     f"座標基準點 {tuple(c.anchor)}；只是顯示，拾取時會各自重量", "ok")
 
-    # ================= `補做`設定 (補做間隔 / 忙碌指示, ADR 0008) =================
+    # ================= `忙碌指示` (ADR 0008、0011) =================
 
-    def _update_retry_ui(self):
-        """流程設定區顯示目前的補做間隔、忙碌出現等候與忙碌指示."""
+    def _update_busy_ui(self):
+        """流程設定區顯示目前的忙碌指示."""
         if getattr(self, "busy_lbl", None) is None:
             return
-        if self.retry_var.get() != str(self.retry_interval_ms):
-            self.retry_var.set(str(self.retry_interval_ms))
-        if self.busy_appear_var.get() != str(self.busy_appear_ms):
-            self.busy_appear_var.set(str(self.busy_appear_ms))
         tgt = self.busy_target
         # 第三列空間有限: 只寫範本名 (細節在「忙碌指示…」裡看)
         self.busy_lbl.configure(text=tgt["template"] if tgt else "（不設）")
-
-    def _on_retry_change(self):
-        """補做間隔欄位改了 → 流程設定跟著改 (不合法的輸入先不理)."""
-        self._on_ms_change(self.retry_var, "retry_interval_ms")
-
-    def _on_busy_appear_change(self):
-        """忙碌出現等候欄位改了 → 流程設定跟著改 (存法比照補做間隔)."""
-        self._on_ms_change(self.busy_appear_var, "busy_appear_ms")
-
-    def _on_ms_change(self, var, attr):
-        try:
-            ms = int(var.get())
-        except ValueError:
-            return
-        if ms >= 0 and ms != getattr(self, attr):
-            setattr(self, attr, ms)
-            self._autosave()
 
     def edit_busy_indicator(self):
         """設定/清除`忙碌指示`: 選範本 (同一個選範本對話框) → 找圖設定.
@@ -837,7 +813,7 @@ class App:
                 "忙碌指示", f"目前的忙碌指示是「{cur['template']}」。\n"
                 "要清除嗎？（否＝重新設定）", parent=self.root):
             self.busy_target = None
-            self._update_retry_ui()
+            self._update_busy_ui()
             self._autosave()
             self.log_ui("已清除忙碌指示（補做只看補做間隔）", "ok")
             return
@@ -867,7 +843,7 @@ class App:
                 self.log_ui(f"已設定忙碌指示「{name}」：畫面上有它時先不補做，"
                             "勾了忙碌檢查的步驟送出後會等它消失", "ok")
         ui_dialogs.discard_unused(self, added, None)
-        self._update_retry_ui()
+        self._update_busy_ui()
 
     # ================= UI 建構 =================
 
@@ -897,13 +873,7 @@ class App:
         self.count_lbl.pack(side="left")
         self.run_count = ttk.Spinbox(bar, from_=1, to=99999, width=6)
         self.run_count.set(1)
-        self.run_count.pack(side="left", padx=(4, 10))
-
-        ttk.Label(bar, text="啟動延遲").pack(side="left")
-        self.start_delay = ttk.Combobox(bar, width=5, state="readonly",
-                                        values=["無", "3 秒", "5 秒", "10 秒"])
-        self.start_delay.set("3 秒")
-        self.start_delay.pack(side="left", padx=(4, 14))
+        self.run_count.pack(side="left", padx=(4, 14))
 
         self.btn_run = ttk.Button(bar, text="▶ 開始執行", style="Run.TButton",
                                   command=self.start_run)
@@ -935,26 +905,12 @@ class App:
         bar3.pack(fill="x")
         # 右側的流程設定先 pack (pack 先到先分到空間): 預設視窗寬度下塞不下時,
         # 被裁掉的是左側的校準對說明文字, 不是設定欄位
-        # 流程層級的`補做`設定 (ADR 0008): 補做間隔 + 忙碌指示 (步驟面板太窄放不下)
+        # 流程層級的`忙碌指示` (ADR 0008; 步驟面板太窄放不下)
         self.busy_lbl = ttk.Label(bar3, text="", foreground=C["muted"])
         self.busy_lbl.pack(side="right", padx=(6, 0))
         ttk.Button(bar3, text="忙碌指示…", style="Small.TButton",
                    takefocus=False,
                    command=self.edit_busy_indicator).pack(side="right")
-        ttk.Label(bar3, text="ms").pack(side="right", padx=(2, 12))
-        self.retry_var = tk.StringVar(value=str(self.retry_interval_ms))
-        ttk.Spinbox(bar3, from_=0, to=10000, increment=100, width=6,
-                    textvariable=self.retry_var).pack(side="right")
-        ttk.Label(bar3, text="補做間隔").pack(side="right", padx=(16, 4))
-        self.retry_var.trace_add("write", lambda *_: self._on_retry_change())
-        # `忙碌出現等候` (ADR 0011): 勾了忙碌檢查的步驟送出後最多等忙碌指示出現多久
-        ttk.Label(bar3, text="ms").pack(side="right", padx=(2, 0))
-        self.busy_appear_var = tk.StringVar(value=str(self.busy_appear_ms))
-        ttk.Spinbox(bar3, from_=0, to=10000, increment=100, width=6,
-                    textvariable=self.busy_appear_var).pack(side="right")
-        ttk.Label(bar3, text="忙碌出現等候").pack(side="right", padx=(16, 4))
-        self.busy_appear_var.trace_add(
-            "write", lambda *_: self._on_busy_appear_change())
         ttk.Label(bar3, text="畫面校準").pack(side="left")
         ttk.Button(bar3, text="設定校準對", style="Small.TButton",
                    takefocus=False,
@@ -1116,11 +1072,6 @@ class App:
             ttk.Button(strip.inner, text=text, style="Small.TButton",
                        command=cmd, takefocus=False).pack(side="left", padx=(0, 4))
 
-        opts = ttk.Frame(left, style="Panel.TFrame")
-        opts.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
-        self.avoid_hover = tk.BooleanVar(value=False)
-        ui_dialogs._check(opts, "找圖前移開滑鼠（避免 hover 干擾）",
-                          self.avoid_hover).pack(side="left")
         self.step_list = SegListbox(
             left, bg=C["bg"], fg=C["text"], selectbackground=C["sel"],
             font=FONT, bd=0,
@@ -1953,9 +1904,6 @@ class App:
             "runMode": "count" if self.run_mode.get() == "執行次數" else "infinite",
             "runCount": self._run_count(),
             "scanRegion": self.scan_region,
-            "avoidHover": self.avoid_hover.get(),
-            flowfile.RETRY_KEY: self.retry_interval_ms,
-            flowfile.BUSY_APPEAR_KEY: self.busy_appear_ms,
             flowfmt.COORD_SPACE: flowfmt.ANCHOR,
         })
         return data
@@ -1973,14 +1921,11 @@ class App:
             self.log_ui(problem, "warn")
             self.flow_cal.pop(calibration.FALLBACK_KEY, None)
         self._update_cal_ui()
-        self.retry_interval_ms = flowfile.retry_interval_ms(data)
-        self.busy_appear_ms = flowfile.busy_appear_ms(data)
         self.busy_target = flowfile.busy_target(data)
-        self._update_retry_ui()
+        self._update_busy_ui()
         self.run_mode.set("直到停止" if data.get("runMode") == "infinite" else "執行次數")
         self.run_count.set(data.get("runCount", 1))
         self.scan_region = data.get("scanRegion")
-        self.avoid_hover.set(bool(data.get("avoidHover", False)))
         if self.scan_region:
             self.scan_lbl.configure(text=f"限定 {tuple(self.scan_region)}",
                                     foreground=C["accent"])
@@ -2226,20 +2171,16 @@ class App:
                 "（或已是最後一步）。\n請把下一個找圖步驟排在其後",
                 parent=self.root)
             return
-        delay = {"無": 0, "3 秒": 3, "5 秒": 5, "10 秒": 10}[self.start_delay.get()]
         if test:
             mode, count = "count", 1
         else:
             mode = "count" if self.run_mode.get() == "執行次數" else "infinite"
             count = self._run_count()
         try:
-            self.runner.start(steps, mode, count, delay,
+            self.runner.start(steps, mode, count,
                               scan_region=self.scan_region,
-                              avoid_hover=self.avoid_hover.get(),
                               calibration=self.flow_cal,
-                              retry_interval=self.retry_interval_ms / 1000.0,
                               busy=self.busy_target,
-                              busy_appear=self.busy_appear_ms / 1000.0,
                               pressed_at=pressed_at)
         except RuntimeError as e:
             messagebox.showwarning("執行", str(e), parent=self.root)

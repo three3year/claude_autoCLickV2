@@ -139,7 +139,10 @@ def _matching_branch_end(steps, i):
 
 
 BUSY_GONE_CAP = 60.0    # `忙碌檢查`: 從送出輸入起等忙碌指示消失的上限 (秒), 超過＝停止流程
-BUSY_APPEAR_DEFAULT = 1.0   # `忙碌出現等候`預設 (秒); 流程設定帶入時以毫秒存
+# 固定行為 (不是設定; 四份在用流程都用這些值, 2026-10-10 改常數)
+START_DELAY = 3.0       # `開始延遲`: 從按下執行到開頭校準的時間下限 (秒)
+RETRY_INTERVAL = 1.0    # `補做間隔`: 上一次輸入之後至少隔多久才補做 (秒)
+BUSY_APPEAR = 1.0       # `忙碌出現等候`: 忙碌檢查送出後最多等忙碌指示出現多久 (秒)
 BUSY_CHECK_KEY = "busyCheck"    # 步驟上的布林鍵: 只在勾了時寫入, 缺鍵＝沒勾
 BUSY_CHECK_TYPES = ("click", "drag", "find_click")   # 送出輸入的步驟種類
 
@@ -250,9 +253,8 @@ class WaitClock:
 
 
 class Runner:
-    def __init__(self, detector, stage=None, filelog=None):
+    def __init__(self, detector, filelog=None):
         self.detector = detector  # 偵測查詢接縫 (見模組 docstring)
-        self.stage = stage  # 並行執行時注入; None = 單流程, 完全走原本的路徑
         # 檔案日誌 (applog.log 的形狀): 每個找圖目標的判定結束寫一筆
         self.filelog = filelog or _applog
         self.ended = None   # 結束原因: done / error / stopped
@@ -265,7 +267,6 @@ class Runner:
         self.round = 0
         self.total_rounds = 0    # 0 = 無限
         self.scan_region = None
-        self.avoid_hover = False
         self.scale = 1.0
         self.anchor = None   # 這次執行的`座標基準點` (螢幕座標), 開頭校準後才有
         self._set_origin(None)
@@ -274,7 +275,6 @@ class Runner:
         # `範本預載` / None＝已開跑 (UI 據此顯示「倒數啟動中…」/「等待準備範本完成…」)
         self._prerun = None
         self._due = 0.0  # `開始延遲`到期時刻 (monotonic): 按下執行＋延遲秒數
-        self._prev_type = None  # 上一個執行過的步驟型別 (供拖曳後讓出的標註)
         self._loops = []     # 進行中重複區段的 (目前次數, 總次數), 由外到內
         self._loop_stack = []  # 進行中重複區段: [起始索引, 剩餘次數, 總次數]
 
@@ -307,12 +307,14 @@ class Runner:
         }
 
     # ---------- 控制 ----------
-    def start(self, steps, run_mode="count", run_count=1, start_delay=3,
-              scan_region=None, avoid_hover=False, calibration=None,
-              retry_interval=1.0, busy=None, busy_appear=BUSY_APPEAR_DEFAULT,
-              pressed_at=None):
+    def start(self, steps, run_mode="count", run_count=1, scan_region=None,
+              calibration=None, busy=None, pressed_at=None,
+              start_delay=START_DELAY, retry_interval=RETRY_INTERVAL,
+              busy_appear=BUSY_APPEAR):
         """pressed_at: 按下「執行」的時間 (monotonic); `開始延遲`從這時起算,
-        沒給＝現在。busy_appear: `忙碌出現等候` (秒), 流程層級設定。"""
+        沒給＝現在。start_delay / retry_interval / busy_appear 是固定行為
+        (START_DELAY、RETRY_INTERVAL、BUSY_APPEAR), app 不傳; 參數只留給測試
+        縮短虛擬時間。"""
         if self.running:
             raise RuntimeError("已在執行中")
         self._stop.clear()
@@ -320,12 +322,11 @@ class Runner:
         self.round = 0
         self.total_rounds = 0 if run_mode == "infinite" else max(1, int(run_count))
         self.scan_region = scan_region  # 全域搜尋範圍 [x,y,w,h]; 步驟未自設範圍時套用
-        self.avoid_hover = avoid_hover  # 找圖截圖前先把滑鼠移開, 避免 hover 反白干擾
         # 流程的校準資料 {pair, baseline} (不成形＝None); `畫面倍率`由開頭校準得出
         self.calibration = calibration if calib.valid(calibration) else None
         self.scale = 1.0
         self.anchor = None
-        # `補做間隔` (秒) 與`忙碌指示` (找圖目標或 None): 流程層級設定
+        # `補做間隔` (秒) 與`忙碌指示` (找圖目標或 None; 流程層級設定)
         self.retry_interval = max(0.0, float(retry_interval))
         self.busy = busy if busy and busy.get("template") else None
         self.busy_appear = max(0.0, float(busy_appear))
@@ -338,7 +339,6 @@ class Runner:
         self._due = (now if pressed_at is None else pressed_at) + max(0, start_delay)
         # 啟動當下就已到期 (延遲「無」) → 一開始就是「等待範本」, 不閃倒數
         self._prerun = "countdown" if self._due > now else "templates"
-        self._prev_type = None
         self._loops = []
         self._thread = threading.Thread(
             target=self._run, args=(steps, start_delay), daemon=True)
@@ -346,9 +346,6 @@ class Runner:
 
     def stop(self):
         self._stop.set()
-        if self.stage is not None:
-            # 可能正卡在 acquire 排隊; 沒人喚醒就連 leave 都執行不到
-            self.stage.cancel()
 
     def _check_stop(self):
         if self._stop.is_set():
@@ -361,34 +358,11 @@ class Runner:
             self._check_stop()
             time.sleep(min(0.05, max(0.0, end - time.monotonic())))
 
-    # ---------- 舞台 (並行執行) ----------
-    def _take_stage(self):
-        """取得舞台 (會阻塞排隊); 拿不到就收工."""
-        if self.stage is None:
-            return
-        if not self.stage.acquire():
-            self._check_stop()  # 自己被停 → 用一般的中斷訊息
-            # 為什麼取不到 (視窗不見了/整場結束/切換失敗) 由舞台那邊記錄
-            raise StopRequested("無法取得舞台 → 收工")
-        self._check_stop()
-
-    def _wait_yielding(self, seconds):
-        """`等待`期間讓出舞台——這是唯一的`讓出點` (見 ADR-0004).
-
-        被停止時不再回頭搶舞台, 直接讓例外往上拋 (交還由 _run 的 leave 負責)。
-        """
-        if self.stage is None:
-            self._sleep(seconds)
-            return
-        self.stage.release()
-        self._sleep(seconds)
-        self._take_stage()
-
     # ---------- 主迴圈 ----------
     def _run(self, steps, start_delay):
         try:
-            if start_delay > 0:
-                self.log(f"{start_delay} 秒後開始執行 (按 F12 可隨時停止)")
+            if self._prerun == "countdown":   # 按下後已超過延遲就不寫倒數
+                self.log(f"{start_delay:g} 秒後開始執行 (按 F12 可隨時停止)")
             # `範本預載`在倒數中進行: 開跑前一次載齊, 失敗立刻不開跑
             self._preload(steps)
             # 預載途中按的 F12 在這裡生效 (預載超過延遲時底下沒有剩餘等待)
@@ -396,7 +370,6 @@ class Runner:
             self._sleep(self._due - time.monotonic())  # 等到`開始延遲`到期
             self._prerun = None
 
-            self._take_stage()  # 第一個動作之前先上台
             self._calibrate()   # 量不到就拋錯: 一個輸入都不送
             i = 0
             while not self._stop.is_set():
@@ -460,9 +433,6 @@ class Runner:
             self.log(f"執行錯誤: {e}", "error")
             self.ended = "error"
         finally:
-            # 任何退出路徑都必須交還舞台, 否則其他流程會永久卡住
-            if self.stage is not None:
-                self.stage.leave()
             self._prerun = None
             self.running = False
 
@@ -588,8 +558,8 @@ class Runner:
     def _busy_seen(self, no, screen, org):
         """畫面上 (這張截圖) 有沒有`忙碌指示`; 沒設忙碌指示＝不查、當作沒有.
 
-        `補做`的門用: 確認沒生效的那一輪用同一張截圖查一次 (不另外截圖、
-        不讓出舞台); 找到或生效的那一輪不呼叫。
+        `補做`的門用: 確認沒生效的那一輪用同一張截圖查一次 (不另外截圖);
+        找到或生效的那一輪不呼叫。
         """
         if self.busy is None:
             return False
@@ -693,18 +663,13 @@ class Runner:
         step = steps[idx]
         no = idx + 1  # 執行紀錄用的 1-based 步驟序號
         t = step.get("type")
-        prev, self._prev_type = self._prev_type, t
         if t in POINTER_TYPES:
             return self._exec_pointer(steps, idx)
 
         if t == "wait":
             ms = int(step.get("ms", 1000))
             self.log(f"[{no}] 等待 {ms} ms")
-            if self.stage is not None and prev == "drag":
-                # 已知的高風險組合: 拖曳後讓出舞台, 滑鼠離開、視窗失焦,
-                # 捲動中的列表回來時可能已位移, 後面的相對座標就會點空
-                self.log(f"[{no}] 讓出舞台（上一步是拖曳，畫面可能已位移）", "warn")
-            self._wait_yielding(ms / 1000.0)
+            self._sleep(ms / 1000.0)
 
         elif t == "find_click":
             return self._exec_find(steps, idx)
@@ -842,7 +807,7 @@ class Runner:
         每個輪詢間隔截一張圖, check(screen, org) → (生效與否, 紀錄用的結果);
         沒生效時用同一張截圖查一次忙碌指示 (補做的門), may_retry(screen, org)
         為真、且過了`補做`的兩道門 (補做間隔、忙碌指示) 才 resend() 重送同一個
-        輸入 (重送後不再做忙碌檢查)。整段不讓出舞台。逾時從呼叫時起算 (勾了
+        輸入 (重送後不再做忙碌檢查)。逾時從呼叫時起算 (勾了
         忙碌檢查的步驟＝忙碌檢查結束之後)。
         回傳 (生效與否, 最後一次 check 的結果, 輪詢數, 輸入數, 因忙碌延後補做
         的秒數)。手動停止落在輪詢裡時先 on_stop(最後一次的結果, 輪詢數, 輸入數)
@@ -936,9 +901,8 @@ class Runner:
         self._sleep(0.08)  # 等 hover 反白消退與重繪
 
     def _grab(self, region):
-        """找圖用的截圖 (需要時先把游標移開); 回傳 (影像, 左上角螢幕座標)."""
-        if self.avoid_hover:
-            self._avoid_cursor(region)
+        """找圖用的截圖 (先把游標移開, `避開游標`一律開); 回傳 (影像, 左上角螢幕座標)."""
+        self._avoid_cursor(region)
         return capture.grab(region)
 
     def _find(self, no, tgt, screen, org, origin, kind="範本"):

@@ -95,13 +95,3 @@ def test_逾時時延後中的時間也算進去(harness):
     # 逾時照常 2s (不因忙碌延後, ADR 0011); 補做從 1.0s 起被延後到逾時
     assert "busy_pause" not in rec
     assert 0.9 <= float(rec["busy_delay"]) <= 1.1
-
-
-def test_找圖到補點仍是一個舞台原子區段(harness):
-    st = harness.make_stage()
-    harness.vision.plan("a", [AT] * 6 + [None])
-    harness.vision.plan("busy", [(960, 1000), None])
-    harness.run([find("a", confirm="gone", interval=0.2)], stage=st, busy=BUSY)
-    kinds = [e[0] for e in harness.events]
-    first, last = kinds.index("click"), len(kinds) - 1 - kinds[::-1].index("click")
-    assert "release" not in kinds[first:last], "補做判斷 (含查忙碌指示) 不讓出舞台"

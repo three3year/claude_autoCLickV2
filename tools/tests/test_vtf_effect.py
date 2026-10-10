@@ -60,12 +60,12 @@ def test_座標點擊與拖曳的確認欄位照計畫寫進存檔(demo, engine)
         "next", 0.3, "stop")
 
 
-def test_流程層級的補做間隔與忙碌指示(demo, engine):
+def test_流程層級的忙碌指示(demo, engine):
     steps = [find("開始"), find("確定", action="wait_gone"), find("下一步")]
-    data = saved(run(demo, engine, steps, retryIntervalMs=800,
+    data = saved(run(demo, engine, steps,
                      busyTarget={"template": "下一步", "colorCheck": True}))
-    assert flowfile.retry_interval_ms(data) == 800
     assert flowfile.busy_target(data) == {"template": "下一步", "colorCheck": True}
+    assert "retryIntervalMs" not in data, "補做間隔是固定行為, 不進存檔"
 
 
 @pytest.mark.parametrize("steps, extra, match", [
@@ -78,12 +78,12 @@ def test_流程層級的補做間隔與忙碌指示(demo, engine):
     ([find("開始")], {"busyTarget": {"template": "沒這張"}}, "忙碌指示的範本"),
     ([find("開始")], {"busyTarget": {"template": "開始", "limit": {
         "kind": "origin", "rect": [0, 0, 10, 10]}}}, "限定範圍"),
-    ([find("開始")], {"retryIntervalMs": -1}, "retryIntervalMs"),
+    ([find("開始")], {"retryIntervalMs": 1000}, "補做間隔已退場"),
     ([find("開始", action="none"), {"type": "click", "at": [5, 5]},
       {"type": "drag", "from": [5, 5], "to": [5, 50], "confirm": "gone"}],
      {}, "原點來自找圖"),
 ], ids=["confirm值", "appear沒確認圖", "沒confirm寫逾時",
-        "忙碌指示範本不在清單", "忙碌指示寫限定範圍", "間隔負數", "原點不是找圖"])
+        "忙碌指示範本不在清單", "忙碌指示寫限定範圍", "補做間隔已退場", "原點不是找圖"])
 def test_非法值仍被擋(demo, engine, steps, extra, match):
     refused(demo, engine, steps, match, **extra)
 
@@ -107,14 +107,14 @@ def test_原點不是找圖時拖曳不設確認(demo, engine):
 
 # ---------- 交付報告 ----------
 
-def test_交付報告列出忙碌指示與補做間隔(demo, engine):
-    res = run(demo, engine, [find("開始")], retryIntervalMs=1200,
+def test_交付報告列出忙碌指示(demo, engine):
+    res = run(demo, engine, [find("開始")],
               busyTarget={"template": "下一步", "colorCheck": True})
     text = open(res["report_path"], encoding="utf-8").read()
-    assert "忙碌指示：「下一步」〔比色〕（補做間隔 1200ms）" in text
+    assert "忙碌指示：「下一步」〔比色〕" in text
 
 
 def test_沒有忙碌指示時報告寫明(demo, engine):
     res = run(demo, engine, [find("開始")])
     text = open(res["report_path"], encoding="utf-8").read()
-    assert "忙碌指示：沒有（補做只看補做間隔 1000ms）" in text
+    assert "忙碌指示：沒有（補做只看固定的補做間隔）" in text

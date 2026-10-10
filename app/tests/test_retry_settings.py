@@ -1,5 +1,5 @@
-"""流程層級的`補做間隔`與`忙碌指示` (effect-confirm 票 01): 存檔往返、被引用的
-範本、編輯器設定、執行時交給執行器.
+"""流程層級的`忙碌指示` (effect-confirm 票 01): 存檔往返、被引用的範本、編輯器設定、
+執行時交給執行器。`補做間隔`與`忙碌出現等候`是固定行為 (不進存檔、主視窗沒有欄位).
 
 存檔照 test_flowfile 的手法真檔案測; 編輯器沿用最小 App 子類 + 對話框樁。
 """
@@ -25,20 +25,17 @@ def _flow(**extra):
 
 # ---------- 存檔 ----------
 
-def test_補做間隔與忙碌指示存檔往返(tmp_path):
+def test_忙碌指示存檔往返(tmp_path):
     path = str(tmp_path / ("f" + flowfile.EXT))
-    flowfile.write(path, _flow(retryIntervalMs=800, busyTarget=dict(BUSY)),
-                   {"a": b"A", "提交中": b"B"})
+    flowfile.write(path, _flow(busyTarget=dict(BUSY)), {"a": b"A", "提交中": b"B"})
     data = flowfile.read(path)["data"]
-    assert flowfile.retry_interval_ms(data) == 800
     assert flowfile.busy_target(data) == BUSY
 
 
-def test_舊存檔讀進來是預設值(tmp_path):
+def test_沒設忙碌指示讀進來是沒有(tmp_path):
     path = str(tmp_path / ("f" + flowfile.EXT))
     flowfile.write(path, _flow(), {"a": b"A"})
     data = flowfile.read(path)["data"]
-    assert flowfile.retry_interval_ms(data) == 1000
     assert flowfile.busy_target(data) is None
 
 
@@ -105,31 +102,33 @@ def test_清除忙碌指示(tkroot, monkeypatch, tmp_path):
     assert a.busy_target is None
 
 
-def test_流程資料帶補做設定_開流程時讀回_沒有就是預設(tkroot, tmp_path):
+def test_流程資料帶忙碌指示_不帶固定行為_開流程時讀回(tkroot, tmp_path):
     a = _SetApp(tkroot, tmp_path)
-    a.retry_interval_ms = 700
     a.busy_target = dict(BUSY)
     a.run_count = SimpleNamespace(get=lambda: 1)
     data = a._flow_data()
-    assert data["retryIntervalMs"] == 700 and data["busyTarget"] == BUSY
-    for attr in ("run_mode", "run_count", "avoid_hover"):
+    assert data["busyTarget"] == BUSY
+    for key in ("retryIntervalMs", "busyAppearMs", "avoidHover"):
+        assert key not in data, key
+    for attr in ("run_mode", "run_count"):
         setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))
     a.scan_lbl = SimpleNamespace(configure=lambda **kw: None)
     a._mode_ui = lambda: None
     a.render_steps = lambda keep=None: None
     a._update_region_preview = lambda: None
     a._apply_flow({"steps": [], "coordSpace": "anchor"})
-    assert a.retry_interval_ms == 1000 and a.busy_target is None
+    assert a.busy_target is None
 
 
-def test_執行時把補做設定交給執行器(tkroot, monkeypatch, tmp_path):
+def test_執行時把忙碌指示交給執行器_固定行為不傳(tkroot, monkeypatch, tmp_path):
     _warnings(monkeypatch)
     a = _SetApp(tkroot, tmp_path)
-    a.retry_interval_ms = 1500
     a.busy_target = dict(BUSY)
     a.start_run()
     kw = a.runner.started[0][1]
-    assert kw["retry_interval"] == 1.5 and kw["busy"] == BUSY
+    assert kw["busy"] == BUSY
+    for key in ("retry_interval", "busy_appear", "start_delay", "avoid_hover"):
+        assert key not in kw, key
 
 
 def test_忙碌指示的範本不在本流程_不執行(tkroot, monkeypatch, tmp_path):
