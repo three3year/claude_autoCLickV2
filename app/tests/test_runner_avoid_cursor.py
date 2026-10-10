@@ -2,6 +2,9 @@
 
 停點＝範圍左下角再往外 (x−2, y+h+1); 範圍貼著螢幕邊緣時夾回該螢幕內。
 已在停點就不再移動 (每次截圖都移動＋等 0.08s 會拖慢整份流程)。
+停游標要走 `win.park` (補送真實移動事件), 不能只瞬移: 遊戲靠輸入事件追蹤游標,
+只瞬移時它以為游標還在原處 (晚_繁中: 公告沒出現、沒點過東西, 主畫面跟著使用者
+留下的游標偏移, 校準量錯、基建找不到)。
 """
 from harness import find
 
@@ -9,7 +12,7 @@ AT = (500, 400)
 
 
 def moves(harness):
-    return [(e[1], e[2]) for e in harness.events if e[0] == "move"]
+    return [(e[1], e[2]) for e in harness.events if e[0] == "park"]
 
 
 def test_停到搜尋範圍左下角外側(harness):
@@ -44,3 +47,11 @@ def test_沒勾避開游標就不移動(harness):
     harness.vision.plan("a", [AT])
     harness.run([find("a", confirm="none")], scan_region=[100, 50, 800, 600])
     assert moves(harness) == []
+
+
+def test_停游標送出真實移動事件而非只瞬移(harness):
+    harness.vision.plan("a", [AT])
+    harness.run([find("a", confirm="none")], scan_region=[100, 50, 800, 600],
+                avoid_hover=True)
+    assert [e for e in harness.events if e[0] == "move"] == []
+    assert moves(harness) == [(98, 651)]

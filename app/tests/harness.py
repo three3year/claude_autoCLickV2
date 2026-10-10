@@ -331,6 +331,10 @@ class Input:
         self._rec(("move", int(x), int(y)))
         self._cursor = (int(x), int(y))
 
+    def park(self, x, y):
+        self._rec(("park", int(x), int(y)))
+        self._cursor = (int(x), int(y))
+
     def cursor_pos(self):
         return self._cursor
 
@@ -401,7 +405,7 @@ class Harness:
         self.input = Input(self.events, self.lock, self.clock)
         monkeypatch.setattr(runner_mod, "time", self.clock)
         monkeypatch.setattr(runner_mod.capture, "grab", self.vision.grab)
-        for name in ("click", "drag", "press_keys", "move", "cursor_pos",
+        for name in ("click", "drag", "press_keys", "move", "park", "cursor_pos",
                      "virtual_screen", "monitor_rect_at"):
             monkeypatch.setattr(runner_mod.win, name, getattr(self.input, name))
 

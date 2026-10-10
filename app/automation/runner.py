@@ -954,7 +954,7 @@ class Runner:
         x, y = min(max(x, x1), x2 - 1), min(max(y, y1), y2 - 1)
         if win.cursor_pos() == (x, y):
             return  # 已在停點, 不必再等
-        win.move(x, y)
+        win.park(x, y)  # 送出真實移動事件, 遊戲才知道游標離開了
         self._sleep(0.08)  # 等 hover 反白消退與重繪
 
     def _grab(self, region):
