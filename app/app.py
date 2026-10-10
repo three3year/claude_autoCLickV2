@@ -1880,19 +1880,34 @@ class App:
         if folder:
             apppaths.save_state({"last_flow": os.path.abspath(folder)})
 
+    def confirm_discard(self, title):
+        """有未存檔的改動時問「存檔／不存／取消」; 回傳是否繼續往下走.
+
+        存檔＝先存 (新流程會跳第一次存檔的對話框), 存成才繼續; 不存＝丟掉改動繼續;
+        取消＝什麼都不變。
+        """
+        if not self.dirty:
+            return True
+        answer = messagebox.askyesnocancel(
+            title, f"「{self.flow_name()}」有還沒存檔的改動，要先存檔嗎？\n\n"
+            "是＝存檔　否＝不存（改動會消失）　取消＝回去繼續編輯", parent=self.root)
+        if answer is None:
+            return False
+        if answer:
+            return self.save_flow()
+        return True
+
     def new_flow(self):
         """開一份新流程 (還沒有資料夾: 第一次存檔才選位置與名字)."""
-        if self.steps and not messagebox.askyesno(
-                "新流程",
-                f"開新流程會清掉目前的 {len(self.steps)} 個步驟與本流程的"
-                f"{len(self.store.names())} 個範本（未存檔的內容會消失）。\n"
-                "確定要開新流程嗎？", parent=self.root):
+        if not self.confirm_discard("新流程"):
             return
         self._switch_flow(None, flowfile.new_flow())
         self.log_ui("已開始一份新流程（第一次存檔時選位置與名字）", "ok")
 
     def open_flow(self):
         """開檔: 一般開檔視窗選 flow.yaml, 開它所在的流程資料夾."""
+        if not self.confirm_discard("開啟流程"):
+            return
         root = apppaths.flows_root()
         os.makedirs(root, exist_ok=True)
         path = filedialog.askopenfilename(
@@ -2417,6 +2432,8 @@ class App:
                                        parent=self.root):
                 return
             self.stop_all()
+        if not self.confirm_discard("離開"):
+            return
         self.root.destroy()
 
 

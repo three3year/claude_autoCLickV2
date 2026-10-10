@@ -207,6 +207,7 @@ def test_上次沒存的截圖在讀取流程時清掉(tkroot, tmp_path, monkeyp
     _opened(a, monkeypatch, folder)
     _shot(a, "沒存")
     assert "沒存" in a.list_template_names()
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel", lambda *x, **kw: False)
 
     _opened(a, monkeypatch, folder)   # 不存檔直接重讀
 
@@ -382,14 +383,142 @@ def test_新流程清空步驟與範本_未存檔快取清空(tkroot, tmp_path, 
     a = _app(tkroot, monkeypatch)
     folder = _write(tmp_path / "f", [_find("old")], {"old": b"O"})
     _opened(a, monkeypatch, folder)
-    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel", lambda *a_, **kw: False)
-    monkeypatch.setattr(app_mod.messagebox, "askyesno", lambda *a_, **kw: True)
 
     a.new_flow()
 
     assert a.steps == [] and a.list_template_names() == []
     assert a.current_flow_path() is None
     assert a.flow_name() == "新流程"
+
+
+def test_沒有改動時三個入口都不問(tkroot, tmp_path, monkeypatch):
+    a = _app(tkroot, monkeypatch)
+    asked = []
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
+                        lambda *x, **kw: asked.append(1))
+    folder = _write(tmp_path / "f", [], {})
+    _opened(a, monkeypatch, folder)
+    a.new_flow()
+    assert asked == []
+    assert a.confirm_discard("離開") is True
+
+
+# ---------- 未存檔提示: 存檔／不存／取消 ----------
+
+def _dirty_app(tkroot, tmp_path, monkeypatch, answer):
+    """開著一份流程、改了一步還沒存; 提示一律回 answer (True＝存檔, False＝不存, None＝取消)."""
+    a = _app(tkroot, monkeypatch)
+    folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
+    _opened(a, monkeypatch, folder)
+    a.steps.append({"type": "wait", "wait": 1.0})
+    a._mark_dirty()
+    asked = []
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel",
+                        lambda title, msg, **kw: (asked.append(msg), answer)[1])
+    return a, folder, asked
+
+
+def _saved_steps(folder):
+    return len(flowfile.read_flow(folder)["steps"])
+
+
+def test_每種改動都標成未存檔_存檔後清除(tkroot, tmp_path, monkeypatch):
+    a = _app(tkroot, monkeypatch)
+    folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
+    _opened(a, monkeypatch, folder)
+    for change in (lambda: _shot(a, "新圖"),
+                   lambda: a.drop_template("新圖"),
+                   lambda: a.record_template_pos("a", [1, 2]),
+                   lambda: a.set_scan_region([1, 2, 30, 40]),
+                   lambda: a._on_run_setting()):
+        a.dirty = False
+        change()
+        assert a.dirty
+    a.save_flow()
+    assert a.dirty is False
+
+
+def test_新流程_有改動_回答存檔_存完才開新的(tkroot, tmp_path, monkeypatch):
+    a, folder, asked = _dirty_app(tkroot, tmp_path, monkeypatch, True)
+    a.new_flow()
+    assert asked and "f" in asked[0]
+    assert _saved_steps(folder) == 2, "先存檔"
+    assert a.current_flow_path() is None and a.steps == []
+
+
+def test_新流程_有改動_回答不存_丟掉改動(tkroot, tmp_path, monkeypatch):
+    a, folder, asked = _dirty_app(tkroot, tmp_path, monkeypatch, False)
+    a.new_flow()
+    assert asked
+    assert _saved_steps(folder) == 1, "沒寫檔"
+    assert a.current_flow_path() is None and a.steps == []
+
+
+def test_新流程_有改動_回答取消_什麼都不變(tkroot, tmp_path, monkeypatch):
+    a, folder, asked = _dirty_app(tkroot, tmp_path, monkeypatch, None)
+    a.new_flow()
+    assert asked
+    assert _saved_steps(folder) == 1
+    assert a.current_flow_path() == os.path.abspath(folder)
+    assert len(a.steps) == 2 and a.dirty
+
+
+def test_開檔_有改動_回答取消_不跳開檔視窗_什麼都不變(tkroot, tmp_path, monkeypatch):
+    a, folder, asked = _dirty_app(tkroot, tmp_path, monkeypatch, None)
+    opened = []
+    monkeypatch.setattr(app_mod.filedialog, "askopenfilename",
+                        lambda **kw: opened.append(1) or "")
+    a.open_flow()
+    assert asked and opened == []
+    assert len(a.steps) == 2 and a.dirty
+
+
+def test_開檔_有改動_回答不存_開別的流程(tkroot, tmp_path, monkeypatch):
+    a, folder, asked = _dirty_app(tkroot, tmp_path, monkeypatch, False)
+    other = _write(tmp_path / "別的", [], {})
+    _stub_open(monkeypatch, os.path.join(other, "flow.yaml"))
+    a.open_flow()
+    assert asked
+    assert a.current_flow_path() == os.path.abspath(other)
+    assert _saved_steps(folder) == 1
+
+
+def test_開檔_有改動_回答存檔_存完再開(tkroot, tmp_path, monkeypatch):
+    a, folder, asked = _dirty_app(tkroot, tmp_path, monkeypatch, True)
+    other = _write(tmp_path / "別的", [], {})
+    _stub_open(monkeypatch, os.path.join(other, "flow.yaml"))
+    a.open_flow()
+    assert _saved_steps(folder) == 2
+    assert a.current_flow_path() == os.path.abspath(other)
+
+
+def _closing(a, monkeypatch):
+    closed = []
+    a.runner = SimpleNamespace(status=lambda: {"running": False})
+    monkeypatch.setattr(a.root, "destroy", lambda: closed.append(1))
+    return closed
+
+
+def test_關閉_有改動_三種回答(tkroot, tmp_path, monkeypatch):
+    for answer, saved, closes in ((True, 2, True), (False, 1, True), (None, 1, False)):
+        a, folder, asked = _dirty_app(tkroot, tmp_path / str(answer), monkeypatch,
+                                      answer)
+        closed = _closing(a, monkeypatch)
+        a.on_close()
+        assert asked, answer
+        assert _saved_steps(folder) == saved, answer
+        assert bool(closed) is closes, answer
+
+
+def test_回答存檔但新流程存檔被取消_不往下走(tkroot, tmp_path, monkeypatch):
+    a = _app(tkroot, monkeypatch)
+    a.steps = [_find("x")]
+    a._mark_dirty()
+    monkeypatch.setattr(app_mod.messagebox, "askyesnocancel", lambda *x, **kw: True)
+    _stub_save(monkeypatch, None)   # 第一次存檔的對話框按取消
+    closed = _closing(a, monkeypatch)
+    a.on_close()
+    assert closed == [] and a.steps == [_find("x")]
 
 
 # ---------- 引擎參數覆蓋 ----------
