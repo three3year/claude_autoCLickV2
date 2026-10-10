@@ -86,22 +86,11 @@ def timeline(*segments):
     return out
 
 
-def make_profile(root, region=None, config=None, draft_extra=None, name="p"):
-    """合成 profile: config.yaml + 步驟草稿 (含搜尋範圍); 回傳 profile 路徑.
-
-    region=None 時草稿沒有搜尋範圍。
-    """
-    profile = Path(root) / "profiles" / name
-    (profile / "flows").mkdir(parents=True, exist_ok=True)
-    (profile / "config.yaml").write_text(
-        yaml.safe_dump(config if config is not None else {"scale_range": [0.5, 2.0]}),
-        encoding="utf-8")
-    draft = {"steps": [{"type": "wait", "wait": 1.234}], "runMode": "count",
-             "runCount": 1, "scanRegion": region, "coordSpace": "anchor"}
-    draft.update(draft_extra or {})
-    import flowfile   # 草稿照 app 的寫法 (帶現行格式標記), 工具讀草稿才過得了格式關
-    flowfile.write_draft(str(profile), draft)
-    return profile
+def make_out(root, name="out"):
+    """組裝的輸出位置 (流程資料夾建在它底下); 回傳路徑 (已建好的空資料夾)."""
+    out = Path(root) / name
+    out.mkdir(parents=True, exist_ok=True)
+    return out
 
 
 # ---------- 標準示範影片: 三個畫面依序出現 ----------
@@ -158,8 +147,8 @@ def find(name, **kw):
                  "at": center(name)}, **kw)
 
 
-def demo_plan(video, profile, steps=None, templates=None, name="日常", **extra):
-    plan = {"video": str(video), "profile": str(profile), "name": name,
+def demo_plan(video, out, steps=None, templates=None, name="日常", **extra):
+    plan = {"video": str(video), "out": str(out), "name": name,
             "templates": templates if templates is not None else demo_templates(),
             "steps": steps if steps is not None else [
                 find("開始"), find("確定"), find("下一步")]}
@@ -252,14 +241,20 @@ def ring_sample(tolerance=60):
     return {"bgr": list(RING), "tolerance": tolerance}
 
 
-def snapshot(profile):
-    """profile 內每個檔案的 (相對路徑 → 內容 bytes): 斷言「什麼都沒動」用."""
+def snapshot(root):
+    """資料夾內每個檔案的 (相對路徑 → 內容 bytes): 斷言「什麼都沒動」用."""
     out = {}
-    for dirpath, _, files in os.walk(profile):
+    for dirpath, _, files in os.walk(root):
         for fn in files:
             p = Path(dirpath) / fn
-            out[p.relative_to(profile).as_posix()] = p.read_bytes()
+            out[p.relative_to(root).as_posix()] = p.read_bytes()
     return out
+
+
+def saved_flow(res):
+    """組裝產出的流程資料夾經 app 的讀檔讀回 (記憶體的流程)."""
+    import flowfile
+    return flowfile.read_flow(res["flow_path"])
 
 
 # ---------- 遊戲自繪游標: 錄影程式沒畫特效, 游標本身在點擊時抖一下 ----------

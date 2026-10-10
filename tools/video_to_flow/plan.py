@@ -2,8 +2,8 @@
 
     {
       "video":   "示範影片路徑",
-      "profile": "目標 profile 目錄",
-      "name":    "流程名稱 (存檔檔名, 撞名自動加序號)",
+      "name":    "流程名稱 (流程資料夾名, 撞名自動加序號)",
+      "out":     "輸出位置 (可不寫; 預設 %USERPROFILE%\\AutoClick\\, 命令列 --out 優先)",
       "templates": {
         "開始行動": {"frame": 120, "box": [x, y, w, h],
                      "present": [150, {"frame": 300, "at": [x, y]}],
@@ -62,7 +62,6 @@ from automation.runner import (POINTER_TYPES, confirm_next_connected,
 from . import keys, origin
 from .errors import ToolError
 
-RETAKE_PREFIX = "待重拍_"   # `待重拍`範本名前綴 (存檔格式不為它加任何欄位)
 
 # 計畫專用的位置詞彙 (影片像素), 由組裝換成存檔的偏移欄位
 _POS_KEYS = {"frame", "at", "from", "to"}
@@ -184,14 +183,19 @@ def load(plan):
     if not isinstance(plan, dict):
         raise ToolError("轉換計畫的最外層要是 JSON 物件")
 
-    known = {"video", "profile", "name", "templates", "steps", "report",
-             "reportPath", "calibration", "busyTarget"}
+    known = {"video", "name", "out", "templates", "steps", "report", "calibration",
+             "busyTarget"}
     if "retryIntervalMs" in plan:
         _err("retryIntervalMs", "補做間隔已退場成固定行為（1 秒，不再是設定），計畫不要寫")
+    if "profile" in plan:
+        _err("profile", "profile 已退場（ADR 0015）：流程輸出成資料夾，位置寫 out"
+             "（或命令列 --out），預設 %USERPROFILE%\\AutoClick\\")
+    if "reportPath" in plan:
+        _err("reportPath", "交付報告一律寫在流程資料夾裡（交付報告.md），計畫不要寫 reportPath")
     extra = sorted(set(plan) - known)
     if extra:
         _err("最外層", f"不認得的欄位 {', '.join(extra)}")
-    for key in ("video", "profile", "name"):
+    for key in ("video", "name"):
         if not isinstance(plan.get(key), str) or not plan[key].strip():
             _err(key, "必填（字串）")
 
@@ -203,9 +207,8 @@ def load(plan):
         _err("name", "清不出可用的檔名")
     out = {
         "video": resolve(plan["video"]),
-        "profile": resolve(plan["profile"]),
+        "out": resolve(plan["out"]) if plan.get("out") else None,
         "name": name,
-        "report_path": resolve(plan["reportPath"]) if plan.get("reportPath") else None,
         "templates": _templates(plan.get("templates")),
         "report": _report(plan.get("report")),
     }
@@ -224,8 +227,9 @@ def _templates(raw):
         where = f"範本「{name}」"
         if flowfile.clean_name(name) != name or not name:
             _err(where, "範本名要是平面名稱（不能有 / \\ : * ? \" < > | 或前後的 .）")
-        if name.startswith(RETAKE_PREFIX):
-            _err(where, f"範本名不能以「{RETAKE_PREFIX}」開頭（那是組裝標待重拍用的前綴）")
+        problem = flowfile.template_name_problem(name)
+        if problem:
+            _err(where, problem)
         if not isinstance(t, dict):
             _err(where, "要是物件")
         extra = sorted(set(t) - TEMPLATE_FIELDS)

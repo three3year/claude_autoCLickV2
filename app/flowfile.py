@@ -781,3 +781,623 @@ def adopt_foreign_flow(path, profile_dir):
     dest = free_path(flows_dir(profile_dir), stem, EXT)
     write(dest, r["data"], r["images"], r["pos"])
     return {"flow_path": dest, "data": r["data"]}
+
+
+# ================= 流程資料夾 (flow.yaml) =================
+# 一份流程＝一個資料夾 (ADR 0014)::
+#
+#     <流程名>/flow.yaml             步驟與流程層級設定 (區段巢狀、一步一行、預設不寫、時間一律秒)
+#     <流程名>/templates/<範本名>.png 被引用的範本圖 (檔名即範本名)
+#     <流程名>/.cache/               可重建的快取 (登錄產物、還沒存檔的截圖)
+#
+# 記憶體裡的流程是 dict: run、scan_region、calibration、busy、template_pos、engine、steps
+# (步驟是平面標記, 鍵名與單位跟 flow.yaml 相同, 補齊成完整步驟)。讀寫只做三種形狀轉換:
+# 巢狀區段 ⇄ 平面標記、開頭的鍵 ⇄ type、步驟層的 within/pick/color ⇄ target 子 dict
+# (確認圖 confirm: {appear: 名, …} ⇄ confirm: appear + confirm_target)。
+# 讀檔是唯一的入口驗證: 寫錯就報錯並指出步驟編號與鍵, 目前開著的流程不動。
+
+FLOW_YAML = "flow.yaml"
+TEMPLATES_DIR = "templates"
+CACHE_DIR = ".cache"
+FLOW_FORMAT = 1
+
+_HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "repeat",
+          "branch")
+_TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy",
+             "template_pos", "engine", "steps")
+_TARGET_ATTRS = ("within", "pick", "color")
+_BAD_NAME_CHARS = '\\/:*?"<>|'
+
+
+class FlowError(ValueError):
+    """flow.yaml 讀不進來 (或流程寫不出去): 訊息給人看, 指明步驟編號與鍵."""
+
+
+def template_name_problem(name):
+    """範本名能不能當檔名 (範本名＝檔名): 不行回傳原因, 可以回傳 None."""
+    if not isinstance(name, str) or not name:
+        return "範本名不能是空的"
+    bad = sorted({c for c in name if c in _BAD_NAME_CHARS})
+    if bad:
+        return f"範本名「{name}」不能有 {' '.join(bad)}（檔名不允許）"
+    if name != name.strip():
+        return f"範本名「{name}」開頭或結尾不能是空白"
+    if name.endswith("."):
+        return f"範本名「{name}」結尾不能是句點"
+    return None
+
+
+def new_flow():
+    """空白的新流程 (記憶體模型)."""
+    return {"run": flowdefaults.FLOW["run"], "scan_region": None,
+            "calibration": None, "busy": None, "template_pos": {},
+            "engine": {}, "steps": []}
+
+
+def template_refs(flow):
+    """流程引用的全部範本名 (依出現順序): 步驟的找圖目標與確認圖 + 校準對 +
+    備用校準對 + 忙碌指示 (findtarget.referenced_templates 是唯一的定義)."""
+    cal = flow.get("calibration")
+    fb = calibration.fallback_pair(cal) if cal else None
+    busy = flow.get("busy")
+    extra = [*(cal["pair"] if cal else ()), *(fb["pair"] if fb else ()),
+             *([busy["template"]] if busy else ())]
+    return findtarget.referenced_templates(flow.get("steps") or [], extra)
+
+
+def rename_template_refs(flow, old, new):
+    """把整份流程 (記憶體模型) 對 old 的引用改成 new: 步驟的找圖目標與確認圖、校準對、
+    備用校準對、忙碌指示、拍攝位置; 回傳改動筆數."""
+    changed = rename_refs(flow.get("steps") or [], old, new)
+    cal = flow.get("calibration")
+    fb = calibration.fallback_pair(cal) if cal else None
+    for pair in [cal["pair"] if cal else [], fb["pair"] if fb else []]:
+        for i, n in enumerate(pair):
+            if n == old:
+                pair[i] = new
+                changed += 1
+    busy = flow.get("busy")
+    if busy and busy.get("template") == old:
+        busy["template"] = new
+        changed += 1
+    pos = flow.get("template_pos")
+    if pos and old in pos:
+        flow["template_pos"] = {(new if k == old else k): v for k, v in pos.items()}
+    return changed
+
+
+# ---------- 讀 ----------
+
+def read_flow(folder):
+    """讀流程資料夾的 flow.yaml → 記憶體的流程 (補齊預設); 讀不進來丟 FlowError."""
+    path = os.path.join(str(folder), FLOW_YAML)
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            text = f.read()
+    except OSError as e:
+        raise FlowError(f"讀不到 {path}（{e.strerror or e}）") from None
+    return parse_flow(text)
+
+
+def missing_templates(folder, flow):
+    """被引用卻不在 templates/ 的範本名 (開檔時列出缺圖用)."""
+    tdir = os.path.join(str(folder), TEMPLATES_DIR)
+    return [n for n in template_refs(flow)
+            if not os.path.isfile(os.path.join(tdir, n + ".png"))]
+
+
+def parse_flow(text):
+    """flow.yaml 的文字 → 記憶體的流程 (補齊預設); 寫錯丟 FlowError (指出步驟編號與鍵)."""
+    import yaml
+    try:
+        doc = yaml.safe_load(text)
+    except yaml.YAMLError as e:
+        mark = getattr(e, "problem_mark", None)
+        where = f"第 {mark.line + 1} 行" if mark is not None else "某處"
+        raise FlowError(f"flow.yaml 的 YAML 語法有錯（{where}）："
+                        f"{getattr(e, 'problem', None) or e}") from None
+    if not isinstance(doc, dict):
+        raise FlowError("flow.yaml 的最外層要是 {鍵: 值}")
+    extra = [k for k in doc if k not in _TOP_KEYS]
+    if extra:
+        raise FlowError(f"flow.yaml 頂層不認得的鍵：{'、'.join(map(str, extra))}")
+    if "format" not in doc:
+        raise FlowError("flow.yaml 缺 format（現行格式是 format: 1）")
+    if doc["format"] != FLOW_FORMAT or isinstance(doc["format"], bool):
+        raise FlowError(f"flow.yaml 的 format 是 {doc['format']!r}，這版 app 只讀 "
+                        f"format: {FLOW_FORMAT}")
+    flow = new_flow()
+    if "run" in doc:
+        run = doc["run"]
+        if not (run == "forever" or _int(run) and run >= 1):
+            raise FlowError(f"run 要是 1 以上的整數或 forever，收到 {run!r}")
+        flow["run"] = run
+    if doc.get("scan_region") is not None:
+        flow["scan_region"] = _rect("scan_region", doc["scan_region"])
+    if doc.get("calibration") is not None:
+        flow["calibration"] = _calibration(doc["calibration"])
+    if doc.get("busy") is not None:
+        flow["busy"] = _yaml_target("busy", doc["busy"], "template")
+    if doc.get("template_pos") is not None:
+        flow["template_pos"] = _template_pos(doc["template_pos"])
+    if doc.get("engine") is not None:
+        flow["engine"] = _engine(doc["engine"])
+    steps = doc.get("steps")
+    if steps is None:
+        steps = []
+    if not isinstance(steps, list):
+        raise FlowError("steps 要是步驟清單")
+    out = []
+    _parse_steps(steps, out)
+    flow["steps"] = out
+    return flow
+
+
+def _int(v):
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def _num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _xy(where, v):
+    if not (isinstance(v, list) and len(v) == 2 and all(_int(c) for c in v)):
+        raise FlowError(f"{where} 要寫成 [x, y] 整數，收到 {v!r}")
+    return list(v)
+
+
+def _rect(where, v):
+    if not (isinstance(v, list) and len(v) == 4 and all(_int(c) for c in v)
+            and v[2] > 0 and v[3] > 0):
+        raise FlowError(f"{where} 要寫成 [x, y, w, h] 整數且寬高大於 0，收到 {v!r}")
+    return list(v)
+
+
+def _name(where, v):
+    problem = template_name_problem(v)
+    if problem:
+        raise FlowError(f"{where}：{problem}")
+    return v
+
+
+def _calibration(c):
+    where = "calibration"
+    if not isinstance(c, dict):
+        raise FlowError(f"{where} 要是 {{pair, baseline, fallback}}")
+    extra = [k for k in c if k not in ("pair", "baseline", "fallback")]
+    if extra:
+        raise FlowError(f"{where} 不認得的鍵：{'、'.join(map(str, extra))}")
+    out = _pair(where, c)
+    if c.get("fallback") is not None:
+        fb = c["fallback"]
+        fw = where + ".fallback"
+        if not isinstance(fb, dict):
+            raise FlowError(f"{fw} 要是 {{pair, baseline, offset}}")
+        extra = [k for k in fb if k not in ("pair", "baseline", "offset")]
+        if extra:
+            raise FlowError(f"{fw} 不認得的鍵：{'、'.join(map(str, extra))}")
+        f = _pair(fw, fb)
+        if "offset" not in fb:
+            raise FlowError(f"{fw} 缺 offset")
+        f["offset"] = _xy(fw + ".offset", fb["offset"])
+        out["fallback"] = f
+    return out
+
+
+def _pair(where, c):
+    pair = c.get("pair")
+    if not (isinstance(pair, list) and len(pair) == 2 and pair[0] != pair[1]):
+        raise FlowError(f"{where}.pair 要是兩個不同的範本名，收到 {pair!r}")
+    for n in pair:
+        _name(f"{where}.pair", n)
+    base = c.get("baseline")
+    if not _num(base) or base <= 0:
+        raise FlowError(f"{where}.baseline 要是大於 0 的數字，收到 {base!r}")
+    return {"pair": list(pair), "baseline": float(base)}
+
+
+def _template_pos(tp):
+    if not isinstance(tp, dict):
+        raise FlowError("template_pos 要是 {範本名: [x, y]}")
+    return {_name("template_pos", str(n) if _num(n) else n):
+            _xy(f"template_pos.{n}", v) for n, v in tp.items()}
+
+
+_ENGINE_KEYS = None
+
+
+def _engine(e):
+    """`引擎參數覆蓋`: 鍵名同引擎 default_config.yaml; 不認得的鍵報錯 (拼錯不能變成預設)."""
+    global _ENGINE_KEYS
+    if not isinstance(e, dict):
+        raise FlowError("engine 要是 {引擎參數: 值}")
+    if _ENGINE_KEYS is None:
+        from subject_detection.library import load_default_config
+        _ENGINE_KEYS = set(load_default_config())
+    extra = [k for k in e if k not in _ENGINE_KEYS]
+    if extra:
+        raise FlowError(f"engine 不認得的鍵：{'、'.join(map(str, extra))}"
+                        f"（可用：{'、'.join(sorted(_ENGINE_KEYS))}）")
+    return dict(e)
+
+
+def _yaml_target(where, d, head):
+    """yaml 的找圖目標 ({head: 名, within, pick, color}) → 記憶體的找圖目標."""
+    if not isinstance(d, dict):
+        raise FlowError(f"{where} 要是 {{{head}: 範本名, …}}")
+    tgt = {"template": _name(f"{where} 的 {head}", d.get(head))}
+    if "within" in d:
+        tgt["within"] = _rect(f"{where} 的 within", d["within"])
+    if "pick" in d:
+        tgt["pick"] = _pick(f"{where} 的 pick", d["pick"])
+    if "color" in d:
+        if d["color"] is not True:
+            raise FlowError(f"{where} 的 color 只能寫 true（不比色就不寫），收到 {d['color']!r}")
+        tgt["color"] = True
+    extra = [k for k in d if k not in (head, *_TARGET_ATTRS)]
+    if extra and head == "template":
+        raise FlowError(f"{where} 不認得的鍵：{'、'.join(map(str, extra))}")
+    return tgt
+
+
+def _pick(where, p):
+    if isinstance(p, dict) and len(p) == 1:
+        (kind, v), = p.items()
+        if kind in ("top", "left") and _int(v) and v >= 1:
+            return {kind: v}
+        if kind == "near":
+            return {"near": _xy(where + ".near", v)}
+    raise FlowError(f"{where} 要寫成 {{top: N}}、{{left: N}} 或 {{near: [x, y]}}，"
+                    f"收到 {p!r}")
+
+
+def _parse_steps(items, out):
+    """巢狀的步驟清單 → 平面標記 (就地 append 到 out); 步驟編號＝out 裡的位置 + 1."""
+    for item in items:
+        no = len(out) + 1
+        where = f"步驟 {no}"
+        if not isinstance(item, dict):
+            raise FlowError(f"{where} 要是 {{鍵: 值}}，收到 {item!r}")
+        heads = [k for k in item if k in _HEADS]
+        if len(heads) != 1:
+            raise FlowError(f"{where} 要剛好一個開頭的鍵（{'/'.join(_HEADS)}），"
+                            f"收到 {'、'.join(map(str, item)) or '空的'}")
+        head = heads[0]
+        if head == "repeat":
+            _parse_repeat(where, item, out)
+        elif head == "branch":
+            _parse_branch(where, item, out)
+        else:
+            out.append(_parse_step(where, head, item))
+
+
+def _on_break(where, item):
+    v = item.get("on_break", "continue")
+    if v not in ("continue", "break"):
+        raise FlowError(f"{where} 的 on_break 只能是 break（不寫＝continue），收到 {v!r}")
+    return v
+
+
+def _parse_repeat(where, item, out):
+    extra = [k for k in item if k not in ("repeat", "steps", "on_break")]
+    if extra:
+        raise FlowError(f"{where}（repeat）不認得的鍵：{'、'.join(map(str, extra))}")
+    n = item["repeat"]
+    if not _int(n) or n < 1:
+        raise FlowError(f"{where} 的 repeat 要是 1 以上的整數，收到 {n!r}")
+    body = item.get("steps")
+    if not isinstance(body, list) or not body:
+        raise FlowError(f"{where} 的 repeat 區段不完整：要有 steps（區段裡的步驟清單）")
+    on_break = _on_break(where, item)
+    out.append({"type": "repeat_start", "repeat": n})
+    _parse_steps(body, out)
+    out.append({"type": "repeat_end", "on_break": on_break})
+
+
+def _parse_branch(where, item, out):
+    extra = [k for k in item if k not in ("branch", "on_break")]
+    if extra:
+        raise FlowError(f"{where}（branch）不認得的鍵：{'、'.join(map(str, extra))}")
+    arms = item["branch"]
+    if not isinstance(arms, list) or not arms:
+        raise FlowError(f"{where} 的 branch 區段不完整：要有分支清單（- if: …）")
+    on_break = _on_break(where, item)
+    out.append({"type": "branch_start"})
+    for k, arm in enumerate(arms):
+        if k:
+            out.append({"type": "branch_or"})
+        aw = f"步驟 {len(out) + 1}"
+        if not isinstance(arm, dict) or "if" not in arm:
+            raise FlowError(f"{aw}：branch 的每個分支要寫 if（分支條件）")
+        extra = [x for x in arm if x not in ("if", "then")]
+        if extra:
+            raise FlowError(f"{aw}：branch 的分支不認得的鍵：{'、'.join(map(str, extra))}")
+        cond = arm["if"]
+        heads = [h for h in (cond if isinstance(cond, dict) else {})
+                 if h in _HEADS]
+        if len(heads) != 1 or heads[0] not in findtarget.FIND_TYPES:
+            raise FlowError(f"{aw}：branch 的 if 必須是找圖步驟"
+                            "（find_click / find / wait_gone）")
+        then = arm.get("then") or []
+        if not isinstance(then, list):
+            raise FlowError(f"{aw}：then 要是步驟清單")
+        _parse_steps([cond, *then], out)
+    out.append({"type": "branch_end", "on_break": on_break})
+
+
+def _parse_step(where, head, item):
+    """一步 (flow-style mapping) → 記憶體的完整步驟."""
+    t = head
+    s = {"type": t}
+    allowed = set(flowdefaults.KEYS[t]) - {"type", "target", "confirm_target"}
+    allowed |= {head}
+    if t in findtarget.FIND_TYPES:
+        allowed |= set(_TARGET_ATTRS)
+    extra = [k for k in item if k not in allowed]
+    if extra:
+        raise FlowError(f"{where}（{t}）不認得的鍵：{'、'.join(map(str, extra))}")
+    if t in findtarget.FIND_TYPES:
+        s["target"] = _yaml_target(where, {k: item[k] for k in (head, *_TARGET_ATTRS)
+                                           if k in item}, head)
+    elif t == "click":
+        s["click"] = _xy(f"{where} 的 click", item["click"])
+    elif t == "drag":
+        s["drag"] = _xy(f"{where} 的 drag", item["drag"])
+        if "to" not in item:
+            raise FlowError(f"{where} 的 drag 要寫 to（終點）")
+        s["to"] = _xy(f"{where} 的 to", item["to"])
+    elif t == "wait":
+        if not _num(item["wait"]) or item["wait"] < 0:
+            raise FlowError(f"{where} 的 wait 要是秒數，收到 {item['wait']!r}")
+        s["wait"] = item["wait"]
+    if "offset" in item:
+        s["offset"] = _xy(f"{where} 的 offset", item["offset"])
+    if "confirm" in item:
+        c = item["confirm"]
+        if isinstance(c, dict):
+            extra = [k for k in c if k not in ("appear", *_TARGET_ATTRS)]
+            if extra or "appear" not in c:
+                raise FlowError(f"{where} 的 confirm 要寫成 gone / next / "
+                                "{appear: 範本名, within…, pick…, color…}，"
+                                f"收到 {c!r}")
+            s["confirm"] = "appear"
+            s["confirm_target"] = _yaml_target(f"{where} 的 confirm", c, "appear")
+        elif c in ("gone", "next"):
+            s["confirm"] = c
+        else:
+            raise FlowError(f"{where} 的 confirm 只能是 gone / next / {{appear: 範本名}}，"
+                            f"收到 {c!r}")
+    for k in ("timeout", "duration", "hold"):
+        if k in item:
+            if not _num(item[k]) or item[k] < 0:
+                raise FlowError(f"{where} 的 {k} 要是秒數，收到 {item[k]!r}")
+            s[k] = item[k]
+    if "interval" in item:
+        if not _num(item["interval"]) or item["interval"] <= 0:
+            raise FlowError(f"{where} 的 interval 要是大於 0 的秒數，收到 {item['interval']!r}")
+        s["interval"] = item["interval"]
+    if "on_fail" in item:
+        if item["on_fail"] not in ("skip", "break", "stop"):
+            raise FlowError(f"{where} 的 on_fail 只能是 skip / break（不寫＝stop），"
+                            f"收到 {item['on_fail']!r}")
+        s["on_fail"] = item["on_fail"]
+    for k in ("busy_check", "update_origin"):
+        if k in item:
+            if not isinstance(item[k], bool):
+                raise FlowError(f"{where} 的 {k} 要是 true / false，收到 {item[k]!r}")
+            s[k] = item[k]
+    if not flowdefaults.has_wait(s):
+        waits = [k for k in flowdefaults.WAIT if k in item]
+        if waits:
+            raise FlowError(f"{where} 的 {'、'.join(waits)} 只有設了生效確認（confirm）"
+                            "才有意義")
+    return flowdefaults.complete(s)
+
+
+# ---------- 寫 ----------
+
+def dump_flow(flow):
+    """記憶體的流程 → flow.yaml 的文字 (等於預設的不寫; 一步一行, 行尾 # N 是步驟編號).
+
+    整份重寫, 手寫註解不保留。template_pos 只留被引用的範本。
+    """
+    lines = [f"format: {FLOW_FORMAT}"]
+    run = flow.get("run", 1)
+    if run != flowdefaults.FLOW["run"]:
+        lines.append(f"run: {_flow_style(run)}")
+    if flow.get("scan_region"):
+        lines.append(f"scan_region: {_flow_style(list(flow['scan_region']))}")
+    cal = flow.get("calibration")
+    if cal:
+        lines.append("calibration:")
+        lines.append(f"  pair: {_flow_style(list(cal['pair']))}")
+        lines.append(f"  baseline: {_flow_style(round(float(cal['baseline']), 1))}")
+        fb = calibration.fallback_pair(cal)
+        if fb:
+            lines.append("  fallback: " + _flow_style({
+                "pair": list(fb["pair"]),
+                "baseline": round(float(fb["baseline"]), 1),
+                "offset": [int(v) for v in fb["offset"]]}))
+    busy = flow.get("busy")
+    if busy:
+        lines.append(f"busy: {_flow_style(_target_yaml(busy, 'template'))}")
+    refs = set(template_refs(flow))
+    pos = {n: p for n, p in (flow.get("template_pos") or {}).items() if n in refs}
+    if pos:
+        lines.append("template_pos:")
+        for n, p in pos.items():
+            lines.append(f"  {_flow_style(n)}: {_flow_style([int(p[0]), int(p[1])])}")
+    if flow.get("engine"):
+        lines.append(f"engine: {_flow_style(dict(flow['engine']))}")
+    steps = flow.get("steps") or []
+    if not steps:
+        lines.append("steps: []")
+    else:
+        lines.append("steps:")
+        lines += _emit(_nest(steps), 2)
+    return "\n".join(lines) + "\n"
+
+
+def _flow_style(v):
+    """單行 flow-style YAML (中文名直接當值)."""
+    import yaml
+    text = yaml.dump(v, allow_unicode=True, default_flow_style=True,
+                     sort_keys=False, width=10_000)
+    return text.removesuffix("...\n").strip()
+
+
+def _number(v):
+    v = float(v)
+    return int(v) if v.is_integer() else v
+
+
+def _target_yaml(tgt, head):
+    out = {head: tgt.get("template", "")}
+    if tgt.get("within") is not None:
+        out["within"] = [int(c) for c in tgt["within"]]
+    kind, value = findtarget.pick_rule(tgt)
+    if kind in ("top", "left"):
+        out["pick"] = {kind: int(value)}
+    elif kind == "near":
+        out["pick"] = {"near": [int(value[0]), int(value[1])]}
+    if tgt.get("color"):
+        out["color"] = True
+    return out
+
+
+_ORDER = ("offset", "duration", "hold", "confirm", "timeout", "interval", "on_fail",
+          "busy_check", "update_origin")
+
+
+def _step_yaml(step):
+    """記憶體的步驟 → yaml 的一步 (開頭的鍵在前, 等於預設的不寫)."""
+    s = flowdefaults.strip(step)
+    t = step["type"]
+    if t in findtarget.FIND_TYPES:
+        out = _target_yaml(step["target"], t)
+    elif t == "click":
+        out = {"click": [int(v) for v in step["click"]]}
+    elif t == "drag":
+        out = {"drag": [int(v) for v in step["drag"]],
+               "to": [int(v) for v in step["to"]]}
+    else:
+        out = {"wait": _number(step["wait"])}
+    for k in _ORDER:
+        if k not in s:
+            continue
+        v = s[k]
+        if k == "confirm":
+            if v == "appear":
+                v = _target_yaml(step.get("confirm_target") or {}, "appear")
+        elif k == "offset":
+            v = [int(c) for c in v]
+        elif k in ("duration", "hold", "timeout", "interval"):
+            v = _number(v)
+        out[k] = v
+    return out
+
+
+def _nest(steps):
+    """平面標記 → 巢狀節點 [(種類, 內容, 步驟編號)] (編號＝平面清單的位置 + 1, 標記也算一號).
+
+    種類: "step" (yaml 的一步)、"repeat" ({repeat, steps, on_break})、
+    "branch" ({arms: [[節點, ...], ...], on_break})。
+    """
+    pos = 0
+
+    def block(stop):
+        nonlocal pos
+        out = []
+        while pos < len(steps):
+            s = steps[pos]
+            t = s["type"]
+            if t in stop:
+                return out
+            no = pos + 1
+            pos += 1
+            if t == "repeat_start":
+                body = block(("repeat_end",))
+                if pos >= len(steps):
+                    raise FlowError(f"步驟 {no}：重複區段缺少結尾，寫不出 flow.yaml")
+                end = steps[pos]
+                pos += 1
+                out.append(("repeat", {"repeat": s["repeat"], "steps": body,
+                                       "on_break": end["on_break"]}, no))
+            elif t == "branch_start":
+                arms = []
+                while True:
+                    arms.append(block(("branch_or", "branch_end")))
+                    if pos >= len(steps):
+                        raise FlowError(f"步驟 {no}：分岔缺少結尾，寫不出 flow.yaml")
+                    sep = steps[pos]
+                    pos += 1
+                    if sep["type"] == "branch_end":
+                        break
+                out.append(("branch", {"arms": arms, "on_break": sep["on_break"]}, no))
+            elif t in ("repeat_end", "branch_or", "branch_end"):
+                raise FlowError(f"步驟 {no}：區段標記不成對，寫不出 flow.yaml")
+            else:
+                out.append(("step", _step_yaml(s), no))
+        return out
+
+    return block(())
+
+
+def _emit(nodes, ind):
+    pad = " " * ind
+    lines = []
+    for kind, node, no in nodes:
+        if kind == "repeat":
+            lines.append(f"{pad}- repeat: {node['repeat']}    # {no}")
+            if node["on_break"] == "break":
+                lines.append(f"{pad}  on_break: break")
+            lines.append(f"{pad}  steps:")
+            lines += _emit(node["steps"], ind + 4)
+        elif kind == "branch":
+            lines.append(f"{pad}- branch:    # {no}")
+            for arm in node["arms"]:
+                if not arm or arm[0][0] != "step":
+                    raise FlowError(f"步驟 {no}：分岔的每個分支開頭要是找圖步驟，"
+                                    "寫不出 flow.yaml")
+                (_, cond, cno), rest = arm[0], arm[1:]
+                lines.append(f"{pad}    - if: {_flow_style(cond)}    # {cno}")
+                if rest:
+                    lines.append(f"{pad}      then:")
+                    lines += _emit(rest, ind + 8)
+            if node["on_break"] == "break":
+                lines.append(f"{pad}  on_break: break")
+        else:
+            lines.append(f"{pad}- {_flow_style(node)}    # {no}")
+    return lines
+
+
+def write_flow(folder, flow, images=None):
+    """把記憶體的流程寫成流程資料夾; 回傳被引用卻沒有圖的範本名.
+
+    images: {範本名: bytes 或圖檔路徑}——要放進 templates/ 的圖 (先全部讀進記憶體再寫,
+    改名互換也不會互相蓋掉)。寫完 templates/ 正好是引用集合裡有圖的那些: 沒被引用的
+    png 刪掉。flow.yaml 先寫暫存檔再取代, 寫到一半失敗不會留半份。
+    """
+    folder = str(folder)
+    refs = template_refs(flow)
+    for n in refs:
+        problem = template_name_problem(n)
+        if problem:
+            raise FlowError(problem)
+    text = dump_flow(flow)
+    blobs = {n: _blob(src) for n, src in (images or {}).items() if n in refs}
+    tdir = os.path.join(folder, TEMPLATES_DIR)
+    os.makedirs(tdir, exist_ok=True)
+    for n, data in blobs.items():
+        with open(os.path.join(tdir, n + ".png"), "wb") as f:
+            f.write(data)
+    keep = set(refs)
+    for fn in os.listdir(tdir):
+        if fn.lower().endswith(".png") and fn[:-4] not in keep:
+            os.remove(os.path.join(tdir, fn))
+    tmp = os.path.join(folder, FLOW_YAML + ".tmp")
+    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    os.replace(tmp, os.path.join(folder, FLOW_YAML))
+    return [n for n in refs if not os.path.isfile(os.path.join(tdir, n + ".png"))]

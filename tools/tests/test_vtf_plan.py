@@ -1,20 +1,20 @@
 """票 05 — 預設補值、結構檢查與報告內容.
 
-只打組裝入口; 斷言存檔步驟的欄位、拒絕時的訊息與 profile 檔案狀態、報告文字。
+只打組裝入口; 斷言流程步驟的欄位、拒絕時的訊息與輸出位置的檔案狀態、報告文字。
 """
 import pytest
 
 import flowfile
 import video_to_flow
 from vtf_synth import (VIDEO_H, VIDEO_W, demo_plan, demo_video, find,
-                       make_profile, snapshot)
+                       make_out, snapshot)
 
 REGION = [0, 0, VIDEO_W, VIDEO_H]
 
 
 @pytest.fixture
 def demo(tmp_path):
-    return demo_video(tmp_path), make_profile(tmp_path, region=REGION)
+    return demo_video(tmp_path), make_out(tmp_path)
 
 
 def run(demo, engine, steps, **extra):
@@ -24,7 +24,7 @@ def run(demo, engine, steps, **extra):
 
 
 def saved(res):
-    return flowfile.read(res["flow_path"])["data"]["steps"]
+    return flowfile.read_flow(res["flow_path"])["steps"]
 
 
 def refused(demo, engine, steps, match, **extra):
@@ -32,7 +32,7 @@ def refused(demo, engine, steps, match, **extra):
     before = snapshot(profile)
     with pytest.raises(video_to_flow.ToolError, match=match):
         run(demo, engine, steps, **extra)
-    assert snapshot(profile) == before   # 流程目錄 (與整個 profile) 沒有新檔
+    assert snapshot(profile) == before   # 輸出位置沒有新檔
 
 
 # ---------- 預設補值 ----------

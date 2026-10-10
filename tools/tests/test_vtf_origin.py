@@ -9,7 +9,7 @@ import flowfile
 import video_to_flow
 from automation import flowfmt
 from vtf_synth import (FRAME, VIDEO_H, VIDEO_W, center, demo_plan, demo_video,
-                       find, make_profile, snapshot)
+                       find, make_out, snapshot)
 
 # 搜尋範圍比影片大: 偏移仍是影片像素原樣 (影片與實際畫面同尺度)
 REGION = [0, 0, round(VIDEO_W * 1.5), round(VIDEO_H * 1.5)]
@@ -17,7 +17,7 @@ REGION = [0, 0, round(VIDEO_W * 1.5), round(VIDEO_H * 1.5)]
 
 @pytest.fixture
 def demo(tmp_path):
-    return demo_video(tmp_path), make_profile(tmp_path, region=REGION)
+    return demo_video(tmp_path), make_out(tmp_path)
 
 
 def run(demo, engine, steps):
@@ -27,7 +27,7 @@ def run(demo, engine, steps):
 
 
 def saved(res):
-    return flowfile.read(res["flow_path"])["data"]["steps"]
+    return flowfile.read_flow(res["flow_path"])["steps"]
 
 
 def sc(v):

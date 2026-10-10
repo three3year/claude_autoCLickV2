@@ -9,14 +9,14 @@ import pytest
 import flowfile
 import video_to_flow
 from vtf_synth import (VIDEO_H, VIDEO_W, center, demo_plan, demo_video, find,
-                       make_profile, snapshot)
+                       make_out, snapshot)
 
 REGION = [0, 0, VIDEO_W, VIDEO_H]
 
 
 @pytest.fixture
 def demo(tmp_path):
-    return demo_video(tmp_path), make_profile(tmp_path, region=REGION)
+    return demo_video(tmp_path), make_out(tmp_path)
 
 
 def run(demo, engine, steps, **extra):
@@ -26,7 +26,7 @@ def run(demo, engine, steps, **extra):
 
 
 def saved(res):
-    return flowfile.read(res["flow_path"])["data"]
+    return flowfile.read_flow(res["flow_path"])
 
 
 def refused(demo, engine, steps, match, **extra):
@@ -64,7 +64,7 @@ def test_流程層級的忙碌指示(demo, engine):
     steps = [find("開始"), find("確定", action="wait_gone"), find("下一步")]
     data = saved(run(demo, engine, steps,
                      busyTarget={"template": "下一步", "colorCheck": True}))
-    assert flowfile.busy_target(data) == {"template": "下一步", "color": True}
+    assert data["busy"] == {"template": "下一步", "color": True}
     assert "retryIntervalMs" not in data, "補做間隔是固定行為, 不進存檔"
 
 

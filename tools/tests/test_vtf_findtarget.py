@@ -1,7 +1,7 @@
 """票 08 — 計畫的找圖步驟與確認圖可寫比色、挑選規則、限定範圍.
 
 用真引擎跑合成示範影片, 只打組裝入口; 斷言存檔裡的找圖目標、待重拍結果、
-組裝拒絕時 profile 一個檔案都沒多。自我驗證與執行時走同一個找圖目標模組
+組裝拒絕時輸出位置一個檔案都沒多。自我驗證與執行時走同一個找圖目標模組
 (裁範圍 → 查詢 → 比色 → 挑選), 驗證通過就代表執行時會挑到同一個。
 """
 import json
@@ -14,11 +14,10 @@ import flowfile
 import video_to_flow
 from video_to_flow import ToolError
 from vtf_synth import (VIDEO_H, VIDEO_W, box, center, demo_plan, demo_video,
-                       find, make_button, make_profile, screen, snapshot,
+                       find, make_button, make_out, screen, snapshot,
                        timeline, write_video)
 
 REGION = [0, 0, VIDEO_W, VIDEO_H]
-RETAKE = "待重拍_"
 
 
 def run(plan, engine):
@@ -26,7 +25,7 @@ def run(plan, engine):
 
 
 def saved_steps(res):
-    return flowfile.read(res["flow_path"])["data"]["steps"]
+    return flowfile.read_flow(res["flow_path"])["steps"]
 
 
 # ---------- 同款多張: 挑選規則 ----------
@@ -45,7 +44,7 @@ def cards(tmp_path):
     frames = timeline((screen([(CARD, x, y) for x, y in CARDS]), 10))
     video = write_video(tmp_path / "cards.mp4", frames)
     templates = {"卡": {"frame": 5, "box": [*CARDS[1], 44, 32]}}   # 取材自第二張
-    return video, make_profile(tmp_path, region=REGION), templates
+    return video, make_out(tmp_path), templates
 
 
 def test_同款多張時由上到下第N驗證通過且點對(cards, engine):
@@ -66,8 +65,8 @@ def test_挑選規則設錯被標待重拍(cards, engine):
               "at": card_center(1), "pick": {"kind": "top", "n": 1}}]
     res = run(demo_plan(video, profile, steps=steps, templates=templates), engine)
 
-    assert list(res["retake"]) == [RETAKE + "卡"]
-    assert any("位置不符" in why for why in res["retake"][RETAKE + "卡"])
+    assert list(res["retake"]) == ["卡"]
+    assert any("位置不符" in why for why in res["retake"]["卡"])
 
 
 # ---------- 限定範圍與指定點: 影片像素 → 相對原點/搜尋範圍 ----------
@@ -81,7 +80,7 @@ def located_plan(video, profile, second):
 
 def test_指定點從影片像素換算成相對原點(tmp_path, engine):
     video = demo_video(tmp_path)
-    profile = make_profile(tmp_path, region=REGION)
+    profile = make_out(tmp_path)
     ox, oy = center("開始")
     second = {"pick": {"kind": "near", "at": center("確定")}}
     res = run(located_plan(video, profile, second), engine)
@@ -95,7 +94,7 @@ def test_指定點從影片像素換算成相對原點(tmp_path, engine):
 
 def test_九宮格與以搜尋範圍為基準的指定點已退場(tmp_path, engine):
     video = demo_video(tmp_path)
-    profile = make_profile(tmp_path, region=REGION)
+    profile = make_out(tmp_path)
     before = snapshot(profile)
     for second in ({"limit": {"kind": "grid", "cells": [5, 6, 8, 9]}},
                    {"pick": {"kind": "near", "base": "region", "at": [320, 170]}},
@@ -105,24 +104,9 @@ def test_九宮格與以搜尋範圍為基準的指定點已退場(tmp_path, eng
     assert snapshot(profile) == before
 
 
-def test_profile的舊校準資料不影響_指定點原樣是影片像素(tmp_path, engine):
-    """影片尺度就是流程尺度 (ADR 0009): 不讀 profile 校準, 不換算."""
-    video = demo_video(tmp_path)
-    profile = make_profile(tmp_path, region=REGION)
-    with open(profile / "calibration.json", "w", encoding="utf-8") as f:
-        json.dump({"pair": ["p", "q"], "baseline": 100.0, "scale": 2.0,
-                   "fingerprint": None}, f)
-    ox, oy = center("開始")
-    second = {"pick": {"kind": "near", "at": [320, 170]}}
-    res = run(located_plan(video, profile, second), engine)
-
-    s = saved_steps(res)[1]
-    assert s["target"]["pick"] == {"near": [320 - ox, 170 - oy]}
-
-
 def test_確認圖的找圖目標用點擊後的原點換算(tmp_path, engine):
     video = demo_video(tmp_path)
-    profile = make_profile(tmp_path, region=REGION)
+    profile = make_out(tmp_path)
     at = center("開始")
     bx, by, bw, bh = box("確定")
     steps = [find("開始", confirm="appear",
@@ -158,7 +142,7 @@ def greyed(tmp_path):
     video = write_video(tmp_path / "grey.mp4", frames)
     templates = {"置入": {"frame": 20, "box": [300, 120, 60, 36],
                           "absent": [5]}}
-    return video, make_profile(tmp_path, region=REGION), templates
+    return video, make_out(tmp_path), templates
 
 
 def test_只差顏色的absent幀_不開比色會被匹配(greyed, engine):
@@ -166,8 +150,8 @@ def test_只差顏色的absent幀_不開比色會被匹配(greyed, engine):
     steps = [{"type": "find_click", "template": "置入", "frame": 20,
               "at": [330, 138]}]
     res = run(demo_plan(video, profile, steps=steps, templates=templates), engine)
-    assert list(res["retake"]) == [RETAKE + "置入"]
-    assert any("出現前就匹配" in why for why in res["retake"][RETAKE + "置入"])
+    assert list(res["retake"]) == ["置入"]
+    assert any("出現前就匹配" in why for why in res["retake"]["置入"])
 
 
 def test_只差顏色的absent幀_開比色後不再被匹配(greyed, engine):
@@ -193,9 +177,9 @@ def test_只差顏色的absent幀_開比色後不再被匹配(greyed, engine):
 ], ids=["限定範圍已退場", "指定點卻沒有原點",
         "N小於1", "沒寫N", "九宮格已退場", "指定點不再有基準",
         "colorCheck不是布林", "不認得的挑選規則"])
-def test_組裝拒絕不完整設定且profile不多任何檔案(tmp_path, engine, bad, why):
+def test_組裝拒絕不完整設定且輸出位置不多任何檔案(tmp_path, engine, bad, why):
     video = demo_video(tmp_path)
-    profile = make_profile(tmp_path, region=REGION)
+    profile = make_out(tmp_path)
     before = snapshot(profile)
     plan = demo_plan(video, profile, steps=[dict(find("開始"), **bad),
                                             find("確定"), find("下一步")])
@@ -207,7 +191,7 @@ def test_組裝拒絕不完整設定且profile不多任何檔案(tmp_path, engin
 
 def test_confirmTemplate與confirmTarget不能同時寫(tmp_path, engine):
     video = demo_video(tmp_path)
-    profile = make_profile(tmp_path, region=REGION)
+    profile = make_out(tmp_path)
     plan = demo_plan(video, profile, steps=[
         find("開始", confirm="appear", confirmTemplate="確定",
              confirmTarget={"template": "確定"}), find("確定"), find("下一步")])

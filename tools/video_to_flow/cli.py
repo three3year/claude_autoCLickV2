@@ -3,7 +3,7 @@
     python tools/video_to_flow scan <影片> --out <輸出目錄> [--sample <特效樣本.json>]
                                    [--frames 120,130,...]
     python tools/video_to_flow learn-cursor <影片> --at "幀:x,y;幀:x,y;..." --out <樣本.json>
-    python tools/video_to_flow assemble <轉換計畫.json> [--report <報告.md>]
+    python tools/video_to_flow assemble <轉換計畫.json> [--out <輸出位置>]
 
 結果摘要印在 stdout (UTF-8); 拒絕時把原因印在 stderr 並以 1 結束。
 """
@@ -64,9 +64,10 @@ def main(argv=None):
     lc.add_argument("--at", type=_points, required=True,
                     help="游標尖端位置，「幀:x,y;幀:x,y;...」，至少 4 幀、背景各不相同")
     lc.add_argument("--out", required=True, help="樣本 JSON（游標圖寫在旁邊同名 .png）")
-    asm = sub.add_parser("assemble", help="轉換計畫 → 自我驗證 → 流程存檔 + 交付報告")
+    asm = sub.add_parser("assemble", help="轉換計畫 → 自我驗證 → 流程資料夾 + 交付報告")
     asm.add_argument("plan")
-    asm.add_argument("--report", help="交付報告位置（預設與存檔同名並排）")
+    asm.add_argument("--out", help="輸出位置：流程資料夾建在它底下"
+                                   "（預設計畫的 out，再沒有就是 %%USERPROFILE%%\\AutoClick\\）")
     args = ap.parse_args(argv)
 
     try:
@@ -90,8 +91,8 @@ def main(argv=None):
                 print(f"提醒：{w}")
         else:
             from .assemble import assemble
-            res = assemble(args.plan, report_path=args.report)
-            print(f"流程存檔：{res['flow_path']}")
+            res = assemble(args.plan, out_dir=args.out)
+            print(f"流程資料夾：{res['flow_path']}")
             print(f"交付報告：{res['report_path']}")
             for w in res["warnings"]:
                 print(f"提醒：{w}")

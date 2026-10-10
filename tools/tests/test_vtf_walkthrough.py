@@ -5,6 +5,7 @@ Claude 的判斷: 點在按鈕上＝找圖、其餘＝相對座標點擊) → �
 存檔經 app 既有的工作區載入打開。只打兩個入口。
 """
 import json
+import os
 import subprocess
 import sys
 
@@ -12,7 +13,7 @@ import numpy as np
 
 import flowfile
 import video_to_flow
-from vtf_synth import (ROOT, VIDEO_H, VIDEO_W, box, center, make_profile,
+from vtf_synth import (ROOT, VIDEO_H, VIDEO_W, box, center, make_out,
                        scan_video)
 
 CLICKS = [(20, tuple(center("開始"))), (60, tuple(center("確定"))),
@@ -27,7 +28,7 @@ def inside(xy, b, pad=4):
     return x - pad <= xy[0] <= x + w + pad and y - pad <= xy[1] <= y + h + pad
 
 
-def test_照skill程序走一遍產出app開得起來的流程存檔(tmp_path):
+def test_照skill程序走一遍產出app開得起來的流程資料夾(tmp_path):
     video = scan_video(tmp_path / "demo.mp4", clicks=CLICKS, scenes=SCENES)
     work = tmp_path / "work"
 
@@ -58,8 +59,8 @@ def test_照skill程序走一遍產出app開得起來的流程存檔(tmp_path):
             steps.append({"type": "click", "at": [c["x"], c["y"]]})
     assert [s["type"] for s in steps] == ["find_click", "find_click", "click"]
 
-    profile = make_profile(tmp_path, region=[0, 0, VIDEO_W, VIDEO_H])
-    plan = {"video": str(video), "profile": str(profile), "name": "走一遍",
+    out = make_out(tmp_path)
+    plan = {"video": str(video), "out": str(out), "name": "走一遍",
             "templates": templates, "steps": steps,
             "report": {"branches": ["(示範) 這裡可能跳出彈窗"]}}
     plan_path = work / "plan.json"
@@ -68,18 +69,18 @@ def test_照skill程序走一遍產出app開得起來的流程存檔(tmp_path):
     proc = subprocess.run(
         [sys.executable, str(ROOT / "tools" / "video_to_flow"), "assemble",
          str(plan_path)], capture_output=True, timeout=600)
-    out = proc.stdout.decode("utf-8", "replace")
+    stdout = proc.stdout.decode("utf-8", "replace")
     assert proc.returncode == 0, proc.stderr.decode("utf-8", "replace")
-    assert "待重拍" not in out
+    assert "待重拍" not in stdout
 
-    flow = profile / "flows" / ("走一遍" + flowfile.EXT)
-    assert flowfile.list_flows(str(profile)) == [str(flow)]
-    ws = flowfile.Workspace(str(profile))
-    r = ws.load_flow(str(flow))
-    assert ws.names() == ["確定", "開始"] or set(ws.names()) == {"開始", "確定"}
-    s = r["data"]["steps"]
+    folder = out / "走一遍"
+    assert os.listdir(out) == ["走一遍"]
+    r = flowfile.read_flow(folder)
+    assert sorted(os.listdir(folder / "templates")) == ["開始.png", "確定.png"] or \
+        set(os.listdir(folder / "templates")) == {"開始.png", "確定.png"}
+    assert flowfile.missing_templates(folder, r) == []
+    s = r["steps"]
     assert [x["type"] for x in s] == ["find_click", "find_click", "click"]
     assert s[0]["confirm"] == "next" and s[1]["confirm"] == "gone"
-    assert "mode" not in s[2]
-    assert r["data"]["scanRegion"] == [0, 0, VIDEO_W, VIDEO_H]
-    assert (profile / "flows" / "走一遍.md").is_file()
+    assert r["scan_region"] is None
+    assert (folder / "交付報告.md").is_file()

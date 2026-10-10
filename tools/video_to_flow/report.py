@@ -8,10 +8,6 @@ from automation import findtarget
 from . import verify as verify_mod
 
 
-def _fmt_region(r):
-    return ", ".join(str(int(v)) for v in r)
-
-
 def _calibration_line(res):
     """`校準對`一行: 有＝名稱與基準距離 (與備用對); 沒有/量不到＝流程不能執行."""
     cal = res["calibration"]
@@ -45,12 +41,12 @@ def _busy_line(res):
 
 def render(res, plan):
     """把組裝結果與計畫寫的說明排成報告文字."""
-    lines = [f"# 交付報告：{os.path.splitext(os.path.basename(res['flow_path']))[0]}", ""]
+    lines = [f"# 交付報告：{os.path.basename(res['flow_path'])}", ""]
     lines += [
         "## 概要", "",
-        f"- 流程存檔：`{res['flow_path']}`",
+        f"- 流程資料夾：`{res['flow_path']}`",
         f"- 示範影片：`{res['video']}`（{res['video_size'][0]}×{res['video_size'][1]}）",
-        f"- 搜尋範圍：[{_fmt_region(res['region'])}]",
+        "- 搜尋範圍：不寫（＝全螢幕；執行前在 app 裡框）",
         "- 影片與實際畫面同尺度：影片像素＝螢幕像素，偏移與範本圖都不縮放",
         f"- 校準對：{_calibration_line(res)}",
         f"- 忙碌指示：{_busy_line(res)}",
@@ -58,7 +54,7 @@ def render(res, plan):
         f"- 範本數：{res['templates']}",
     ]
     if res["unused"]:
-        lines.append(f"- 沒有步驟引用、未放進存檔的範本：{'、'.join(res['unused'])}")
+        lines.append(f"- 沒有步驟引用、未放進流程的範本：{'、'.join(res['unused'])}")
     lines.append("")
     if res["warnings"]:
         lines += ["## 提醒", ""] + [f"- {w}" for w in res["warnings"]] + [""]
@@ -71,8 +67,8 @@ def render(res, plan):
 
     lines += ["## 待重拍", ""]
     if res["retake"]:
-        lines += ["範本名帶「待重拍_」前綴，範本面板一眼可見；步驟已建好，"
-                  "重拍那張圖即可（面板重新拾取後改名去掉前綴）。", "",
+        lines += ["這些範本沒通過自我驗證；步驟已建好，在 app 重截同名範本即可"
+                  "（範本名與檔名不帶標記，只列在這裡）。", "",
                   "| 範本 | 原因 | 重拍建議 |", "|---|---|---|"]
         for name, why in res["retake"].items():
             lines.append(f"| {name} | {'；'.join(why)} | "
