@@ -14,8 +14,8 @@
 - **引擎「模板（Template）」 vs app「範本（template）」**：
   引擎的模板是登錄進模板庫、經預處理的比對單位；app 的範本是使用者截圖、
   **住在某一份流程存檔裡**的一張圖（正式名稱＝平面名稱，在一份流程內唯一；
-  ADR 0006）。app 的範本**不是** profile 底下一塊使用者要維護的圖片存放區
-  ——範本庫這個概念已經退場。執行與編輯時 app 把存檔解到`工作區`、掃成
+  ADR 0006）。app 的範本就是流程資料夾裡 `templates/` 的一張 PNG（ADR 0014）
+  ——範本庫、profile 都已退場。執行與編輯時 app 把 `templates/` 掃成
   `範本清單`交給引擎登錄成模板；引擎自己不掃目錄、不知道存檔格式。
   兩詞分屬兩個 context，文件與 UI 不混用。
 - **引擎「搜尋區域（Search Region）」 vs app「搜尋範圍（scan_region）」**：
@@ -32,7 +32,7 @@
 此外 app 也使用引擎的公開 API 做範本登錄與顯示：`Engine.load_templates`
 （收`範本清單`＋引擎參數＋登錄產物位置）、`Engine.register`（單張登錄）、
 `Library.templates`／`Artifacts.ref_bgr`（面板清單與預覽）、
-`library.load_config`（讀 profile 的引擎參數）、`QueryResult.debug`
+`library.load_config`（引擎內建預設＋流程的`引擎參數覆蓋`合併，ADR 0015）、`QueryResult.debug`
 （比對測試的除錯分數，格式不承諾穩定）。**掃目錄是呼叫端的事**：引擎沒有
 「給我一個 profile 目錄我自己找圖」這條入口（ADR 0006）。
 `tools/video_to_flow`（`影片轉流程`工具，不進 app、不進打包版）也直接用同一組
