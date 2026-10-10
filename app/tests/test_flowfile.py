@@ -303,3 +303,56 @@ def test_倍率不是1時換校準對_落點在捨入誤差內不變():
     flowfmt.shift_flow(data, old, new, k)
     after = flowfmt.rect_to_screen(data["steps"][0]["target"]["within"], new, k)
     assert all(abs(a - b) <= 1 for a, b in zip(before, after))
+
+
+# ---------- 檔名不分大小寫、存檔中途失敗、重掃 (code review) ----------
+
+def test_只差大小寫也算撞名():
+    assert flowfile.free_name("btn", ["Btn"]) == "btn_2"
+
+
+def test_只改大小寫的改名_存檔後圖還在且檔名換成新的(tmp_path):
+    folder = saved_folder(tmp_path, [find_step("A")], {"A": b"IMG"})
+    store = flowfile.FlowTemplates.open(folder, tmp_path / "unsaved")
+    assert store.rename("A", "a") == "a"
+    store.save(flow([find_step("a")]))
+    assert ls(folder / "templates") == ["a.png"]
+    assert (folder / "templates" / "a.png").read_bytes() == b"IMG"
+
+
+def test_底線開頭的範本重開還在(tmp_path):
+    folder = saved_folder(tmp_path, [find_step("_x")], {"_x": b"X"})
+    store = flowfile.FlowTemplates.open(folder, tmp_path / "unsaved")
+    assert store.names() == ["_x"]
+
+
+def test_存檔寫一半失敗_舊的flow_yaml引用的圖都還在(tmp_path, monkeypatch):
+    folder = saved_folder(tmp_path, [find_step("a"), find_step("b")],
+                          {"a": b"A", "b": b"B"})
+    store = flowfile.FlowTemplates.open(folder, tmp_path / "unsaved")
+
+    real = os.replace
+
+    def boom(src, dst):   # 只有取代 flow.yaml 那一下失敗
+        if str(dst).endswith("flow.yaml"):
+            raise OSError("磁碟滿了")
+        real(src, dst)
+    monkeypatch.setattr(flowfile.os, "replace", boom)
+    with pytest.raises(OSError):
+        store.save(flow([find_step("a")]))   # b 不再被引用
+    monkeypatch.undo()
+
+    assert ls(folder / "templates") == ["a.png", "b.png"]
+    assert [tmpl(s) for s in flowfile.read_flow(folder)["steps"]] == ["a", "b"]
+    assert store.path_of("b") == str(folder / "templates" / "b.png")
+
+
+def test_重掃templates_外力放進來的加入_不見的拿掉_截圖不動(tmp_path):
+    folder = saved_folder(tmp_path, [find_step("a"), find_step("b")],
+                          {"a": b"A", "b": b"B"})
+    store = flowfile.FlowTemplates.open(folder, tmp_path / "unsaved")
+    store.add("截圖", b"S")
+    (folder / "templates" / "新放的.png").write_bytes(b"N")
+    (folder / "templates" / "b.png").unlink()
+    assert store.rescan() == {"新放的", "b"}
+    assert store.names() == sorted(["a", "新放的", "截圖"])

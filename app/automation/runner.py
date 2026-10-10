@@ -140,7 +140,7 @@ BUSY_GONE_CAP = 60.0    # `忙碌檢查`: 從送出輸入起等忙碌指示消�
 START_DELAY = 3.0       # `開始延遲`: 從按下執行到開頭校準的時間下限 (秒)
 RETRY_INTERVAL = 1.0    # `補做間隔`: 上一次輸入之後至少隔多久才補做 (秒)
 BUSY_APPEAR = 1.0       # `忙碌出現等候`: 忙碌檢查送出後最多等忙碌指示出現多久 (秒)
-BUSY_CHECK_KEY = "busy_check"    # 步驟上的布林鍵: 只在勾了時寫入, 缺鍵＝沒勾
+BUSY_CHECK_KEY = "busy_check"    # 會送輸入的步驟上的布林鍵 (完整步驟一律帶著, 沒勾＝False)
 BUSY_CHECK_TYPES = ("click", "drag", "find_click")   # 送出輸入的步驟種類
 
 
@@ -1022,8 +1022,8 @@ class Runner:
         timeout = float(step["timeout"])
         interval = float(step["interval"])
         region = getattr(self, "scan_region", None)  # 全域搜尋範圍 [x,y,w,h] 或 None
-        action = step["type"]
-        do_click = action == "find_click"
+        kind = step["type"]
+        do_click = kind == "find_click"
         on_nf = step["on_fail"]
         off = tuple(self._sc(v) for v in step["offset"])
         # 這一步判定所依據的原點 (本步驟執行前的): 點擊/補做更新原點後, 本步
@@ -1032,14 +1032,14 @@ class Runner:
         if origin is None and findtarget.needs_origin(tgt):
             # 與`相對座標`同處理: 無法執行 → 跳過 (不走找不到時)
             self.log(f"[{no}] 找圖目標以原點為基準: 尚無原點 → 跳過", "warn")
-            self._record(no, "wait_gone" if action == "wait_gone" else "find",
+            self._record(no, "wait_gone" if kind == "wait_gone" else "find",
                          findtarget.Found(tgt, reason="origin"), "cannot_run")
             return None
 
         # ---- 等待消失: 必須先看到圖至少一次, 之後消失才算通過 ----
         # (從未出現不能判定成功: 可能畫面根本沒進到預期狀態)
         # 「消失」＝先前挑中的那個位置不再有匹配; 別處的同款圖不影響
-        if action == "wait_gone":
+        if kind == "wait_gone":
             clock = WaitClock(timeout, interval)
             tracked = None
             polls = 0

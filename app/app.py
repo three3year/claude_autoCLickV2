@@ -499,8 +499,11 @@ class App:
                                      self.store.registered_dir, changed)
 
     def refresh_templates_ui(self):
-        """「重新整理」: 範本清單整份重新交給引擎 (templates/ 被外力動過之後按, 不必重啟)."""
-        self.rebind_templates()
+        """「重新整理」: 重掃 templates/ 後範本清單整份重新交給引擎 (templates/ 被外力
+        動過之後按, 不必重開流程; 還沒存檔的截圖留著)."""
+        with self.hub.files_locked():
+            self.store.rescan()
+            self.rebind_templates()
         self.refresh_templates()
         self.render_steps()
         self.log_ui(f"已重新整理本流程的範本（{len(self.store.names())} 個；"
@@ -1511,7 +1514,10 @@ class App:
 
     def drop_template(self, name):
         """把範本從本流程收回去 (快取的圖與登錄產物一起刪)."""
-        self.store.remove(name)
+        with self.hub.files_locked():
+            self.store.remove(name)
+            self._pending_templates.discard(name)
+            self.rebind_templates(changed=set())
         self._mark_dirty()
 
     def add_template_image(self, name, blob, pos=None):
@@ -1776,7 +1782,10 @@ class App:
         if problem:   # 範本名＝檔名: 不靜靜改寫使用者輸入的名字, 擋下並說明
             messagebox.showwarning("重新命名", problem, parent=self.root)
             return
-        final = self.store.rename(old, new)
+        with self.hub.files_locked():
+            final = self.store.rename(old, new)
+            if final is not None:
+                self.rebind_templates(changed={final})
         if final is None:
             messagebox.showwarning("重新命名", f"找不到範本「{old}」的圖",
                                    parent=self.root)
@@ -1786,7 +1795,6 @@ class App:
         if old in flagged:
             flagged[final] = flagged.pop(old)
         self._mark_dirty()
-        self.rebind_templates(changed={final})
         self.refresh_templates()
         self.render_steps()
         msg = f"已將「{old}」重新命名為「{final}」"
@@ -1813,11 +1821,12 @@ class App:
                 f"刪除範本「{name}」？\n（{'、'.join(used)} 正在使用它）",
                 parent=self.root):
             return
-        self.store.remove(name)
-        self._pending_templates.discard(name)
+        with self.hub.files_locked():
+            self.store.remove(name)
+            self._pending_templates.discard(name)
+            self.rebind_templates(changed=set())
         self.pick_warnings().pop(name, None)
         self._mark_dirty()
-        self.rebind_templates(changed=set())
         self.refresh_templates()
         self.render_steps()
 
@@ -1907,7 +1916,7 @@ class App:
         self.refresh_templates()
         self.dirty = False
         if folder:
-            apppaths.save_state({"last_flow": os.path.abspath(folder)})
+            apppaths.remember_last_flow(folder)
         self.start_preload()
 
     def confirm_discard(self, title):
@@ -1983,7 +1992,7 @@ class App:
 
     def _open_last_flow(self):
         """app 啟動: 自動開上次開的流程; 它不在了就留在空白新流程並記一行."""
-        last = apppaths.load_state().get("last_flow")
+        last = apppaths.last_flow()
         if not last:
             return
         if os.path.isfile(os.path.join(last, flowfile.FLOW_YAML)):
@@ -2031,13 +2040,14 @@ class App:
                 return False
         self.ensure_registered()  # 延後中的新範本先進清單
         try:
-            missing = self.store.save(self._flow_data(), new_folder)
+            with self.hub.files_locked():   # 背景預載不讀搬到一半的圖
+                missing = self.store.save(self._flow_data(), new_folder)
+                self.rebind_templates(changed=set())   # 圖只是搬了位置, 登錄產物照用
         except (OSError, flowfile.FlowError, ValueError) as e:
             messagebox.showerror("存檔", f"存檔失敗：{e}", parent=self.root)
             return False
-        self.rebind_templates(changed=set())   # 圖只是搬了位置, 登錄產物照用
         self.dirty = False
-        apppaths.save_state({"last_flow": self.store.folder})
+        apppaths.remember_last_flow(self.store.folder)
         names = self.referenced_templates()
         self.log_ui(f"已存檔「{self.flow_name()}」（{len(self.steps)} 步、"
                     f"{len(names) - len(missing)} 個範本）", "ok")

@@ -59,3 +59,13 @@ def save_state(state):
             json.dump(state, f, ensure_ascii=False)
     except OSError:
         pass
+
+
+def last_flow():
+    """上次開的流程資料夾; 沒記過回 None."""
+    return load_state().get("last_flow")
+
+
+def remember_last_flow(folder):
+    """記下上次開的流程 (開檔、存檔時)."""
+    save_state(dict(load_state(), last_flow=os.path.abspath(str(folder))))

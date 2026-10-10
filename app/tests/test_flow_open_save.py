@@ -323,7 +323,7 @@ def test_新流程第一次存檔_建流程名資料夾_未存檔快取的登錄
     assert _ls(os.path.join(dest, ".cache", "registered")) == ["btn"]
     assert _ls(apppaths.unsaved_dir()) == []
     assert a.flow_name() == "早班"
-    assert apppaths.load_state()["last_flow"] == os.path.abspath(dest)
+    assert apppaths.last_flow() == os.path.abspath(dest)
 
 
 def test_新流程存檔撞到同名資料夾_拒絕說明_什麼都不寫(tkroot, tmp_path, monkeypatch,
@@ -355,7 +355,7 @@ def test_取消存檔對話框不寫任何檔(tkroot, tmp_path, monkeypatch):
 
 def test_開app自動開上次的流程(tkroot, tmp_path, monkeypatch):
     folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
-    apppaths.save_state({"last_flow": folder})
+    apppaths.remember_last_flow(folder)
     a = _app(tkroot, monkeypatch)
     a._open_last_flow()
     assert a.current_flow_path() == os.path.abspath(folder)
@@ -363,7 +363,7 @@ def test_開app自動開上次的流程(tkroot, tmp_path, monkeypatch):
 
 
 def test_上次的流程不在了_開空白並記一行(tkroot, tmp_path, monkeypatch):
-    apppaths.save_state({"last_flow": str(tmp_path / "不見了")})
+    apppaths.remember_last_flow(tmp_path / "不見了")
     a = _app(tkroot, monkeypatch)
     a._open_last_flow()
     assert a.current_flow_path() is None and a.steps == []
@@ -374,7 +374,8 @@ def test_開過的流程記成上次開的(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, monkeypatch)
     folder = _write(tmp_path / "f", [], {})
     _opened(a, monkeypatch, folder)
-    assert apppaths.load_state() == {"last_flow": os.path.abspath(folder)}
+    assert apppaths.last_flow() == os.path.abspath(folder)
+    assert apppaths.load_state() == {"last_flow": os.path.abspath(folder)}, "只記上次開的流程"
 
 
 # ---------- 新流程 ----------
@@ -591,7 +592,7 @@ def test_啟動自動開的上次流程_引擎就緒後才開始預載(tkroot, t
     engine = RegEngine()
     a = _engine_app(tkroot, monkeypatch, engine, load=False)
     folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
-    apppaths.save_state({"last_flow": folder})
+    apppaths.remember_last_flow(folder)
     a._open_last_flow()
     a._preload_thread.join(0.3)
     a.drain_preload()
@@ -650,3 +651,13 @@ def test_新增範本後只有那張要重新登錄_其他留在記憶體(tkroot
     arts = {n: t.artifacts for n, t in a.library.templates.items()}
     assert arts["a"] is before["a"] and arts["b"] is before["b"]
     assert arts[name] is None, "新的那張用到時才登錄"
+
+
+def test_重新整理會重掃templates_外力放進來的圖出現(tkroot, tmp_path, monkeypatch):
+    a = _app(tkroot, monkeypatch)
+    folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
+    _opened(a, monkeypatch, folder)
+    (tmp_path / "f" / "templates" / "外力放的.png").write_bytes(b"N")
+    a.refresh_templates_ui()
+    assert a.list_template_names() == ["a", "外力放的"]
+    assert "外力放的" in a.library.templates

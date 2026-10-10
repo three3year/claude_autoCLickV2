@@ -12,6 +12,7 @@ import numpy as np
 import harness  # noqa: F401  # 先把 app/ 加進 sys.path
 
 import app as app_mod
+import enginehub
 import flowfile
 import ui_dialogs
 from automation import imgio
@@ -26,6 +27,7 @@ class _PanelApp(app_mod.App):
         self.store = flowfile.FlowTemplates.new(os.path.join(str(base_dir), "unsaved"))
         self.library = None          # 引擎尚未就緒: 面板照樣要能用
         self.steps = steps or []
+        self.hub = enginehub.EngineHub()   # 引擎尚未就緒 (只用到搬檔鎖)
         self.flow_cal = None
         self.busy_target = None
         self.dirty = False

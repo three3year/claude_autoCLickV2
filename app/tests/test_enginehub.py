@@ -327,3 +327,18 @@ def test_背景預載中按執行_等同一份_同一張不載兩次(tmp_path):
     run.join(5)
     bg.join(5)
     assert sorted(engine.registered) == ["a", "b", "c"], "每張只登錄一次"
+
+
+def test_搬檔期間背景預載停在原地_換好清單後讀新路徑(tmp_path):
+    engine = RegEngine()
+    hub = _bound_hub(tmp_path, engine, names=("a",))
+    got, report = _collect()
+    with hub.files_locked():
+        t = hub.start_preload(["a"], report)
+        t.join(0.3)
+        assert engine.registered == [], "搬檔的人持有鎖時不登錄"
+        hub.bind({"a": str(tmp_path / "templates" / "a.png")}, {"k": 1}, tmp_path / "reg",
+                 changed=set())   # 同一段裡換清單 (可重入)
+    t.join(5)
+    assert engine.registered == ["a"]
+    assert hub.library.templates["a"].capture_paths[0] == tmp_path / "templates" / "a.png"

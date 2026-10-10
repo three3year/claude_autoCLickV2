@@ -45,17 +45,18 @@ def free_name(name, taken):
     """`name` 在 `taken` 內已被占用時加序號: name_2、name_3…
 
     末端已是 `_數字` 的名稱從該數字往上找 (保留補零位數), 避免 `a_1_2` 這種
-    疊字。回傳未被占用的名稱。
+    疊字。回傳未被占用的名稱。範本名＝檔名, Windows 的檔名不分大小寫, 所以只差
+    大小寫也算占用 (`Btn` 與 `btn` 會寫進同一個檔)。
     """
-    taken = set(taken)
-    if name not in taken:
+    taken = {t.casefold() for t in taken}
+    if name.casefold() not in taken:
         return name
     m = re.fullmatch(r"(.*)_(\d+)", name)
     if m:
         stem, width, n = m.group(1), len(m.group(2)), int(m.group(2)) + 1
     else:
         stem, width, n = name, 1, 2
-    while f"{stem}_{n:0{width}d}" in taken:
+    while f"{stem}_{n:0{width}d}".casefold() in taken:
         n += 1
     return f"{stem}_{n:0{width}d}"
 
@@ -134,14 +135,25 @@ def new_flow():
             "engine": {}, "steps": []}
 
 
+def _flow_level_slots(flow):
+    """流程層級引用範本的位置 [(容器, 索引或鍵)]: 校準對、備用校準對、忙碌指示.
+
+    新增流程層級的找圖設定只要加在這裡, 引用集合與改名就一起照它。
+    """
+    cal = flow.get("calibration")
+    fb = calibration.fallback_pair(cal) if cal else None
+    slots = [(pair, i) for pair in (cal["pair"] if cal else [], fb["pair"] if fb else [])
+             for i in range(len(pair))]
+    busy = flow.get("busy")
+    if busy:
+        slots.append((busy, "template"))
+    return slots
+
+
 def template_refs(flow):
     """流程引用的全部範本名 (依出現順序): 步驟的找圖目標與確認圖 + 校準對 +
     備用校準對 + 忙碌指示 (findtarget.referenced_templates 是唯一的定義)."""
-    cal = flow.get("calibration")
-    fb = calibration.fallback_pair(cal) if cal else None
-    busy = flow.get("busy")
-    extra = [*(cal["pair"] if cal else ()), *(fb["pair"] if fb else ()),
-             *([busy["template"]] if busy else ())]
+    extra = [box[key] for box, key in _flow_level_slots(flow)]
     return findtarget.referenced_templates(flow.get("steps") or [], extra)
 
 
@@ -149,17 +161,10 @@ def rename_template_refs(flow, old, new):
     """把整份流程 (記憶體模型) 對 old 的引用改成 new: 步驟的找圖目標與確認圖、校準對、
     備用校準對、忙碌指示、拍攝位置; 回傳改動筆數."""
     changed = rename_refs(flow.get("steps") or [], old, new)
-    cal = flow.get("calibration")
-    fb = calibration.fallback_pair(cal) if cal else None
-    for pair in [cal["pair"] if cal else [], fb["pair"] if fb else []]:
-        for i, n in enumerate(pair):
-            if n == old:
-                pair[i] = new
-                changed += 1
-    busy = flow.get("busy")
-    if busy and busy.get("template") == old:
-        busy["template"] = new
-        changed += 1
+    for box, key in _flow_level_slots(flow):
+        if box[key] == old:
+            box[key] = new
+            changed += 1
     pos = flow.get("template_pos")
     if pos and old in pos:
         flow["template_pos"] = {(new if k == old else k): v for k, v in pos.items()}
@@ -677,7 +682,9 @@ def write_flow(folder, flow, images=None):
 
     images: {範本名: bytes 或圖檔路徑}——要放進 templates/ 的圖 (先全部讀進記憶體再寫,
     改名互換也不會互相蓋掉)。寫完 templates/ 正好是引用集合裡有圖的那些: 沒被引用的
-    png 刪掉。flow.yaml 先寫暫存檔再取代, 寫到一半失敗不會留半份。
+    png 刪掉。順序是圖 → flow.yaml (先寫暫存檔再取代) → 才刪沒被引用的: 中途失敗時舊的
+    flow.yaml 引用的圖都還在。檔名不分大小寫 (只改大小寫的改名換成新檔名, 不會被當成
+    沒被引用而刪掉)。
     """
     folder = str(folder)
     refs = template_refs(flow)
@@ -690,17 +697,24 @@ def write_flow(folder, flow, images=None):
     tdir = os.path.join(folder, TEMPLATES_DIR)
     os.makedirs(tdir, exist_ok=True)
     for n, data in blobs.items():
+        for fn in _pngs(tdir):   # 只差大小寫的舊檔先移走, 新檔才會是新名字
+            if fn[:-4] != n and fn[:-4].casefold() == n.casefold():
+                os.remove(os.path.join(tdir, fn))
         with open(os.path.join(tdir, n + ".png"), "wb") as f:
             f.write(data)
-    keep = set(refs)
-    for fn in os.listdir(tdir):
-        if fn.lower().endswith(".png") and fn[:-4] not in keep:
-            os.remove(os.path.join(tdir, fn))
     tmp = os.path.join(folder, FLOW_YAML + ".tmp")
     with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
     os.replace(tmp, os.path.join(folder, FLOW_YAML))
+    keep = {n.casefold() for n in refs}
+    for fn in _pngs(tdir):
+        if fn[:-4].casefold() not in keep:
+            os.remove(os.path.join(tdir, fn))
     return [n for n in refs if not os.path.isfile(os.path.join(tdir, n + ".png"))]
+
+
+def _pngs(folder):
+    return [fn for fn in os.listdir(folder) if fn.lower().endswith(".png")]
 
 
 # ================= 開著的流程的範本: templates/ ＋ 快取 =================
@@ -747,11 +761,7 @@ class FlowTemplates:
         cache = os.path.join(folder, CACHE_DIR)
         shutil.rmtree(os.path.join(cache, SHOTS_DIR), ignore_errors=True)
         store = cls(folder, cache)
-        tdir = os.path.join(folder, TEMPLATES_DIR)
-        if os.path.isdir(tdir):
-            for fn in sorted(os.listdir(tdir)):
-                if fn.lower().endswith(".png") and not fn.startswith("_"):
-                    store._src[fn[:-4]] = os.path.join(tdir, fn)
+        store.rescan()
         store._pos = {n: [int(p[0]), int(p[1])] for n, p in (template_pos or {}).items()}
         return store
 
@@ -787,6 +797,25 @@ class FlowTemplates:
     def images(self):
         """{範本名: 圖檔路徑}——引擎的`範本清單`與存檔都吃這個."""
         return dict(self._src)
+
+    def rescan(self):
+        """重掃 templates/ (被外力動過之後): 新放進來的圖加入, 不見了的拿掉 (快取裡的
+        截圖不動; 同名時截圖優先)。回傳有變動的範本名集合."""
+        if self.folder is None:
+            return set()
+        tdir = os.path.join(self.folder, TEMPLATES_DIR)
+        changed = set()
+        for n, p in list(self._src.items()):
+            if _inside(p, tdir) and not os.path.isfile(p):
+                del self._src[n]
+                changed.add(n)
+        known = {n.casefold() for n in self._src}
+        if os.path.isdir(tdir):
+            for fn in sorted(_pngs(tdir)):
+                if fn[:-4].casefold() not in known:
+                    self._src[fn[:-4]] = os.path.join(tdir, fn)
+                    changed.add(fn[:-4])
+        return changed
 
     def is_unsaved(self, name):
         """這張是不是還沒存檔的截圖 (在快取裡, 還沒進 templates/)."""
@@ -888,15 +917,16 @@ class FlowTemplates:
         target = os.path.abspath(str(folder)) if first else self.folder
         refs = set(template_refs(flow))
         tdir = os.path.join(target, TEMPLATES_DIR)
+        kept = {}   # templates/ 裡沒被引用的: 先複製一份到快取, write_flow 寫完才刪原檔
         if not first:
-            for n, p in list(self._src.items()):
+            for n, p in self._src.items():
                 if n not in refs and _inside(p, tdir):
                     os.makedirs(self.shots_dir, exist_ok=True)
-                    moved = os.path.join(self.shots_dir, n + ".png")
-                    os.replace(p, moved)
-                    self._src[n] = moved
+                    kept[n] = os.path.join(self.shots_dir, n + ".png")
+                    shutil.copyfile(p, kept[n])
         images = {n: p for n, p in self._src.items() if n in refs}
         missing = write_flow(target, dict(flow, template_pos=self.pos()), images)
+        self._src.update(kept)
         for n, p in images.items():
             dest = os.path.join(tdir, n + ".png")
             if not _same_path(p, dest):

@@ -39,7 +39,9 @@ class EngineHub:
         self._engine = None
         self.library = None
         self.generation = 0   # 範本清單整份換掉 (換流程) 的次數; 背景預載據此作廢
-        self._reg_lock = threading.Lock()   # 登錄產物的寫入 (預載、單張載入、換清單)
+        # 登錄產物的寫入 (預載、單張載入、換清單) 與範本圖搬檔互斥; 可重入: 搬檔的人
+        # 持有它時還要換清單 (bind)
+        self._reg_lock = threading.RLock()
         self.state = LOADING
         self.error = None    # FAILED 時的例外
         self.warnings = []   # 引擎建構時發出的警告 (降級 coarse-only 等)
@@ -148,6 +150,13 @@ class EngineHub:
             if name not in library.templates:
                 raise KeyError(name)
             self._engine.register(library, name)
+
+    def files_locked(self):
+        """搬動、刪除範本圖 (存檔、改名、刪範本) 時持有: 背景預載不會讀到搬到一半的檔.
+
+        搬完要在同一段裡換好範本清單 (bind), 預載接手時讀的才是新路徑。
+        """
+        return self._reg_lock
 
     def start_preload(self, names, report):
         """背景`範本預載` (讀取流程就開始); 回傳工作執行緒.
