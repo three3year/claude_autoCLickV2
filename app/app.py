@@ -628,13 +628,17 @@ class App:
         """校準量測前的檢查 (清場「之前」做, 清場中彈窗會隱形卡死): `引擎就緒`、
         校準對的範本都在本流程裡且載得起來. 回傳是否可以量; 不行時已提示.
 
-        names: 要查的範本名 (預設＝這份流程的校準對)。
+        names: 要查的範本名 (預設＝這份流程的校準對, 含備用校準對——主對找不到時
+        calibrate() 會改量備用對, 備用對的範本沒先載入, 查詢會踩到空的登錄產物)。
         """
         parent = parent or self.root
         if not self.engine_gate(parent):
             return False
         self.ensure_registered()
-        names = list(names if names is not None else self.flow_cal["pair"])
+        if names is None:
+            fb = calibration.fallback_pair(self.flow_cal)
+            names = [*self.flow_cal["pair"], *(fb["pair"] if fb else ())]
+        names = list(names)
         for name in dict.fromkeys(names):
             if name not in self.profile.templates:
                 messagebox.showwarning(

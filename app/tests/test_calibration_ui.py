@@ -339,6 +339,46 @@ def test_按校準失敗只提示(tkroot, monkeypatch, tmp_path):
     assert any("舊關閉" in m for m in rec)
 
 
+def test_按校準主對找不到退備用對_備用對的範本也先載入(tkroot, monkeypatch, tmp_path):
+    # 2026-10-10 實跑前按「校準」踩到: 主對被彈窗蓋住 → calibrate() 改量備用對,
+    # 但 calibration_ready 只載入主對的範本, 備用對查詢踩到空的登錄產物 (AttributeError)
+    cal = dict(OLD)
+    cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
+        ["標題左", "標題右"], 500.0, (0, 0))
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=cal)
+    for n in ("標題左", "標題右"):
+        a.ws.add(n, b"F")
+    vision.plan("舊圖示", [None])
+    vision.plan("舊關閉", [(1300, 50)])
+    vision.plan("標題左", [(100, 10)])
+    vision.plan("標題右", [(700, 10)])
+    a.calibrate_now()
+    assert set(vision.ensured) >= {"舊圖示", "舊關閉", "標題左", "標題右"}
+    assert "×1.20" in a.cal_btn.text and "備用" in a.cal_btn.text
+
+
+def test_拾取檢查的安靜量測_備用對的範本也先確認載得起來(tkroot, monkeypatch):
+    # 同上一個案例的漏洞, 另一條路: measured_pick(quiet=True) 只檢查主對兩張
+    import contextlib
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "screen_clear",
+                        lambda root, extra=(): contextlib.nullcontext())
+    cal = dict(OLD)
+    cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
+        ["標題左", "標題右"], 500.0, (0, 0))
+    asked = []
+    measured = SimpleNamespace(ok=True, used="main", anchor=(1, 2), scale=1.0)
+    app = SimpleNamespace(
+        root=tkroot, flow_cal=cal, logged=[],
+        template_ready=lambda n: asked.append(n) or True,
+        calibration_ready=lambda *a, **k: (_ for _ in ()).throw(AssertionError("quiet 不該走這裡")),
+        calibrate_frame=lambda: (measured, "frame"),
+        log_ui=lambda msg, level="info": None)
+    got = ui_dialogs.measured_pick(app, tkroot, lambda anchor, k, frame: "body",
+                                   quiet=True)
+    assert got == ("body", (1, 2), 1.0)
+    assert set(asked) == {"舊圖示", "舊關閉", "標題左", "標題右"}
+
+
 def test_校準量測查詢不帶預期尺度(tkroot, monkeypatch, tmp_path):
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
     vision.plan("舊圖示", [(100, 50)])

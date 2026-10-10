@@ -12,6 +12,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+import calibration
 import ui_grab
 import ui_overlay
 import ui_theme
@@ -612,7 +613,10 @@ def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取",
         with ui_overlay.screen_clear(app.root, extra=hide):
             return body(None, 1.0, None), None, 1.0
     if quiet:
-        if not all(app.template_ready(n) for n in cal["pair"]):
+        # 主對找不到時 calibrate() 會改量備用對: 備用對的範本也要先載得起來
+        fb = calibration.fallback_pair(cal)
+        names = [*cal["pair"], *(fb["pair"] if fb else ())]
+        if not all(app.template_ready(n) for n in names):
             return None
     elif not app.calibration_ready(title, parent=parent):
         return None
