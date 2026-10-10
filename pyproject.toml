@@ -18,8 +18,6 @@ verify = ["torch"]
 dev = ["pytest"]
 # 自動化應用層 (app/) 的執行依賴; Windows 專用
 app = ["mss", "pynput"]
-# tools/ 底下的命令列工具 (不進 app、不進打包版); recruit_tags 用 Pillow 渲染文字範本
-tools = ["pillow"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
