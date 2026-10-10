@@ -1,4 +1,4 @@
-"""引擎生命週期: 狀態 (載入中/就緒/失敗) + 範本清單綁定 + 查詢/預載接縫.
+"""引擎生命週期: 狀態 (載入中/就緒/失敗) + `範本清單`綁定 + 查詢/預載接縫.
 
 「視窗可操作」與「`引擎就緒`」是兩個時間點 (ADR 0004; 詞彙見
 app/CONTEXT.md「啟動與就緒」)。App 與 runner 都只透過這個介面使用
@@ -31,7 +31,7 @@ class EngineHub:
     def __init__(self, engine_factory=None):
         self._factory = engine_factory or _default_engine_factory
         self._engine = None
-        self.profile = None
+        self.library = None
         self.state = LOADING
         self.error = None    # FAILED 時的例外
         self.warnings = []   # 引擎建構時發出的警告 (降級 coarse-only 等)
@@ -58,13 +58,12 @@ class EngineHub:
                          if "subject_detection" in (w.filename or "")]
         self._engine = engine
 
-    def load(self, root, config_dir=None):
-        """引擎＋範本探索一氣呵成 (背景執行緒用): 全部成功才轉 READY,
-        中途任何失敗＝FAILED——外界不會觀察到「就緒但沒有範本清單」。
+    def load(self):
+        """建構引擎 (背景執行緒用): 成功轉 READY, 失敗＝FAILED.
 
-        不做整庫登錄: 登錄產物由`範本預載`/單張載入在使用當下載入
-        (ADR 0004), 引擎就緒時間只含模型載入。起訖與耗時落地檔案日誌,
-        供啟動驗收與日後回歸對照 (票 07)。
+        範本清單由 app 先 `bind` 好 (純資料, 不需引擎), 所以外界不會觀察到「就緒但
+        沒有範本清單」。不做整庫登錄: 登錄產物由`範本預載`/單張載入在使用當下載入
+        (ADR 0004), 引擎就緒時間只含模型載入。起訖與耗時落地檔案日誌。
         """
         import time
 
@@ -73,11 +72,6 @@ class EngineHub:
         applog.log("engine.load.start")
         try:
             self._build_engine()
-            library = self.discover(root, config_dir)
-            if self.profile is None:
-                # 背景載入期間 refresh() 可能已放入更新的快照 (切換
-                # profile/增刪範本), 不能拿這份較舊的探索結果覆蓋
-                self.profile = library
         except Exception as exc:
             self.error = exc
             self.state = FAILED
@@ -91,45 +85,33 @@ class EngineHub:
 
     # ---------- 範本清單 ----------
 
-    def discover(self, root, config_dir=None):
-        """輕量探索範本 (不需引擎、不讀登錄產物, 只掃目錄與設定).
+    def bind(self, templates, config, registered_dir, changed=None):
+        """綁定`範本清單` (app 組的 {範本名: 圖檔路徑}; 引擎不掃目錄, ADR 0006).
 
-        `root` 是放著 `templates/` 與 `registered/` 的目錄——app 交的是當前
-        流程的**工作區**; `config_dir` 是引擎參數設定所在的 profile 目錄
-        (省略＝同 root)。掃出來的清單組成引擎的模板庫, 引擎自己不掃目錄
-        (ADR 0006); 校準對就是流程的範本, 已在工作區裡 (ADR 0009)。
-
-        回傳模板庫供 UI 立即使用, 不觸碰生命週期狀態與 hub.profile
-        (背景載入中的 load() 才擁有它們)。
+        config: 引擎參數 (內建預設＋流程的覆蓋); registered_dir: 登錄產物放哪。
+        changed: None＝整份換掉 (換流程、引擎參數變了), 所有登錄產物失效; 給名稱
+        集合＝只有這幾張 (新增、重截、改名) 要重新登錄, 其他沿用已在記憶體的登錄產物
+        (圖只是搬了位置也算沒變)。不需引擎, 任何狀態都可呼叫。
         """
-        import os
-
-        import flowfile
-        from subject_detection.library import load_config, make_library
-        templates_dir = os.path.join(str(root), "templates")
-        if not os.path.isdir(templates_dir):
-            raise FileNotFoundError(f"沒有範本目錄可掃: {templates_dir}")
-        templates = flowfile.scan_templates(templates_dir)
-        return make_library(templates,
-                            load_config(config_dir if config_dir is not None
-                                        else root),
-                            os.path.join(str(root), "registered"))
-
-    def refresh(self, root, config_dir=None):
-        """重新探索並綁定範本清單 (失效標記的落實): 範本增刪改後呼叫,
-        清單立即反映、所有登錄產物失效 (artifacts 歸零), 下次
-        `範本預載`/單張載入時重載。不需引擎, 任何狀態都可呼叫。"""
-        self.profile = self.discover(root, config_dir)
-        return self.profile
+        from subject_detection.library import make_library
+        library = make_library(templates, config, registered_dir)
+        old = self.library
+        if changed is not None and old is not None and old.config == config:
+            for name, t in library.templates.items():
+                prev = old.templates.get(name)
+                if prev is not None and name not in changed:
+                    t.artifacts = prev.artifacts
+        self.library = library
+        return library
 
     # ---------- 查詢 / 載入 (runner 偵測接縫的超集) ----------
 
     def query(self, name, search_region, color_check=False,
               expected_scale=None):
         """查詢所有匹配; color_check＝這次查詢要不要`比色` (ADR 0007);
-        expected_scale＝引擎的`預期尺度` (None＝照 profile 的尺度範圍全掃,
+        expected_scale＝引擎的`預期尺度` (None＝照引擎參數的尺度範圍全掃,
         ADR 0009)."""
-        return self._engine.query(self.profile, name, search_region,
+        return self._engine.query(self.library, name, search_region,
                                   color_check=color_check,
                                   expected_scale=expected_scale)
 
@@ -149,6 +131,6 @@ class EngineHub:
         缺名丟 KeyError(範本名)——args[0] 是乾淨的範本名, 呼叫端組錯誤
         訊息用 (引擎 query 的 KeyError 是給人看的字串, 兩者用途不同)。
         """
-        if name not in self.profile.templates:
+        if name not in self.library.templates:
             raise KeyError(name)
-        self._engine.register(self.profile, name)
+        self._engine.register(self.library, name)

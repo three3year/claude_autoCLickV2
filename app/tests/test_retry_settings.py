@@ -16,8 +16,8 @@ BUSY = {"template": "提交中", "within": [600, 800, 300, 100]}
 
 
 def _flow(**extra):
-    data = {"steps": [{"type": "find_click", "target": {"template": "a"}}],
-            "coordSpace": "anchor"}
+    data = flowfile.new_flow()
+    data["steps"] = [{"type": "find_click", "target": {"template": "a"}}]
     data.update(extra)
     return data
 
@@ -25,52 +25,47 @@ def _flow(**extra):
 # ---------- 存檔 ----------
 
 def test_忙碌指示存檔往返(tmp_path):
-    path = str(tmp_path / ("f" + flowfile.EXT))
-    flowfile.write(path, _flow(busyTarget=dict(BUSY)), {"a": b"A", "提交中": b"B"})
-    data = flowfile.read(path)["data"]
-    assert flowfile.busy_target(data) == BUSY
+    flowfile.write_flow(tmp_path, _flow(busy=dict(BUSY)), {"a": b"A", "提交中": b"B"})
+    assert flowfile.read_flow(tmp_path)["busy"] == BUSY
 
 
 def test_沒設忙碌指示讀進來是沒有(tmp_path):
-    path = str(tmp_path / ("f" + flowfile.EXT))
-    flowfile.write(path, _flow(), {"a": b"A"})
-    data = flowfile.read(path)["data"]
-    assert flowfile.busy_target(data) is None
+    flowfile.write_flow(tmp_path, _flow(), {"a": b"A"})
+    assert flowfile.read_flow(tmp_path)["busy"] is None
 
 
 def test_忙碌指示的範本是被引用的範本_存檔帶著它(tmp_path):
-    path = str(tmp_path / ("f" + flowfile.EXT))
-    data = _flow(busyTarget=dict(BUSY))
-    flowfile.write(path, data, {"a": b"A", "提交中": b"B", "沒人用": b"U"})
-    assert flowfile.template_names(path) == sorted(["a", "提交中"])
+    flowfile.write_flow(tmp_path, _flow(busy=dict(BUSY)),
+                        {"a": b"A", "提交中": b"B", "沒人用": b"U"})
+    assert flowfile.folder_template_names(tmp_path) == sorted(["a", "提交中"])
 
 
 def test_改名跟著改忙碌指示():
-    data = _flow(busyTarget=dict(BUSY))
-    assert flowfile.rename_flow_refs(data, "提交中", "忙碌") == 1
-    assert data["busyTarget"]["template"] == "忙碌"
+    data = _flow(busy=dict(BUSY))
+    assert flowfile.rename_template_refs(data, "提交中", "忙碌") == 1
+    assert data["busy"]["template"] == "忙碌"
 
 
 # ---------- 編輯器 ----------
 
 class _SetApp(_CalApp):
-    def __init__(self, root, profile_dir, names=("a", "提交中")):
-        super().__init__(root, profile_dir,
+    def __init__(self, root, base_dir, names=("a", "提交中")):
+        super().__init__(root, base_dir,
                          cal={"pair": ["a", "提交中"], "baseline": 100.0},
                          names=list(names))
         self.autosaved = 0
         self.logged = []
 
-    def _autosave(self):
+    def _mark_dirty(self):
         self.autosaved += 1
 
     def log_ui(self, msg, level="info"):
         self.logged.append(msg)
 
     def referenced_templates(self):
-        return flowfile.flow_refs(self._ref_data())
+        return flowfile.template_refs(self._ref_data())
 
-    def reload_profile(self):
+    def rebind_templates(self, changed=None):
         pass
 
     def refresh_templates(self):
@@ -105,17 +100,20 @@ def test_流程資料帶忙碌指示_不帶固定行為_開流程時讀回(tkroo
     a = _SetApp(tkroot, tmp_path)
     a.busy_target = dict(BUSY)
     a.run_count = SimpleNamespace(get=lambda: 1)
+    a.store = flowfile.FlowTemplates.new(tmp_path / "unsaved")
+    a.flow_engine = {}
     data = a._flow_data()
-    assert data["busyTarget"] == BUSY
-    for key in ("retryIntervalMs", "busyAppearMs", "avoidHover"):
-        assert key not in data, key
+    assert data["busy"] == BUSY
+    assert set(data) == {"run", "scan_region", "calibration", "busy", "template_pos",
+                         "engine", "steps"}, "固定行為不進流程"
     for attr in ("run_mode", "run_count"):
         setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))
     a.scan_lbl = SimpleNamespace(configure=lambda **kw: None)
     a._mode_ui = lambda: None
     a.render_steps = lambda keep=None: None
     a._update_region_preview = lambda: None
-    a._apply_flow({"steps": [], "coordSpace": "anchor"})
+    a._update_busy_ui = lambda: None
+    a._apply_flow(flowfile.new_flow())
     assert a.busy_target is None
 
 

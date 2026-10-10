@@ -1,6 +1,6 @@
 """步驟編輯對話框與比對測試預覽視窗.
 
-辨識一律走 app 的引擎接縫 (app.detector.query); 匹配門檻屬 profile config,
+辨識一律走 app 的引擎接縫 (app.detector.query); 匹配門檻是引擎參數,
 對話框不再有每步門檻欄位 (ADR 0002)。
 
 座標 (ADR 0012): 存檔裡的座標都相對`座標基準點`、`流程尺度`。每次`拾取`都經
@@ -256,7 +256,7 @@ TREE_THUMB = 32   # 樹狀清單每列的縮圖邊長
 class _Source:
     """選範本對話框裡的一個來源: 有名字、列得出範本、取得出某一張的圖.
 
-    三種來源 (新加入的暫存圖 / 本流程 / profile 內另一份存檔) 只在這三件事上
+    三種來源 (新加入的暫存圖 / 本流程 / 另一份流程資料夾) 只在這三件事上
     不同, 其餘流程 (展開、預覽、按確定複製) 完全一樣——把差異收在這裡, 對話框
     本體就不必到處分辨「這個 source 字串是哪一種」。
     """
@@ -308,7 +308,7 @@ class _Staged(_Source):
 
 
 class _CurrentFlow(_Source):
-    """本流程已經有的範本 (工作區裡的圖): 選它不必複製."""
+    """本流程已經有的範本: 選它不必複製."""
 
     copies = False
 
@@ -324,44 +324,33 @@ class _CurrentFlow(_Source):
 
 
 class _OtherFlow(_Source):
-    """profile 內另一份流程存檔: 只讀 zip 索引列名稱, 要哪張才讀哪張."""
+    """另一份流程資料夾: 列它 templates/ 的檔名, 要哪張才讀哪張."""
 
-    def __init__(self, path):
-        super().__init__(path, os.path.basename(path))
-        self._path = path
+    def __init__(self, folder):
+        super().__init__(folder, os.path.basename(folder))
+        self._folder = folder
 
     def names(self):
         import flowfile
-        try:
-            return flowfile.template_names(self._path)
-        except Exception:
-            return []   # 壞掉的存檔不該讓整個對話框開不起來
+        return flowfile.folder_template_names(self._folder)
 
     def blob(self, name):
         import flowfile
-        try:
-            return flowfile.template_bytes(self._path, name)
-        except Exception:
-            return None
+        return flowfile.folder_template_bytes(self._folder, name)
 
 
 def _tmpl_sources(app, pending):
-    """對話框左側的所有來源 (依顯示順序)."""
-    import flowfile
+    """對話框左側的所有來源 (依顯示順序): 新加入的、本流程、流程預設位置底下的其他流程."""
     sources = []
     if pending:
         sources.append(_Staged(pending))
     sources.append(_CurrentFlow(app))
-    current = os.path.abspath(app.current_flow_path() or "")
-    for path in flowfile.list_flows(app.profile_dir):
-        if os.path.abspath(path) == current:
-            continue   # 就是本流程那一份存檔, 已經以「本流程」列在上面
-        sources.append(_OtherFlow(path))
+    sources += [_OtherFlow(folder) for folder in app.other_flow_folders()]
     return sources
 
 
 def pick_template(app, title="選擇範本", initial=None):
-    """選範本對話框: 本流程、profile 內其他流程存檔、磁碟上的 PNG、現場截圖.
+    """選範本對話框: 本流程、其他流程資料夾、磁碟上的 PNG、現場截圖.
 
     **按確定的那一刻才把選中的圖複製進本流程**; 按取消時檔案系統完全沒有
     變化 (包括在對話框裡現場拍的截圖, 取消即丟棄)。撞名自動加序號並改寫
@@ -667,7 +656,7 @@ def _find_target_now(app, dlg, tgt, origin=None, k=1.0, anchor=None):
             app.engine_gate(parent=dlg)
         return None
     app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中
-    if name not in app.profile.templates:
+    if name not in app.library.templates:
         return None
     try:
         app.hub.ensure_template(name)  # 單張隨用載入 (票 05)
@@ -1701,7 +1690,7 @@ def discard_unused(app, added, step):
         return
     for n in dropped:
         app.drop_template(n)
-    app.reload_profile()
+    app.rebind_templates(changed=set())
     app.refresh_templates()
     app.log_ui("已丟棄未使用的新範本：" + "、".join(dropped), "info")
 
@@ -1779,7 +1768,7 @@ def show_match_test(app, target, hide=(), origin_fn=None):
     if not app.engine_gate():  # `引擎就緒`前提示並拒絕 (ADR 0004)
         return
     app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中 (票 05)
-    if template_name not in app.profile.templates:
+    if template_name not in app.library.templates:
         messagebox.showerror("測試", f"範本不存在: {template_name}")
         return
     try:
@@ -1818,7 +1807,7 @@ def show_match_test(app, target, hide=(), origin_fn=None):
     win_.configure(bg=C["panel"])
     win_.transient(root)
 
-    cfg = app.profile.config
+    cfg = app.library.config
     many = f"　匹配 {len(f.matches)} 個" if f.matches else ""
     if f.picked is not None:
         cx, cy = f.picked.center

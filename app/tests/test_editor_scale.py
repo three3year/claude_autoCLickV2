@@ -31,15 +31,15 @@ class _EditApp(_PickApp):
     scale: 校準對擺出來的`畫面倍率`; pair=False＝流程沒有校準對。
     """
 
-    def __init__(self, root, profile_dir, scale=1.0, anchor=ANCHOR, pair=True):
-        super().__init__(root, profile_dir)
+    def __init__(self, root, base_dir, scale=1.0, anchor=ANCHOR, pair=True):
+        super().__init__(root, base_dir)
         self.scan_region = REGION
         self.vision = Vision()
         self.detector = self.vision
         self.flow_cal = harness.cal() if pair else None
         if pair:
             for n in CAL_PAIR:
-                self.ws.add(n, b"P")
+                self.store.add(n, b"P")
             self.place_pair(scale, anchor)
 
     def place_pair(self, scale, anchor):
@@ -117,7 +117,7 @@ def test_拖曳兩端點_相對原點_除以當下倍率(make_app, monkeypatch):
 
 def test_相對座標_預設原點推算用當下基準點與倍率_拾取值除以倍率(make_app, monkeypatch):
     app = make_app(2.0)
-    app.ws.add("a", b"A", pos=[30, 40])      # 拍攝位置相對基準點
+    app.store.add("a", b"A", pos=[30, 40])      # 拍攝位置相對基準點
     app.steps = [flowdefaults.complete({"type": "find_click", "target": {"template": "a"}})]
     monkeypatch.setattr(ui_dialogs, "_find_template_now",
                         lambda *a, **k: None)   # 圖此刻不在畫面上 → 退用拍攝位置
@@ -195,8 +195,8 @@ def _shot(w=40, h=20, x=10, y=20):
 def test_主視窗截圖_倍率k時以1除k縮放_拍攝位置相對基準點(make_app):
     app = make_app(2.0)
     name = app.save_captured(_shot(40, 20, 210, 250), ANCHOR, 2.0)
-    assert imgio.imread(app.ws.path_of(name)).shape[:2] == (10, 20)
-    assert app.ws.pos_of(name) == [40, 15], "((230-150)/2, (260-230)/2)"
+    assert imgio.imread(app.store.path_of(name)).shape[:2] == (10, 20)
+    assert app.store.pos_of(name) == [40, 15], "((230-150)/2, (260-230)/2)"
 
 
 def test_主視窗截圖_倍率1時與原圖逐位元相同(make_app, tmp_path):
@@ -205,7 +205,7 @@ def test_主視窗截圖_倍率1時與原圖逐位元相同(make_app, tmp_path):
     name = app.save_captured(shot, ANCHOR, 1.0)
     ref = str(tmp_path / "ref.png")
     imgio.imwrite(ref, shot["img"])
-    with open(app.ws.path_of(name), "rb") as a, open(ref, "rb") as b:
+    with open(app.store.path_of(name), "rb") as a, open(ref, "rb") as b:
         assert a.read() == b.read()
 
 
@@ -214,8 +214,8 @@ def test_截圖框選走拾取當下的校準(make_app, monkeypatch):
     shot = _shot(40, 20, 210, 250)
     monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): shot)
     name = app.capture_template()
-    assert imgio.imread(app.ws.path_of(name)).shape[:2] == (10, 20)
-    assert app.ws.pos_of(name) == [40, 15]
+    assert imgio.imread(app.store.path_of(name)).shape[:2] == (10, 20)
+    assert app.store.pos_of(name) == [40, 15]
     assert app.vision.lookups == list(CAL_PAIR)
 
 
@@ -223,8 +223,8 @@ def test_沒有校準對時截圖不縮放_不記拍攝位置(make_app, monkeypa
     app = make_app(pair=False)
     monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20))
     name = app.capture_template()
-    assert imgio.imread(app.ws.path_of(name)).shape[:2] == (20, 40)
-    assert app.ws.pos_of(name) is None
+    assert imgio.imread(app.store.path_of(name)).shape[:2] == (20, 40)
+    assert app.store.pos_of(name) is None
 
 
 def test_截圖當下找不到校準對_不存範本並提示(make_app, monkeypatch, no_real_dialogs):
@@ -232,7 +232,7 @@ def test_截圖當下找不到校準對_不存範本並提示(make_app, monkeypa
     app.vision.plan(CAL_PAIR[0], [None])
     monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20))
     assert app.capture_template() is None
-    assert app.ws.names() == list(sorted(CAL_PAIR))
+    assert app.store.names() == list(sorted(CAL_PAIR))
     assert no_real_dialogs["warning"]
 
 
@@ -241,8 +241,8 @@ def test_選範本對話框現場截圖_也換回流程尺度與相對基準點(
     app.shot = _shot(40, 20, 170, 240)
     d = _Driver(app.root, TITLE)
     got = _open(app, d, lambda dr: (dr.press("截圖新增"), dr.press("確定")))
-    assert imgio.imread(app.ws.path_of(got)).shape[:2] == (40, 80)
-    assert app.ws.pos_of(got) == [80, 40], "((190-150)/0.5, (250-230)/0.5)"
+    assert imgio.imread(app.store.path_of(got)).shape[:2] == (40, 80)
+    assert app.store.pos_of(got) == [80, 40], "((190-150)/0.5, (250-230)/0.5)"
 
 
 def test_上傳的範本不縮放(make_app, monkeypatch, tmp_path):
@@ -253,15 +253,15 @@ def test_上傳的範本不縮放(make_app, monkeypatch, tmp_path):
                         lambda **kw: [src])
     app._select_tmpl_row = lambda name: None   # 面板不在這個最小 App 裡
     app.upload_template()
-    [name] = [n for n in app.ws.names() if n not in CAL_PAIR]
-    assert imgio.imread(app.ws.path_of(name)).shape[:2] == (20, 40)
+    [name] = [n for n in app.store.names() if n not in CAL_PAIR]
+    assert imgio.imread(app.store.path_of(name)).shape[:2] == (20, 40)
 
 
 # ---------- 預設原點: ◎ 退用拍攝位置 ----------
 
 def test_預設原點退用拍攝位置_依當下基準點換到螢幕(make_app, monkeypatch):
     app = make_app(1.0, anchor=(550, 330))    # 視窗挪過了
-    app.ws.add("a", b"A", pos=[100, 50])      # 拍的時候相對基準點 (+100,+50)
+    app.store.add("a", b"A", pos=[100, 50])      # 拍的時候相對基準點 (+100,+50)
     app.steps = [flowdefaults.complete({"type": "find_click", "target": {"template": "a"}}),
                  flowdefaults.complete({"type": "click", "click": [0, 0]})]
     monkeypatch.setattr(ui_dialogs, "_find_template_now",
@@ -288,7 +288,7 @@ def test_預設原點推算_相對點擊累積偏移乘倍率_找圖退用拍攝
 def _match_test_app(make_app, monkeypatch, scale, **kw):
     app = make_app(scale, **kw)
     app.hub.state = enginehub.READY
-    app.profile = type("P", (), {"templates": {"a": object()},
+    app.library = type("P", (), {"templates": {"a": object()},
                                  "config": {"match_threshold": 0.6,
                                             "verify_threshold": 0.8}})()
     app.hub.ensure_template = lambda name: None
@@ -330,7 +330,7 @@ def test_比對測試_固定矩形但沒有校準對_擋下(make_app, monkeypatc
 
 def test_比對測試補記的拍攝位置相對基準點(make_app, monkeypatch):
     app, seen = _match_test_app(make_app, monkeypatch, 2.0)
-    app.ws.add("a", b"A")
+    app.store.add("a", b"A")
 
     def fake_find(tgt, detector, scr, org, origin=None, scale=1.0, anchor=None):
         m = findtarget.Match((230, 290, 40, 20), 0.99)
@@ -339,4 +339,4 @@ def test_比對測試補記的拍攝位置相對基準點(make_app, monkeypatch)
     monkeypatch.setattr(ui_dialogs.findtarget, "find", fake_find)
     ui_dialogs.show_match_test(app, {"template": "a"})
     _close_result(app)
-    assert app.ws.pos_of("a") == [50, 35], "((250-150)/2, (300-230)/2)"
+    assert app.store.pos_of("a") == [50, 35], "((250-150)/2, (300-230)/2)"

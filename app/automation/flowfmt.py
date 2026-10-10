@@ -7,14 +7,9 @@
     存檔座標 → 螢幕:  基準點 + 偏移 ×畫面倍率   (to_screen / rect_to_screen)
     螢幕 → 存檔座標:  (螢幕 − 基準點) ÷ 倍率     (from_screen / rect_from_screen)
 
-同一組數字在不同座標空間下意思不同, 所以存檔帶 `coordSpace` 標記; 不是現行值
-(`anchor`) 的一律是舊格式——拒絕開啟 (舊格式沒記當時視窗在哪, 自動換算會靜靜換錯)。
+flow.yaml 只有這一套座標空間 (舊的 zip 存檔由一次性轉換腳本轉過來, 程式不讀)。
 """
 import math
-
-COORD_SPACE = "coordSpace"
-ANCHOR = "anchor"   # 現行: 座標相對`座標基準點` (ADR 0012)
-# 舊值只在拒絕時認: "region"＝相對搜尋範圍左上角, 沒標記＝螢幕座標 (更早)
 
 
 def scale_px(v, k):
@@ -25,11 +20,6 @@ def scale_px(v, k):
     x = float(v) * k
     r = int(math.floor(abs(x) + 0.5))
     return r if x >= 0 else -r
-
-
-def is_anchor_space(data):
-    """這份流程資料的座標是否已相對`座標基準點` (不是＝舊格式)."""
-    return isinstance(data, dict) and data.get(COORD_SPACE) == ANCHOR
 
 
 # ================= 存檔座標 ⇄ 螢幕座標 =================
@@ -73,7 +63,7 @@ def remap_flow(data, rect_fn):
     changed = 0
     steps = data.get("steps") or []
     targets = [s.get(k) for s in steps for k in ("target", "confirm_target")]
-    targets.append(data.get("busyTarget"))
+    targets.append(data.get("busy"))
     for t in targets:
         lim = t.get("within") if isinstance(t, dict) else None
         if isinstance(lim, list) and len(lim) == 4:
@@ -87,7 +77,7 @@ def shift_flow(data, old_anchor, new_anchor, k=1.0):
 
     每個座標都先用舊基準點換到螢幕 (這次的倍率 k), 再用新基準點換回來——
     落點在捨入誤差內不變 (流程尺度存整數, 誤差 ≤ k/2 px; 倍率 1 時完全不變),
-    不另外累積一次四捨五入。範本拍攝位置由工作區自己重算 (Workspace.shift_pos, 同一對換算)。
+    不另外累積一次四捨五入。範本拍攝位置由本流程的範本自己重算 (FlowTemplates.shift_pos, 同一對換算)。
     """
     return remap_flow(
         data,

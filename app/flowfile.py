@@ -1,53 +1,26 @@
-"""流程存檔與工作區: 資料進資料出, 純檔案邏輯 (GUI 無關).
+"""流程資料夾: 資料進資料出, 純檔案邏輯 (GUI 無關; 詞彙見 app/CONTEXT.md「存檔與快取」).
 
-**一份`流程`＝一個自包自足的存檔** (副檔名 `.autoclickpack`, zip)::
+**一份`流程`＝一個資料夾** (ADR 0014)::
 
-    flow.json               步驟與流程層級設定 (含 coordSpace、`校準對`與`基準距離`、
-                            `忙碌指示`)
-    templates/<名稱>.png    本流程引用到的範本圖 (一範本一張圖, 名稱平面無層級)
-    templates/_meta.json    範本元資料: {"pos": {範本名: [x, y]}}——拍攝位置 (截圖當下的中心),
-                            相對`座標基準點`、`流程尺度` (ADR 0012)
+    <流程名>/flow.yaml              步驟與流程層級設定 (區段巢狀、一步一行、預設不寫、時間一律秒)
+    <流程名>/templates/<範本名>.png  被引用的範本圖 (檔名即範本名)
+    <流程名>/.cache/                可重建的`快取`: 引擎的登錄產物 (registered/)、
+                                   還沒存檔的截圖 (shots/)
+    <流程名>/交付報告.md            影片轉流程附的說明 (app 不讀不寫, 存檔不動它)
 
-存檔**只寫入被引用的**範本 (步驟的找圖目標含`確認圖`, 以及流程的`校準對`與
-`忙碌指示`, 見 `flow_refs`): 刪掉引用它的步驟再存檔, 那張圖就離開存檔——檔案內容永遠等於
-流程真正需要的東西。
+`存檔`把記憶體裡的流程整份寫回資料夾: flow.yaml 整份重寫, 還沒存檔的截圖搬進
+templates/, templates/ 只留被引用的範本 (步驟的找圖目標與確認圖＋校準對＋備用校準對＋
+忙碌指示, 見 `template_refs`)。還沒第一次存檔的新流程沒有資料夾, 截圖與登錄產物放在
+本機狀態資料夾裡固定的「未存檔」快取。
 
-**工作區** (`<profile>/workspace/`) 是 profile 底下可重建的快取: 當前流程解出來
-的範本圖與引擎的`登錄產物`都放這。**存檔是真相來源, 工作區只是快取**——被刪或
-毀損時自動重建; 切換流程時整個清空 (圖與登錄產物一起刪)。
-
-**舊格式一律拒絕開啟** (ADR 0012): 座標空間標記不是現行值的存檔、步驟草稿、舊 autoClick
-flow JSON、舊流程包都不讀, 回報「這是舊格式, 座標基準不同」——舊檔沒記當時視窗在哪,
-自動換算可能靜靜換錯; 在用的流程已一次性換算。以前的舊格式遷移 (螢幕→搜尋範圍座標、
-範本名收進找圖目標、去副檔名、丟每步門檻、舊流程包單向匯入) 隨之退場。
-存檔原樣搬到哪台機器、哪個 profile 都一樣 (尺度、比例尺與座標基準跟著流程走), 所以開
-外來檔不換算座標。格式規則只有這一個地方說得上話。
+讀檔 (`read_flow`) 是唯一的入口驗證, 格式規則只有這一個模組說得上話; UI 與執行器只呼叫它。
 """
-import json
 import os
 import re
 import shutil
-import zipfile
-from pathlib import Path
 
 import calibration
-from automation import findtarget, flowdefaults, flowfmt
-
-EXT = ".autoclickpack"          # 流程存檔副檔名 (沿用舊流程包的副檔名)
-DRAFT_NAME = "_autosave.json"   # 步驟草稿 (自動存檔; 輕量 JSON, 圖留在工作區)
-
-FLOW_ENTRY = "flow.json"
-TMPL_PREFIX = "templates/"
-META_ENTRY = "templates/_meta.json"
-
-# 自包自足存檔的格式標記: 舊流程包同樣是「zip 內含 flow.json」, 沒有標記就無從
-# 分辨「直接開得起來的存檔」與「要走單向轉換的舊流程包」
-FORMAT_KEY = "flowFormat"
-FORMAT = 5                 # 寫檔一律蓋這個版本 (3: 範本收進`找圖目標`, ADR 0007;
-                           # 4: 流程自帶`校準對`與`基準距離`, ADR 0009;
-                           # 5: 座標相對`座標基準點`, coordSpace＝anchor, ADR 0012)
-
-_IMG_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
+from automation import findtarget, flowdefaults
 
 
 # ================= 範本名稱與步驟引用 =================
@@ -58,10 +31,11 @@ def strip_ext(name):
 
 
 def clean_name(name):
-    """清理使用者輸入的範本名: 平面名稱, 沒有資料夾層級.
+    """清理範本名 (截圖自動命名、從磁碟挑的圖檔名): 平面名稱, 能當檔名.
 
     路徑分隔與檔名非法字元一律換成 `_` (不是丟棄, 否則 `a/b` 會靜靜變成 `ab`)。
-    清不出東西時回空字串, 由呼叫端決定怎麼辦。
+    清不出東西時回空字串, 由呼叫端決定怎麼辦。使用者親手輸入的名字 (重新命名)
+    不靜靜改寫, 用 `template_name_problem` 擋下並說明。
     """
     name = re.sub(r'[\\/:*?"<>|]', "_", str(name)).strip().strip(".")
     return re.sub(r"_+", "_", name)
@@ -102,699 +76,25 @@ def rename_refs(steps, old, new):
     return changed
 
 
-# 流程層級的`忙碌指示` (ADR 0008): 一個`找圖目標`, 不設＝沒有這個鍵。
-# 補做間隔、忙碌出現等候、開始延遲、避開游標是固定行為, 不進存檔 (舊存檔帶著也不讀)
-BUSY_KEY = "busyTarget"
-
-
-def busy_target(data):
-    """流程的`忙碌指示` (找圖目標); 沒設回傳 None."""
-    tgt = (data or {}).get(BUSY_KEY)
-    return tgt if isinstance(tgt, dict) and tgt.get("template") else None
-
-
-def flow_refs(data):
-    """一份流程引用的全部範本名 (已排序): 步驟的`找圖目標` + 流程層級設定
-    (`校準對`、`備用校準對`、`忙碌指示`).
-
-    規則在 findtarget.referenced_templates (範本預載也照它): 存檔只打包它們、
-    對話框收回未使用的新圖時保留它們——校準對不被步驟引用, 漏了它, 存檔一整理
-    流程就不能執行。
-    """
-    cal = calibration.flow_pair(data)
-    fb = calibration.fallback_pair(cal)
-    busy = busy_target(data)
-    extra = [*(cal["pair"] if cal else ()), *(fb["pair"] if fb else ()),
-             *([busy["template"]] if busy else ())]
-    return sorted(findtarget.referenced_templates(data.get("steps") or [], extra))
-
-
-def rename_flow_refs(data, old, new):
-    """把整份流程對 `old` 的引用 (步驟 + 校準對 + 備用校準對 + 忙碌指示) 就地改成
-    `new`; 回傳改動筆數."""
-    changed = rename_refs(data.get("steps") or [], old, new)
-    cal = calibration.flow_pair(data)
-    fb = calibration.fallback_pair(cal)
-    for pair in [cal["pair"] if cal else [], fb["pair"] if fb else []]:
-        for i, n in enumerate(pair):
-            if n == old:
-                pair[i] = new
-                changed += 1
-    busy = busy_target(data)
-    if busy and busy["template"] == old:
-        busy["template"] = new
-        changed += 1
-    return changed
-
-
 def used_templates(steps):
     """所有`找圖目標`引用的範本名 (確認圖只在生效確認選「確認圖出現」時算;
     找圖、座標點擊、拖曳都有確認圖), 已排序."""
     return sorted(findtarget.referenced_templates(steps))
 
 
-# ======== 舊存檔鍵名 ⇄ 記憶體鍵名 (過渡碼: 讀寫換成流程資料夾 flow.yaml 時整段刪掉) ========
-# 記憶體裡的步驟已改用 flow.yaml 的鍵名與單位 (秒); .autoclickpack 的 flow.json 還是舊鍵。
-# 已退場的欄位 (座標模式、滑鼠鍵、連點數、出現等候上限) 讀進來就丟掉。
-
-_RENAMES = (("onNotFound", "on_fail"), ("updateOrigin", "update_origin"),
-            ("busyCheck", "busy_check"), ("onBreak", "on_break"))
-_RETIRED = ("mode", "button", "clicks", "appearLimitMs")
-_ACTION_TYPE = {"click": "find_click", "none": "find", "wait_gone": "wait_gone"}
-
-
-def _ms_to_s(ms):
-    s = float(ms) / 1000.0
-    return int(s) if s.is_integer() else s
-
-
-def _s_to_ms(s):
-    return int(round(float(s) * 1000))
-
-
-def _old_target(t):
-    """舊找圖目標 {template, limit, pick:{kind,n|x,y}, colorCheck} → 新."""
-    if not isinstance(t, dict):
-        return t
-    out = {k: v for k, v in t.items() if k not in ("limit", "pick", "colorCheck")}
-    lim = t.get("limit")
-    if isinstance(lim, dict) and lim.get("kind") == "rect":
-        out["within"] = [lim.get(k) for k in ("x", "y", "w", "h")]
-    pick = t.get("pick") or {}
-    kind = pick.get("kind")
-    if kind in ("top", "left"):
-        out["pick"] = {kind: pick.get("n", 1)}
-    elif kind == "near":
-        out["pick"] = {"near": [pick.get("x", 0), pick.get("y", 0)]}
-    if t.get("colorCheck"):
-        out["color"] = True
-    return out
-
-
-def _new_target(t):
-    """新找圖目標 → 舊 (寫回 flow.json)."""
-    if not isinstance(t, dict):
-        return t
-    out = {k: v for k, v in t.items() if k not in ("within", "pick", "color")}
-    if t.get("within") is not None:
-        out["limit"] = dict(zip(("x", "y", "w", "h"), t["within"]), kind="rect")
-    kind, value = findtarget.pick_rule(t)
-    if kind in ("top", "left"):
-        out["pick"] = {"kind": kind, "n": value}
-    elif kind == "near":
-        out["pick"] = {"kind": "near", "x": value[0], "y": value[1]}
-    if t.get("color"):
-        out["colorCheck"] = True
-    return out
-
-
-def _old_step(s):
-    s = {k: v for k, v in s.items() if k not in _RETIRED}
-    for old, new in _RENAMES:
-        if old in s:
-            s[new] = s.pop(old)
-    if "target" in s:
-        s["target"] = _old_target(s["target"])
-    if "confirmTarget" in s:
-        s["confirm_target"] = _old_target(s.pop("confirmTarget"))
-    t = s.get("type")
-    if t == "find_click":
-        s["type"] = _ACTION_TYPE.get(s.pop("action", "click"), "find_click")
-        if "offsetX" in s or "offsetY" in s:
-            s["offset"] = [s.pop("offsetX", 0), s.pop("offsetY", 0)]
-    elif t == "click":
-        s["click"] = [s.pop("x", 0), s.pop("y", 0)]
-    elif t == "drag":
-        s["drag"] = [s.pop("x1", 0), s.pop("y1", 0)]
-        s["to"] = [s.pop("x2", 0), s.pop("y2", 0)]
-        if "ms" in s:
-            s["duration"] = _ms_to_s(s.pop("ms"))
-        if "holdMs" in s:
-            s["hold"] = _ms_to_s(s.pop("holdMs"))
-    elif t == "wait":
-        if "ms" in s:
-            s["wait"] = _ms_to_s(s.pop("ms"))
-    elif t == "loop_start":
-        s["type"] = "repeat_start"
-        if "count" in s:
-            s["repeat"] = s.pop("count")
-    elif t == "loop_end":
-        s["type"] = "repeat_end"
-    return s
-
-
-def _new_step(s):
-    s = dict(s)
-    for old, new in _RENAMES:
-        if new in s:
-            s[old] = s.pop(new)
-    if "target" in s:
-        s["target"] = _new_target(s["target"])
-    if "confirm_target" in s:
-        s["confirmTarget"] = _new_target(s.pop("confirm_target"))
-    t = s.get("type")
-    if t in findtarget.FIND_TYPES:
-        s["action"] = {v: k for k, v in _ACTION_TYPE.items()}[t]
-        s["type"] = "find_click"
-        if "offset" in s:
-            s["offsetX"], s["offsetY"] = s.pop("offset")
-    elif t == "click":
-        s["x"], s["y"] = s.pop("click")
-    elif t == "drag":
-        s["x1"], s["y1"] = s.pop("drag")
-        s["x2"], s["y2"] = s.pop("to")
-        if "duration" in s:
-            s["ms"] = _s_to_ms(s.pop("duration"))
-        if "hold" in s:
-            s["holdMs"] = _s_to_ms(s.pop("hold"))
-    elif t == "wait":
-        if "wait" in s:
-            s["ms"] = _s_to_ms(s.pop("wait"))
-    elif t == "repeat_start":
-        s["type"] = "loop_start"
-        if "repeat" in s:
-            s["count"] = s.pop("repeat")
-    elif t == "repeat_end":
-        s["type"] = "loop_end"
-    return s
-
-
-def _from_old(data):
-    """flow.json (舊鍵) → 記憶體的流程資料 (步驟與忙碌指示換成新鍵)."""
-    data = dict(data)
-    data["steps"] = [flowdefaults.complete(_old_step(s))
-                     for s in data.get("steps") or []]
-    if isinstance(data.get(BUSY_KEY), dict):
-        data[BUSY_KEY] = _old_target(data[BUSY_KEY])
-    data.pop("avoidHover", None)
-    return data
-
-
-def _to_old(data):
-    """記憶體的流程資料 → flow.json (舊鍵)."""
-    data = dict(data)
-    data["steps"] = [_new_step(s) for s in data.get("steps") or []]
-    if isinstance(data.get(BUSY_KEY), dict):
-        data[BUSY_KEY] = _new_target(data[BUSY_KEY])
-    return data
-
-
-# ================= 格式檢查: 舊格式一律拒絕 =================
-
-class OldFormatError(ValueError):
-    """舊格式 (座標基準不同) 或根本不是流程存檔: 不開, 訊息給使用者看."""
-
-
-OLD_FORMAT_MSG = ("這是舊格式的存檔，座標基準不同（舊格式的座標相對搜尋範圍，"
-                  "現在一律相對校準對第一張圖的中心），無法開啟。"
-                  "在用的流程已一次性換算；其餘舊檔請刪除或重新建立")
-
-
-def format_problem(data):
-    """這份流程資料開不開得起來: 舊格式回傳說明, 現行格式回傳 None.
-
-    現行格式＝flowFormat ≥ 5 且座標空間標記是 anchor; 任一不符都是舊格式
-    (座標相對搜尋範圍、或更早的螢幕座標), 一律拒絕——不猜、不換算。
-    """
-    if not isinstance(data, dict):
-        return OLD_FORMAT_MSG
-    try:
-        fmt = int(data.get(FORMAT_KEY, 0))
-    except (TypeError, ValueError):
-        fmt = 0
-    if fmt < FORMAT or not flowfmt.is_anchor_space(data):
-        return OLD_FORMAT_MSG
-    return None
-
-
-def check_format(data):
-    """舊格式就丟 OldFormatError; 所有讀檔路徑 (存檔、步驟草稿) 一律先過這一關."""
-    problem = format_problem(data)
-    if problem:
-        raise OldFormatError(problem)
-
-
-# ================= 目錄掃描 (工作區) =================
-
-def scan_templates(root):
-    """掃一個範本圖目錄成`範本清單`: {範本名: [圖檔路徑, ...]}.
-
-    範本名＝相對路徑不含副檔名; 「只含影像檔的資料夾」是一個多截圖範本
-    (引擎仍認得的形式), 含子資料夾的資料夾是命名空間。工作區是平面的單張圖,
-    同一套規則掃得出來——引擎的`範本清單`由此組出。
-    """
-    root = Path(root)
-    found = {}
-
-    def is_template_dir(path):
-        has_image = False
-        for child in path.iterdir():
-            if child.is_dir():
-                return False
-            if child.suffix.lower() in _IMG_EXTS:
-                has_image = True
-        return has_image
-
-    def walk(d):
-        for child in sorted(d.iterdir()):
-            if child.is_file() and child.suffix.lower() in _IMG_EXTS:
-                found[child.relative_to(root).with_suffix("").as_posix()] = [child]
-            elif child.is_dir():
-                if is_template_dir(child):
-                    found[child.relative_to(root).as_posix()] = sorted(
-                        p for p in child.iterdir()
-                        if p.suffix.lower() in _IMG_EXTS)
-                else:
-                    walk(child)
-
-    if root.is_dir():
-        walk(root)
-    return found
-
-
-# ================= 流程存檔 (zip) =================
-
 def _blob(src):
-    """把 bytes 或檔案路徑統一成 bytes (存檔一律寫實體內容, 不留參照)."""
+    """把 bytes 或檔案路徑統一成 bytes (寫圖一律寫實體內容, 不留參照)."""
     if isinstance(src, (bytes, bytearray)):
         return bytes(src)
-    return Path(src).read_bytes()
+    with open(src, "rb") as f:
+        return f.read()
 
 
-def write(path, data, images, pos=None):
-    """寫出一份自包自足的流程存檔; 回傳被引用卻缺圖的範本名 list.
-
-    images: {範本名: bytes 或圖檔路徑}。只有 `data` 引用到的範本 (步驟、校準對、
-    忙碌指示, `flow_refs`) 會進存檔 (未被引用的圖不進去, 存檔才不會囤積用不到的圖)。缺圖不是
-    致命錯誤 (使用者可能剛刪掉範本, 步驟由既有機制標示為有問題), 回報給呼叫端
-    寫進執行紀錄即可。
-    """
-    images = images or {}
-    refs = flow_refs(data)
-    stamped = _stamped(_to_old(data))
-    pos = pos or {}
-    missing = [n for n in refs if n not in images]
-    tmp = str(path) + ".tmp"
-    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr(FLOW_ENTRY, json.dumps(stamped, ensure_ascii=False, indent=2))
-        z.writestr(META_ENTRY, json.dumps(
-            {"pos": {n: pos[n] for n in refs if n in pos}}, ensure_ascii=False))
-        for n in refs:
-            if n in images:
-                z.writestr(f"{TMPL_PREFIX}{n}.png", _blob(images[n]))
-    os.replace(tmp, path)   # 寫壞的存檔不會取代舊的那份
-    return missing
-
-
-def _stamped(data):
-    """寫檔用的深拷貝 (不改呼叫端的資料), 蓋上現行版本與座標空間標記.
-
-    呼叫端必須明確標了 coordSpace＝anchor: 沒標或標舊值的資料 (座標相對搜尋範圍、
-    或更早的螢幕座標) 寫成現行標記＝把舊數字當新偏移, 絕不能發生。
-    """
-    if not flowfmt.is_anchor_space(data):
-        raise ValueError("流程資料沒有標明座標相對座標基準點 (coordSpace=anchor), 不能寫出")
-    stamped = json.loads(json.dumps(data))
-    stamped[FORMAT_KEY] = FORMAT
-    return stamped
-
-
-def _entry_names(z, prefix):
-    """zip 內某前綴下的範本名 (只讀索引, 不解壓內容)."""
-    out = []
-    for fn in z.namelist():
-        if (not fn.startswith(prefix) or fn.endswith("/")
-                or not fn.lower().endswith(_IMG_EXTS)):
-            continue
-        rel = fn[len(prefix):]
-        if rel.startswith("_"):
-            continue
-        out.append(os.path.splitext(rel)[0])
-    return sorted(out)
-
-
-def _flow_json(path):
-    """zip 內的 flow.json; 不是 zip、沒有 flow.json、不是 JSON 都算舊格式/不是存檔."""
-    if not zipfile.is_zipfile(path):
-        raise OldFormatError(OLD_FORMAT_MSG)
-    try:
-        with zipfile.ZipFile(path) as z:
-            return json.loads(z.read(FLOW_ENTRY).decode("utf-8"))
-    except (OSError, KeyError, ValueError) as e:
-        raise OldFormatError(OLD_FORMAT_MSG) from e
-
-
-def is_flow_file(path):
-    """這份檔案是本 app 現行格式的存檔嗎 (舊格式、舊 JSON、舊流程包、非 zip 都不是)."""
-    try:
-        return format_problem(_flow_json(path)) is None
-    except OldFormatError:
-        return False
-
-
-def template_names(path):
-    """存檔內的範本名 (只讀 zip 索引, 不整包解壓——供對話框列出縮圖清單)."""
-    with zipfile.ZipFile(path) as z:
-        return _entry_names(z, TMPL_PREFIX)
-
-
-def template_bytes(path, name):
-    """存檔內某個範本的圖檔內容; 不存在回傳 None (只取這一張, 不解壓整包)."""
-    with zipfile.ZipFile(path) as z:
-        try:
-            return z.read(f"{TMPL_PREFIX}{name}.png")
-        except KeyError:
-            return None
-
-
-def read(path):
-    """讀一份流程存檔, 回傳資料進資料出的 dict; 舊格式丟 OldFormatError (不開).
-
-    keys: data (流程資料, 校準對在 data 裡)、images ({範本名: bytes})、pos
-    (範本拍攝位置, 相對座標基準點)。
-    """
-    data = _flow_json(path)
-    check_format(data)
-    data = _from_old(data)
-    with zipfile.ZipFile(path) as z:
-        try:
-            meta = json.loads(z.read(META_ENTRY).decode("utf-8"))
-        except (KeyError, ValueError):
-            meta = {}
-        pos = meta.get("pos", {}) if isinstance(meta, dict) else {}
-        images = {n: z.read(f"{TMPL_PREFIX}{n}.png")
-                  for n in _entry_names(z, TMPL_PREFIX)}
-    return {"data": data, "images": images,
-            "pos": {k: v for k, v in pos.items() if k in images}}
-
-
-# ================= profile 內的流程存檔 =================
-
-def flows_dir(profile_dir):
-    return os.path.join(profile_dir, "flows")
-
-
-def list_flows(profile_dir):
-    """profile 內的流程存檔路徑 (已排序); 草稿不算一份流程."""
-    d = flows_dir(profile_dir)
-    try:
-        entries = sorted(os.listdir(d))
-    except OSError:
-        return []
-    return [os.path.join(d, fn) for fn in entries
-            if fn.lower().endswith(EXT)
-            and os.path.isfile(os.path.join(d, fn))]
-
-
-def draft_path(profile_dir):
-    return os.path.join(flows_dir(profile_dir), DRAFT_NAME)
-
-
-def write_draft(profile_dir, data):
-    """自動存檔: **只寫步驟草稿** (輕量 JSON), 圖留在工作區.
-
-    拖曳排序一次動作就存一次, 若每次都重壓整包 zip (幾十張圖) 會卡頓;
-    圖已經在工作區裡, 當機重開時草稿與工作區的圖一起復原。草稿與存檔同一套
-    格式標記 (版本與座標空間), 讀回時過同一關。
-    """
-    stamped = _stamped(_to_old(data))
-    try:
-        os.makedirs(flows_dir(profile_dir), exist_ok=True)
-        with open(draft_path(profile_dir), "w", encoding="utf-8") as f:
-            json.dump(stamped, f, ensure_ascii=False)
-    except OSError:
-        pass
-
-
-def read_draft(profile_dir):
-    """讀步驟草稿; 缺檔/壞檔回傳 None; 舊格式丟 OldFormatError (不復原, 呼叫端開空白並提示)."""
-    try:
-        with open(draft_path(profile_dir), encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, ValueError):
-        return None
-    if not isinstance(data, dict):
-        return None
-    check_format(data)
-    return _from_old(data)
-
-
-def free_path(dirpath, stem, suffix):
-    """dirpath 下未被占用的路徑 stem[_N]suffix (不覆蓋既有檔案)."""
-    path = os.path.join(dirpath, stem + suffix)
-    n = 1
-    while os.path.exists(path):
-        n += 1
-        path = os.path.join(dirpath, f"{stem}_{n}{suffix}")
-    return path
-
-
-def is_inside_profile(path, profile_dir):
-    """這份存檔是否就住在本 profile 的 flows/ 裡 (外來檔要先複製副本進來)."""
-    return (os.path.normcase(os.path.dirname(os.path.abspath(path)))
-            == os.path.normcase(os.path.abspath(flows_dir(profile_dir))))
-
-
-# ================= 工作區 =================
-
-class Workspace:
-    """profile 底下可重建的快取: 當前流程的範本圖 + 引擎`登錄產物`.
-
-    存檔才是真相來源; 工作區被手動刪掉或毀損時自動重建 (下次載入流程即補齊)。
-    切換流程時 `clear()` 整個清空——磁碟上刻意不留任何非當前流程的圖, 代價是
-    切回去時該流程的範本要重新登錄。
-    """
-
-    DIRNAME = "workspace"
-
-    def __init__(self, profile_dir):
-        self.profile_dir = str(profile_dir)
-
-    # ---- 路徑 ----
-
-    @property
-    def root(self):
-        return os.path.join(self.profile_dir, self.DIRNAME)
-
-    @property
-    def templates_dir(self):
-        return os.path.join(self.root, "templates")
-
-    @property
-    def registered_dir(self):
-        return os.path.join(self.root, "registered")
-
-    @property
-    def _meta_path(self):
-        return os.path.join(self.root, "_meta.json")
-
-    @property
-    def _state_path(self):
-        return os.path.join(self.root, "state.json")
-
-    def path_of(self, name):
-        return os.path.join(self.templates_dir, name + ".png")
-
-    # ---- 生命週期 ----
-
-    def ensure(self):
-        """工作區目錄就位 (不存在就建); 回傳工作區根目錄."""
-        os.makedirs(self.templates_dir, exist_ok=True)
-        return self.root
-
-    def clear(self):
-        """整個清空: 解出來的範本圖與登錄產物一起刪, 元資料歸零."""
-        shutil.rmtree(self.root, ignore_errors=True)
-        self.ensure()
-
-    # ---- 範本 ----
-
-    def names(self):
-        """工作區內的範本名 (已排序)——即本流程目前帶著的範本."""
-        try:
-            entries = os.listdir(self.templates_dir)
-        except OSError:
-            return []
-        return sorted(strip_ext(fn) for fn in entries
-                      if fn.lower().endswith(".png") and not fn.startswith("_"))
-
-    def has(self, name):
-        return os.path.isfile(self.path_of(name))
-
-    def images(self):
-        """{範本名: 圖檔路徑}——存檔與引擎`範本清單`都吃這個."""
-        return {n: self.path_of(n) for n in self.names()}
-
-    def reserve(self, name):
-        """保留一個未被占用的範本名 (撞名加序號), 圖由呼叫端自己寫進去.
-
-        影像編碼是 app 的事 (`automation.imgio` 才碰 cv2), 但「撞名怎麼處理」
-        只有這一條規則。
-        """
-        self.ensure()
-        return free_name(clean_name(name) or "template", self.names())
-
-    def add(self, name, blob, pos=None):
-        """加一張範本進本流程; 撞名自動加序號. 回傳最終採用的範本名.
-
-        `blob` 是 bytes 或來源圖檔路徑 (跨流程複製進來的是獨立副本, 來源日後
-        改圖不影響本流程)。`pos`＝拍攝位置 (截圖當下的中心, 相對`座標基準點`、
-        流程尺度), 只有本流程自己拍的圖才有 (跨流程複製與磁碟上傳的沒有)。
-        """
-        final = self.reserve(name)
-        with open(self.path_of(final), "wb") as f:
-            f.write(_blob(blob))
-        if pos is not None:
-            self.set_pos(final, pos)
-        return final
-
-    def remove(self, name):
-        """從本流程移除一個範本 (圖與它的登錄產物一起刪)."""
-        try:
-            os.remove(self.path_of(name))
-        except OSError:
-            pass
-        self._drop_registered(name)
-        meta = self.pos()
-        if meta.pop(name, None) is not None:
-            self._write_pos(meta)
-
-    def rename(self, old, new):
-        """重新命名範本 (撞名加序號); 回傳最終名稱, 來源不存在回傳 None.
-
-        引用的改寫由呼叫端以 `rename_refs` 處理 (工作區不認識步驟)。
-        """
-        if not self.has(old):
-            return None
-        final = free_name(clean_name(new) or old,
-                          [n for n in self.names() if n != old])
-        if final == old:
-            return old
-        os.replace(self.path_of(old), self.path_of(final))
-        self._drop_registered(old)
-        meta = self.pos()
-        if old in meta:
-            meta[final] = meta.pop(old)
-            self._write_pos(meta)
-        return final
-
-    def _drop_registered(self, name):
-        """丟棄某範本的登錄產物 (改名/刪除後留著只是佔空間, 重建很便宜)."""
-        shutil.rmtree(os.path.join(self.registered_dir, name),
-                      ignore_errors=True)
-
-    def invalidate_registered(self):
-        """整個登錄產物目錄作廢 (工作區內容整批換掉時用)."""
-        shutil.rmtree(self.registered_dir, ignore_errors=True)
-
-    # ---- 範本元資料 (pos) ----
-
-    def pos(self):
-        """{範本名: [x, y]}: 各範本的拍攝位置 (相對`座標基準點`, 流程尺度; 缺檔＝空)."""
-        try:
-            with open(self._meta_path, encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, ValueError):
-            return {}
-        if isinstance(data, dict):
-            return dict(data.get("pos", {}))
-        return {}
-
-    def _write_pos(self, pos):
-        self.ensure()
-        try:
-            with open(self._meta_path, "w", encoding="utf-8") as f:
-                json.dump({"pos": pos}, f, ensure_ascii=False)
-        except OSError:
-            pass
-
-    def set_pos(self, name, xy):
-        pos = self.pos()
-        pos[name] = [int(xy[0]), int(xy[1])]
-        self._write_pos(pos)
-
-    def pos_of(self, name):
-        return self.pos().get(name)
-
-    def shift_pos(self, old_anchor, new_anchor, k=1.0):
-        """換`校準對`時所有拍攝位置改成相對新基準點 (同 flowfmt.shift_flow 的換算)."""
-        pos = self.pos()
-        if not pos:
-            return 0
-        self._write_pos({n: list(flowfmt.from_screen(flowfmt.to_screen(xy, old_anchor, k),
-                                                     new_anchor, k))
-                         for n, xy in pos.items()})
-        return len(pos)
-
-    # ---- 當前流程 ----
-
-    def flow_path(self):
-        """工作區裡這批圖屬於哪一份存檔 (檔案路徑); 新流程未存檔時 None."""
-        try:
-            with open(self._state_path, encoding="utf-8") as f:
-                p = json.load(f).get("flow")
-        except (OSError, ValueError, AttributeError):
-            return None
-        return p or None
-
-    def set_flow_path(self, path):
-        self.ensure()
-        try:
-            with open(self._state_path, "w", encoding="utf-8") as f:
-                json.dump({"flow": str(path) if path else None}, f,
-                          ensure_ascii=False)
-        except OSError:
-            pass
-
-    # ---- 與存檔之間 ----
-
-    def load_flow(self, path):
-        """把一份存檔解到工作區 (先整個清空), 回傳 `read()` 的結果."""
-        r = read(path)
-        self.clear()
-        for name, blob in r["images"].items():
-            with open(self.path_of(name), "wb") as f:
-                f.write(blob)
-        self._write_pos(dict(r["pos"]))
-        self.set_flow_path(path)
-        return r
-
-    def put_flow(self, data, path=None):
-        """把工作區的圖與 `data` 一起寫成存檔; 回傳缺圖的範本名 list."""
-        path = path or self.flow_path()
-        missing = write(path, data, self.images(), self.pos())
-        self.set_flow_path(path)
-        return missing
-
-
-# ================= 開啟外來檔 =================
-
-def adopt_foreign_flow(path, profile_dir):
-    """開啟不在本 profile 裡的存檔: 原樣複製副本進 profile 再開 (原檔不被動到).
-
-    不換算: 流程自帶尺度、校準對與座標基準 (ADR 0009、0012), 搬到哪裡都一樣,
-    執行開頭自己量。舊格式由 read 拒絕。回傳 dict: flow_path (副本)、data。
-    """
-    r = read(path)
-    os.makedirs(flows_dir(profile_dir), exist_ok=True)
-    stem = os.path.splitext(os.path.basename(path))[0]
-    dest = free_path(flows_dir(profile_dir), stem, EXT)
-    write(dest, r["data"], r["images"], r["pos"])
-    return {"flow_path": dest, "data": r["data"]}
-
-
-# ================= 流程資料夾 (flow.yaml) =================
-# 一份流程＝一個資料夾 (ADR 0014)::
-#
-#     <流程名>/flow.yaml             步驟與流程層級設定 (區段巢狀、一步一行、預設不寫、時間一律秒)
-#     <流程名>/templates/<範本名>.png 被引用的範本圖 (檔名即範本名)
-#     <流程名>/.cache/               可重建的快取 (登錄產物、還沒存檔的截圖)
-#
+# ================= flow.yaml 讀寫 =================
 # 記憶體裡的流程是 dict: run、scan_region、calibration、busy、template_pos、engine、steps
 # (步驟是平面標記, 鍵名與單位跟 flow.yaml 相同, 補齊成完整步驟)。讀寫只做三種形狀轉換:
 # 巢狀區段 ⇄ 平面標記、開頭的鍵 ⇄ type、步驟層的 within/pick/color ⇄ target 子 dict
 # (確認圖 confirm: {appear: 名, …} ⇄ confirm: appear + confirm_target)。
-# 讀檔是唯一的入口驗證: 寫錯就報錯並指出步驟編號與鍵, 目前開著的流程不動。
 
 FLOW_YAML = "flow.yaml"
 TEMPLATES_DIR = "templates"
@@ -1401,3 +701,254 @@ def write_flow(folder, flow, images=None):
         f.write(text)
     os.replace(tmp, os.path.join(folder, FLOW_YAML))
     return [n for n in refs if not os.path.isfile(os.path.join(tdir, n + ".png"))]
+
+
+# ================= 開著的流程的範本: templates/ ＋ 快取 =================
+
+SHOTS_DIR = "shots"            # 快取裡還沒存檔的截圖
+REGISTERED_DIR = "registered"  # 快取裡引擎的登錄產物
+
+
+def _same_path(a, b):
+    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
+
+
+def _inside(path, folder):
+    return _same_path(os.path.dirname(path), folder)
+
+
+def clear_unsaved(unsaved_dir):
+    """清空「未存檔」快取 (開新流程、讀取別的流程、重開 app 時)."""
+    shutil.rmtree(unsaved_dir, ignore_errors=True)
+    os.makedirs(unsaved_dir, exist_ok=True)
+
+
+class FlowTemplates:
+    """一份開著的流程的範本圖在哪裡 + 拍攝位置 (記憶體裡的「本流程的範本」).
+
+    範本名 → 圖檔路徑: 已存檔的在 templates/, 還沒存檔的截圖在快取的 shots/。新增、
+    改名、刪除只動這份對照與快取 (templates/ 不動), `save` 才把流程寫回資料夾。
+    拍攝位置 (flow.yaml 的 template_pos: 截圖當下的中心, 相對`座標基準點`、流程尺度)
+    跟著範本一起改名與刪除。
+    """
+
+    def __init__(self, folder, cache):
+        self.folder = folder      # 流程資料夾; None＝還沒第一次存檔的新流程
+        self.cache = cache        # 快取: <流程資料夾>/.cache 或「未存檔」快取
+        self._src = {}            # 範本名 → 圖檔路徑
+        self._pos = {}            # 範本名 → [x, y]
+
+    @classmethod
+    def open(cls, folder, unsaved_dir, template_pos=None):
+        """開一份流程資料夾: 上次沒存的截圖丟掉 (登錄產物留著, 過期會自己重算),
+        「未存檔」快取清空."""
+        clear_unsaved(unsaved_dir)
+        folder = os.path.abspath(str(folder))
+        cache = os.path.join(folder, CACHE_DIR)
+        shutil.rmtree(os.path.join(cache, SHOTS_DIR), ignore_errors=True)
+        store = cls(folder, cache)
+        tdir = os.path.join(folder, TEMPLATES_DIR)
+        if os.path.isdir(tdir):
+            for fn in sorted(os.listdir(tdir)):
+                if fn.lower().endswith(".png") and not fn.startswith("_"):
+                    store._src[fn[:-4]] = os.path.join(tdir, fn)
+        store._pos = {n: [int(p[0]), int(p[1])] for n, p in (template_pos or {}).items()}
+        return store
+
+    @classmethod
+    def new(cls, unsaved_dir):
+        """還沒有資料夾的新流程: 用清空的「未存檔」快取."""
+        clear_unsaved(unsaved_dir)
+        return cls(None, os.path.abspath(str(unsaved_dir)))
+
+    # ---- 位置 ----
+
+    @property
+    def shots_dir(self):
+        return os.path.join(self.cache, SHOTS_DIR)
+
+    @property
+    def registered_dir(self):
+        return os.path.join(self.cache, REGISTERED_DIR)
+
+    # ---- 範本 ----
+
+    def names(self):
+        """本流程的範本名 (已排序)."""
+        return sorted(self._src)
+
+    def has(self, name):
+        return name in self._src
+
+    def path_of(self, name):
+        """範本的圖檔路徑 (還沒登記的名字＝快取 shots/ 裡它會在的位置)."""
+        return self._src.get(name) or os.path.join(self.shots_dir, name + ".png")
+
+    def images(self):
+        """{範本名: 圖檔路徑}——引擎的`範本清單`與存檔都吃這個."""
+        return dict(self._src)
+
+    def is_unsaved(self, name):
+        """這張是不是還沒存檔的截圖 (在快取裡, 還沒進 templates/)."""
+        return name in self._src and _inside(self._src[name], self.shots_dir)
+
+    def reserve(self, name):
+        """保留一個未被占用的範本名 (撞名加序號) 並登記到快取 shots/; 圖由呼叫端寫進
+        `path_of(名稱)` (影像編碼是 app 的事, 只有 `automation.imgio` 碰 cv2)."""
+        os.makedirs(self.shots_dir, exist_ok=True)
+        final = free_name(clean_name(name) or "template", self._src)
+        self._src[final] = os.path.join(self.shots_dir, final + ".png")
+        return final
+
+    def add(self, name, blob, pos=None):
+        """加一張範本 (bytes 或來源圖檔路徑; 跨流程複製進來的是獨立副本) 進快取;
+        撞名自動加序號。回傳最終採用的範本名。pos＝拍攝位置 (只有本流程自己拍的才有)."""
+        data = _blob(blob)
+        final = self.reserve(name)
+        with open(self._src[final], "wb") as f:
+            f.write(data)
+        if pos is not None:
+            self.set_pos(final, pos)
+        return final
+
+    def remove(self, name):
+        """從本流程拿掉一個範本: 快取裡的截圖直接刪, templates/ 的等存檔時才離開;
+        登錄產物與拍攝位置一起丟."""
+        path = self._src.pop(name, None)
+        if path and _inside(path, self.shots_dir):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        self.drop_registered(name)
+        self._pos.pop(name, None)
+
+    def rename(self, old, new):
+        """重新命名範本 (撞名加序號); 回傳最終名稱, 來源不存在回傳 None.
+
+        new 要先過 `template_name_problem` (呼叫端擋)。快取裡的截圖跟著改檔名, templates/
+        的圖存檔時才換檔名; 引用的改寫由呼叫端以 `rename_template_refs` 處理。
+        """
+        if old not in self._src:
+            return None
+        final = free_name(new, [n for n in self._src if n != old])
+        if final == old:
+            return old
+        path = self._src.pop(old)
+        if _inside(path, self.shots_dir):
+            moved = os.path.join(self.shots_dir, final + ".png")
+            os.replace(path, moved)
+            path = moved
+        self._src[final] = path
+        self.drop_registered(old)
+        if old in self._pos:
+            self._pos[final] = self._pos.pop(old)
+        return final
+
+    def drop_registered(self, name):
+        """丟棄某範本的登錄產物 (改名、刪除、重截之後; 重建很便宜)."""
+        shutil.rmtree(os.path.join(self.registered_dir, name), ignore_errors=True)
+
+    # ---- 拍攝位置 ----
+
+    def pos(self):
+        """{範本名: [x, y]} (相對`座標基準點`, 流程尺度)."""
+        return {n: list(p) for n, p in self._pos.items()}
+
+    def pos_of(self, name):
+        p = self._pos.get(name)
+        return list(p) if p is not None else None
+
+    def set_pos(self, name, xy):
+        self._pos[name] = [int(xy[0]), int(xy[1])]
+
+    def shift_pos(self, old_anchor, new_anchor, k=1.0):
+        """換`校準對`時所有拍攝位置改成相對新基準點 (同 flowfmt.shift_flow 的換算)."""
+        from automation import flowfmt
+        self._pos = {n: list(flowfmt.from_screen(flowfmt.to_screen(xy, old_anchor, k),
+                                                 new_anchor, k))
+                     for n, xy in self._pos.items()}
+        return len(self._pos)
+
+    # ---- 存檔 ----
+
+    def save(self, flow, folder=None):
+        """把流程寫回資料夾; 回傳被引用卻沒有圖的範本名.
+
+        flow.yaml 整份重寫; 被引用的截圖從快取搬進 templates/; templates/ 裡沒被引用的
+        圖搬回快取的 shots/ (這次編輯期間還在, 重開或讀取別的流程時丟掉), 所以存完
+        templates/ 正好是引用集合。新流程 (還沒有資料夾) 要給 folder: 第一次存檔把
+        「未存檔」快取的登錄產物與其餘截圖搬進新資料夾的 .cache/。
+        """
+        first = self.folder is None
+        if first and folder is None:
+            raise ValueError("新流程第一次存檔要指定資料夾")
+        if not first and folder is not None and not _same_path(folder, self.folder):
+            raise ValueError("流程已經有資料夾了, 只能存回同一個資料夾")
+        target = os.path.abspath(str(folder)) if first else self.folder
+        refs = set(template_refs(flow))
+        tdir = os.path.join(target, TEMPLATES_DIR)
+        if not first:
+            for n, p in list(self._src.items()):
+                if n not in refs and _inside(p, tdir):
+                    os.makedirs(self.shots_dir, exist_ok=True)
+                    moved = os.path.join(self.shots_dir, n + ".png")
+                    os.replace(p, moved)
+                    self._src[n] = moved
+        images = {n: p for n, p in self._src.items() if n in refs}
+        missing = write_flow(target, dict(flow, template_pos=self.pos()), images)
+        for n, p in images.items():
+            dest = os.path.join(tdir, n + ".png")
+            if not _same_path(p, dest):
+                if _inside(p, self.shots_dir):
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
+                self._src[n] = dest
+        if first:
+            cache = os.path.join(target, CACHE_DIR)
+            os.makedirs(cache, exist_ok=True)
+            if os.path.isdir(self.registered_dir):
+                shutil.move(self.registered_dir, os.path.join(cache, REGISTERED_DIR))
+            shots = os.path.join(cache, SHOTS_DIR)
+            for n, p in list(self._src.items()):
+                if _inside(p, self.shots_dir):
+                    os.makedirs(shots, exist_ok=True)
+                    moved = os.path.join(shots, n + ".png")
+                    shutil.move(p, moved)
+                    self._src[n] = moved
+            unsaved = self.cache
+            self.folder, self.cache = target, cache
+            clear_unsaved(unsaved)
+        return missing
+
+
+# ================= 其他流程資料夾 (選範本對話框的來源) =================
+
+def list_flow_folders(root):
+    """root 底下的流程資料夾 (有 flow.yaml 的子資料夾, 已排序)."""
+    try:
+        entries = sorted(os.listdir(root))
+    except OSError:
+        return []
+    return [os.path.join(root, n) for n in entries
+            if os.path.isfile(os.path.join(root, n, FLOW_YAML))]
+
+
+def folder_template_names(folder):
+    """流程資料夾 templates/ 裡的範本名 (已排序)."""
+    tdir = os.path.join(folder, TEMPLATES_DIR)
+    try:
+        return sorted(fn[:-4] for fn in os.listdir(tdir) if fn.lower().endswith(".png"))
+    except OSError:
+        return []
+
+
+def folder_template_bytes(folder, name):
+    """流程資料夾裡某張範本的圖檔內容; 讀不到回 None."""
+    try:
+        with open(os.path.join(folder, TEMPLATES_DIR, name + ".png"), "rb") as f:
+            return f.read()
+    except OSError:
+        return None

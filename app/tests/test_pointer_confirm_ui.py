@@ -36,7 +36,7 @@ def _pick(value_contains, choice):
 
 def test_座標點擊對話框保留確認圖設定_找不到時預設停止(make_app):
     a = make_app(1.0)
-    a.ws.add("ok", b"O")
+    a.store.add("ok", b"O")
     got = _edit(a, click(10, 10, confirm="appear", _edit=True,
                          confirm_target=tgt("ok", color=True)),
                 _press("確定"), title="編輯：座標點擊")
@@ -57,7 +57,7 @@ def test_拖曳對話框改成下一步的圖出現(make_app):
 
 def test_改回不確認時不留任何確認欄位(make_app):
     a = make_app(1.0)
-    a.ws.add("ok", b"O")
+    a.store.add("ok", b"O")
     got = _edit(a, click(10, 10, confirm="appear", confirm_target=tgt("ok"),
                          timeout=3, on_fail="skip", _edit=True),
                 _pick("不確認", "不確認"), _press("確定"), title="編輯：座標點擊")

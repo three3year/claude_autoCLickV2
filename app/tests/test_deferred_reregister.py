@@ -1,9 +1,10 @@
 """存圖後重新探索延後 (票 05): 先回畫面、後重探索, 查詢前補跑.
 
 App 的重量級 __init__ 以子類跳過 (沿用 test_confirm_next_ui 的模式),
-reload_profile 以計數 stub 取代——只驗「何時重探索」的排程語意。
-圖落在工作區 (ADR 0006), 所以子類要備一個真的 Workspace。
+rebind_templates 以計數 stub 取代——只驗「何時重新綁定」的排程語意。
+圖落在本流程的範本快取, 所以子類要備一個真的 FlowTemplates。
 """
+import os
 import tkinter as tk
 from types import SimpleNamespace
 
@@ -18,17 +19,16 @@ import flowfile
 class _RegApp(app_mod.App):
     """只建 save_captured / ensure_registered 需要的欄位."""
 
-    def __init__(self, root, profile_dir):
+    def __init__(self, root, base_dir):
         self.root = root
-        self.profile_dir = str(profile_dir)
-        self.ws = flowfile.Workspace(self.profile_dir)
-        self.profile = SimpleNamespace(templates={})
+        self.store = flowfile.FlowTemplates.new(os.path.join(str(base_dir), "unsaved"))
+        self.library = SimpleNamespace(templates={})
         self._pending_templates = set()
         self._rereg_after = None
         self.reloads = 0
         self.logged = []
 
-    def reload_profile(self):
+    def rebind_templates(self, changed=None):
         self.reloads += 1
 
     def refresh_templates(self):

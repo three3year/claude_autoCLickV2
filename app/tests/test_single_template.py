@@ -23,7 +23,7 @@ def _fake_app(vision, names=("a", "b", "c")):
         root=_Root(),
         hub=vision,
         detector=vision,
-        profile=SimpleNamespace(templates={n: object() for n in names}),
+        library=SimpleNamespace(templates={n: object() for n in names}),
         scan_region=None,
         ensure_registered=lambda: None,
     )

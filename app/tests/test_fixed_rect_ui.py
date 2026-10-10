@@ -168,7 +168,7 @@ def test_選了固定矩形卻沒框過_確定時提示_不存空的限定範圍
 def test_找圖步驟對話框_設定固定矩形後存進步驟(make_app, monkeypatch):
     """步驟對話框 →「設定…」開子對話框 → 選固定矩形、框選、確定 → 步驟確定."""
     app = make_app(1.0)
-    app.ws.add("a", b"A")
+    app.store.add("a", b"A")
     _overlay(monkeypatch)
     sub = _Driver(app.root, "找圖設定")
 

@@ -41,7 +41,6 @@ class _GateApp(app_mod.App):
         self.runner = _FakeRunner()
         self.steps = [{"type": "wait", "wait": 0.01}]
         self.scan_region = None
-        self.profile_dir = "_no_such_profile"
         self.flow_cal = {"pair": ["a", "b"], "baseline": 100.0}  # 流程可執行
         self._pending_templates = set()
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")

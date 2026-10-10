@@ -23,14 +23,12 @@ from automation import imgio
 class _PickApp(app_mod.App):
     """只建選範本對話框需要的欄位."""
 
-    def __init__(self, root, profile_dir, state=enginehub.READY):
+    def __init__(self, root, base_dir, state=enginehub.READY):
         self.root = root
-        self.profile_dir = str(profile_dir)
-        self.ws = flowfile.Workspace(self.profile_dir)
-        self.ws.ensure()
+        self.store = flowfile.FlowTemplates.new(os.path.join(str(base_dir), "unsaved"))
         self.hub = enginehub.EngineHub()
         self.hub.state = state
-        self.profile = None
+        self.library = None
         self.steps = []
         self._pending_templates = set()
         self._rereg_after = None
@@ -40,7 +38,7 @@ class _PickApp(app_mod.App):
         self.shot_anchor = None   # 假截圖當下量到的`座標基準點` (None＝沒有校準對)
         self.shot_k = 1.0         # 假截圖當下量到的`畫面倍率`
 
-    def reload_profile(self):
+    def rebind_templates(self, changed=None):
         self.reloads += 1
 
     def refresh_templates(self):
@@ -71,6 +69,16 @@ def _img(fill=200, w=12, h=8):
 
 def _png(fill=200, w=12, h=8):
     return imgio.encode_png(_img(fill, w, h))
+
+
+def _other_flow(name, template, images):
+    """流程預設位置底下的另一份流程資料夾 (選範本對話框的來源之一)."""
+    import apppaths
+    folder = os.path.join(apppaths.flows_root(), name)
+    flow = flowfile.new_flow()
+    flow["steps"] = [{"type": "find_click", "target": {"template": template}}]
+    flowfile.write_flow(folder, flow, images)
+    return folder
 
 
 # ---------- 對話框的互動驅動 ----------
@@ -294,11 +302,8 @@ def test_動作做完對話框還開著_算失敗並關掉_不卡住(picker, mon
 
 def test_左側列出本流程與其他流程存檔(picker):
     app = picker
-    app.ws.add("mine", _png())
-    other = os.path.join(app.profile_dir, "flows", "morning" + flowfile.EXT)
-    os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "btn"}}],
-                           "coordSpace": "anchor"}, {"btn": _png(50)})
+    app.store.add("mine", _png())
+    other = _other_flow("morning", "btn", {"btn": _png(50)})
     d = _Driver(app.root, TITLE)
 
     seen = {}
@@ -311,16 +316,13 @@ def test_左側列出本流程與其他流程存檔(picker):
     rows = seen["rows"]
     assert any("本流程" in r for r in rows)
     assert any("mine" in r for r in rows), "本流程預設展開"
-    assert any("morning" + flowfile.EXT in r for r in rows)
+    assert any("morning" in r for r in rows)
     assert not any("btn" in r for r in rows), "其他存檔預設收合"
 
 
 def test_展開其他存檔看到它的範本(picker):
     app = picker
-    other = os.path.join(app.profile_dir, "flows", "night" + flowfile.EXT)
-    os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "anchor"}, {"gear": _png(90, 30, 20)})
+    other = _other_flow("night", "gear", {"gear": _png(90, 30, 20)})
     d = _Driver(app.root, TITLE)
     seen = {}
 
@@ -344,10 +346,7 @@ def test_展開其他存檔看到它的範本(picker):
 
 def test_按確定才把其他存檔的圖複製進本流程(picker):
     app = picker
-    other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
-    os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "anchor"}, {"gear": _png(90)})
+    other = _other_flow("src", "gear", {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
     def pick(dr):
@@ -357,17 +356,14 @@ def test_按確定才把其他存檔的圖複製進本流程(picker):
 
     got = _open(app, d, pick)
     assert got == "gear"
-    assert app.ws.names() == ["gear"]
-    assert open(app.ws.path_of("gear"), "rb").read() == _png(90)
+    assert app.store.names() == ["gear"]
+    assert open(app.store.path_of("gear"), "rb").read() == _png(90)
 
 
 def test_按取消時檔案系統完全沒有變化(picker):
     app = picker
-    other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
-    os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "anchor"}, {"gear": _png(90)})
-    before = _snapshot(app.ws)
+    other = _other_flow("src", "gear", {"gear": _png(90)})
+    before = _snapshot(app.store)
     d = _Driver(app.root, TITLE)
 
     def pick_then_cancel(dr):
@@ -377,26 +373,23 @@ def test_按取消時檔案系統完全沒有變化(picker):
 
     got = _open(app, d, pick_then_cancel)
     assert got is None
-    assert _snapshot(app.ws) == before
-    assert app.ws.names() == []
+    assert _snapshot(app.store) == before
+    assert app.store.names() == []
 
 
-def _snapshot(ws):
-    """工作區的完整內容快照 (檔名 → 內容); 用來斷言「什麼都沒發生」."""
+def _snapshot(store):
+    """本流程範本快取的完整內容快照 (檔名 → 內容); 用來斷言「什麼都沒發生」."""
     out = {}
-    for base, _dirs, files in os.walk(ws.root):
+    for base, _dirs, files in os.walk(store.cache):
         for fn in files:
             p = os.path.join(base, fn)
-            out[os.path.relpath(p, ws.root)] = open(p, "rb").read()
+            out[os.path.relpath(p, store.cache)] = open(p, "rb").read()
     return out
 
 
 def test_跨流程複製進來的是獨立副本(picker):
     app = picker
-    other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
-    os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "anchor"}, {"gear": _png(90)})
+    other = _other_flow("src", "gear", {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
     def pick(dr):
@@ -406,18 +399,14 @@ def test_跨流程複製進來的是獨立副本(picker):
 
     _open(app, d, pick)
     # 來源流程日後改圖
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "anchor"}, {"gear": _png(10)})
-    assert open(app.ws.path_of("gear"), "rb").read() == _png(90)
+    _other_flow(os.path.basename(other), "gear", {"gear": _png(10)})
+    assert open(app.store.path_of("gear"), "rb").read() == _png(90)
 
 
 def test_撞名自動加序號並寫進執行紀錄(picker):
     app = picker
-    app.ws.add("gear", _png(1))
-    other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
-    os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "anchor"}, {"gear": _png(90)})
+    app.store.add("gear", _png(1))
+    other = _other_flow("src", "gear", {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
 
     def pick(dr):
@@ -427,14 +416,14 @@ def test_撞名自動加序號並寫進執行紀錄(picker):
 
     got = _open(app, d, pick)
     assert got == "gear_2", "本流程原有的圖絕對不會被蓋掉"
-    assert open(app.ws.path_of("gear"), "rb").read() == _png(1)
-    assert open(app.ws.path_of("gear_2"), "rb").read() == _png(90)
+    assert open(app.store.path_of("gear"), "rb").read() == _png(1)
+    assert open(app.store.path_of("gear_2"), "rb").read() == _png(90)
     assert any("自動改名" in m for _lvl, m in app.logged)
 
 
 def test_選本流程已有的範本不複製(picker):
     app = picker
-    app.ws.add("btn", _png(1))
+    app.store.add("btn", _png(1))
     d = _Driver(app.root, TITLE)
 
     def pick(dr):
@@ -443,7 +432,7 @@ def test_選本流程已有的範本不複製(picker):
 
     got = _open(app, d, pick)
     assert got == "btn"
-    assert app.ws.names() == ["btn"], "沒有多出一份副本"
+    assert app.store.names() == ["btn"], "沒有多出一份副本"
 
 
 # ---------- 現場截圖 ----------
@@ -461,8 +450,8 @@ def test_現場截圖後按確定才落地(picker):
 
     got = _open(app, d, shoot_ok)
     assert got == "tmpl_001"
-    assert app.ws.names() == ["tmpl_001"]
-    assert app.ws.pos_of("tmpl_001") == [50, 25], "截圖有記拍攝位置 (相對基準點)"
+    assert app.store.names() == ["tmpl_001"]
+    assert app.store.pos_of("tmpl_001") == [50, 25], "截圖有記拍攝位置 (相對基準點)"
 
 
 def test_現場截圖後按取消那張圖被丟棄(picker):
@@ -480,8 +469,8 @@ def test_現場截圖後按取消那張圖被丟棄(picker):
     got = _open(app, d, shoot_cancel)
     assert got is None
     assert any("tmpl_001" in r for r in seen["rows"]), "截完在對話框裡看得到"
-    assert app.ws.names() == [], "取消就是取消, 不留下我沒要的範本"
-    assert _snapshot(app.ws) == {}
+    assert app.store.names() == [], "取消就是取消, 不留下我沒要的範本"
+    assert _snapshot(app.store) == {}
 
 
 def test_加入範本後提示建議跑比對測試(picker):
@@ -514,8 +503,8 @@ def test_從磁碟挑png_確定後複製進本流程(picker, tmp_path, monkeypat
 
     got = _open(app, d, disk_ok)
     assert got == "outside"
-    assert app.ws.names() == ["outside"]
-    assert app.ws.pos_of("outside") is None, "從磁碟上傳的沒有 pos"
+    assert app.store.names() == ["outside"]
+    assert app.store.pos_of("outside") is None, "從磁碟上傳的沒有 pos"
 
 
 def test_從磁碟挑png_取消不留痕(picker, tmp_path, monkeypatch):
@@ -531,7 +520,7 @@ def test_從磁碟挑png_取消不留痕(picker, tmp_path, monkeypatch):
         dr.press("取消")
 
     assert _open(app, d, disk_cancel) is None
-    assert _snapshot(app.ws) == {}
+    assert _snapshot(app.store) == {}
 
 
 # ---------- 就緒 gating ----------
@@ -543,7 +532,7 @@ def test_引擎未就緒時對話框照樣開得起來也挑得動(tkroot, tmp_p
     tkroot.update()
     try:
         app = _PickApp(tkroot, tmp_path, state=enginehub.LOADING)
-        app.ws.add("btn", _png(1))
+        app.store.add("btn", _png(1))
         d = _Driver(app.root, TITLE)
 
         def pick(dr):
@@ -574,54 +563,54 @@ def test_取消整個對話框時這次加的範本被丟棄(picker):
     """spec:「在找圖對話框現場截圖後按取消＝丟棄該圖。現行`確認圖`
     「截圖即時存檔、取消對話框圖仍留下」的行為一併改成丟棄。」"""
     app = picker
-    app.ws.add("kept", b"K")
+    app.store.add("kept", b"K")
     app.steps = [{"type": "find_click", "target": {"template": "kept"}}]
 
     ui_dialogs.discard_unused(app, ["shot_1", "shot_2"], None)
 
-    assert app.ws.names() == ["kept"], "這次加的都不留"
+    assert app.store.names() == ["kept"], "這次加的都不留"
     assert any("丟棄" in m for _l, m in app.logged)
 
 
 def test_按確定時只留這一步真的引用到的(picker):
     app = picker
     for n in ("a", "b", "c"):
-        app.ws.add(n, b"X")
+        app.store.add(n, b"X")
     step = {"type": "find_click", "target": {"template": "a"},
             "confirm": "appear", "confirm_target": {"template": "c"}}
 
     ui_dialogs.discard_unused(app, ["a", "b", "c"], step)
 
-    assert app.ws.names() == ["a", "c"], "中途換掉的那張不留"
+    assert app.store.names() == ["a", "c"], "中途換掉的那張不留"
 
 
 def test_已被其他步驟引用的絕不誤刪(picker):
     app = picker
-    app.ws.add("shared", b"S")
+    app.store.add("shared", b"S")
     app.steps = [{"type": "find_click", "target": {"template": "shared"}}]
 
     ui_dialogs.discard_unused(app, ["shared"], None)
 
-    assert app.ws.names() == ["shared"]
+    assert app.store.names() == ["shared"]
 
 
 def test_校準對的範本絕不誤刪(picker):
     """flow-scale 票 02: 校準對是被引用的範本, 不被步驟引用也要留著."""
     app = picker
-    app.ws.add("圖示", b"I")
-    app.ws.add("關閉", b"X")
+    app.store.add("圖示", b"I")
+    app.store.add("關閉", b"X")
     app.flow_cal = {"pair": ["圖示", "關閉"], "baseline": 1696.0}
 
     ui_dialogs.discard_unused(app, ["圖示", "關閉"], None)
 
-    assert app.ws.names() == sorted(["圖示", "關閉"])
+    assert app.store.names() == sorted(["圖示", "關閉"])
 
 
 def test_沒有新增範本時是空操作(picker):
     app = picker
-    app.ws.add("a", b"A")
+    app.store.add("a", b"A")
     ui_dialogs.discard_unused(app, [], None)
-    assert app.ws.names() == ["a"]
+    assert app.store.names() == ["a"]
     assert app.logged == []
 
 
@@ -629,11 +618,8 @@ def test_沒有新增範本時是空操作(picker):
 
 def test_樹狀每一列都帶縮圖_展開時才讀(picker):
     app = picker
-    app.ws.add("mine", _png(200, 20, 12))
-    other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
-    os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "anchor"}, {"gear": _png(90)})
+    app.store.add("mine", _png(200, 20, 12))
+    other = _other_flow("src", "gear", {"gear": _png(90)})
     d = _Driver(app.root, TITLE)
     seen = {}
 
@@ -652,16 +638,12 @@ def test_樹狀每一列都帶縮圖_展開時才讀(picker):
 
 
 def test_未展開的來源不去讀它的圖(picker, monkeypatch):
-    """「只讀索引與縮圖,不整包解壓」——沒展開就連縮圖都不該讀."""
+    """只列檔名與縮圖——沒展開就連縮圖都不該讀."""
     app = picker
-    other = os.path.join(app.profile_dir, "flows", "src" + flowfile.EXT)
-    os.makedirs(os.path.dirname(other), exist_ok=True)
-    flowfile.write(other, {"steps": [{"type": "find_click", "target": {"template": "gear"}}],
-                           "coordSpace": "anchor"}, {"gear": _png(90)})
+    _other_flow("src", "gear", {"gear": _png(90)})
     reads = []
-    real = flowfile.template_bytes
-    monkeypatch.setattr(ui_dialogs.flowfile if hasattr(ui_dialogs, "flowfile")
-                        else flowfile, "template_bytes",
+    real = flowfile.folder_template_bytes
+    monkeypatch.setattr(flowfile, "folder_template_bytes",
                         lambda p, n: (reads.append((p, n)), real(p, n))[1])
     d = _Driver(app.root, TITLE)
 

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import calibration  # noqa: E402
 import flowfile  # noqa: E402
-from automation import flowfmt  # noqa: E402
+import pytest  # noqa: E402
 from harness import Vision, cal, click, find, tgt  # noqa: E402
 
 MAIN = ("遊戲左上", "遊戲右下")
@@ -51,36 +51,47 @@ def test_備用組不成形當沒有並說明():
     assert calibration.valid(with_fallback()), "主對照常成形"
 
 
-def test_沒有備用組的存檔一字不差(tmp_path):
-    path = str(tmp_path / ("f" + flowfile.EXT))
-    data = {"steps": [find("a")], flowfmt.COORD_SPACE: flowfmt.ANCHOR,
-            calibration.FLOW_KEY: cal(MAIN)}
-    flowfile.write(path, data, {"a": b"A", MAIN[0]: b"1", MAIN[1]: b"2"})
-    r = flowfile.read(path)
-    assert r["data"][calibration.FLOW_KEY] == cal(MAIN)
-    assert calibration.FALLBACK_KEY not in r["data"][calibration.FLOW_KEY]
-    assert r["data"]["flowFormat"] == flowfile.FORMAT, "格式版本不升"
+def _flow(cal_):
+    data = flowfile.new_flow()
+    data["steps"] = [find("a")]
+    data[calibration.FLOW_KEY] = cal_
+    return data
+
+
+def test_沒有備用組的存檔不多寫備用組(tmp_path):
+    flowfile.write_flow(tmp_path, _flow(cal(MAIN)), {"a": b"A", MAIN[0]: b"1", MAIN[1]: b"2"})
+    back = flowfile.read_flow(tmp_path)
+    assert back[calibration.FLOW_KEY] == cal(MAIN)
+    assert "fallback" not in (tmp_path / "flow.yaml").read_text(encoding="utf-8")
 
 
 def test_備用組存檔往返_備用對的圖也進存檔(tmp_path):
-    path = str(tmp_path / ("f" + flowfile.EXT))
-    data = {"steps": [find("a")], flowfmt.COORD_SPACE: flowfmt.ANCHOR,
-            calibration.FLOW_KEY: with_fallback()}
+    data = _flow(with_fallback())
     images = {"a": b"A", MAIN[0]: b"1", MAIN[1]: b"2", FB[0]: b"3", FB[1]: b"4",
               "沒人用": b"U"}
-    assert flowfile.write(path, data, images) == []
-    assert flowfile.template_names(path) == sorted(["a", *MAIN, *FB])
-    r = flowfile.read(path)
-    assert calibration.fallback_pair(r["data"][calibration.FLOW_KEY]) == \
-        calibration.make_fallback(FB, 1868.0, (100, 50))
-    assert flowfile.flow_refs(data) == sorted(["a", *MAIN, *FB])
+    assert flowfile.write_flow(tmp_path, data, images) == []
+    assert flowfile.folder_template_names(tmp_path) == sorted(["a", *MAIN, *FB])
+    back = flowfile.read_flow(tmp_path)
+    assert calibration.fallback_pair(back[calibration.FLOW_KEY]) ==         calibration.make_fallback(FB, 1868.0, (100, 50))
+    assert sorted(flowfile.template_refs(data)) == sorted(["a", *MAIN, *FB])
+
+
+def test_讀檔時備用組不成形_拒絕開啟並說明(tmp_path):
+    (tmp_path / "flow.yaml").write_text("""format: 1
+calibration:
+  pair: [圖示, 關閉]
+  baseline: 1696.0
+  fallback: {pair: [x], baseline: 0}
+steps: []
+""", encoding="utf-8")
+    with pytest.raises(flowfile.FlowError, match="fallback"):
+        flowfile.read_flow(tmp_path)
 
 
 def test_改名跟著改備用對():
     data = {"steps": [], calibration.FLOW_KEY: with_fallback()}
-    assert flowfile.rename_flow_refs(data, FB[1], "關閉鈕2") == 1
-    assert calibration.fallback_pair(data[calibration.FLOW_KEY])["pair"] == \
-        [FB[0], "關閉鈕2"]
+    assert flowfile.rename_template_refs(data, FB[1], "關閉鈕2") == 1
+    assert calibration.fallback_pair(data[calibration.FLOW_KEY])["pair"] ==         [FB[0], "關閉鈕2"]
 
 
 # ---------- 量測純函式 ----------

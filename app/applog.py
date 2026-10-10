@@ -1,7 +1,8 @@
 """輕量檔案日誌: 偶發 UI 問題的事後蒐證.
 
 清場進出、還原驗證重試、grab 轉移、保險絲觸發、未攔截例外都落地到
-固定位置的日誌檔 (exe／repo 旁), 主視窗隱藏時錯誤不再無聲消失。
+固定位置的日誌檔 (本機狀態資料夾: 打包版 %LOCALAPPDATA%/AutoClick, 原始碼執行 repo
+的 .local), 主視窗隱藏時錯誤不再無聲消失。
 寫入失敗一律吞掉——日誌絕不能反過來影響主流程。
 """
 import os
@@ -17,8 +18,8 @@ _path = None
 def log_path():
     global _path
     if _path is None:
-        import profile_store
-        _path = os.path.join(profile_store.data_root(), "autoclick.log")
+        import apppaths
+        _path = apppaths.log_path()
     return _path
 
 
@@ -51,6 +52,7 @@ def _write(text):
                     os.replace(p, p + ".1")
             except OSError:
                 pass  # 檔案不存在 (首次寫入) 或輪替失敗都直接續寫
+            os.makedirs(os.path.dirname(p), exist_ok=True)
             with open(p, "a", encoding="utf-8") as f:
                 f.write(text + "\n")
     except Exception:

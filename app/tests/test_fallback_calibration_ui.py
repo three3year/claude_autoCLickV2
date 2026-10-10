@@ -27,7 +27,7 @@ def _fb_editor(tkroot, monkeypatch, tmp_path, cal=None, pick=FB):
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=cal)
     monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app, **kw: pick)
     for n in (pick or ()):
-        a.ws.add(n, b"F")
+        a.store.add(n, b"F")
     return a, vision
 
 
@@ -145,26 +145,14 @@ def test_拾取當下主對找不到_改用備用對並提示(make_app, monkeypa
     app = make_app(1.0)                      # 主對本來擺在基準點 (150,230)
     app.flow_cal[calibration.FALLBACK_KEY] = calibration.make_fallback(FB, 100.0, (50, 30))
     for n in FB:
-        app.ws.add(n, b"F")
+        app.store.add(n, b"F")
     app.vision.plan(CAL_PAIR[0], [None])     # 主對第一張被蓋住
     app.vision.plan(FB[0], [(100, 200)])     # 備用: 距離 100 → ×1.0, 基準點 (100,200)+(50,30)
     app.vision.plan(FB[1], [(200, 200)])
     monkeypatch.setattr(app, "pick_region_raw",
                         lambda hide=(): _shot(40, 20, 280, 390))   # 中心 (300,400)
     name = app.capture_template()
-    assert app.ws.pos_of(name) == [150, 170], "基準點仍是 (150,230) (備用對換回)"
+    assert app.store.pos_of(name) == [150, 170], "基準點仍是 (150,230) (備用對換回)"
     assert any("備用校準對" in m for _, m in app.logged)
 
 
-def test_讀檔時備用組不成形_當沒有並警告(tkroot, monkeypatch, tmp_path):
-    a, _ = _fb_editor(tkroot, monkeypatch, tmp_path)
-    for attr in ("run_mode", "run_count"):
-        setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))
-    a.scan_lbl = _Btn()
-    a._mode_ui = lambda: None
-    a._update_region_preview = lambda: None
-    bad = dict(MAIN)
-    bad[calibration.FALLBACK_KEY] = {"pair": ["x"], "baseline": 0}
-    a._apply_flow({"steps": [], "coordSpace": "anchor", "calibration": bad})
-    assert calibration.fallback_pair(a.flow_cal) is None
-    assert any("備用校準對" in m and "不成形" in m for m in a.logged)

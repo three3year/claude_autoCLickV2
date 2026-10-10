@@ -18,6 +18,17 @@ def _applog_to_tmp(tmp_path_factory):
 
 
 @pytest.fixture(autouse=True)
+def local_paths(tmp_path_factory, monkeypatch):
+    """本機狀態資料夾與流程預設位置改到暫存目錄: 測試不讀寫 repo 的 .local/ 與
+    使用者的 %USERPROFILE%/AutoClick/ (上次開的流程、未存檔快取都不能互相污染)."""
+    import apppaths
+    base = tmp_path_factory.mktemp("local")
+    monkeypatch.setattr(apppaths, "state_dir", lambda: str(base / "state"))
+    monkeypatch.setattr(apppaths, "flows_root", lambda: str(base / "flows"))
+    return base
+
+
+@pytest.fixture(autouse=True)
 def no_real_dialogs(monkeypatch):
     """任何測試都不准彈出真的 modal 對話框.
 

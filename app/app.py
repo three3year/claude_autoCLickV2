@@ -1,12 +1,11 @@
 """AutoClick — 按鍵精靈 (本機桌面版)
 
 核心: 找圖點擊 + 步驟序列自動執行, F12 急停.
-辨識走主體偵測引擎 (兩階段: 粗篩＋深度驗證); 匹配門檻由 profile config
-統一管理 (match_threshold / verify_threshold), 步驟層級沒有門檻 (ADR 0002)。
+辨識走主體偵測引擎 (兩階段: 粗篩＋深度驗證); 匹配門檻是引擎參數 (內建預設＋流程的
+`引擎參數覆蓋`, ADR 0015), 步驟層級沒有門檻 (ADR 0002)。
 
-**一份`流程`＝一個自包自足的存檔** (ADR 0006): 步驟與它引用的每一張範本圖都在
-同一個檔案裡, 複製檔案就搬完整份流程。本機沒有範本庫; 編輯與執行時 app 把存檔
-解到 profile 底下的**工作區**給引擎讀 (格式與工作區規則全在 flowfile)。
+**一份`流程`＝一個資料夾** (ADR 0014): flow.yaml＋templates/＋可重建的 .cache/, 複製
+資料夾就搬完整份流程。改動留在記憶體, 按存檔才寫回 (格式規則全在 flowfile)。
 """
 import json
 import os
@@ -18,7 +17,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
 
-import profile_store
+import apppaths
 
 if getattr(sys, "frozen", False):
     # 打包版: DINOv2 hub 程式碼與權重隨包 (_internal/torch_home), 目標機
@@ -26,7 +25,7 @@ if getattr(sys, "frozen", False):
     os.environ.setdefault("TORCH_HOME", os.path.join(sys._MEIPASS, "torch_home"))
 else:
     # 原始碼執行時引擎在 repo 的 src/ 下 (未安裝進環境也能啟動)
-    sys.path.insert(0, os.path.join(profile_store.data_root(), "src"))
+    sys.path.insert(0, os.path.join(apppaths.REPO_ROOT, "src"))
 
 import applog
 import calibration
@@ -42,9 +41,6 @@ from automation.runner import (Runner, branch_layout, has_busy_check,
                                confirm_next_connected, origin_source,
                                uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
-
-PROFILES_DIR = profile_store.profiles_root()
-DEFAULT_PROFILE = "arknights"
 
 STEP_LABELS = {
     "find_click": "找圖點擊",
@@ -395,29 +391,18 @@ class App:
         self.runner = Runner(self.detector)
         hotkey.start_stop_hotkey(self._on_hotkey)  # F12 (pynput 執行緒)
 
-        # ---- profile: 上次選用的 (無記錄用 arknights, 再無則建立) ----
-        state = profile_store.load_state(PROFILES_DIR)
-        names = profile_store.list_profiles(PROFILES_DIR)
-        name = state.get("profile")
-        if name not in names:
-            name = DEFAULT_PROFILE if DEFAULT_PROFILE in names else (
-                names[0] if names else None)
-        if name is None:
-            profile_store.create_profile(PROFILES_DIR, DEFAULT_PROFILE)
-            name = DEFAULT_PROFILE
-        self.profile_name = name
-        self.profile_dir = os.path.join(PROFILES_DIR, name)
-        # 工作區＝當前流程的可重建快取 (解出來的範本圖 + 引擎登錄產物)
-        self.ws = flowfile.Workspace(self.profile_dir)
-        self.ws.ensure()
-        self._pending_templates = set()  # 已落地、重探索延後中的新範本名
-        self._rereg_after = None         # 延後重探索的 after id
-        # 輕量探索先行 (不需引擎): 範本面板/清單立即可用;
+        # ---- 流程: 本流程的範本 (templates/＋快取) 與 app 不改的流程設定 ----
+        # 啟動先是空白新流程 (視窗開好後再讀上次開的流程)
+        self.store = flowfile.FlowTemplates.new(apppaths.unsaved_dir())
+        self.flow_engine = {}   # 流程的`引擎參數覆蓋` (engine: 段; 沒有編輯 UI, 原樣保留)
+        self.dirty = False      # 有沒有還沒存檔的改動
+        self._pending_templates = set()  # 已落地、還沒交給引擎的新範本名
+        self._rereg_after = None         # 延後重新綁定的 after id
+        # 範本清單先綁好 (不需引擎): 範本面板/清單立即可用;
         # 引擎在背景載入, 完成/失敗由 _poll 觀察 hub 狀態
-        self.profile = self.hub.discover(*self._engine_source())
+        self.rebind_templates()
         self._engine_state_seen = enginehub.LOADING
-        threading.Thread(target=lambda: self.hub.load(*self._engine_source()),
-                         daemon=True).start()
+        threading.Thread(target=self.hub.load, daemon=True).start()
 
         root.title("AutoClick — 按鍵精靈")
         root.geometry("1120x700")
@@ -430,10 +415,10 @@ class App:
 
         self.log_ui("引擎載入中…（就緒前，執行／比對測試等辨識功能暫不可用）")
 
-        self._load_autosave()
         self.refresh_templates()
         self.render_steps()
         self._update_cal_ui()
+        self._open_last_flow()
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         # windowed exe 沒有 stderr, callback 例外預設完全無聲 →
         # 顯示在執行紀錄面板, 出問題時才有線索
@@ -475,9 +460,6 @@ class App:
     def _on_engine_state(self, state):
         """背景載入結束 (由 _poll 在 UI 執行緒觀察到狀態轉變時呼叫)."""
         if state == enginehub.READY:
-            # 以「當下的工作區」重新探索: 背景載入期間使用者可能已切換
-            # profile/流程或增刪範本, 不能拿背景那份舊快照直接覆蓋
-            self.profile = self.hub.refresh(*self._engine_source())
             for msg in self.hub.warnings:
                 self.log_ui(f"引擎警告: {msg}", "warn")
             if self.hub.coarse_only:
@@ -487,8 +469,7 @@ class App:
                     "引擎降級", "驗證模型載入失敗，找圖只跑粗篩（coarse-only），"
                     "精度較低。\n請檢查 torch 與模型權重是否完整。",
                     parent=self.root)
-            self.log_ui(f"引擎就緒　profile: {self.profile_name}"
-                        f"（本流程 {len(self.ws.names())} 個範本）", "ok")
+            self.log_ui(f"引擎就緒（本流程 {len(self.store.names())} 個範本）", "ok")
             self.refresh_templates()
         elif state == enginehub.FAILED:
             # 檔案日誌由 hub.load() 落 (engine.load.failed), 這裡只做 UI
@@ -498,97 +479,35 @@ class App:
                 f"引擎載入失敗，辨識功能無法使用：\n{self.hub.error}",
                 parent=self.root)
 
-    # ================= profile =================
+    # ================= 範本清單與引擎參數 =================
 
-    @property
-    def flows_dir(self):
-        return flowfile.flows_dir(self.profile_dir)
+    def engine_config(self):
+        """引擎參數＝引擎內建預設 (default_config.yaml)＋流程 engine: 段的覆蓋 (ADR 0015)."""
+        from subject_detection.library import load_default_config
+        cfg = load_default_config()
+        cfg.update(self.flow_engine or {})
+        return cfg
 
-    def _engine_source(self):
-        """交給引擎的範本來源: (工作區, 引擎參數所在的 profile).
+    def rebind_templates(self, changed=None):
+        """把本流程的範本清單交給引擎 (`範本清單`由 app 組, ADR 0006; 輕量, 不需引擎).
 
-        引擎看得到的就是本流程的範本 (校準對也是本流程的範本, ADR 0009)。
+        changed: None＝整份換掉 (換流程), 登錄產物全部失效; 名稱集合＝只有這幾張要
+        重新登錄 (新增、重截、改名), 其他沿用記憶體裡的登錄產物 (ADR 0004)。
         """
-        self.ws.ensure()   # 工作區只是快取, 被刪掉就重建
-        return (self.ws.root, self.profile_dir)
+        self.library = self.hub.bind(self.store.images(), self.engine_config(),
+                                     self.store.registered_dir, changed)
 
-    def reload_profile(self):
-        """重新探索當前工作區 (輕量, 不讀登錄產物): 新增/修改範本後呼叫.
-
-        清單立即反映、既有登錄產物失效; 產物由`範本預載`/單張載入在
-        使用當下重載 (ADR 0004), 這裡不做任何登錄、不需引擎。
-        """
-        self.profile = self.hub.refresh(*self._engine_source())
-
-    def switch_profile(self, name):
-        """切換 profile: 流程草稿、範本面板、引擎查詢對象一致跟隨.
-
-        每個 profile 有自己的工作區, 所以切回來時該 profile 上次編到一半的
-        流程 (草稿＋工作區的圖) 還在。
-        """
-        if name == self.profile_name:
-            return
-        if self.runner.status()["running"]:
-            messagebox.showwarning("切換 profile", "流程執行中，請先停止再切換",
-                                   parent=self.root)
-            self.profile_cb.set(self.profile_name)
-            return
-        self._autosave()  # 先把目前流程的草稿存回原 profile
-        # 舊 profile 延後中的重探索作廢: 圖已落地, 下次載入該 profile 會探索
-        self._cancel_reregister()
-        self._pending_templates.clear()
-        prev = (self.profile_name, self.profile_dir, self.ws, self.profile)
-        self.profile_name = name
-        self.profile_dir = os.path.join(PROFILES_DIR, name)
-        self.ws = flowfile.Workspace(self.profile_dir)
-        try:
-            self.reload_profile()
-        except Exception as e:
-            # 載入失敗就整組還原, 也不記錄狀態——否則面板/查詢對象指向
-            # 新 profile 的殘破狀態, 下次啟動還會直接踩同一個雷
-            self.profile_name, self.profile_dir, self.ws, self.profile = prev
-            self.hub.profile = self.profile
-            self.profile_cb.set(self.profile_name)
-            messagebox.showerror("切換 profile",
-                                 f"載入失敗，維持原 profile：{e}",
-                                 parent=self.root)
-            return
-        profile_store.save_state(PROFILES_DIR, {"profile": name})
-        self.profile_cb.set(name)
-        self._collapsed.clear()
-        self._apply_flow({"steps": [], flowfmt.COORD_SPACE: flowfmt.ANCHOR})
-        self._load_autosave()  # 該 profile 的流程草稿隨 profile 走
+    def refresh_templates_ui(self):
+        """「重新整理」: 範本清單整份重新交給引擎 (templates/ 被外力動過之後按, 不必重啟)."""
+        self.rebind_templates()
         self.refresh_templates()
         self.render_steps()
-        self.log_ui(f"已切換 profile →「{name}」"
-                    f"（本流程 {len(self.ws.names())} 個範本）", "ok")
-
-    def refresh_profile_ui(self):
-        """重新掃工作區並讓登錄產物失效: 工作區被外力動過之後按這顆, 不必重啟."""
-        try:
-            self.reload_profile()
-        except Exception as e:
-            messagebox.showerror("重新整理", f"重新探索失敗: {e}", parent=self.root)
-            return
-        self.refresh_templates()
-        self.render_steps()
-        self.log_ui(f"已重新整理本流程的範本（{len(self.ws.names())} 個；"
+        self.log_ui(f"已重新整理本流程的範本（{len(self.store.names())} 個；"
                     "登錄產物將於使用時載入）", "ok")
 
-    def create_profile_ui(self):
-        name = ui_dialogs.ask_string(self.root, "建立新 profile",
-                                     "輸入新 profile 名稱（一個遊戲一個）：")
-        if name is None:
-            return
-        try:
-            profile_store.create_profile(PROFILES_DIR, name.strip())
-        except ValueError as e:
-            messagebox.showwarning("建立 profile", str(e), parent=self.root)
-            return
-        self.profile_cb.configure(
-            values=profile_store.list_profiles(PROFILES_DIR))
-        self.switch_profile(name.strip())
-        self.log_ui(f"已建立 profile「{name.strip()}」（預設 config 已帶入）", "ok")
+    def _mark_dirty(self):
+        """有改動還沒存檔 (步驟、範本、校準對、忙碌指示、搜尋範圍、執行輪數)."""
+        self.dirty = True
 
     # ================= 校準 (`校準對` / `畫面倍率` / `座標基準點`, ADR 0009、0012) =================
     # 校準對與基準距離住在流程存檔裡 (self.flow_cal)。編輯器沒有跨操作保存的倍率或
@@ -628,7 +547,7 @@ class App:
             names = [*self.flow_cal["pair"], *(fb["pair"] if fb else ())]
         names = list(names)
         for name in dict.fromkeys(names):
-            if name not in self.profile.templates:
+            if name not in self.library.templates:
                 messagebox.showwarning(
                     title, f"找不到校準圖：{name}\n（這張範本已不在本流程裡）",
                     parent=parent)
@@ -708,14 +627,14 @@ class App:
         if old_anchor is not None:
             # 存下的座標全部改成相對新基準點 (每個落點照舊)
             moved = (flowfmt.shift_flow(self._ref_data(), old_anchor, m.anchor, k)
-                     + self.ws.shift_pos(old_anchor, m.anchor, k))
+                     + self.store.shift_pos(old_anchor, m.anchor, k))
             if fb:
                 # 備用對的偏移跟著重算: 備用第一張的中心不動, 指向新基準點
                 fb_first = calibration.fallback_first(old_anchor, fb["offset"], k)
                 self.flow_cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
                     fb["pair"], fb["baseline"],
                     calibration.fallback_offset(m.anchor, fb_first, k))
-        self._autosave()
+        self._mark_dirty()
         self._update_cal_ui()
         self.render_steps()
         self.log_ui(f"已設定校準對「{pair[0]}」×「{pair[1]}」，"
@@ -732,7 +651,7 @@ class App:
 
         要先有校準對 (主對)。沿用挑兩張的對話框; 按確定時在當下畫面同時量主對與備用對:
         主對找不到就拒絕 (沒有基準點可對齊); 量到的備用距離 ÷ 當下倍率＝它的基準距離,
-        (主基準點 − 備用第一張中心) ÷ 倍率＝偏移 (流程尺度)。存進流程、草稿跟著存。
+        (主基準點 − 備用第一張中心) ÷ 倍率＝偏移 (流程尺度)。存進流程 (存檔時寫進 flow.yaml)。
         """
         if not self.engine_gate():
             return
@@ -766,7 +685,7 @@ class App:
         fb = calibration.make_fallback(pair, m.distance / k,
                                        calibration.fallback_offset(c.anchor, m.anchor, k))
         self.flow_cal = dict(main, **{calibration.FALLBACK_KEY: fb})
-        self._autosave()
+        self._mark_dirty()
         self._update_cal_ui()
         self.log_ui(f"已設定備用校準對「{pair[0]}」×「{pair[1]}」，基準距離 "
                     f"{fb['baseline']:.1f}px，對座標基準點的偏移 "
@@ -821,7 +740,7 @@ class App:
                 "要清除嗎？（否＝重新設定）", parent=self.root):
             self.busy_target = None
             self._update_busy_ui()
-            self._autosave()
+            self._mark_dirty()
             self.log_ui("已清除忙碌指示（補做只看補做間隔）", "ok")
             return
         before = set(self.list_template_names())
@@ -846,7 +765,7 @@ class App:
                     "那時的原點不固定），請改用其他挑選規則", parent=self.root)
             elif tgt is not None:
                 self.busy_target = tgt
-                self._autosave()
+                self._mark_dirty()
                 self.log_ui(f"已設定忙碌指示「{name}」：畫面上有它時先不補做，"
                             "勾了忙碌檢查的步驟送出後會等它消失", "ok")
         ui_dialogs.discard_unused(self, added, None)
@@ -855,13 +774,7 @@ class App:
     # ================= UI 建構 =================
 
     def _build_menu(self):
-        kw = dict(bg=C["panel"], fg=C["text"], activebackground=C["sel"],
-                  activeforeground=C["text"], bd=0, font=FONT)
-        # 工作列直接放指令 (不用下拉選單); 存檔/讀檔走步驟面板按鈕
-        menubar = tk.Menu(self.root, **kw)
-        menubar.add_command(label="開啟資料夾",
-                            command=lambda: os.startfile(self.profile_dir))
-        self.root.configure(menu=menubar)
+        # 存檔/開檔走步驟面板按鈕與快速鍵 (沒有選單列)
         self.root.bind("<Control-s>", lambda e: self.save_flow())
         self.root.bind("<Control-o>", lambda e: self.open_flow())
 
@@ -874,13 +787,15 @@ class App:
                                      values=["執行次數", "直到停止"])
         self.run_mode.set("執行次數")
         self.run_mode.pack(side="left", padx=(4, 10))
-        self.run_mode.bind("<<ComboboxSelected>>", lambda e: self._mode_ui())
+        self.run_mode.bind("<<ComboboxSelected>>", lambda e: self._on_run_setting())
 
         self.count_lbl = ttk.Label(bar, text="次數")
         self.count_lbl.pack(side="left")
         self.run_count = ttk.Spinbox(bar, from_=1, to=99999, width=6)
         self.run_count.set(1)
         self.run_count.pack(side="left", padx=(4, 14))
+        self.run_count.configure(command=self._mark_dirty)
+        self.run_count.bind("<KeyRelease>", lambda e: self._mark_dirty(), add=True)
 
         self.btn_run = ttk.Button(bar, text="▶ 開始執行", style="Run.TButton",
                                   command=self.start_run)
@@ -894,7 +809,7 @@ class App:
 
         ttk.Label(bar, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
 
-        # 第二列: 全域搜尋範圍 + game profile 切換
+        # 第二列: 全域搜尋範圍
         bar2 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         bar2.pack(fill="x")
         ttk.Label(bar2, text="搜尋範圍").pack(side="left")
@@ -932,20 +847,15 @@ class App:
         self.cal_info = ttk.Label(bar3, text="", foreground=C["muted"])
         self.cal_info.pack(side="left", padx=(12, 0))
 
-        ttk.Button(bar2, text="＋建立", style="Small.TButton", takefocus=False,
-                   command=self.create_profile_ui).pack(side="right")
-        self.profile_cb = ttk.Combobox(
-            bar2, width=14, state="readonly",
-            values=profile_store.list_profiles(PROFILES_DIR))
-        self.profile_cb.set(self.profile_name)
-        self.profile_cb.bind("<<ComboboxSelected>>",
-                             lambda e: self.switch_profile(self.profile_cb.get()))
-        self.profile_cb.pack(side="right", padx=(6, 6))
-        ttk.Label(bar2, text="Profile").pack(side="right")
 
     def _mode_ui(self):
         state = "normal" if self.run_mode.get() == "執行次數" else "disabled"
         self.run_count.configure(state=state)
+
+    def _on_run_setting(self):
+        """執行輪數改了 (模式下拉或次數欄)."""
+        self._mode_ui()
+        self._mark_dirty()
 
     def pick_scan_region(self):
         r = ui_overlay.pick(self.root, "region", "拖曳框選搜尋範圍（執行時只在此範圍內找圖）")
@@ -958,6 +868,8 @@ class App:
         self.set_scan_region(None)
 
     def set_scan_region(self, region):
+        if region != self.scan_region:
+            self._mark_dirty()
         self.scan_region = region
         if region:
             self.scan_lbl.configure(text=f"限定 {tuple(region)}",
@@ -1173,7 +1085,7 @@ class App:
         # (「＋資料夾」已移除: 一份流程的範本是平面清單, 不需要命名空間)
         for text, cmd in (("比對測試", self.test_template),
                           ("複製", self.copy_template),
-                          ("重新整理", self.refresh_profile_ui)):
+                          ("重新整理", self.refresh_templates_ui)):
             ttk.Button(tops.inner, text=text, style="Small.TButton",
                        command=cmd, takefocus=False).pack(side="left", padx=(0, 4))
 
@@ -1263,9 +1175,8 @@ class App:
                     vi = k
             lb.selection_set(vi)
             lb.see(vi)  # 還原後才確保 keep 可見, 只在超出視窗時才微調
-        if self._drag_idxs is None:  # 拖曳中跳過 (磁碟寫入+版面同步太重),
-            self._step_icons.refresh()  # 拖曳結束時補一次
-            self._autosave()
+        if self._drag_idxs is None:  # 拖曳中跳過 (版面同步太重), 拖曳結束時補一次
+            self._step_icons.refresh()
 
     def _region_end(self, i):
         """start 標記 i 的對應結束索引 (通用巢狀); 不成對回傳 None."""
@@ -1312,6 +1223,7 @@ class App:
         at = (idxs[-1] + 1) if idxs else len(self.steps)
         if t in MARKER_TYPES:  # 沒有可設定的欄位, 直接加入
             self.steps.insert(at, flowdefaults.new_step(t))
+            self._mark_dirty()
             self.render_steps(keep=at)
             return
         s = flowdefaults.new_step(t)   # 「沒寫＝」表補齊的完整步驟
@@ -1319,6 +1231,7 @@ class App:
         s = ui_dialogs.edit_step(self, s)
         if s:
             self.steps.insert(at, s)
+            self._mark_dirty()
             self.render_steps(keep=at)
 
     def edit_step(self):
@@ -1333,6 +1246,8 @@ class App:
         s["_index"] = i
         r = ui_dialogs.edit_step(self, s)
         if r:
+            if r != self.steps[i]:
+                self._mark_dirty()
             self.steps[i] = r
             self.render_steps(keep=i)
 
@@ -1369,6 +1284,7 @@ class App:
         at = (idxs[-1] + 1) if idxs else len(self.steps)
         items = [json.loads(json.dumps(s)) for s in clip]
         self.steps[at:at] = items
+        self._mark_dirty()
         self.render_steps(keep=at + len(items) - 1)
         self.log_ui(f"已貼上 {len(items)} 個步驟", "ok")
 
@@ -1379,6 +1295,7 @@ class App:
         block = [json.loads(json.dumps(self.steps[i])) for i in idxs]
         at = idxs[-1] + 1
         self.steps[at:at] = block
+        self._mark_dirty()
         self.render_steps(keep=at + len(block) - 1)
 
     def del_step(self):
@@ -1387,6 +1304,7 @@ class App:
             return
         for i in reversed(idxs):
             del self.steps[i]
+        self._mark_dirty()
         self.render_steps(keep=min(idxs[0], len(self.steps) - 1))
 
     def _on_handle(self, e):
@@ -1487,9 +1405,9 @@ class App:
         if self._drag_job is not None:
             self.step_list.after_cancel(self._drag_job)
             self._drag_job = None
-        if moved:  # 拖曳中跳過的存檔與圖示刷新, 結束補一次
+        if moved:  # 拖曳中跳過的圖示刷新, 結束補一次
             self._step_icons.refresh()
-            self._autosave()
+            self._mark_dirty()
 
     def clear_steps(self):
         if not self.steps:
@@ -1498,6 +1416,7 @@ class App:
                                    parent=self.root):
             return
         self.steps = []
+        self._mark_dirty()
         self.render_steps()
         self.log_ui("已清除全部步驟", "warn")
 
@@ -1509,22 +1428,23 @@ class App:
         if not (0 <= j < len(self.steps)):
             return
         self.steps[i], self.steps[j] = self.steps[j], self.steps[i]
+        self._mark_dirty()
         self.render_steps(keep=j)
 
     # ================= 範本操作 (本流程的範本) =================
-    # 範本名是**平面名稱**: 沒有資料夾層級, 在一份流程內唯一 (ADR 0006)。
-    # **一範本一張圖**: 圖住在工作區, 存檔時進 zip; 多截圖範本已退場。
+    # 範本名是**平面名稱** (＝templates/ 裡的檔名), 在一份流程內唯一。**一範本一張圖**。
+    # 新增、重截、改名、刪除只動記憶體與快取 (self.store), 存檔才寫回 templates/。
 
     def list_template_names(self):
-        """本流程的範本名 (工作區已有的 + 延後重探索中的新範本)."""
-        return sorted(set(self.ws.names()) | self._pending_templates)
+        """本流程的範本名 (已存檔的＋還沒存檔的截圖)."""
+        return self.store.names()
 
     def template_image(self, name):
-        """範本的參考影像 (登錄產物已載入時取它, 否則直接讀工作區的圖)."""
-        t = self.profile.templates.get(name) if self.profile else None
+        """範本的參考影像 (登錄產物已載入時取它, 否則直接讀圖)."""
+        t = self.library.templates.get(name) if self.library else None
         if t is not None and t.artifacts is not None:
             return t.artifacts.ref_bgr
-        p = self.ws.path_of(name)
+        p = self.store.path_of(name)
         return imgio.imread(p) if os.path.exists(p) else None
 
     def template_pos(self, name):
@@ -1534,27 +1454,36 @@ class App:
         只有本流程自己拍的圖有——跨流程複製進來與從磁碟上傳的沒有
         (相對座標原點只能靠即時找圖或往前推)。
         """
-        return self.ws.pos_of(name)
+        return self.store.pos_of(name)
 
     def record_template_pos(self, name, xy):
         """補記範本的拍攝位置 (相對座標基準點; 比對測試找到時, 供相對座標當備援原點)."""
-        self.ws.set_pos(name, xy)
+        self.store.set_pos(name, xy)
+        self._mark_dirty()
 
     def template_bytes(self, name):
         """本流程某個範本的圖檔位元組; 讀不到回 None."""
         try:
-            with open(self.ws.path_of(name), "rb") as f:
+            with open(self.store.path_of(name), "rb") as f:
                 return f.read()
         except OSError:
             return None
 
     def current_flow_path(self):
-        """目前這份流程對應的存檔路徑; 還沒存過的新流程回 None."""
-        return self.ws.flow_path()
+        """目前這份流程的資料夾; 還沒存過的新流程回 None."""
+        return self.store.folder
+
+    def other_flow_folders(self):
+        """流程預設位置底下的其他流程資料夾 (選範本對話框的來源)."""
+        cur = self.store.folder
+        return [p for p in flowfile.list_flow_folders(apppaths.flows_root())
+                if cur is None or os.path.normcase(os.path.abspath(p))
+                != os.path.normcase(os.path.abspath(cur))]
 
     def drop_template(self, name):
-        """把範本從本流程收回去 (圖與登錄產物一起刪)."""
-        self.ws.remove(name)
+        """把範本從本流程收回去 (快取的圖與登錄產物一起刪)."""
+        self.store.remove(name)
+        self._mark_dirty()
 
     def add_template_image(self, name, blob, pos=None):
         """把一張圖加進本流程 (bytes 或來源圖檔路徑); 回傳最終採用的範本名.
@@ -1562,8 +1491,9 @@ class App:
         撞名自動加序號, 所以本流程原有的圖絕對不會被蓋掉; 改名結果由呼叫端
         寫進執行紀錄 (不彈對話框)。
         """
-        final = self.ws.add(name, blob, pos=pos)
+        final = self.store.add(name, blob, pos=pos)
         self._pending_templates.add(final)
+        self._mark_dirty()
         self._schedule_reregister()
         return final
 
@@ -1641,10 +1571,10 @@ class App:
 
     def template_ready(self, name):
         """範本能不能拿來查 (引擎就緒、已在範本清單、登錄產物載得起來); 不行就安靜略過."""
-        if not name or not self.hub.ready or self.profile is None:
+        if not name or not self.hub.ready or self.library is None:
             return False
         self.ensure_registered()
-        if name not in self.profile.templates:
+        if name not in self.library.templates:
             return False
         try:
             self.hub.ensure_template(name)
@@ -1707,16 +1637,17 @@ class App:
     def save_captured(self, r, anchor=None, k=1.0):
         """把 pick_region_raw 的結果存成本流程的新範本, 回傳範本名.
 
-        圖落在工作區 (存檔時才進 zip), 先除以當下的`畫面倍率` k 換回流程尺度
+        圖落在快取 (存檔時才進 templates/), 先除以當下的`畫面倍率` k 換回流程尺度
         (倍率 1 原圖照存; 上傳的圖不經這裡); 拍攝位置＝截圖中心相對當下的`座標基準點`
         anchor (沒有基準點就不記)。
         """
-        name = self.ws.reserve(self.next_template_name())
+        name = self.store.reserve(self.next_template_name())
         img = imgio.to_flow_scale(r["img"], k)
-        imgio.imwrite(self.ws.path_of(name), img)
+        imgio.imwrite(self.store.path_of(name), img)
         pos = ui_dialogs.template_pos_from_shot(r, anchor, k)
         if pos is not None:
-            self.ws.set_pos(name, pos)
+            self.store.set_pos(name, pos)
+        self._mark_dirty()
         # 重新探索卡主執行緒 → 延後到視窗還原、畫面喘口氣之後,
         # 「視窗消失」與「程式短暫卡住」兩種感受分開
         self._pending_templates.add(name)
@@ -1749,13 +1680,13 @@ class App:
         self.ensure_registered()
 
     def ensure_registered(self):
-        """延後的重新探索立即補跑; 引擎查詢 (比對測試/執行流程) 前必須呼叫,
-        否則延後期間的新範本還不在範本清單裡, 查詢會 KeyError。
-        登錄產物本身由`範本預載`/單張載入在使用當下載入 (ADR 0004)."""
+        """延後的重新綁定立即補跑; 引擎查詢 (比對測試/執行流程) 前必須呼叫,
+        否則延後期間的新範本還不在範本清單裡, 查詢會 KeyError。只有新範本要
+        重新登錄, 其他的登錄產物照用 (ADR 0004)."""
         if not self._pending_templates:
             return
         self._cancel_reregister()
-        self.reload_profile()
+        self.rebind_templates(changed=set(self._pending_templates))
         self._pending_templates.clear()
         self.refresh_templates()
 
@@ -1786,14 +1717,13 @@ class App:
             if img is None:
                 self.log_ui(f"讀不到圖片：{os.path.basename(p)}", "warn")
                 continue
-            name = self.ws.reserve(self.next_template_name(taken=added))
-            imgio.imwrite(self.ws.path_of(name), img)
+            name = self.store.reserve(self.next_template_name(taken=added))
+            imgio.imwrite(self.store.path_of(name), img)
             added.append(name)
         if not added:
             return
-        self._pending_templates.update(added)
-        self.reload_profile()
-        self._pending_templates.clear()
+        self._mark_dirty()
+        self.rebind_templates(changed=set(added))
         self.refresh_templates()
         self._select_tmpl_row(added[-1])  # 選取最後上傳的一張
         self.log_ui(f"已上傳 {len(added)} 張範本：{', '.join(added)}"
@@ -1811,19 +1741,23 @@ class App:
                                     initialvalue=old)
         if new is None:
             return
-        new = flowfile.clean_name(new)
-        if not new or new == old:
+        if new == old:
             return
-        final = self.ws.rename(old, new)
+        problem = flowfile.template_name_problem(new)
+        if problem:   # 範本名＝檔名: 不靜靜改寫使用者輸入的名字, 擋下並說明
+            messagebox.showwarning("重新命名", problem, parent=self.root)
+            return
+        final = self.store.rename(old, new)
         if final is None:
             messagebox.showwarning("重新命名", f"找不到範本「{old}」的圖",
                                    parent=self.root)
             return
-        changed = flowfile.rename_flow_refs(self._ref_data(), old, final)
+        changed = flowfile.rename_template_refs(self._ref_data(), old, final)
         flagged = self.pick_warnings()
         if old in flagged:
             flagged[final] = flagged.pop(old)
-        self.reload_profile()
+        self._mark_dirty()
+        self.rebind_templates(changed={final})
         self.refresh_templates()
         self.render_steps()
         msg = f"已將「{old}」重新命名為「{final}」"
@@ -1850,10 +1784,11 @@ class App:
                 f"刪除範本「{name}」？\n（{'、'.join(used)} 正在使用它）",
                 parent=self.root):
             return
-        self.ws.remove(name)
+        self.store.remove(name)
         self._pending_templates.discard(name)
         self.pick_warnings().pop(name, None)
-        self.reload_profile()
+        self._mark_dirty()
+        self.rebind_templates(changed=set())
         self.refresh_templates()
         self.render_steps()
 
@@ -1870,59 +1805,55 @@ class App:
         if not name:
             messagebox.showinfo("複製", "請先在清單選擇一個範本", parent=self.root)
             return
-        src = self.ws.path_of(name)
+        src = self.store.path_of(name)
         if not os.path.exists(src):
             messagebox.showwarning("複製", f"找不到範本「{name}」的圖",
                                    parent=self.root)
             return
-        new = self.add_template_image(name, src, pos=self.ws.pos_of(name))
+        new = self.add_template_image(name, src, pos=self.store.pos_of(name))
         self.ensure_registered()
         self.refresh_templates()
         self._select_tmpl_row(new)  # 選取新複製的範本
         self.log_ui(f"已複製「{name}」→「{new}」", "ok")
 
-    # ================= 流程存檔 =================
+    # ================= 流程 (資料夾) =================
 
     def _ref_data(self):
-        """引用範本的那部分流程資料: 步驟＋流程層級設定 (不讀介面元件).
+        """引用範本的那部分流程資料: 步驟＋校準對＋忙碌指示 (不讀介面元件).
 
-        回傳的是同一批物件 (不是副本): `rename_flow_refs` 就地改它就改到本流程。
+        回傳的是同一批物件 (不是副本): `rename_template_refs` 就地改它就改到本流程。
         """
-        data = {"steps": self.steps}
-        if self.flow_cal:
-            data[calibration.FLOW_KEY] = self.flow_cal
-        if self.busy_target:
-            data[flowfile.BUSY_KEY] = self.busy_target
-        return data
+        return {"steps": self.steps, "calibration": self.flow_cal,
+                "busy": self.busy_target}
 
     def _flow_data(self):
-        data = self._ref_data()
-        data.update({
-            "runMode": "count" if self.run_mode.get() == "執行次數" else "infinite",
-            "runCount": self._run_count(),
-            "scanRegion": self.scan_region,
-            flowfmt.COORD_SPACE: flowfmt.ANCHOR,
-        })
-        return data
+        """目前的流程 (記憶體模型, flowfile 把它寫回資料夾)."""
+        run = "forever" if self.run_mode.get() == "直到停止" else self._run_count()
+        return {"run": run, "scan_region": self.scan_region,
+                "calibration": self.flow_cal, "busy": self.busy_target,
+                "template_pos": self.store.pos(), "engine": dict(self.flow_engine),
+                "steps": self.steps}
 
     def referenced_templates(self):
-        """本流程引用的全部範本名 (步驟 + 校準對 + 忙碌指示; 見 flowfile.flow_refs)."""
-        return flowfile.flow_refs(self._ref_data())
+        """本流程引用的全部範本名 (步驟 + 校準對 + 忙碌指示; 見 flowfile.template_refs)."""
+        return flowfile.template_refs(self._ref_data())
 
-    def _apply_flow(self, data):
-        """套用一份流程資料 (已是現行格式: 讀檔路徑由 flowfile 擋掉舊格式)."""
-        self.steps = data.get("steps", [])
-        self.flow_cal = calibration.flow_pair(data)
-        problem = calibration.fallback_problem(self.flow_cal)
-        if problem:
-            self.log_ui(problem, "warn")
-            self.flow_cal.pop(calibration.FALLBACK_KEY, None)
+    def flow_name(self):
+        """流程名 (＝資料夾名); 還沒存檔的新流程回「新流程」."""
+        return os.path.basename(self.store.folder) if self.store.folder else "新流程"
+
+    def _apply_flow(self, flow):
+        """套用一份流程 (flowfile 讀進來、已驗證過的記憶體模型)."""
+        self.steps = flow["steps"]
+        self.flow_cal = flow["calibration"]
         self._update_cal_ui()
-        self.busy_target = flowfile.busy_target(data)
+        self.busy_target = flow["busy"]
         self._update_busy_ui()
-        self.run_mode.set("直到停止" if data.get("runMode") == "infinite" else "執行次數")
-        self.run_count.set(data.get("runCount", 1))
-        self.scan_region = data.get("scanRegion")
+        self.flow_engine = dict(flow["engine"])
+        forever = flow["run"] == "forever"
+        self.run_mode.set("直到停止" if forever else "執行次數")
+        self.run_count.set(1 if forever else flow["run"])
+        self.scan_region = flow["scan_region"]
         if self.scan_region:
             self.scan_lbl.configure(text=f"限定 {tuple(self.scan_region)}",
                                     foreground=C["accent"])
@@ -1932,127 +1863,143 @@ class App:
         self.render_steps()
         self._update_region_preview()
 
-    # ---- 流程存檔住在所屬 profile 的 flows/ 之下, 一份流程一個自包自足的檔 ----
-
-    def new_flow(self):
-        """開一份新流程: 步驟清空、**工作區整個清空** (圖與登錄產物都刪).
-
-        磁碟上刻意不留任何非當前流程的圖 (ADR 0006); 代價是切回舊流程時
-        該流程的範本要重新登錄。
-        """
-        if self.steps and not messagebox.askyesno(
-                "新流程",
-                f"開新流程會清掉目前的 {len(self.steps)} 個步驟與本流程的"
-                f"{len(self.ws.names())} 個範本（未存檔的內容會消失）。\n"
-                "確定要開新流程嗎？", parent=self.root):
-            return
-        self._switch_workspace(None)
-        self._apply_flow({"steps": [], flowfmt.COORD_SPACE: flowfmt.ANCHOR})
-        self.log_ui("已開始一份新流程（工作區已清空）", "ok")
-
-    def _switch_workspace(self, flow_path):
-        """切流程的工作區交接: (有存檔就) 解到工作區 → 清空舊狀態 → 重新探索.
-
-        回傳 flowfile.read() 的結果 (flow_path 為 None 時回 None)。存檔讀不進來
-        (舊格式) 時在動到任何狀態之前就拋出, 目前的流程原封不動。
-        """
-        r = None if flow_path is None else self.ws.load_flow(flow_path)
+    def _switch_flow(self, folder, flow):
+        """換成另一份流程: 本流程的範本換成那份資料夾的 (新流程＝空的未存檔快取),
+        範本清單整份重新交給引擎; 記下它是上次開的流程."""
+        unsaved = apppaths.unsaved_dir()
+        self.store = (flowfile.FlowTemplates.open(folder, unsaved, flow["template_pos"])
+                      if folder else flowfile.FlowTemplates.new(unsaved))
         self._cancel_reregister()
         self._pending_templates.clear()
         self.pick_warnings().clear()   # 標記只屬於這一次編輯, 不進存檔
         self._collapsed.clear()
-        if flow_path is None:
-            self.ws.clear()
-            self.ws.set_flow_path(None)
-        self.reload_profile()
+        self._apply_flow(flow)
+        self.rebind_templates()
         self.refresh_templates()
-        return r
+        self.dirty = False
+        if folder:
+            apppaths.save_state({"last_flow": os.path.abspath(folder)})
 
-    def save_flow(self):
-        """把目前流程存成一個自包自足的存檔 (步驟＋引用到的每一張範本圖)."""
-        if not self.steps:
-            messagebox.showinfo("儲存流程", "沒有步驟可儲存", parent=self.root)
+    def new_flow(self):
+        """開一份新流程 (還沒有資料夾: 第一次存檔才選位置與名字)."""
+        if self.steps and not messagebox.askyesno(
+                "新流程",
+                f"開新流程會清掉目前的 {len(self.steps)} 個步驟與本流程的"
+                f"{len(self.store.names())} 個範本（未存檔的內容會消失）。\n"
+                "確定要開新流程嗎？", parent=self.root):
             return
-        os.makedirs(self.flows_dir, exist_ok=True)
-        path = filedialog.asksaveasfilename(
-            parent=self.root, title="儲存流程", initialdir=self.flows_dir,
-            initialfile=os.path.basename(self.ws.flow_path() or ""),
-            defaultextension=flowfile.EXT,
-            filetypes=[("AutoClick 流程", "*" + flowfile.EXT)])
-        if not path:
-            return
-        self.ensure_registered()  # 延後中的新範本先進清單, 圖才帶得齊
-        try:
-            missing = self.ws.put_flow(self._flow_data(), path=path)
-        except OSError as e:
-            messagebox.showerror("儲存流程", f"儲存失敗: {e}", parent=self.root)
-            return
-        names = self.referenced_templates()
-        self.log_ui(f"已儲存流程 {os.path.basename(path)}"
-                    f"（{len(self.steps)} 步、{len(names) - len(missing)} 個範本）",
-                    "ok")
-        if missing:
-            self.log_ui("這些步驟引用的範本已不在本流程裡，存檔沒有帶到："
-                        + "、".join(missing), "warn")
+        self._switch_flow(None, flowfile.new_flow())
+        self.log_ui("已開始一份新流程（第一次存檔時選位置與名字）", "ok")
 
     def open_flow(self):
-        """載入流程存檔.
-
-        - 本 profile 內的存檔: 直接解到工作區
-        - 不在本 profile 內的存檔: 原樣複製一份副本進來再開 (原始檔不被動到;
-          不換算——流程自帶尺度、校準對與座標基準)
-        - 舊格式 (座標相對搜尋範圍的存檔、舊 autoClick flow JSON、舊流程包): 拒絕開啟
-          並說明 (ADR 0012), 目前的流程原封不動
-        """
+        """開檔: 一般開檔視窗選 flow.yaml, 開它所在的流程資料夾."""
+        root = apppaths.flows_root()
+        os.makedirs(root, exist_ok=True)
         path = filedialog.askopenfilename(
-            parent=self.root, title="載入流程", initialdir=self.flows_dir,
-            filetypes=[("AutoClick 流程", f"*{flowfile.EXT}"), ("所有檔案", "*.*")])
+            parent=self.root, title="開啟流程（選流程資料夾裡的 flow.yaml）",
+            initialdir=root,
+            filetypes=[("AutoClick 流程", flowfile.FLOW_YAML), ("所有檔案", "*.*")])
         if not path:
             return
-        try:
-            if flowfile.is_inside_profile(path, self.profile_dir):
-                r = self._switch_workspace(path)
-                self.log_ui(f"已載入流程 {os.path.basename(path)}"
-                            f"（{len(self.ws.names())} 個範本）", "ok")
-                self._apply_flow(r["data"])
-                return
-            # 外來存檔: 原樣複製副本進 profile
-            a = flowfile.adopt_foreign_flow(path, self.profile_dir)
-            r = self._switch_workspace(a["flow_path"])
-            self.log_ui(
-                f"已把外來存檔 {os.path.basename(path)} 複製進本 profile → "
-                f"{os.path.basename(a['flow_path'])}（原始檔未被修改）", "ok")
-            self._apply_flow(a["data"])
-        except flowfile.OldFormatError as e:
-            self.log_ui(f"無法開啟 {os.path.basename(path)}：{e}", "warn")
-            messagebox.showwarning("載入流程",
-                                   f"無法開啟 {os.path.basename(path)}：\n{e}",
-                                   parent=self.root)
-        except Exception as e:
-            messagebox.showerror("載入流程", f"載入失敗: {e}", parent=self.root)
+        self.open_flow_folder(os.path.dirname(path))
 
-    def _autosave(self):
-        """自動存檔**只寫步驟草稿**: 圖留在工作區, 不重壓整包 zip.
+    def open_flow_folder(self, folder, startup=False):
+        """讀一份流程資料夾並換成它; 讀不進來就說明原因、目前的流程不動. 回傳是否開成.
 
-        拖曳排序一次動作就存一次, 重寫幾十張圖會卡頓; 當機重開時草稿與
-        工作區裡的圖一起復原。
+        被引用卻缺圖的照樣開, 彈窗加執行紀錄列出缺哪幾張 (執行時照範本預載的規則
+        拒絕開跑; 可在 app 裡重截同名圖補回)。startup＝app 啟動時自動開的 (提示
+        排到事件迴圈再彈, 不在 __init__ 裡擋)。
         """
-        flowfile.write_draft(self.profile_dir, self._flow_data())
+        name = os.path.basename(os.path.abspath(folder))
 
-    def _load_autosave(self):
-        """啟動 / 切 profile 時復原步驟草稿; 舊格式的草稿不復原, 開空白並提示一次."""
+        def warn(title, text):
+            if startup:
+                self.root.after(0, lambda: messagebox.showwarning(
+                    title, text, parent=self.root))
+            else:
+                messagebox.showwarning(title, text, parent=self.root)
+
         try:
-            data = flowfile.read_draft(self.profile_dir)
-        except flowfile.OldFormatError as e:
-            why = str(e)
-            self.log_ui(f"步驟草稿沒有復原：{why}", "warn")
-            # 啟動期間不在 __init__ 裡擋住: 主視窗先開, 提示排到事件迴圈再彈
-            self.root.after(0, lambda: messagebox.showwarning(
-                "步驟草稿", f"上次的步驟草稿沒有復原，改開空白流程：\n{why}",
-                parent=self.root))
+            flow = flowfile.read_flow(folder)
+        except flowfile.FlowError as e:
+            self.log_ui(f"無法開啟流程「{name}」：{e}", "warn")
+            warn("開啟流程", f"無法開啟流程「{name}」：\n{e}")
+            return False
+        self._switch_flow(folder, flow)
+        self.log_ui(f"已開啟流程「{name}」（{len(self.steps)} 步、"
+                    f"{len(self.store.names())} 個範本）", "ok")
+        missing = flowfile.missing_templates(folder, flow)
+        if missing:
+            self.log_ui("這些範本被引用卻不在 templates/（執行前要補回，可重截同名圖）："
+                        + "、".join(missing), "warn")
+            warn("開啟流程", f"流程「{name}」缺這些範本圖：\n" + "\n".join(missing)
+                 + "\n\n執行前要補回（可在 app 裡重截同名範本）")
+        return True
+
+    def _open_last_flow(self):
+        """app 啟動: 自動開上次開的流程; 它不在了就留在空白新流程並記一行."""
+        last = apppaths.load_state().get("last_flow")
+        if not last:
             return
-        if data is not None:
-            self._apply_flow(data)
+        if os.path.isfile(os.path.join(last, flowfile.FLOW_YAML)):
+            self.open_flow_folder(last, startup=True)
+        else:
+            self.log_ui(f"上次開的流程已經不在（{last}）→ 開了空白新流程", "warn")
+
+    def _ask_new_flow_folder(self):
+        """新流程第一次存檔: 選位置、輸入流程名 → <位置>/<流程名>/ (已有同名資料夾就拒絕).
+
+        回傳要建的流程資料夾路徑; 取消或被拒絕回 None (什麼都沒寫)。
+        """
+        root = apppaths.flows_root()
+        os.makedirs(root, exist_ok=True)
+        path = filedialog.asksaveasfilename(
+            parent=self.root, title="存成新流程（輸入流程名，會建同名資料夾）",
+            initialdir=root, initialfile="新流程",
+            filetypes=[("流程資料夾", "*")])
+        if not path:
+            return None
+        folder = os.path.abspath(path)
+        if folder.lower().endswith(".yaml"):
+            folder = folder[:-5]
+        name = os.path.basename(folder)
+        if not name or name != name.strip() or name.endswith("."):
+            messagebox.showwarning("存檔", f"流程名「{name}」不能當資料夾名，請換一個",
+                                   parent=self.root)
+            return None
+        if os.path.exists(folder):
+            messagebox.showwarning(
+                "存檔", f"「{os.path.dirname(folder)}」裡已經有「{name}」了，"
+                "請換一個流程名（什麼都沒寫）", parent=self.root)
+            return None
+        return folder
+
+    def save_flow(self):
+        """存檔: flow.yaml 整份重寫、截圖搬進 templates/、templates/ 只留被引用的範本.
+
+        新流程第一次存檔才選位置與名字。回傳是否存成 (取消或失敗回 False)。
+        """
+        new_folder = None
+        if self.store.folder is None:
+            new_folder = self._ask_new_flow_folder()
+            if new_folder is None:
+                return False
+        self.ensure_registered()  # 延後中的新範本先進清單
+        try:
+            missing = self.store.save(self._flow_data(), new_folder)
+        except (OSError, flowfile.FlowError, ValueError) as e:
+            messagebox.showerror("存檔", f"存檔失敗：{e}", parent=self.root)
+            return False
+        self.rebind_templates(changed=set())   # 圖只是搬了位置, 登錄產物照用
+        self.dirty = False
+        apppaths.save_state({"last_flow": self.store.folder})
+        names = self.referenced_templates()
+        self.log_ui(f"已存檔「{self.flow_name()}」（{len(self.steps)} 步、"
+                    f"{len(names) - len(missing)} 個範本）", "ok")
+        if missing:
+            self.log_ui("這些範本被引用卻沒有圖，存檔沒有帶到："
+                        + "、".join(missing), "warn")
+        return True
 
     # ================= 執行 =================
 
@@ -2123,7 +2070,7 @@ class App:
         if self.flow_cal is None:
             # 執行器開頭也會擋 (沒有校準對＝量不了倍率); 這裡先講清楚下一步
             messagebox.showwarning(
-                "執行", "這份流程沒有校準對（舊格式或尚未設定），不能執行。\n"
+                "執行", "這份流程沒有校準對（尚未設定），不能執行。\n"
                 "請先在「畫面校準」設定校準對（例：遊戲視窗標題列的圖示與關閉鈕）",
                 parent=self.root)
             return
@@ -2470,7 +2417,6 @@ class App:
                                        parent=self.root):
                 return
             self.stop_all()
-        self._autosave()
         self.root.destroy()
 
 

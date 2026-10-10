@@ -3,7 +3,7 @@
 找圖相關步驟 (find_click / find / wait_gone、生效確認、分岔) 的辨識走建構時注入
 的偵測器 (detector): `query(範本名, 搜尋區域影像) → QueryResult`——與主體
 偵測引擎的 `Engine.query` 同形狀 (matches: 所有匹配, 框為搜尋區域內座標),
-範本不存在時丟 KeyError。門檻由引擎的 profile config 決定, 步驟層級沒有
+範本不存在時丟 KeyError。門檻由引擎參數決定, 步驟層級沒有
 threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分支條件) 都是
 執行一個`找圖目標` (automation/findtarget.py): 多個匹配時由挑選規則決定
 點哪一個, 「消失」只看先前挑中的那個位置 (ADR 0007)。

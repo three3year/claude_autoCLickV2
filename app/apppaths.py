@@ -1,0 +1,61 @@
+"""app 用到的固定位置 (詞彙見 app/CONTEXT.md「存檔與快取」; 佈局見 ADR 0015 與
+.scratch/project-cleanup/issues/09-packaged-layout-and-flow-location.md).
+
+    %USERPROFILE%\\AutoClick\\        流程資料夾的預設位置 (開檔與新流程第一次存檔的對話框從這裡開)
+    本機狀態資料夾                     state.json (只記上次開的流程)、autoclick.log、「未存檔」快取
+        打包版 (frozen):   %LOCALAPPDATA%\\AutoClick\\
+        原始碼執行:        <repo>\\.local\\  (agent 冒煙開過的流程不會變成打包版下次自動開的那份)
+
+打包版資料夾 (dist\\AutoClick\\) 裡沒有任何使用者資料: 部署＝整個換掉。
+"""
+import json
+import os
+import sys
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def flows_root():
+    """流程資料夾的預設位置 (不在 OneDrive 同步的「文件」裡)."""
+    return os.path.join(os.path.expanduser("~"), "AutoClick")
+
+
+def state_dir():
+    """本機狀態資料夾: 打包版在 %LOCALAPPDATA%\\AutoClick, 原始碼執行在 repo 的 .local."""
+    if getattr(sys, "frozen", False):
+        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "AutoClick")
+    return os.path.join(REPO_ROOT, ".local")
+
+
+def log_path():
+    return os.path.join(state_dir(), "autoclick.log")
+
+
+def unsaved_dir():
+    """還沒第一次存檔的新流程用的「未存檔」快取."""
+    return os.path.join(state_dir(), "unsaved")
+
+
+def _state_path():
+    return os.path.join(state_dir(), "state.json")
+
+
+def load_state():
+    """本機狀態 ({"last_flow": 流程資料夾}); 沒有或壞了回空 dict."""
+    try:
+        with open(_state_path(), encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_state(state):
+    """寫本機狀態; 寫不進去就算了 (不影響主流程)."""
+    try:
+        os.makedirs(state_dir(), exist_ok=True)
+        with open(_state_path(), "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False)
+    except OSError:
+        pass

@@ -22,20 +22,23 @@ from test_template_picker import _all
 
 # ---------- 存檔 ----------
 
+def _round_trip(tmp_path, steps):
+    flow = flowfile.new_flow()
+    flow["steps"] = steps
+    flowfile.write_flow(tmp_path, flow, {"a": b"A"})
+    return flowfile.read_flow(tmp_path)
+
+
 def test_忙碌檢查存檔往返(tmp_path):
-    path = str(tmp_path / ("f" + flowfile.EXT))
     steps = [click(1, 2, busy_check=True), find("a"), drag(1, 2, 3, 4, busy_check=True)]
-    flowfile.write(path, {"steps": steps, "coordSpace": "anchor"}, {"a": b"A"})
-    data = flowfile.read(path)["data"]
+    data = _round_trip(tmp_path, steps)
     assert [s.get("busy_check") for s in data["steps"]] == [True, False, True]
 
 
-def test_舊存檔讀進來沒勾(tmp_path):
-    path = str(tmp_path / ("f" + flowfile.EXT))
-    flowfile.write(path, {"steps": [click(1, 2), find("a")],
-                          "coordSpace": "anchor"}, {"a": b"A"})
-    data = flowfile.read(path)["data"]
+def test_沒寫的讀進來沒勾(tmp_path):
+    data = _round_trip(tmp_path, [click(1, 2), find("a")])
     assert not any(s.get("busy_check") for s in data["steps"])
+    assert "busy_check" not in (tmp_path / "flow.yaml").read_text(encoding="utf-8")
 
 
 # ---------- 對話框 ----------
@@ -91,7 +94,7 @@ def test_重開顯示原本的勾選_取消勾選就不留鍵(make_app):
 
 def test_找圖點擊對話框_動作為點擊時有勾選(make_app):
     a = make_app(1.0)
-    a.ws.add("a", b"A")
+    a.store.add("a", b"A")
     seen = {}
     got = _edit(a, find("a", _edit=True), _see(seen), _toggle, _press("確定"),
                 title="編輯：找圖點擊")
@@ -100,7 +103,7 @@ def test_找圖點擊對話框_動作為點擊時有勾選(make_app):
 
 def test_找圖切到不點擊_勾選隱藏並存為沒勾(make_app):
     a = make_app(1.0)
-    a.ws.add("a", b"A")
+    a.store.add("a", b"A")
     seen = {}
     got = _edit(a, find("a", busy_check=True, _edit=True),
                 _pick("不點擊", "僅等待出現"), _see(seen), _press("確定"),

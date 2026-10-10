@@ -45,11 +45,10 @@ def test_超過大小上限即輪替(tmp_path, monkeypatch):
     assert os.path.getsize(p) < 500  # 現行檔已重新開始
 
 
-def test_預設路徑在資料根目錄(monkeypatch):
+def test_預設路徑在本機狀態資料夾(monkeypatch):
     monkeypatch.setattr(applog, "_path", None)
-    import profile_store
-    assert applog.log_path() == os.path.join(profile_store.data_root(),
-                                             "autoclick.log")
+    import apppaths
+    assert applog.log_path() == os.path.join(apppaths.state_dir(), "autoclick.log")
 
 
 def test_寫入失敗不炸(tmp_path, monkeypatch):

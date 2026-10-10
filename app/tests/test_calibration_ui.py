@@ -6,6 +6,7 @@ test_editor_scale.py。這裡只驗 UI 薄殼接對——沿用 test_engine_gati
 """
 from types import SimpleNamespace
 
+import os
 import harness  # noqa: F401  # 先把 app/ 加進 sys.path
 
 import app as app_mod
@@ -30,14 +31,13 @@ class _FakeRunner:
 class _CalApp(app_mod.App):
     """只建 start_run 需要的欄位 (引擎一律就緒)."""
 
-    def __init__(self, root, profile_dir, cal=None, names=None):
+    def __init__(self, root, base_dir, cal=None, names=None):
         self.root = root
         self.hub = enginehub.EngineHub()
         self.hub.state = enginehub.READY
         self.runner = _FakeRunner()
         self.steps = [{"type": "wait", "wait": 0.01}]
         self.scan_region = None
-        self.profile_dir = str(profile_dir)
         self._pending_templates = set()
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")
         self.flow_cal = cal
@@ -161,11 +161,9 @@ class _Btn:
 class _EditorApp(app_mod.App):
     """只建校準對/校準按鈕需要的欄位; 清場與擷取以樁取代."""
 
-    def __init__(self, root, profile_dir, vision, cal=None):
+    def __init__(self, root, base_dir, vision, cal=None):
         self.root = root
-        self.profile_dir = str(profile_dir)
-        self.ws = flowfile.Workspace(self.profile_dir)
-        self.ws.ensure()
+        self.store = flowfile.FlowTemplates.new(os.path.join(str(base_dir), "unsaved"))
         self.hub = vision
         self.detector = vision
         self.scan_region = None
@@ -179,16 +177,16 @@ class _EditorApp(app_mod.App):
         self.flow_cal = cal
         self.cal_btn, self.cal_info = _Btn(), _Btn()
         for n in (cal["pair"] if cal else ()):
-            self.ws.add(n, b"P")
+            self.store.add(n, b"P")
 
     @property
-    def profile(self):
-        return SimpleNamespace(templates={n: object() for n in self.ws.names()})
+    def library(self):
+        return SimpleNamespace(templates={n: object() for n in self.store.names()})
 
     def ensure_registered(self):
         pass
 
-    def _autosave(self):
+    def _mark_dirty(self):
         self.autosaved += 1
 
     def render_steps(self, keep=None):
@@ -217,7 +215,7 @@ def _editor(tkroot, monkeypatch, tmp_path, cal=None, pick=None):
     vision = Vision()
     a = _EditorApp(tkroot, tmp_path, vision, cal)
     for n in (pick or ()):
-        a.ws.add(n, b"N")
+        a.store.add(n, b"N")
     return a, vision
 
 
@@ -250,7 +248,7 @@ def _flow_with_coords(a):
                {"type": "find_click", "target": {"template": "a", "within": list(rect)},
                 "confirm_target": {"template": "b", "within": list(rect)}}]
     a.busy_target = {"template": "z", "within": list(rect)}
-    a.ws.add("a", b"A", pos=[200, 100])
+    a.store.add("a", b"A", pos=[200, 100])
 
 
 def test_更換校準對_先用舊對量倍率與舊基準點_所有座標改成相對新基準點(
@@ -270,7 +268,7 @@ def test_更換校準對_先用舊對量倍率與舊基準點_所有座標改成
     assert s[2]["target"]["within"] == [0, 0, 30, 20]
     assert s[2]["confirm_target"]["within"][0] == 0
     assert a.busy_target["within"][0] == 0
-    assert a.ws.pos_of("a") == [100, 50], "拍攝位置也平移"
+    assert a.store.pos_of("a") == [100, 50], "拍攝位置也平移"
     assert a.autosaved == 1 and a.rendered == 1
     assert any("換算" in m and "落點不變" in m for m in a.logged)
     # 落點不變: 舊 (100,50) + 100×0.9 = 190; 新 (190,95) + 0×0.9 = 190
@@ -290,7 +288,7 @@ def test_更換校準對時舊對量不到_拒絕且資料不變(tkroot, monkeyp
     a.designate_pair()
     assert a.flow_cal == OLD
     assert a.steps[0]["click"] == [10, 20]
-    assert a.ws.pos_of("a") == [200, 100]
+    assert a.store.pos_of("a") == [200, 100]
     assert any("舊圖示" in m for m in rec)
     assert a.autosaved == 0
 
@@ -330,7 +328,7 @@ def test_按校準只顯示倍率與基準點_步驟資料不變(tkroot, monkeyp
     assert any("×1.200" in m and "(100, 50)" in m for m in a.logged)
     assert a.flow_cal == OLD, "校準只量, 不動校準資料"
     assert a.steps[0]["click"] == [10, 20]
-    assert a.ws.pos_of("a") == [200, 100]
+    assert a.store.pos_of("a") == [200, 100]
     assert a.autosaved == 0
 
 
@@ -351,7 +349,7 @@ def test_按校準主對找不到退備用對_備用對的範本也先載入(tkr
         ["標題左", "標題右"], 500.0, (0, 0))
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=cal)
     for n in ("標題左", "標題右"):
-        a.ws.add(n, b"F")
+        a.store.add(n, b"F")
     vision.plan("舊圖示", [None])
     vision.plan("舊關閉", [(1300, 50)])
     vision.plan("標題左", [(100, 10)])
@@ -426,7 +424,8 @@ def test_開流程或切換流程時校準鈕回到只有名字(tkroot, monkeypa
     a.scan_lbl = _Btn()
     a._mode_ui = lambda: None
     a._update_region_preview = lambda: None
-    a._apply_flow({"steps": [], "coordSpace": "anchor",
-                   "calibration": {"pair": ["x", "y"], "baseline": 50.0}})
+    a._update_busy_ui = lambda: None
+    a._apply_flow(dict(flowfile.new_flow(),
+                       calibration={"pair": ["x", "y"], "baseline": 50.0}))
     assert a.flow_cal == {"pair": ["x", "y"], "baseline": 50.0}
     assert a.cal_btn.text == "校準" and "x × y" in a.cal_info.text

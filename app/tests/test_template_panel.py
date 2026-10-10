@@ -1,7 +1,7 @@
 """範本面板＝本流程的範本清單 (票 06): 選取/預覽/重新命名/刪除.
 
 只拍靜態畫面驗證不了「互動才會執行到」的路徑, 所以選取、重新命名、刪除都用
-`event_generate` 真的走一遍, 再斷言對外行為: 清單內容、預覽文字、工作區的
+`event_generate` 真的走一遍, 再斷言對外行為: 清單內容、預覽文字、本流程範本的
 檔案狀態、步驟引用。App 的重量級 __init__ 以子類跳過 (沿用既有模式)。
 """
 import os
@@ -21,13 +21,14 @@ from ui_theme import C, FONT_MONO
 class _PanelApp(app_mod.App):
     """只建範本面板需要的欄位."""
 
-    def __init__(self, root, profile_dir, steps=None):
+    def __init__(self, root, base_dir, steps=None):
         self.root = root
-        self.profile_dir = str(profile_dir)
-        self.ws = flowfile.Workspace(self.profile_dir)
-        self.ws.ensure()
-        self.profile = None          # 引擎尚未就緒: 面板照樣要能用
+        self.store = flowfile.FlowTemplates.new(os.path.join(str(base_dir), "unsaved"))
+        self.library = None          # 引擎尚未就緒: 面板照樣要能用
         self.steps = steps or []
+        self.flow_cal = None
+        self.busy_target = None
+        self.dirty = False
         self._pending_templates = set()
         self._rereg_after = None
         self._collapsed = set()
@@ -56,7 +57,7 @@ class _PanelApp(app_mod.App):
         self.thumb_info.pack(side="left")
         self.panel.pack()
 
-    def reload_profile(self):
+    def rebind_templates(self, changed=None):
         self.reloads += 1
 
     def render_steps(self, keep=None):
@@ -77,8 +78,8 @@ def _img(w=12, h=8, fill=200):
 
 
 def _add(app, name, w=12, h=8, fill=200):
-    """把一張真圖放進工作區 (面板讀的就是這些檔案)."""
-    imgio.imwrite(app.ws.path_of(name), _img(w, h, fill))
+    """把一張真圖放進本流程的範本 (面板讀的就是這些檔案)."""
+    app.store.add(name, imgio.encode_png(_img(w, h, fill)))
     return name
 
 
@@ -132,11 +133,11 @@ def test_面板沒有資料夾層級(tkroot, tmp_path):
 def test_切換流程時面板跟著換(tkroot, tmp_path):
     app = _panel(tkroot, tmp_path, names=("old",))
     try:
-        other = os.path.join(str(tmp_path), "other" + flowfile.EXT)
-        flowfile.write(other, {"steps": [{"type": "find_click",
-                                          "target": {"template": "new"}}],
-                               "coordSpace": "anchor"}, {"new": b"N"})
-        app.ws.load_flow(other)
+        other = tmp_path / "other"
+        flow = flowfile.new_flow()
+        flow["steps"] = [{"type": "find_click", "target": {"template": "new"}}]
+        flowfile.write_flow(other, flow, {"new": b"N"})
+        app.store = flowfile.FlowTemplates.open(other, tmp_path / "unsaved")
         app.refresh_templates()
         app.root.update()
         assert app._tmpl_names == ["new"], "上一份流程的範本不留在面板上"
@@ -170,8 +171,8 @@ def test_重新命名同步改寫所有引用_含確認圖(tkroot, tmp_path, mon
         app.root.update()
 
         assert app._tmpl_names == ["b", "按鈕"]
-        assert not os.path.exists(app.ws.path_of("a"))
-        assert os.path.exists(app.ws.path_of("按鈕"))
+        assert not os.path.exists(app.store.path_of("a"))
+        assert os.path.exists(app.store.path_of("按鈕"))
         assert steps[0]["target"]["template"] == "按鈕"
         assert steps[1]["confirm_target"]["template"] == "按鈕"
         assert any("2 個步驟" in m for m in app.logged)
@@ -191,7 +192,8 @@ def test_重新命名撞名自動加序號(tkroot, tmp_path, monkeypatch):
         app.destroy()
 
 
-def test_重新命名輸入資料夾分隔被清成平面名稱(tkroot, tmp_path, monkeypatch):
+def test_重新命名輸入不能當檔名的字元_擋下並說明_名稱不動(tkroot, tmp_path, monkeypatch,
+                                            no_real_dialogs):
     app = _panel(tkroot, tmp_path, names=("a",))
     try:
         monkeypatch.setattr(ui_dialogs, "ask_string",
@@ -199,7 +201,8 @@ def test_重新命名輸入資料夾分隔被清成平面名稱(tkroot, tmp_path
         _select(app, "a")
         app.rename_template()
         app.root.update()
-        assert app._tmpl_names == ["zh_按鈕"]
+        assert app._tmpl_names == ["a"]
+        assert no_real_dialogs["warning"], "說明為什麼不行"
     finally:
         app.destroy()
 
@@ -212,14 +215,14 @@ def test_刪除範本從本流程移除_引用它的步驟以既有方式標示(
         asked = []
         monkeypatch.setattr(app_mod.messagebox, "askyesno",
                             lambda title, msg, **kw: (asked.append(msg), True)[1])
-        os.makedirs(os.path.join(app.ws.registered_dir, "a"), exist_ok=True)
+        os.makedirs(os.path.join(app.store.registered_dir, "a"), exist_ok=True)
         _select(app, "a")
         app.del_template()
         app.root.update()
 
         assert app._tmpl_names == ["b"]
-        assert not os.path.exists(app.ws.path_of("a"))
-        assert not os.path.exists(os.path.join(app.ws.registered_dir, "a"))
+        assert not os.path.exists(app.store.path_of("a"))
+        assert not os.path.exists(os.path.join(app.store.registered_dir, "a"))
         assert asked and "步驟 1" in asked[0], "有步驟在用它才提醒"
         # 引用仍指向已刪除的範本 → 沿用既有機制 (執行前擋下), 不動步驟
         assert steps[0]["target"]["template"] == "a"
@@ -245,12 +248,12 @@ def test_刪除沒有步驟在用的範本不打擾(tkroot, tmp_path, monkeypatc
 def test_複製範本撞名加序號並帶走pos(tkroot, tmp_path):
     app = _panel(tkroot, tmp_path, names=("a",))
     try:
-        app.ws.set_pos("a", [11, 22])
+        app.store.set_pos("a", [11, 22])
         _select(app, "a")
         app.copy_template()
         app.root.update()
         assert app._tmpl_names == ["a", "a_2"]
-        assert app.ws.pos_of("a_2") == [11, 22]
+        assert app.store.pos_of("a_2") == [11, 22]
     finally:
         app.destroy()
 

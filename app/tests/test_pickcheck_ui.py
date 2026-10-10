@@ -29,7 +29,7 @@ def _overlay(monkeypatch, w, h):
 
 
 def _template(app, name, w, h):
-    imgio.imwrite(app.ws.path_of(name), np.zeros((h, w, 3), np.uint8))
+    app.store.add(name, imgio.encode_png(np.zeros((h, w, 3), np.uint8)))
 
 
 def _warn_labels(dlg):
@@ -131,12 +131,12 @@ class _Lib:
 
     @property
     def templates(self):
-        return {n: object() for n in self.app.ws.names()}
+        return {n: object() for n in self.app.store.names()}
 
 
 def _engine(app, monkeypatch):
     """讓最小 App 查得了: 引擎就緒、登錄載入為樁、假畫面可縮放 (縮放餘裕要縮截圖)."""
-    app.profile = _Lib(app)
+    app.library = _Lib(app)
     app.hub.ensure_template = lambda name: None
     monkeypatch.setattr(pickcheck, "resize_image", lambda img, s: img.resized(s))
 

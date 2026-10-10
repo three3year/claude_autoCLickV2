@@ -1,7 +1,7 @@
 """confirm: "next" 的 UI 層輕量驗證: 步驟摘要文字與清單 ⚠ 警告標記.
 
 清單渲染測試沿用「monkeypatch 自動存檔」的既有模式 (以 stub 取代
-`_autosave`, 不寫使用者的 flows/_autosave.json); App 的重量級 __init__
+`_mark_dirty`, 不寫使用者的 flows/_mark_dirty.json); App 的重量級 __init__
 (引擎/profile/整套 UI) 以子類跳過, 只建 render_steps 需要的欄位。
 """
 import tkinter as tk
@@ -32,7 +32,7 @@ class _MiniApp(app_mod.App):
         self._drag_idxs = None
         self.step_list = app_mod.SegListbox(root)
         self._step_icons = type("_Icons", (), {"refresh": lambda self: None})()
-        self._autosave = lambda: None  # 不寫使用者的自動存檔
+        self._mark_dirty = lambda: None  # 不寫使用者的自動存檔
 
 
 def test_不相連的步驟列顯示警告標記(tkroot):

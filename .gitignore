@@ -2,18 +2,19 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-# profile 的使用者資料/衍生資料 (config 與 benchmark 進版控; 其餘留在使用者機器)
-# 範本圖住在流程存檔裡 (ADR 0006) → 流程存檔不進版控, 範本庫已不存在
+# 引擎基準測試集的衍生資料 (benchmark 本身進版控)
+profiles/*/benchmark/_registered/
+profiles/*/benchmark/_assets/_registered/
+# 退場的 profile 留在本機的舊使用者資料 (流程已轉成流程資料夾; 不進版控)
 profiles/*/flows/
 profiles/*/workspace/
 profiles/*/calibration/
 profiles/*/calibration.json
-profiles/*/benchmark/_registered/
-profiles/*/benchmark/_assets/_registered/
 profiles/app_state.json
-# 檔案日誌 (applog): 原始碼執行時寫在 repo 根目錄
 autoclick.log
 autoclick.log.1
+# 原始碼執行的本機狀態資料夾 (state.json、autoclick.log、未存檔快取; apppaths)
+.local/
 .scratch/**/tmp/
 *.egg-info/
 build/

@@ -18,6 +18,11 @@ import app as app_mod  # noqa: E402
 import enginehub  # noqa: E402
 
 applog.set_path(os.path.join(tempfile.gettempdir(), "slim_probe.log"))
+import apppaths  # noqa: E402
+
+_local = tempfile.mkdtemp(prefix="slim_probe_")   # 不讀寫 repo 的 .local/
+apppaths.state_dir = lambda: os.path.join(_local, "state")
+apppaths.flows_root = lambda: os.path.join(_local, "flows")
 enginehub._default_engine_factory = lambda: SimpleNamespace(
     coarse_only=False,
     register=lambda profile, name: None,
