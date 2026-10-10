@@ -66,7 +66,7 @@ class Detector:
 # ---------- 矩形餘裕 ----------
 
 def _rect(w, h):
-    return {"template": "t", "limit": {"kind": "rect", "x": 0, "y": 0, "w": w, "h": h}}
+    return {"template": "t", "within": [0, 0, w, h]}
 
 
 def test_矩形餘裕不足_警告並建議至少多大():
@@ -89,9 +89,6 @@ def test_只有一邊不足也警告():
 def test_沒範本不警告_不是固定矩形不警告():
     assert pickcheck.rect_margin(_rect(10, 10), None) == []
     assert pickcheck.rect_margin({"template": "t"}, (50, 50)) == []
-    assert pickcheck.rect_margin({"template": "t", "limit": {"kind": "origin", "x": 0,
-                                                             "y": 0, "w": 10, "h": 10}},
-                                 (50, 50)) == []
 
 
 def test_最小矩形的算法_向上取整():
@@ -169,8 +166,7 @@ def test_縮放餘裕照限定範圍裁_固定矩形跟著縮():
     d = Detector()
     d.plan(0.85, [(10, 10)])
     d.plan(1.15, [(10, 10)])
-    tgt = {"template": "t", "limit": {"kind": "rect", "x": 100, "y": 50, "w": 200,
-                                      "h": 100}}
+    tgt = {"template": "t", "within": [100, 50, 200, 100]}
     pickcheck.scale_margin(d, screen(800, 600), ORG, tgt, ANCHOR, 1.0)
     sizes = [size for _, _, size, _ in d.calls]
     # 矩形 200×100 ×0.85 / ×1.15 (兩角各自捨入, 差 1px 內)
@@ -182,13 +178,13 @@ def test_縮放餘裕不看挑選規則():
     d = Detector()
     d.plan(0.85, [(300, 200)])
     d.plan(1.15, [(300, 200)])
-    tgt = {"template": "t", "pick": {"kind": "top", "n": 3}}
+    tgt = {"template": "t", "pick": {"top": 3}}
     assert pickcheck.scale_margin(d, screen(), ORG, tgt, ANCHOR, 1.0) == []
 
 
 def test_固定矩形但沒有基準點_無法查就沉默():
     d = Detector()
-    tgt = {"template": "t", "limit": {"kind": "rect", "x": 0, "y": 0, "w": 10, "h": 10}}
+    tgt = {"template": "t", "within": [0, 0, 10, 10]}
     assert pickcheck.scale_margin(d, screen(), ORG, tgt, None, 1.0) == []
     assert d.calls == []
 
@@ -216,8 +212,8 @@ def test_一個或零個匹配_不警告():
 def test_有挑選規則就跳過():
     d = Detector()
     d.plan(1.0, [(300, 200), (500, 200)])
-    for pick in ({"kind": "top", "n": 2}, {"kind": "left", "n": 1},
-                 {"kind": "near", "x": 0, "y": 0}):
+    for pick in ({"top": 2}, {"left": 1},
+                 {"near": [0, 0]}):
         assert pickcheck.unique(d, screen(), ORG, {"template": "t", "pick": pick},
                                 ANCHOR, 1.0, origin=(0, 0)) == []
     assert d.calls == []
@@ -226,8 +222,8 @@ def test_有挑選規則就跳過():
 def test_唯一照限定範圍查_並帶比色():
     d = Detector()
     d.plan(1.0, [(300, 200), (320, 200)])
-    tgt = {"template": "t", "colorCheck": True,
-           "limit": {"kind": "rect", "x": 100, "y": 50, "w": 200, "h": 100}}
+    tgt = {"template": "t", "color": True,
+           "within": [100, 50, 200, 100]}
     [w] = pickcheck.unique(d, screen(800, 600), ORG, tgt, ANCHOR, 1.0)
     [(_, s, size, color)] = d.calls
     assert (s, size, color) == (1.0, (200, 100), True)
@@ -241,7 +237,7 @@ def test_check_三項一起_可指定只查哪幾項():
     d.plan(0.85, None)
     d.plan(1.15, [(300, 200)])
     d.plan(1.0, [(300, 200), (500, 200)])
-    tgt = {"template": "t", "limit": {"kind": "rect", "x": 0, "y": 0, "w": 30, "h": 30}}
+    tgt = {"template": "t", "within": [0, 0, 30, 30]}
     out = pickcheck.check(d, screen(), ORG, tgt, ANCHOR, 1.0, template_size=(50, 50))
     assert [w.kind for w in out] == ["rect", "scale", "unique"]
     only = pickcheck.check(d, screen(), ORG, tgt, ANCHOR, 1.0, template_size=(50, 50),

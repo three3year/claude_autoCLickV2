@@ -24,7 +24,7 @@ import flowfile
 from automation import findtarget, flowfmt
 from subject_detection.library import load_config
 
-from . import defaults
+from . import defaults, keys
 from . import origin as origin_mod
 from . import plan as plan_mod
 from . import report as report_mod
@@ -161,7 +161,7 @@ def assemble(plan, engine=None, report_path=None):
     if p["busy"]:
         b = p["busy"]
         data[flowfile.BUSY_KEY] = findtarget.make_target(
-            b["template"], limit=b.get("limit"), pick=b.get("pick"),
+            b["template"], pick=keys.flow_pick(b.get("pick")),
             color=b.get("colorCheck", False))
     retake = {}
     for name, r in checked.items():

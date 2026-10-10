@@ -1,15 +1,16 @@
 """`找圖目標`: 「找一張圖」的通用單位 (詞彙見 app/CONTEXT.md「找圖語意」).
 
-存檔裡的找圖目標是步驟上的巢狀物件 (flowFormat 3)::
+記憶體裡的找圖目標是步驟上的子 dict, 欄位名與值跟 flow.yaml 相同::
 
     {"template": "範本名",
-     "limit":      {"kind": "rect", "x", "y", "w", "h"}     `固定矩形`: 相對`座標基準點`的矩形
-     "pick":       {"kind": "top" | "left", "n": N}          由上到下 / 由左到右第 N 個
-                 | {"kind": "near", "x", "y"}                最接近指定點 (原點 + 偏移)
-     "colorCheck": true}
+     "within": [x, y, w, h]            `固定矩形`: 相對`座標基準點`的矩形
+     "pick":   {"top": N} | {"left": N} 由上到下 / 由左到右第 N 個
+             | {"near": [x, y]}         最接近指定點 (原點 + 偏移)
+     "color":  true}
 
-缺欄位＝不限定 / 分數最高 / 不比色。找圖步驟的找圖目標在 `target`, `確認圖`在
-`confirmTarget`; 「點到下一步的圖出現」沿用下一步的 `target`。所有像素欄位
+缺欄位＝不限定 / 分數最高 / 不比色。找圖步驟 (`type` 為 find_click / find / wait_gone)
+的找圖目標在 `target`, `確認圖`在 `confirm_target`; 「點到下一步的圖出現」沿用下一步的
+`target`。所有像素欄位
 (固定矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率` (ADR 0009);
 固定矩形再加上`座標基準點`的螢幕位置 (ADR 0012)。九宮格、以原點為基準的矩形與
 以搜尋範圍為基準的指定點已退場 (ADR 0014)。
@@ -22,8 +23,15 @@
 from . import flowfmt
 
 TARGET = "target"
-CONFIRM_TARGET = "confirmTarget"
+CONFIRM_TARGET = "confirm_target"
 
+# `找圖三態`: 步驟的 type 就是找到之後做什麼 (點擊 / 只找不點 / 等它消失)
+FIND_TYPES = ("find_click", "find", "wait_gone")
+
+
+def is_find(step):
+    """是不是找圖步驟 (三態皆是)."""
+    return step.get("type") in FIND_TYPES
 
 
 # ================= 步驟上的找圖目標 =================
@@ -52,11 +60,8 @@ CONFIRMABLE = ("find_click",) + POINTER_TYPES   # 有`生效確認`的步驟種�
 
 
 def uses_confirm_target(step):
-    """`確認圖`是否生效: 生效確認選「確認圖出現」(找圖還要動作為點擊)."""
-    t = step.get("type")
-    if t not in CONFIRMABLE or step.get("confirm") != "appear":
-        return False
-    return t != "find_click" or step.get("action", "click") == "click"
+    """`確認圖`是否生效: 生效確認選「確認圖出現」(找圖只有找到就點的才有確認)."""
+    return step.get("type") in CONFIRMABLE and step.get("confirm") == "appear"
 
 
 def referenced_templates(steps, extra=()):
@@ -69,7 +74,7 @@ def referenced_templates(steps, extra=()):
     """
     seen = []
     for s in steps:
-        names = [template(s)] if s.get("type") == "find_click" else []
+        names = [template(s)] if is_find(s) else []
         if uses_confirm_target(s):
             names.append(confirm_template(s))
         for n in names:
@@ -84,7 +89,7 @@ def referenced_templates(steps, extra=()):
 def step_targets(step):
     """步驟上存在的找圖目標 [(鍵, 目標), ...] (改名時走訪用)."""
     t = step.get("type")
-    keys = ((TARGET, CONFIRM_TARGET) if t == "find_click"
+    keys = ((TARGET, CONFIRM_TARGET) if t in FIND_TYPES
             else (CONFIRM_TARGET,) if t in CONFIRMABLE else ())
     return [(k, step[k]) for k in keys if isinstance(step.get(k), dict)]
 
@@ -146,14 +151,25 @@ class Found:
         return self.target.get("template", "")
 
 
+def pick_rule(tgt):
+    """挑選規則拆成 (種類, 值): ("score", None) / ("top", N) / ("left", N) /
+    ("near", [x, y]). 沒設或不成形＝分數最高."""
+    pick = tgt.get("pick")
+    if isinstance(pick, dict) and len(pick) == 1:
+        (kind, value), = pick.items()
+        if kind in ("top", "left", "near"):
+            return kind, value
+    return "score", None
+
+
 def needs_origin(tgt):
     """找圖目標的設定是否以`原點`為基準 (沒有原點時無法執行): 最接近指定點."""
-    return (tgt.get("pick") or {}).get("kind") == "near"
+    return pick_rule(tgt)[0] == "near"
 
 
 def needs_anchor(tgt):
     """找圖目標的設定是否要用到`座標基準點` (`固定矩形`); 沒有基準點時無法執行."""
-    return (tgt.get("limit") or {}).get("kind") == "rect"
+    return tgt.get("within") is not None
 
 
 def limit_rect(tgt, region, origin, scale=1.0, anchor=None):
@@ -164,9 +180,9 @@ def limit_rect(tgt, region, origin, scale=1.0, anchor=None):
     圖就找不到)。設定壞掉 (欄位不是整數、寬高不正) 時寬高為 0——不找, 絕不退成整個
     範圍。呼叫端保證固定矩形時 anchor 不是 None。
     """
-    lim = tgt.get("limit") or {}
+    lim = tgt.get("within")
     rx, ry, rw, rh = region
-    if lim.get("kind") != "rect":
+    if lim is None:
         return None
     if not _valid_fixed_rect(lim):
         return (rx, ry, 0, 0)
@@ -178,11 +194,12 @@ def limit_rect(tgt, region, origin, scale=1.0, anchor=None):
 
 
 def valid_fixed_rect(lim):
-    """`固定矩形`的四個欄位都是整數 (流程尺度像素), 寬高大於 0."""
-    vals = [lim.get(k) for k in ("x", "y", "w", "h")]
-    if not all(isinstance(v, int) and not isinstance(v, bool) for v in vals):
+    """`固定矩形` [x, y, w, h] 四個值都是整數 (流程尺度像素), 寬高大於 0."""
+    if not isinstance(lim, (list, tuple)) or len(lim) != 4:
         return False
-    return vals[2] > 0 and vals[3] > 0
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in lim):
+        return False
+    return lim[2] > 0 and lim[3] > 0
 
 
 _valid_fixed_rect = valid_fixed_rect
@@ -219,7 +236,7 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0,
         image = screen[y0:y0 + limit[3], x0:x0 + limit[2]]
         ox, oy = limit[0], limit[1]
     r = detector.query(tgt.get("template", ""), image,
-                       color_check=bool(tgt.get("colorCheck")),
+                       color_check=bool(tgt.get("color")),
                        expected_scale=scale)
     def screen_match(m):
         return Match((m.box[0] + ox, m.box[1] + oy, m.box[2], m.box[3]),
@@ -230,7 +247,7 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0,
     if not matches:
         return Found(tgt, reason="none", query=r, limit=limit,
                      rejected=rejected)
-    chosen = _pick(matches, tgt.get("pick") or {}, origin, scale)
+    chosen = _pick(matches, tgt, origin, scale)
     return Found(tgt, matches, chosen, None if chosen else "count", r, limit,
                  rejected)
 
@@ -252,16 +269,15 @@ def _ordered(matches, axis):
     return [m for g in groups for m in sorted(g, key=lambda m: m.center[other])]
 
 
-def _pick(matches, rule, origin, scale):
-    kind = rule.get("kind", "score")
+def _pick(matches, tgt, origin, scale):
+    kind, value = pick_rule(tgt)
     if kind in ("top", "left"):
-        n = int(rule.get("n", 1))
+        n = int(value)
         ordered = _ordered(matches, 1 if kind == "top" else 0)
         return ordered[n - 1] if 1 <= n <= len(ordered) else None
     if kind == "near":
         # 指定點＝`原點` + 偏移×倍率 (偏移 (0,0)＝最接近原點); 呼叫端保證有原點
-        px, py = flowfmt.to_screen((rule.get("x", 0), rule.get("y", 0)), origin,
-                                   scale)
+        px, py = flowfmt.to_screen(value, origin, scale)
         return min(matches, key=lambda m: (m.center[0] - px) ** 2
                    + (m.center[1] - py) ** 2)
     return max(matches, key=lambda m: m.score)
@@ -295,26 +311,25 @@ def fmt_match(m):
 
 def pick_text(tgt):
     """挑選規則的短代號: score / top:N / left:N / near(+x,+y) (相對原點)."""
-    pick = tgt.get("pick") or {}
-    kind = pick.get("kind", "score")
+    kind, value = pick_rule(tgt)
     if kind in ("top", "left"):
-        return f"{kind}:{pick.get('n', 1)}"
+        return f"{kind}:{value}"
     if kind == "near":
-        return f"near({int(pick.get('x', 0)):+d},{int(pick.get('y', 0)):+d})"
+        return f"near({int(value[0]):+d},{int(value[1]):+d})"
     return "score"
 
 
 # ================= 編輯器: 組找圖目標、拾取換算、標記 =================
 
-def make_target(template, limit=None, pick=None, color=False):
-    """由表單值組一個找圖目標; 預設值 (不限定/分數最高/不比色) 不寫進存檔."""
+def make_target(template, within=None, pick=None, color=False):
+    """由表單值組一個找圖目標; 預設值 (不限定/分數最高/不比色) 不寫進去."""
     tgt = {"template": template}
-    if limit and limit.get("kind") == "rect":
-        tgt["limit"] = dict(limit)
-    if pick and pick.get("kind", "score") != "score":
+    if within is not None:
+        tgt["within"] = list(within)
+    if pick_rule({"pick": pick})[0] != "score":
         tgt["pick"] = dict(pick)
     if color:
-        tgt["colorCheck"] = True
+        tgt["color"] = True
     return tgt
 
 
@@ -326,11 +341,11 @@ def offset_from_screen(xy, base, k):
 
 
 def fixed_rect_from_screen(box, anchor, k):
-    """框選到的螢幕矩形 → `固定矩形` (相對`座標基準點`的偏移與寬高, 流程尺度).
+    """框選到的螢幕矩形 → `固定矩形` [x, y, w, h] (相對`座標基準點`, 流程尺度).
 
     不裁到搜尋範圍: 存的是相對基準點的位置, 執行時才依當時的搜尋範圍裁。
     """
-    return dict(flowfmt.rect_from_screen(box, anchor, k), kind="rect")
+    return flowfmt.rect_from_screen(box, anchor, k)
 
 
 def tag_text(tgt):
@@ -342,43 +357,40 @@ def tag_text(tgt):
 def tags(tgt):
     """步驟清單上的簡短標記: 有特別設定的屬性 (限定範圍、挑選規則、比色)."""
     out = []
-    if (tgt.get("limit") or {}).get("kind") == "rect":
+    if tgt.get("within") is not None:
         out.append("限定")
-    pick = tgt.get("pick") or {}
-    if pick.get("kind") == "top":
-        out.append(f"由上到下第{pick.get('n', 1)}")
-    elif pick.get("kind") == "left":
-        out.append(f"由左到右第{pick.get('n', 1)}")
-    elif pick.get("kind") == "near":
+    kind, value = pick_rule(tgt)
+    if kind == "top":
+        out.append(f"由上到下第{value}")
+    elif kind == "left":
+        out.append(f"由左到右第{value}")
+    elif kind == "near":
         out.append("最接近指定點")
-    if tgt.get("colorCheck"):
+    if tgt.get("color"):
         out.append("比色")
     return out
 
 
 def limit_text(lim):
     """`限定範圍`的一段描述 (摘要的第一段; 編輯器顯示固定矩形的值)."""
-    lim = lim or {}
-    if lim.get("kind") == "rect":
+    if lim is not None:
         if not _valid_fixed_rect(lim):
             return "固定矩形（設定無效）"
-        return (f"固定矩形 ({lim['x']:+d},{lim['y']:+d})"
-                f" {lim['w']}×{lim['h']}")
+        x, y, w, h = lim
+        return f"固定矩形 ({x:+d},{y:+d}) {w}×{h}"
     return "整個搜尋範圍"
 
 
 def summary(tgt):
     """找圖設定一行摘要: 限定範圍；挑選規則；比色."""
-    part1 = limit_text(tgt.get("limit"))
-    pick = tgt.get("pick") or {}
-    kind = pick.get("kind", "score")
+    part1 = limit_text(tgt.get("within"))
+    kind, value = pick_rule(tgt)
     if kind == "top":
-        part2 = f"由上到下第 {pick.get('n', 1)} 個"
+        part2 = f"由上到下第 {value} 個"
     elif kind == "left":
-        part2 = f"由左到右第 {pick.get('n', 1)} 個"
+        part2 = f"由左到右第 {value} 個"
     elif kind == "near":
-        part2 = (f"最接近原點 ({int(pick.get('x', 0)):+d},"
-                 f"{int(pick.get('y', 0)):+d})")
+        part2 = f"最接近原點 ({int(value[0]):+d},{int(value[1]):+d})"
     else:
         part2 = "分數最高"
-    return "；".join((part1, part2, "比色" if tgt.get("colorCheck") else "不比色"))
+    return "；".join((part1, part2, "比色" if tgt.get("color") else "不比色"))

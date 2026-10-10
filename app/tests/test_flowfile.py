@@ -29,9 +29,9 @@ def make_profile(tmp_path, name="p"):
 def find_step(template, confirm_tmpl=None, **extra):
     """找圖步驟: 範本在`找圖目標`裡; confirm_tmpl＝確認圖 (點到確認圖出現)."""
     s = {"type": "find_click", "target": {"template": template},
-         "action": "click"}
+         "type": "find_click"}
     if confirm_tmpl is not None:
-        s.update(confirm="appear", confirmTarget={"template": confirm_tmpl})
+        s.update(confirm="appear", confirm_target={"template": confirm_tmpl})
     s.update(extra)
     return s
 
@@ -79,39 +79,38 @@ def test_沒標或標舊座標空間的資料都不能寫成存檔(tmp_path):
 
 def test_存檔讀回等價的流程資料與範本(tmp_path):
     path = tmp_path / ("f" + flowfile.EXT)
-    steps = [find_step("btn", offsetX=3, offsetY=-4),
-             {"type": "click", "x": 30, "y": -40},
-             {"type": "wait", "ms": 500}]
+    steps = [find_step("btn", offset=[3, -4]),
+             {"type": "click", "click": [30, -40]},
+             {"type": "wait", "wait": 0.5}]
     data = flow(steps, runMode="count", runCount=2,
-                scanRegion=[10, 20, 800, 600], avoidHover=True)
+                scanRegion=[10, 20, 800, 600])
     flowfile.write(str(path), data, {"btn": b"IMG"}, {"btn": [11, -22]})
     r = flowfile.read(str(path))
     assert r["data"]["steps"] == steps
     assert r["data"]["scanRegion"] == [10, 20, 800, 600]
-    assert r["data"]["avoidHover"] is True
     assert r["images"] == {"btn": b"IMG"}
     assert r["pos"] == {"btn": [11, -22]}, "拍攝位置相對基準點, 可以是負的"
 
 
 def test_固定矩形與指定點存檔與草稿往返(tmp_path):
-    rect = {"kind": "rect", "x": -120, "y": 35, "w": 250, "h": 60}
-    near = {"kind": "near", "x": 5, "y": -7}
+    rect = [-120, 35, 250, 60]
+    near = {"near": [5, -7]}
     step = {"type": "find_click",
-            "target": {"template": "a", "limit": rect, "pick": near},
+            "target": {"template": "a", "within": rect, "pick": near},
             "confirm": "appear",
-            "confirmTarget": {"template": "b", "limit": dict(rect)}}
-    data = flow([step], busyTarget={"template": "a", "limit": dict(rect)})
+            "confirm_target": {"template": "b", "within": list(rect)}}
+    data = flow([step], busyTarget={"template": "a", "within": list(rect)})
     path = str(tmp_path / ("f" + flowfile.EXT))
     flowfile.write(path, data, {"a": b"A", "b": b"B"})
     back = flowfile.read(path)["data"]
-    assert back["steps"][0]["target"]["limit"] == rect
+    assert back["steps"][0]["target"]["within"] == rect
     assert back["steps"][0]["target"]["pick"] == near
-    assert back["steps"][0]["confirmTarget"]["limit"] == rect
-    assert back["busyTarget"]["limit"] == rect
+    assert back["steps"][0]["confirm_target"]["within"] == rect
+    assert back["busyTarget"]["within"] == rect
     flowfile.write_draft(str(tmp_path), back)
     draft = flowfile.read_draft(str(tmp_path))
-    assert draft["steps"][0]["target"]["limit"] == rect
-    assert draft["busyTarget"]["limit"] == rect
+    assert draft["steps"][0]["target"]["within"] == rect
+    assert draft["busyTarget"]["within"] == rect
 
 
 # ---------- 舊格式一律拒絕 ----------
@@ -128,7 +127,7 @@ def _old_pack(tmp_path, data, stem="old"):
     {"steps": [find_step("a")], "coordSpace": "region", "flowFormat": 3},
     {"steps": [{"type": "find_click", "template": "a.png"}],
      "coordSpace": "region", "flowFormat": 2},
-    {"steps": [{"type": "click", "x": 300, "y": 250}],
+    {"steps": [{"type": "click", "click": [300, 250]}],
      "scanRegion": [100, 50, 800, 600]},
     {"steps": [find_step("a")], "flowFormat": 5},
     {"steps": [find_step("a")], "coordSpace": "anchor", "flowFormat": 4},
@@ -144,7 +143,7 @@ def test_舊格式存檔拒絕開啟並說明原因(tmp_path, data):
 
 def test_舊flow_json拒絕開啟(tmp_path):
     src = tmp_path / "old.json"
-    src.write_text(json.dumps({"steps": [{"type": "click", "x": 1, "y": 2}],
+    src.write_text(json.dumps({"steps": [{"type": "click", "click": [1, 2]}],
                                "scanRegion": [0, 0, 10, 10]}), encoding="utf-8")
     assert not flowfile.is_flow_file(str(src))
     with pytest.raises(flowfile.OldFormatError, match="舊格式"):
@@ -251,10 +250,10 @@ def test_改名跟著改校準對():
 
 def test_改寫引用含確認圖():
     steps = [find_step("old"), find_step("x", "old"),
-             {"type": "wait", "ms": 10}]
+             {"type": "wait", "wait": 0.01}]
     assert flowfile.rename_refs(steps, "old", "new") == 2
     assert tmpl(steps[0]) == "new"
-    assert steps[1]["confirmTarget"]["template"] == "new"
+    assert steps[1]["confirm_target"]["template"] == "new"
 
 
 # ---------- 存檔內容 ----------
@@ -433,10 +432,10 @@ def test_存檔與載入的round_trip(tmp_path):
     ws = flowfile.Workspace(str(profile))
     ws.add("a", b"AAA", pos=[7, 8])
     ws.add("b", b"BBB")
-    steps = [find_step("a", timeout=5, interval=0.5, onNotFound="skip"),
-             find_step("b", action="none"), {"type": "wait", "ms": 500}]
+    steps = [find_step("a", timeout=5, interval=0.5, on_fail="skip"),
+             find_step("b", type="find"), {"type": "wait", "wait": 0.5}]
     data = flow(steps, runMode="count", runCount=2,
-                scanRegion=[10, 20, 800, 600], avoidHover=True)
+                scanRegion=[10, 20, 800, 600])
     path = str(profile / "flows" / ("rt" + flowfile.EXT))
     ws.put_flow(data, path=path)
 
@@ -452,10 +451,9 @@ def test_存檔與載入的round_trip(tmp_path):
 # ---------- 開啟外來檔: 原樣複製, 不換算 (ADR 0009 / 0012) ----------
 
 def _steps_with_offsets():
-    return [find_step("a", offsetX=10, offsetY=-8),
-            {"type": "click", "x": 30, "y": 40},
-            {"type": "drag", "x1": 4, "y1": 4, "x2": 40, "y2": 80,
-             "mode": "prev"}]
+    return [find_step("a", offset=[10, -8]),
+            {"type": "click", "click": [30, 40]},
+            {"type": "drag", "drag": [4, 4], "to": [40, 80]}]
 
 
 def _foreign_flow(tmp_path, cal=None, stem="src"):
@@ -500,36 +498,32 @@ def test_存檔座標與螢幕座標互換():
     assert flowfmt.from_screen((125, 70), anchor) == (10, -6)
     assert flowfmt.to_screen((10, -6), anchor, 1.5) == (130, 67)
     assert flowfmt.from_screen((130, 67), anchor, 1.5) == (10, -6)
-    assert flowfmt.rect_to_screen({"x": -10, "y": 5, "w": 21, "h": 7},
-                                  (100, 200), 2.0) == (80, 210, 42, 14)
-    assert flowfmt.rect_from_screen((80, 210, 42, 14), (100, 200), 2.0) == \
-        {"x": -10, "y": 5, "w": 21, "h": 7}
+    assert flowfmt.rect_to_screen([-10, 5, 21, 7], (100, 200), 2.0) == (80, 210, 42, 14)
+    assert flowfmt.rect_from_screen((80, 210, 42, 14), (100, 200), 2.0) == [-10, 5, 21, 7]
 
 
 def test_換校準對後所有存下的座標改成相對新基準點():
-    rect = {"kind": "rect", "x": 100, "y": 50, "w": 30, "h": 20}
+    rect = [100, 50, 30, 20]
     data = {"steps": [
-        {"type": "click", "x": 10, "y": 20},
-        {"type": "drag", "x1": 1, "y1": 2, "x2": 3, "y2": 4},
-        {"type": "find_click", "target": {"template": "a", "limit": dict(rect)},
-         "confirmTarget": {"template": "b", "limit": dict(rect)}},
-    ], "busyTarget": {"template": "z", "limit": dict(rect)}}
+        {"type": "click", "click": [10, 20]},
+        {"type": "drag", "drag": [1, 2], "to": [3, 4]},
+        {"type": "find_click", "target": {"template": "a", "within": list(rect)},
+         "confirm_target": {"template": "b", "within": list(rect)}},
+    ], "busyTarget": {"template": "z", "within": list(rect)}}
     assert flowfmt.shift_flow(data, (100, 100), (130, 90)) == 2 + 1
     s = data["steps"]
-    assert (s[0]["x"], s[0]["y"]) == (10, 20), "相對原點的座標不動"
-    assert (s[1]["x1"], s[1]["y1"], s[1]["x2"], s[1]["y2"]) == (1, 2, 3, 4)
-    assert s[2]["target"]["limit"] == {"kind": "rect", "x": 70, "y": 60, "w": 30, "h": 20}
-    assert s[2]["confirmTarget"]["limit"]["x"] == 70
-    assert data["busyTarget"]["limit"] == {"kind": "rect", "x": 70, "y": 60,
-                                           "w": 30, "h": 20}
+    assert s[0]["click"] == [10, 20], "相對原點的座標不動"
+    assert (s[1]["drag"], s[1]["to"]) == ([1, 2], [3, 4])
+    assert s[2]["target"]["within"] == [70, 60, 30, 20]
+    assert s[2]["confirm_target"]["within"][0] == 70
+    assert data["busyTarget"]["within"] == [70, 60, 30, 20]
 
 
 def test_倍率不是1時換校準對_落點在捨入誤差內不變():
     """每個座標用舊基準點換到螢幕、再用新基準點換回 (流程尺度存整數, 誤差 ≤ 倍率/2 px)."""
     k, old, new = 1.7, (100, 50), (233, 97)
-    data = {"steps": [{"type": "find_click", "target": {"template": "a", "limit": {
-        "kind": "rect", "x": 101, "y": 51, "w": 31, "h": 21}}}]}
-    before = flowfmt.rect_to_screen({"x": 101, "y": 51, "w": 31, "h": 21}, old, k)
+    data = {"steps": [{"type": "find_click", "target": {"template": "a", "within": [101, 51, 31, 21]}}]}
+    before = flowfmt.rect_to_screen([101, 51, 31, 21], old, k)
     flowfmt.shift_flow(data, old, new, k)
-    after = flowfmt.rect_to_screen(data["steps"][0]["target"]["limit"], new, k)
+    after = flowfmt.rect_to_screen(data["steps"][0]["target"]["within"], new, k)
     assert all(abs(a - b) <= 1 for a, b in zip(before, after))

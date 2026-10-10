@@ -46,20 +46,20 @@ def from_screen(xy, anchor, k=1.0):
 
 
 def rect_to_screen(rect, anchor, k=1.0):
-    """存檔的矩形 {x, y, w, h} (相對基準點) → 螢幕矩形 (x, y, w, h).
+    """存檔的矩形 [x, y, w, h] (相對基準點) → 螢幕矩形 (x, y, w, h).
 
     右下角各自換算再相減, 與左上角同一套捨入, 寬高才不會差 1px。
     """
-    x0, y0 = to_screen((rect["x"], rect["y"]), anchor, k)
-    x1, y1 = to_screen((rect["x"] + rect["w"], rect["y"] + rect["h"]), anchor, k)
+    x, y, w, h = rect
+    x0, y0 = to_screen((x, y), anchor, k)
+    x1, y1 = to_screen((x + w, y + h), anchor, k)
     return (x0, y0, x1 - x0, y1 - y0)
 
 
 def rect_from_screen(box, anchor, k=1.0):
-    """螢幕矩形 (x, y, w, h) → 存檔的矩形 {x, y, w, h} (相對基準點, 流程尺度)."""
+    """螢幕矩形 (x, y, w, h) → 存檔的矩形 [x, y, w, h] (相對基準點, 流程尺度)."""
     x, y = from_screen(box[:2], anchor, k)
-    return {"x": x, "y": y, "w": scale_px(box[2], 1.0 / k),
-            "h": scale_px(box[3], 1.0 / k)}
+    return [x, y, scale_px(box[2], 1.0 / k), scale_px(box[3], 1.0 / k)]
 
 
 # ================= 流程裡相對基準點的矩形 =================
@@ -67,17 +67,17 @@ def rect_from_screen(box, anchor, k=1.0):
 def remap_flow(data, rect_fn):
     """整份流程資料裡相對座標基準點的矩形逐個重算 (就地); 回傳改動筆數.
 
-    rect_fn({x, y, w, h}) → 新矩形: `固定矩形` (步驟的找圖目標、確認圖、流程層級的
+    rect_fn([x, y, w, h]) → 新矩形: `固定矩形` (步驟的找圖目標、確認圖、流程層級的
     忙碌指示)。相對座標與指定點相對原點, 不動。
     """
     changed = 0
     steps = data.get("steps") or []
-    targets = [s.get(k) for s in steps for k in ("target", "confirmTarget")]
+    targets = [s.get(k) for s in steps for k in ("target", "confirm_target")]
     targets.append(data.get("busyTarget"))
     for t in targets:
-        lim = t.get("limit") if isinstance(t, dict) else None
-        if isinstance(lim, dict) and lim.get("kind") == "rect":
-            lim.update(rect_fn(lim))
+        lim = t.get("within") if isinstance(t, dict) else None
+        if isinstance(lim, list) and len(lim) == 4:
+            t["within"] = list(rect_fn(lim))
             changed += 1
     return changed
 

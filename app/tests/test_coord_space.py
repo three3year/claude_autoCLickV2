@@ -15,7 +15,7 @@ def test_執行紀錄寫出座標基準點位置(harness):
 
 # ---------- 固定矩形 ----------
 
-RECT = {"limit": {"kind": "rect", "x": 100, "y": 50, "w": 300, "h": 120}}
+RECT = {"within": [100, 50, 300, 120]}
 
 
 def test_固定矩形的查詢矩形跟著基準點走_與搜尋範圍框法無關(harness):
@@ -72,7 +72,7 @@ def test_確認圖與忙碌指示的固定矩形同樣以基準點為準(harness
     harness.vision.plan("ok", [None, (300, 160)])
     harness.vision.plan("busy", [None])
     harness.run([find("a", confirm="appear", interval=0.1,
-                      confirmTarget=tgt("ok", **RECT))],
+                      confirm_target=tgt("ok", **RECT))],
                 anchor=(50, 60), busy=tgt("busy", **RECT), retry_interval=0)
     limits = {(r["role"], r["template"]): r["limit"]
               for r in harness.filelog.of("find.target")}

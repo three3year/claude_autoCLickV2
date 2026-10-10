@@ -16,7 +16,7 @@ def confirm_rec(harness):
 def test_座標點擊_確認圖出現才往下(harness):
     harness.vision.plan("ok", [None, (300, 300)])
     r = harness.run([here(), click(100, 100, confirm="appear",
-                           confirmTarget=tgt("ok"), interval=0.2),
+                           confirm_target=tgt("ok"), interval=0.2),
                      click(9, 9)])
     assert r.ended == "done"
     assert harness.clicks() == [(100, 100), (109, 109)], "生效後原點＝點擊落點"
@@ -28,7 +28,7 @@ def test_座標點擊_確認圖出現才往下(harness):
 
 def test_座標點擊_沒出現就在補做間隔後補點_兩次落點相同(harness):
     harness.vision.plan("ok", [None] * 5 + [(300, 300)])
-    harness.run([here(), click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
+    harness.run([here(), click(100, 100, confirm="appear", confirm_target=tgt("ok"),
                        interval=0.2)])
     assert harness.clicks() == [(100, 100), (100, 100)], "1.0s 那次補一次"
 
@@ -37,7 +37,7 @@ def test_補做間隔與忙碌指示也把關座標點擊(harness):
     harness.vision.plan("ok", [None] * 8 + [(300, 300)])
     # 每輪沒生效都查 (補做的門): 1.0/1.2/1.4 有指示, 1.6 消失 → 1.6s 補
     harness.vision.plan("busy", [None] * 4 + [(960, 1000)] * 3 + [None])
-    harness.run([here(), click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
+    harness.run([here(), click(100, 100, confirm="appear", confirm_target=tgt("ok"),
                        interval=0.2)], busy=tgt("busy"))
     assert harness.clicks() == [(100, 100), (100, 100)]
     [rec] = confirm_rec(harness)
@@ -47,10 +47,10 @@ def test_補做間隔與忙碌指示也把關座標點擊(harness):
 def test_拖曳_下一步的圖出現_補做的起訖與第一次相同_原點生效後才變終點(harness):
     harness.vision.plan("anchor", [AT])
     harness.vision.plan("next", [None] * 5 + [(700, 300)])
-    harness.run([find("anchor", action="none"),
+    harness.run([find("anchor", type="find"),
                  drag(0, 100, 0, -200, confirm="next",
                       interval=0.2),
-                 find("next", action="none"),
+                 find("next", type="find"),
                  click(10, 0)])
     drags = [e[1:5] for e in harness.events if e[0] == "drag"]
     assert drags == [(500, 500, 500, 200)] * 2, "原點在生效前不動: 重拖同一段"
@@ -60,16 +60,16 @@ def test_拖曳_下一步的圖出現_補做的起訖與第一次相同_原點�
 def test_拖曳生效後原點是拖曳終點(harness):
     harness.vision.plan("anchor", [AT])
     harness.vision.plan("ok", [(300, 300)])
-    harness.run([find("anchor", action="none"),
+    harness.run([find("anchor", type="find"),
                  drag(0, 100, 0, -200, confirm="appear",
-                      confirmTarget=tgt("ok")),
+                      confirm_target=tgt("ok")),
                  click(5, 5)])
     assert harness.clicks() == [(505, 205)]
 
 
 def test_確認逾時預設停止流程(harness):
     harness.vision.plan("ok", [None])
-    r = harness.run([here(), click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
+    r = harness.run([here(), click(100, 100, confirm="appear", confirm_target=tgt("ok"),
                            timeout=1, interval=0.2), click(9, 9)])
     assert r.ended == "error"
     assert (9, 9) not in harness.clicks(), "後續步驟沒執行"
@@ -79,8 +79,8 @@ def test_確認逾時預設停止流程(harness):
 
 def test_確認逾時可改跳過(harness):
     harness.vision.plan("ok", [None])
-    r = harness.run([here(), click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
-                           timeout=1, interval=0.2, onNotFound="skip"),
+    r = harness.run([here(), click(100, 100, confirm="appear", confirm_target=tgt("ok"),
+                           timeout=1, interval=0.2, on_fail="skip"),
                      click(9, 9)])
     # 沒生效 → 原點不更新, 下一步仍相對定位找圖的 (0, 0)
     assert r.ended == "done" and harness.clicks()[-1] == (9, 9)
@@ -88,10 +88,10 @@ def test_確認逾時可改跳過(harness):
 
 def test_確認圖以操作後的原點為準(harness):
     """確認圖挑最接近原點的: 原點是這次點擊的落點, 不是點擊前的."""
-    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
+    near = {"pick": {"near": [0, 0]}}
     harness.vision.plan("ok", [[(110, 110), (850, 850)]])
     r = harness.run([here(), click(800, 800, confirm="appear",
-                                   confirmTarget=tgt("ok", **near))])
+                                   confirm_target=tgt("ok", **near))])
     [rec] = confirm_rec(harness)
     assert rec["result"] == "found" and rec["picked"] == "(830,840,40,20)"
     assert r.ended == "done"
@@ -116,5 +116,5 @@ def test_下一步不是找圖_執行期退化成不確認(harness):
 
 def test_確認圖列入範本預載(harness):
     harness.vision.plan("ok", [(300, 300)])
-    harness.run([click(1, 1, confirm="appear", confirmTarget=tgt("ok"))])
+    harness.run([click(1, 1, confirm="appear", confirm_target=tgt("ok"))])
     assert "ok" in harness.vision.preloads[0]

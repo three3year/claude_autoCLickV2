@@ -72,7 +72,7 @@ def test_找圖目標圖消失_目標不在原位就不補點(harness):
     """點了之後目標移走 (別處有同款), 確認圖也還沒出現: 照舊不補點."""
     harness.vision.plan("a", [AT] + [(900, 100)] * 10)
     harness.vision.plan("ok", [None] * 8 + [(300, 300)])
-    harness.run([find("a", confirm="appear", confirmTarget=tgt("ok"),
+    harness.run([find("a", confirm="appear", confirm_target=tgt("ok"),
                       interval=0.2)])
     assert harness.clicks() == [AT]
 
@@ -88,7 +88,7 @@ def test_逾時時延後中的時間也算進去(harness):
     harness.vision.plan("a", [AT])
     harness.vision.plan("busy", [(960, 1000)])
     harness.run([find("a", confirm="gone", interval=0.2, timeout=2,
-                      onNotFound="skip")], busy=BUSY)
+                      on_fail="skip")], busy=BUSY)
     assert harness.clicks() == [AT], "指示一直在: 一次都不補"
     [rec] = confirm_records(harness)
     assert rec["result"] == "not_gone"

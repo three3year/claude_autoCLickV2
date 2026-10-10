@@ -54,9 +54,9 @@ def test_座標點擊與拖曳的確認欄位照計畫寫進存檔(demo, engine)
              drag_from("確定", confirm="next", interval=0.3),
              find("下一步")]
     s = saved(run(demo, engine, steps))["steps"]
-    assert (s[1]["confirm"], s[1]["confirmTarget"]["template"],
-            s[1]["timeout"], s[1]["onNotFound"]) == ("appear", "確定", 4, "skip")
-    assert (s[3]["confirm"], s[3]["interval"], s[3]["onNotFound"]) == (
+    assert (s[1]["confirm"], s[1]["confirm_target"]["template"],
+            s[1]["timeout"], s[1]["on_fail"]) == ("appear", "確定", 4, "skip")
+    assert (s[3]["confirm"], s[3]["interval"], s[3]["on_fail"]) == (
         "next", 0.3, "stop")
 
 
@@ -64,7 +64,7 @@ def test_流程層級的忙碌指示(demo, engine):
     steps = [find("開始"), find("確定", action="wait_gone"), find("下一步")]
     data = saved(run(demo, engine, steps,
                      busyTarget={"template": "下一步", "colorCheck": True}))
-    assert flowfile.busy_target(data) == {"template": "下一步", "colorCheck": True}
+    assert flowfile.busy_target(data) == {"template": "下一步", "color": True}
     assert "retryIntervalMs" not in data, "補做間隔是固定行為, 不進存檔"
 
 
@@ -93,7 +93,7 @@ def test_非法值仍被擋(demo, engine, steps, extra, match):
 def test_拖曳的原點來自找圖時預設原點的圖離開_找不到時停止(demo, engine):
     s = saved(run(demo, engine, [find("開始", action="none"),
                                  drag_from("開始")]))["steps"]
-    assert (s[1]["confirm"], s[1]["onNotFound"], s[1]["timeout"]) == (
+    assert (s[1]["confirm"], s[1]["on_fail"], s[1]["timeout"]) == (
         "gone", "stop", 10)
 
 
@@ -102,7 +102,7 @@ def test_原點不是找圖時拖曳不設確認(demo, engine):
     s = saved(run(demo, engine, [find("開始", action="none"),
                                  {"type": "click", "at": [x, y + 40]},
                                  drag_from("開始")]))["steps"]
-    assert "confirm" not in s[2] and "onNotFound" not in s[2]
+    assert "confirm" not in s[2] and "on_fail" not in s[2]
 
 
 # ---------- 交付報告 ----------

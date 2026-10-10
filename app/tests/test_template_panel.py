@@ -160,7 +160,7 @@ def test_選取範本時預覽顯示圖與尺寸(tkroot, tmp_path):
 def test_重新命名同步改寫所有引用_含確認圖(tkroot, tmp_path, monkeypatch):
     steps = [{"type": "find_click", "target": {"template": "a"}},
              {"type": "find_click", "target": {"template": "b"},
-              "confirm": "appear", "confirmTarget": {"template": "a"}}]
+              "confirm": "appear", "confirm_target": {"template": "a"}}]
     app = _panel(tkroot, tmp_path, names=("a", "b"), steps=steps)
     try:
         monkeypatch.setattr(ui_dialogs, "ask_string",
@@ -173,7 +173,7 @@ def test_重新命名同步改寫所有引用_含確認圖(tkroot, tmp_path, mon
         assert not os.path.exists(app.ws.path_of("a"))
         assert os.path.exists(app.ws.path_of("按鈕"))
         assert steps[0]["target"]["template"] == "按鈕"
-        assert steps[1]["confirmTarget"]["template"] == "按鈕"
+        assert steps[1]["confirm_target"]["template"] == "按鈕"
         assert any("2 個步驟" in m for m in app.logged)
     finally:
         app.destroy()

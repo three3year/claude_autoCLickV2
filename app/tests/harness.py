@@ -45,27 +45,30 @@ def cal(pair=CAL_PAIR, baseline=CAL_BASELINE):
     return {"pair": list(pair), "baseline": float(baseline)}
 
 
-# ---------- 步驟建構器 ----------
+# ---------- 步驟建構器 (鍵名與單位跟 flow.yaml 相同; 見 app/CONTEXT.md) ----------
 
-def wait(ms):
-    return {"type": "wait", "ms": ms}
+def wait(secs):
+    return {"type": "wait", "wait": secs}
 
 
 def click(x, y, **kw):
-    return dict({"type": "click", "x": x, "y": y}, **kw)
+    """座標點擊 (相對原點)."""
+    return dict({"type": "click", "click": [x, y]}, **kw)
 
 
 def drag(x1, y1, x2, y2, **kw):
-    return dict({"type": "drag", "x1": x1, "y1": y1, "x2": x2, "y2": y2}, **kw)
+    """拖曳 (起訖都相對原點)."""
+    return dict({"type": "drag", "drag": [x1, y1], "to": [x2, y2]}, **kw)
 
 
 def tgt(template, **attrs):
-    """`找圖目標`: 範本 + 限定範圍/挑選規則/比色 (缺＝預設)."""
+    """`找圖目標`: 範本 + 限定範圍 within / 挑選規則 pick / 比色 color (缺＝預設)."""
     return dict({"template": template}, **attrs)
 
 
 def find(template, target=None, **kw):
-    """找圖步驟; target 給`找圖目標`的其餘屬性 (limit/pick/colorCheck)."""
+    """找圖步驟 (預設 find_click; type="find" / "wait_gone" 換三態);
+    target 給`找圖目標`的其餘屬性 (within/pick/color)."""
     return dict({"type": "find_click", "target": tgt(template, **(target or {}))},
                 **kw)
 
@@ -76,15 +79,15 @@ HERE = "here"   # 定位找圖的範本: 預設擺在 (0, 0) (見 Vision)
 def here(**kw):
     """定位找圖 (只找不點、更新原點): 原點落在 HERE 擺的位置 (預設 (0, 0)),
     後面的相對座標點擊/拖曳的數字就等於螢幕座標 (座標點擊只有相對原點一種)."""
-    return find(HERE, action="none", **kw)
+    return find(HERE, type="find", **kw)
 
 
-def loop(count):
-    return {"type": "loop_start", "count": count}
+def repeat(n):
+    return {"type": "repeat_start", "repeat": n}
 
 
-def loop_end(**kw):
-    return dict({"type": "loop_end"}, **kw)
+def repeat_end(**kw):
+    return dict({"type": "repeat_end"}, **kw)
 
 
 def branch_start():

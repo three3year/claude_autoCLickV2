@@ -173,7 +173,7 @@ class Checker:
 
     def _check_scale(self, name, t, color):
         """`拾取檢查`的縮放餘裕: 取材幀 ×0.85 / ×1.15 各查一次 (pickcheck 的標準)."""
-        probe = {"template": name, "colorCheck": color}
+        probe = {"template": name, "color": color}
         for w in pickcheck.scale_margin(self.detector, self.frames[t["frame"]], (0, 0),
                                         probe, anchor=None, scale=1.0):
             self.results[name]["reasons"].append(f"縮放餘裕：{w.text}")

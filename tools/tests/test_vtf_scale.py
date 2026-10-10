@@ -59,7 +59,7 @@ def test_偏移以影片像素原樣存檔不依搜尋範圍大小換算(tmp_pat
                              off("下一步", -7, 5)])
 
     steps = saved_steps(res)
-    assert [(s["offsetX"], s["offsetY"]) for s in steps] == [
+    assert [tuple(s["offset"]) for s in steps] == [
         (10, -3), (0, 0), (-7, 5)]
     r = flowfile.read(res["flow_path"])
     assert r["data"]["scanRegion"] == reg
@@ -90,7 +90,7 @@ def test_不讀profile的校準資料_座標原樣(tmp_path, engine):
                             steps=[off("開始", 10, -5)], cal=cal)
 
     s = saved_steps(res)[0]
-    assert (s["offsetX"], s["offsetY"]) == (10, -5)
+    assert s["offset"] == [10, -5]
     with open(profile / "calibration.json", encoding="utf-8") as f:
         assert json.load(f) == cal
 

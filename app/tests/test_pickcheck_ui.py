@@ -50,7 +50,7 @@ def test_框出不足的矩形_對話框出現矩形餘裕警告_確定照存(ma
                          _press("在畫面上框選"), look, _press("確定"))
     assert len(seen["warn"]) == 1
     assert "至少要框 70×70" in seen["warn"][0] and "58×58" in seen["warn"][0]
-    assert got["limit"] == {"kind": "rect", "x": 150, "y": 120, "w": 58, "h": 58}, \
+    assert got["within"] == [150, 120, 58, 58], \
         "只警告不擋存檔"
 
 
@@ -78,7 +78,7 @@ def test_餘裕以流程尺度算_倍率不是1時框選值先換回(make_app, m
         seen["warn"] = _warn_labels(dr.dlg)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
                          _press("在畫面上框選"), look, _press("確定"))
-    assert got["limit"]["w"] == 60
+    assert got["within"][2] == 60
     assert any("60×60" in t and "70×70" in t for t in seen["warn"])
 
 
@@ -105,8 +105,8 @@ def test_重新打開既有的不足矩形_也看得到警告_重拖夠大就清
 
     def after(dr):
         seen["after"] = _warn_labels(dr.dlg)
-    old = {"kind": "rect", "x": 0, "y": 0, "w": 58, "h": 58}
-    _target_dialog(app, {"template": "a", "limit": old}, before,
+    old = [0, 0, 58, 58]
+    _target_dialog(app, {"template": "a", "within": old}, before,
                    _press("在畫面上框選"), after, _press("確定"))
     assert len(seen["before"]) == 1 and "70×70" in seen["before"][0]
     assert seen["after"] == []
@@ -213,7 +213,7 @@ def test_找圖設定確定_兩個匹配_紀錄區出現唯一警告_設定照�
     _template(app, "a", 50, 50)
     app.vision.plan("a", [[(300, 400), (500, 400)]])
     got = _target_dialog(app, {"template": "a"}, _press("確定"))
-    assert got == {"limit": None, "pick": {"kind": "score"}, "color": False}
+    assert got == {"within": None, "pick": None, "color": False}
     msgs = [m for _, m in _check_logs(app)]
     assert any("2 個匹配" in m and "(300,400)" in m for m in msgs), msgs
     assert "a" in app.pick_warnings()
@@ -225,9 +225,9 @@ def test_找圖設定確定_改選由上到下第2個_沒有唯一警告(make_ap
     _engine(app, monkeypatch)
     _template(app, "a", 50, 50)
     app.vision.plan("a", [[(300, 400), (500, 400)]])
-    got = _target_dialog(app, {"template": "a", "pick": {"kind": "top", "n": 2}},
+    got = _target_dialog(app, {"template": "a", "pick": {"top": 2}},
                          _press("確定"))
-    assert got["pick"] == {"kind": "top", "n": 2}
+    assert got["pick"] == {"top": 2}
     assert not any("匹配" in m for _, m in _check_logs(app))
     assert app.pick_warnings() == {}
 

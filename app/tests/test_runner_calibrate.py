@@ -23,7 +23,7 @@ def run(harness, steps, calibration=None, **kw):
 def test_兩張都找到_倍率是距離比_落點乘上倍率(harness):
     place(harness, (100, 40), (900, 40))          # 距離 800 ÷ 基準 1000 = 0.8
     harness.vision.plan("a", [(500, 400)])
-    r = run(harness, [find("a", offsetX=50), click(100, -50, mode="prev")])
+    r = run(harness, [find("a", offset=[50, 0]), click(100, -50)])
     assert r.ended == "done"
     assert harness.clicks() == [(540, 400), (620, 360)]
     assert "×0.800" in harness.log_text(r)
@@ -33,9 +33,9 @@ def test_其後每次查詢的預期尺度都是這個倍率(harness):
     place(harness, (100, 40), (1000, 40))         # 0.9
     harness.vision.plan("a", [(500, 400)])
     harness.vision.plan("ok", [None, (600, 300)])
-    run(harness, [find("a", confirm="appear", confirmTarget=tgt("ok"),
+    run(harness, [find("a", confirm="appear", confirm_target=tgt("ok"),
                        interval=0.1),
-                  find("b", action="none")])
+                  find("b", type="find")])
     seen = harness.expected_scales()
     assert {n for n, _ in seen} == {"a", "ok", "b"}
     assert all(s == 0.9 for _, s in seen), seen
@@ -52,8 +52,8 @@ def test_校準本身的查詢不帶預期尺度(harness):
 def test_倍率1時落點與原本完全相同(harness):
     place(harness, (100, 40), (1100, 40))
     harness.vision.plan("a", [(500, 400)])
-    run(harness, [find("a", offsetX=7, offsetY=-3), click(11, 13, mode="prev"),
-                  drag(1, 2, 30, 40, mode="prev")])
+    run(harness, [find("a", offset=[7, -3]), click(11, 13),
+                  drag(1, 2, 30, 40)])
     assert harness.clicks() == [(507, 397), (518, 410)]
     ev = [e for e in harness.events if e[0] == "drag"][0]
     assert ev[1:5] == (519, 412, 548, 450)
@@ -62,7 +62,7 @@ def test_倍率1時落點與原本完全相同(harness):
 def test_量測抖動內貼齊倍率1(harness):
     place(harness, (100, 40), (1099, 40))         # 999/1000: 抖動, 不是縮放
     harness.vision.plan("a", [(500, 400)])
-    run(harness, [find("a", action="none"), click(519, 0)])
+    run(harness, [find("a", type="find"), click(519, 0)])
     assert harness.clicks() == [(1019, 400)], "原點 + 偏移原樣 (倍率貼齊 1)"
 
 

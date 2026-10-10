@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from automation import findtarget
 
+from . import keys
 from .errors import ToolError
 from .geom import center as _center
 
@@ -44,15 +45,12 @@ def _target(no, name, attrs, origin, why, what):
     工具不產出限定範圍 (固定矩形留到影片轉流程階段, ADR 0014)。
     """
     pick = attrs.get("pick")
-    p = None
     if pick and pick["kind"] == "near":
         if origin is None:
             _target_no_origin(no, f"{what}的指定點", why)
         x, y = pick["at"]
-        p = {"kind": "near", "x": x - origin[0], "y": y - origin[1]}
-    elif pick:
-        p = dict(pick)
-    return findtarget.make_target(name, pick=p,
+        pick = {"kind": "near", "x": x - origin[0], "y": y - origin[1]}
+    return findtarget.make_target(name, pick=keys.flow_pick(pick),
                                   color=attrs.get("colorCheck", False))
 
 
@@ -60,8 +58,8 @@ def _pointer_confirm_target(no, s, origin, why):
     """座標點擊/拖曳的確認圖: 以操作後的原點換成相對值 (同找圖的確認圖)."""
     cfm = s.pop("confirmTarget", None)
     if cfm:
-        s["confirmTarget"] = _target(no, cfm["template"], cfm, origin, why,
-                                     "確認圖")
+        s["confirm_target"] = _target(no, cfm["template"], cfm, origin, why,
+                                      "確認圖")
 
 
 _IN_LOOP = "（位於重複區段內：第二輪起原點會變成上一輪的結尾，原點必須來自區段內）"
@@ -69,12 +67,12 @@ _AFTER_BRANCH = "（分岔結束後走了哪一支不確定，原點必須在分
 
 
 def derive(steps, templates, located):
-    """推算偏移; 回傳新的步驟清單 (位置詞彙換成偏移欄位).
+    """推算偏移; 回傳流程的步驟清單 (位置詞彙換成偏移欄位, 鍵名換成流程模型的).
 
     located(i, step, target, origin) → 找圖步驟照它的找圖目標在它那一幀挑中的
     框 (影片像素; target 已換成相對值, origin 是這一步之前的原點); 呼叫端決定
     挑不到時退回什麼框。located 為 None 時只做「有沒有原點」的檢查, 偏移不可信
-    (組裝前的結構檢查用)。找圖步驟輸出存檔的`找圖目標` (target/confirmTarget)。
+    (組裝前的結構檢查用)。找圖步驟輸出流程的`找圖目標` (target/confirm_target)。
     """
     origin, why = None, ""
     stack = []   # [(種類, 進入區段時的原點, 沒有原點的原因)]
@@ -104,14 +102,14 @@ def derive(steps, templates, located):
                    else templates[s["template"]]["box"])
             cx, cy = _center(box)
             at = s.pop("at", None) or [cx, cy]
-            s.update(offsetX=at[0] - cx, offsetY=at[1] - cy)
+            s["offset"] = [at[0] - cx, at[1] - cy]
             if s.get("updateOrigin", True):
                 origin, why = tuple(at), ""
             # 確認圖的找圖目標以點擊後的原點為基準
             cfm = s.pop("confirmTarget", None)
             if cfm:
-                s["confirmTarget"] = _target(no, cfm["template"], cfm, origin,
-                                             why, "確認圖")
+                s["confirm_target"] = _target(no, cfm["template"], cfm, origin,
+                                              why, "確認圖")
             for k in ("template", "colorCheck", "pick"):
                 s.pop(k, None)
             s["target"] = tgt
@@ -119,7 +117,7 @@ def derive(steps, templates, located):
             at = s.pop("at")
             if origin is None:
                 _no_origin(no, s, why)
-            s.update(x=at[0] - origin[0], y=at[1] - origin[1])
+            s["click"] = [at[0] - origin[0], at[1] - origin[1]]
             if s.get("updateOrigin", True):
                 origin = tuple(at)
             _pointer_confirm_target(no, s, origin, why)
@@ -127,10 +125,10 @@ def derive(steps, templates, located):
             a, b = s.pop("from"), s.pop("to")
             if origin is None:
                 _no_origin(no, s, why)
-            s.update(x1=a[0] - origin[0], y1=a[1] - origin[1],
-                     x2=b[0] - origin[0], y2=b[1] - origin[1])
+            s["drag"] = [a[0] - origin[0], a[1] - origin[1]]
+            s["to"] = [b[0] - origin[0], b[1] - origin[1]]
             origin = tuple(b)
             _pointer_confirm_target(no, s, origin, why)
         s.pop("frame", None)
-        out.append(s)
+        out.append(keys.flow_step(s))
     return out

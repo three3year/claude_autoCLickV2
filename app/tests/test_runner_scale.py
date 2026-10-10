@@ -8,7 +8,7 @@ from harness import click, drag, find
 
 def test_找圖偏移乘上倍率(harness):
     harness.vision.plan("a.png", [(500, 400)])
-    harness.run([find("a.png", offsetX=10, offsetY=-20)], scale=1.5)
+    harness.run([find("a.png", offset=[10, -20])], scale=1.5)
     assert harness.clicks() == [(515, 370)], "落點 = 中心 + 偏移×1.5 (四捨五入)"
 
 
@@ -36,7 +36,7 @@ def test_搜尋範圍本身不乘倍率(harness):
 def test_找圖不點擊時原點也含倍率後的偏移(harness):
     """wait_gone / none 記錄的原點 = 找到位置 + 偏移×倍率."""
     harness.vision.plan("a.png", [(500, 400)])
-    harness.run([find("a.png", action="none", offsetX=10, offsetY=0),
+    harness.run([find("a.png", type="find", offset=[10, 0]),
                  click(0, 0)], scale=2.0)
     assert harness.clicks() == [(520, 400)]
 
@@ -44,5 +44,5 @@ def test_找圖不點擊時原點也含倍率後的偏移(harness):
 def test_點擊後確認的補點同樣乘上倍率(harness):
     harness.vision.plan("a.png", [(500, 400), (500, 400), None])
     harness.run(retry_interval=0, steps=[find("a.png", confirm="gone", interval=0.1,
-                      offsetX=4, offsetY=0)], scale=1.5)
+                      offset=[4, 0])], scale=1.5)
     assert harness.clicks() == [(506, 400), (506, 400)]

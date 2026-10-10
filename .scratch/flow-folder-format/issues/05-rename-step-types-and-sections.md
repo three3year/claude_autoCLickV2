@@ -4,8 +4,8 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 記憶體步驟沒有 `action`、`loop_*`、`count`、`onBreak`；全 repo 程式碼只讀新名（除了舊存檔翻譯層）
-- [ ] 舊存檔開檔→存檔後 `flow.json` 內容不變（四份流程）
-- [ ] 不改行為：現有測試全綠
+- [x] 記憶體步驟沒有 `action`、`loop_*`、`count`、`onBreak`；全 repo 程式碼只讀新名（除了舊存檔翻譯層）
+- [x] 舊存檔開檔→存檔後 `flow.json` 內容不變（四份流程）
+- [x] 不改行為：現有測試全綠

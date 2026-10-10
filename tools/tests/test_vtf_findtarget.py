@@ -56,8 +56,8 @@ def test_同款多張時由上到下第N驗證通過且點對(cards, engine):
 
     assert res["retake"] == {}
     [s] = saved_steps(res)
-    assert s["target"] == {"template": "卡", "pick": {"kind": "top", "n": 2}}
-    assert (s["offsetX"], s["offsetY"]) == (0, 0)
+    assert s["target"] == {"template": "卡", "pick": {"top": 2}}
+    assert s["offset"] == [0, 0]
 
 
 def test_挑選規則設錯被標待重拍(cards, engine):
@@ -90,7 +90,7 @@ def test_指定點從影片像素換算成相對原點(tmp_path, engine):
     s = saved_steps(res)[1]
     assert "limit" not in s["target"]
     cx, cy = center("確定")
-    assert s["target"]["pick"] == {"kind": "near", "x": cx - ox, "y": cy - oy}
+    assert s["target"]["pick"] == {"near": [cx - ox, cy - oy]}
 
 
 def test_九宮格與以搜尋範圍為基準的指定點已退場(tmp_path, engine):
@@ -117,7 +117,7 @@ def test_profile的舊校準資料不影響_指定點原樣是影片像素(tmp_p
     res = run(located_plan(video, profile, second), engine)
 
     s = saved_steps(res)[1]
-    assert (s["target"]["pick"]["x"], s["target"]["pick"]["y"]) == (320 - ox, 170 - oy)
+    assert s["target"]["pick"] == {"near": [320 - ox, 170 - oy]}
 
 
 def test_確認圖的找圖目標用點擊後的原點換算(tmp_path, engine):
@@ -132,9 +132,9 @@ def test_確認圖的找圖目標用點擊後的原點換算(tmp_path, engine):
     res = run(demo_plan(video, profile, steps=steps), engine)
 
     s = saved_steps(res)[0]
-    assert s["confirmTarget"] == {
-        "template": "確定", "colorCheck": True,
-        "pick": {"kind": "near", "x": bx - at[0], "y": by - at[1]}}
+    assert s["confirm_target"] == {
+        "template": "確定", "color": True,
+        "pick": {"near": [bx - at[0], by - at[1]]}}
 
 
 # ---------- 比色: 只差顏色的 absent 幀 ----------
@@ -176,7 +176,7 @@ def test_只差顏色的absent幀_開比色後不再被匹配(greyed, engine):
               "at": [330, 138], "colorCheck": True}]
     res = run(demo_plan(video, profile, steps=steps, templates=templates), engine)
     assert res["retake"] == {}
-    assert saved_steps(res)[0]["target"]["colorCheck"] is True
+    assert saved_steps(res)[0]["target"]["color"] is True
 
 
 # ---------- 組裝拒絕不完整設定 ----------

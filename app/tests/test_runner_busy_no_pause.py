@@ -11,7 +11,7 @@ from harness import branch_end, branch_or, branch_start, click, find, here, tgt
 
 AT = (500, 400)
 BUSY_AT = (960, 1000)
-BUSY = tgt("busy", limit={"kind": "rect", "x": 640, "y": 720, "w": 640, "h": 360})
+BUSY = tgt("busy", within=[640, 720, 640, 360])
 
 
 def span(harness):
@@ -64,7 +64,7 @@ def test_分岔_忙碌結束後才出現的條件_已逾時就挑不到(harness)
 def test_一般找圖_忙碌不延後逾時(harness):
     harness.vision.plan("a", [None] * 12 + [AT])   # 6.0s 才出現 (逾時 2s)
     harness.vision.plan("busy", [BUSY_AT])
-    r = harness.run([find("a", timeout=2, interval=0.5, onNotFound="stop")],
+    r = harness.run([find("a", timeout=2, interval=0.5, on_fail="stop")],
                     busy=BUSY)
     assert r.ended == "error" and harness.clicks() == []
     assert span(harness) == pytest.approx(2.0, abs=0.1)
@@ -82,7 +82,7 @@ def test_找圖等待完全不查忙碌指示(harness):
 def test_沒設忙碌指示_時間點不變也不查(harness):
     harness.vision.plan("a", [None])
     harness.vision.plan("busy", [BUSY_AT])
-    harness.run([find("a", timeout=2, interval=0.5, onNotFound="skip")])
+    harness.run([find("a", timeout=2, interval=0.5, on_fail="skip")])
     assert span(harness) == pytest.approx(2.0, abs=0.1)
     assert "busy" not in harness.lookups()
 
@@ -93,8 +93,8 @@ def test_生效確認_忙碌不延後逾時_補做門照舊每輪查一次(harne
     harness.vision.plan("a", [AT])
     harness.vision.plan("ok", [None] * 10 + [(300, 300)])   # 第 11 輪 (2.2s) 才出現
     harness.vision.plan("busy", [BUSY_AT])
-    r = harness.run([find("a", confirm="appear", confirmTarget=tgt("ok"),
-                          timeout=1.5, interval=0.2, onNotFound="skip"),
+    r = harness.run([find("a", confirm="appear", confirm_target=tgt("ok"),
+                          timeout=1.5, interval=0.2, on_fail="skip"),
                      click(9, 9)], busy=BUSY)
     assert r.ended == "done"
     # 點擊當下就更新原點 → 下一步相對 AT
@@ -118,8 +118,8 @@ def test_生效確認_補做門用同一張截圖查_沒忙碌就照間隔補做
 def test_座標點擊的生效確認_忙碌不延後逾時_日誌沒有暫停欄位(harness):
     harness.vision.plan("ok", [None])
     harness.vision.plan("busy", [BUSY_AT])
-    r = harness.run([here(), click(9, 9, confirm="appear", confirmTarget=tgt("ok"),
-                           timeout=1.5, interval=0.2, onNotFound="skip"),
+    r = harness.run([here(), click(9, 9, confirm="appear", confirm_target=tgt("ok"),
+                           timeout=1.5, interval=0.2, on_fail="skip"),
                      click(1, 1)], busy=BUSY)
     # 沒生效 → 原點不更新, 下一步仍相對定位找圖的 (0, 0)
     assert r.ended == "done" and harness.clicks() == [(9, 9), (1, 1)]
@@ -130,7 +130,7 @@ def test_座標點擊的生效確認_忙碌不延後逾時_日誌沒有暫停欄
 
 # ---------- 等待消失 ----------
 
-GONE = dict(action="wait_gone", interval=0.5, timeout=2, onNotFound="stop")
+GONE = dict(type="wait_gone", interval=0.5, timeout=2, on_fail="stop")
 
 
 def test_等待消失_忙碌不延後逾時(harness):
@@ -145,7 +145,7 @@ def test_等待消失_忙碌不延後逾時(harness):
 
 def test_等待消失的目標就是忙碌指示_只查步驟自己那一次(harness):
     harness.vision.plan("busy", [BUSY_AT] * 3 + [None])   # 0.0..1.0s 在, 1.5s 消失
-    r = harness.run([find("busy", target={"limit": BUSY["limit"]}, **GONE),
+    r = harness.run([find("busy", target={"within": BUSY["within"]}, **GONE),
                      click(9, 9)], busy=BUSY)
     # 等待消失記下最後看到的位置當原點
     assert r.ended == "done" and harness.clicks() == [(969, 1009)]

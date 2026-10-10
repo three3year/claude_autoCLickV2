@@ -153,6 +153,151 @@ def used_templates(steps):
     return sorted(findtarget.referenced_templates(steps))
 
 
+# ======== 舊存檔鍵名 ⇄ 記憶體鍵名 (過渡碼: 讀寫換成流程資料夾 flow.yaml 時整段刪掉) ========
+# 記憶體裡的步驟已改用 flow.yaml 的鍵名與單位 (秒); .autoclickpack 的 flow.json 還是舊鍵。
+# 已退場的欄位 (座標模式、滑鼠鍵、連點數、出現等候上限) 讀進來就丟掉。
+
+_RENAMES = (("onNotFound", "on_fail"), ("updateOrigin", "update_origin"),
+            ("busyCheck", "busy_check"), ("onBreak", "on_break"))
+_RETIRED = ("mode", "button", "clicks", "appearLimitMs")
+_ACTION_TYPE = {"click": "find_click", "none": "find", "wait_gone": "wait_gone"}
+
+
+def _ms_to_s(ms):
+    s = float(ms) / 1000.0
+    return int(s) if s.is_integer() else s
+
+
+def _s_to_ms(s):
+    return int(round(float(s) * 1000))
+
+
+def _old_target(t):
+    """舊找圖目標 {template, limit, pick:{kind,n|x,y}, colorCheck} → 新."""
+    if not isinstance(t, dict):
+        return t
+    out = {k: v for k, v in t.items() if k not in ("limit", "pick", "colorCheck")}
+    lim = t.get("limit")
+    if isinstance(lim, dict) and lim.get("kind") == "rect":
+        out["within"] = [lim.get(k) for k in ("x", "y", "w", "h")]
+    pick = t.get("pick") or {}
+    kind = pick.get("kind")
+    if kind in ("top", "left"):
+        out["pick"] = {kind: pick.get("n", 1)}
+    elif kind == "near":
+        out["pick"] = {"near": [pick.get("x", 0), pick.get("y", 0)]}
+    if t.get("colorCheck"):
+        out["color"] = True
+    return out
+
+
+def _new_target(t):
+    """新找圖目標 → 舊 (寫回 flow.json)."""
+    if not isinstance(t, dict):
+        return t
+    out = {k: v for k, v in t.items() if k not in ("within", "pick", "color")}
+    if t.get("within") is not None:
+        out["limit"] = dict(zip(("x", "y", "w", "h"), t["within"]), kind="rect")
+    kind, value = findtarget.pick_rule(t)
+    if kind in ("top", "left"):
+        out["pick"] = {"kind": kind, "n": value}
+    elif kind == "near":
+        out["pick"] = {"kind": "near", "x": value[0], "y": value[1]}
+    if t.get("color"):
+        out["colorCheck"] = True
+    return out
+
+
+def _old_step(s):
+    s = {k: v for k, v in s.items() if k not in _RETIRED}
+    for old, new in _RENAMES:
+        if old in s:
+            s[new] = s.pop(old)
+    if "target" in s:
+        s["target"] = _old_target(s["target"])
+    if "confirmTarget" in s:
+        s["confirm_target"] = _old_target(s.pop("confirmTarget"))
+    t = s.get("type")
+    if t == "find_click":
+        s["type"] = _ACTION_TYPE.get(s.pop("action", "click"), "find_click")
+        if "offsetX" in s or "offsetY" in s:
+            s["offset"] = [s.pop("offsetX", 0), s.pop("offsetY", 0)]
+    elif t == "click":
+        s["click"] = [s.pop("x", 0), s.pop("y", 0)]
+    elif t == "drag":
+        s["drag"] = [s.pop("x1", 0), s.pop("y1", 0)]
+        s["to"] = [s.pop("x2", 0), s.pop("y2", 0)]
+        if "ms" in s:
+            s["duration"] = _ms_to_s(s.pop("ms"))
+        if "holdMs" in s:
+            s["hold"] = _ms_to_s(s.pop("holdMs"))
+    elif t == "wait":
+        if "ms" in s:
+            s["wait"] = _ms_to_s(s.pop("ms"))
+    elif t == "loop_start":
+        s["type"] = "repeat_start"
+        if "count" in s:
+            s["repeat"] = s.pop("count")
+    elif t == "loop_end":
+        s["type"] = "repeat_end"
+    return s
+
+
+def _new_step(s):
+    s = dict(s)
+    for old, new in _RENAMES:
+        if new in s:
+            s[old] = s.pop(new)
+    if "target" in s:
+        s["target"] = _new_target(s["target"])
+    if "confirm_target" in s:
+        s["confirmTarget"] = _new_target(s.pop("confirm_target"))
+    t = s.get("type")
+    if t in findtarget.FIND_TYPES:
+        s["action"] = {v: k for k, v in _ACTION_TYPE.items()}[t]
+        s["type"] = "find_click"
+        if "offset" in s:
+            s["offsetX"], s["offsetY"] = s.pop("offset")
+    elif t == "click":
+        s["x"], s["y"] = s.pop("click")
+    elif t == "drag":
+        s["x1"], s["y1"] = s.pop("drag")
+        s["x2"], s["y2"] = s.pop("to")
+        if "duration" in s:
+            s["ms"] = _s_to_ms(s.pop("duration"))
+        if "hold" in s:
+            s["holdMs"] = _s_to_ms(s.pop("hold"))
+    elif t == "wait":
+        if "wait" in s:
+            s["ms"] = _s_to_ms(s.pop("wait"))
+    elif t == "repeat_start":
+        s["type"] = "loop_start"
+        if "repeat" in s:
+            s["count"] = s.pop("repeat")
+    elif t == "repeat_end":
+        s["type"] = "loop_end"
+    return s
+
+
+def _from_old(data):
+    """flow.json (舊鍵) → 記憶體的流程資料 (步驟與忙碌指示換成新鍵)."""
+    data = dict(data)
+    data["steps"] = [_old_step(s) for s in data.get("steps") or []]
+    if isinstance(data.get(BUSY_KEY), dict):
+        data[BUSY_KEY] = _old_target(data[BUSY_KEY])
+    data.pop("avoidHover", None)
+    return data
+
+
+def _to_old(data):
+    """記憶體的流程資料 → flow.json (舊鍵)."""
+    data = dict(data)
+    data["steps"] = [_new_step(s) for s in data.get("steps") or []]
+    if isinstance(data.get(BUSY_KEY), dict):
+        data[BUSY_KEY] = _new_target(data[BUSY_KEY])
+    return data
+
+
 # ================= 格式檢查: 舊格式一律拒絕 =================
 
 class OldFormatError(ValueError):
@@ -244,8 +389,8 @@ def write(path, data, images, pos=None):
     寫進執行紀錄即可。
     """
     images = images or {}
-    stamped = _stamped(data)
-    refs = flow_refs(stamped)
+    refs = flow_refs(data)
+    stamped = _stamped(_to_old(data))
     pos = pos or {}
     missing = [n for n in refs if n not in images]
     tmp = str(path) + ".tmp"
@@ -329,6 +474,7 @@ def read(path):
     """
     data = _flow_json(path)
     check_format(data)
+    data = _from_old(data)
     with zipfile.ZipFile(path) as z:
         try:
             meta = json.loads(z.read(META_ENTRY).decode("utf-8"))
@@ -370,7 +516,7 @@ def write_draft(profile_dir, data):
     圖已經在工作區裡, 當機重開時草稿與工作區的圖一起復原。草稿與存檔同一套
     格式標記 (版本與座標空間), 讀回時過同一關。
     """
-    stamped = _stamped(data)
+    stamped = _stamped(_to_old(data))
     try:
         os.makedirs(flows_dir(profile_dir), exist_ok=True)
         with open(draft_path(profile_dir), "w", encoding="utf-8") as f:
@@ -389,7 +535,7 @@ def read_draft(profile_dir):
     if not isinstance(data, dict):
         return None
     check_format(data)
-    return data
+    return _from_old(data)
 
 
 def free_path(dirpath, stem, suffix):

@@ -17,7 +17,7 @@ def test_勾掉更新原點的點擊不改變原點(harness):
     harness.run([
         here(),
         click(100, 200),
-        click(500, 500, updateOrigin=False),
+        click(500, 500, update_origin=False),
         click(1, 1),
     ])
     assert harness.clicks()[-1] == (101, 201)
@@ -30,7 +30,7 @@ def test_拖曳終點一律成為原點(harness):
 
 def test_找圖找到的位置成為原點(harness):
     harness.vision.plan("a.png", [(500, 400)])
-    harness.run([find("a.png", action="none"), click(3, 4)])
+    harness.run([find("a.png", type="find"), click(3, 4)])
     assert harness.clicks() == [(503, 404)]
 
 
@@ -39,7 +39,7 @@ def test_找圖勾掉更新原點時不改變原點(harness):
     harness.run([
         here(),
         click(100, 200),
-        find("a.png", action="none", updateOrigin=False),
+        find("a.png", type="find", update_origin=False),
         click(1, 1),
     ])
     assert harness.clicks()[-1] == (101, 201)
@@ -47,7 +47,7 @@ def test_找圖勾掉更新原點時不改變原點(harness):
 
 def test_等待消失記錄最後看到的位置當原點(harness):
     harness.vision.plan("a.png", [(500, 400), None])
-    harness.run([find("a.png", action="wait_gone", interval=0.1),
+    harness.run([find("a.png", type="wait_gone", interval=0.1),
                  click(1, 2)])
     assert harness.clicks() == [(501, 402)]
 
@@ -61,14 +61,14 @@ def test_尚無原點時座標點擊與拖曳被跳過(harness):
 
 def test_找圖偏移後的位置才是原點(harness):
     harness.vision.plan("a.png", [(500, 400)])
-    harness.run([find("a.png", action="none", offsetX=10, offsetY=10),
+    harness.run([find("a.png", type="find", offset=[10, 10]),
                  click(0, 0)])
     assert harness.clicks() == [(510, 410)]
 
 
 def test_測試選取片段_以原點為基準的步驟在原點來源之前就擋下():
     import app as app_mod
-    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
+    near = {"pick": {"near": [0, 0]}}
     check = app_mod.App._fragment_origin_error
     assert check(None, [find("a", target=near)], 4) == [5]
     assert check(None, [find("b"), find("a", target=near)], 0) == []

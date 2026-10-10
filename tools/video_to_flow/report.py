@@ -107,11 +107,12 @@ def render(res, plan):
     return "\n".join(lines)
 
 
-_LABELS = {"find_click": "找圖點擊", "click": "座標點擊", "drag": "滑鼠拖曳",
-           "wait": "等待", "loop_start": "重複開始",
-           "loop_end": "重複結束", "branch_start": "分岔開始",
+_LABELS = {"find_click": "找圖點擊", "find": "找圖點擊", "wait_gone": "找圖點擊",
+           "click": "座標點擊", "drag": "滑鼠拖曳",
+           "wait": "等待", "repeat_start": "重複開始",
+           "repeat_end": "重複結束", "branch_start": "分岔開始",
            "branch_or": "分岔（或）", "branch_end": "分岔結束"}
-_ACTION = {"click": "點擊", "none": "僅等待出現", "wait_gone": "等待消失"}
+_ACTION = {"find_click": "點擊", "find": "僅等待出現", "wait_gone": "等待消失"}
 _CONFIRM = {"none": "", "gone": "，點到目標圖消失", "next": "，點到下一步的圖出現",
             "appear": "，點到確認圖出現"}
 _POINTER_CONFIRM = {"gone": "，做到原點的圖離開", "next": "，做到下一步的圖出現",
@@ -122,32 +123,35 @@ _NF = {"stop": "停止", "skip": "跳過", "break": "跳出區段"}
 def _describe(s):
     """步驟一行摘要 (偏移已是存檔裡的基準尺度數值)."""
     t = s["type"]
-    if t == "find_click":
+    if t in findtarget.FIND_TYPES:
         text = f"「{findtarget.template(s)}」{findtarget.tag_text(findtarget.target(s))}" \
-            f"{_ACTION[s['action']]}"
-        if s["offsetX"] or s["offsetY"]:
-            text += f"，偏移 {s['offsetX']:+d},{s['offsetY']:+d}"
+            f"{_ACTION[t]}"
+        ox, oy = s.get("offset", (0, 0))
+        if ox or oy:
+            text += f"，偏移 {ox:+d},{oy:+d}"
         text += _CONFIRM[s["confirm"]]
         if s["confirm"] == "appear":
             text += (f"「{findtarget.confirm_template(s)}」"
                      f"{findtarget.tag_text(findtarget.confirm_target(s))}")
-        text += f"；逾時 {s['timeout']}s 找不到時{_NF[s['onNotFound']]}"
-        if not s["updateOrigin"]:
+        text += f"；逾時 {s['timeout']}s 找不到時{_NF[s['on_fail']]}"
+        if not s["update_origin"]:
             text += "；不更新原點"
         return text
     if t in ("click", "drag"):
-        text = (f"相對原點 {s['x']:+d},{s['y']:+d}" if t == "click" else
-                f"相對原點 {s['x1']:+d},{s['y1']:+d} → {s['x2']:+d},{s['y2']:+d}")
+        if t == "click":
+            text = "相對原點 {:+d},{:+d}".format(*s["click"])
+        else:
+            text = "相對原點 {:+d},{:+d} → {:+d},{:+d}".format(*s["drag"], *s["to"])
         mode = s.get("confirm", "none")
         if mode != "none":
             text += _POINTER_CONFIRM[mode]
             if mode == "appear":
                 text += (f"「{findtarget.confirm_template(s)}」"
                          f"{findtarget.tag_text(findtarget.confirm_target(s))}")
-            text += f"；逾時 {s['timeout']}s 找不到時{_NF[s['onNotFound']]}"
+            text += f"；逾時 {s['timeout']}s 找不到時{_NF[s['on_fail']]}"
         return text
     if t == "wait":
-        return f"{s['ms']} ms"
-    if t == "loop_start":
-        return f"{s['count']} 次"
+        return f"{s['wait']:g} 秒"
+    if t == "repeat_start":
+        return f"{s['repeat']} 次"
     return ""

@@ -588,7 +588,7 @@ def test_按確定時只留這一步真的引用到的(picker):
     for n in ("a", "b", "c"):
         app.ws.add(n, b"X")
     step = {"type": "find_click", "target": {"template": "a"},
-            "confirm": "appear", "confirmTarget": {"template": "c"}}
+            "confirm": "appear", "confirm_target": {"template": "c"}}
 
     ui_dialogs.discard_unused(app, ["a", "b", "c"], step)
 

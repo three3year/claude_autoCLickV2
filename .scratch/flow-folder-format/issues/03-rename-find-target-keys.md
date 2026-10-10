@@ -4,9 +4,13 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 記憶體裡的找圖目標只用 `template`、`within`、`pick`、`color`；全 repo 程式碼不再讀寫舊鍵（除了舊存檔翻譯層）
-- [ ] 舊存檔讀進來翻成新鍵、寫出去翻回舊鍵；四份流程開檔→存檔後 `flow.json` 內容不變
-- [ ] 影片轉流程工具組出的步驟用新鍵
-- [ ] 不改行為：現有測試（只改資料的鍵名）全綠
+- [x] 記憶體裡的找圖目標只用 `template`、`within`、`pick`、`color`；全 repo 程式碼不再讀寫舊鍵（除了舊存檔翻譯層）
+- [x] 舊存檔讀進來翻成新鍵、寫出去翻回舊鍵；四份流程開檔→存檔後 `flow.json` 內容不變
+- [x] 影片轉流程工具組出的步驟用新鍵
+- [x] 不改行為：現有測試（只改資料的鍵名）全綠
+
+## Comments
+
+- 2026-10-11（agent）：03、04、05 三批改名同一次做完、同一個 commit（三批動的是同一批檔案，分三次改等於把 40 個測試檔改三遍）。舊存檔翻譯層在 `flowfile.py`（`_from_old`／`_to_old`），四份流程 flow.json 舊→新→舊逐步相同（只差已退場的 `mode`／`button`／`clicks` 與 `avoidHover`）；08 換成 flow.yaml 時整段刪掉。影片轉流程計畫照舊用舊鍵，組出來的步驟經 `tools/video_to_flow/keys.py` 換成新鍵。

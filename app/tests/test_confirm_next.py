@@ -3,7 +3,7 @@
 執行語意: 找到本步的圖 → 點一次 → 補點迴圈以「執行清單中下一步的範本圖
 出現」為生效條件; 確認對象依清單位置現算 (不記名)。
 """
-from harness import branch_end, branch_start, click, find, loop, loop_end, wait
+from harness import branch_end, branch_start, click, find, repeat, repeat_end, wait
 
 from automation import runner as runner_mod
 
@@ -21,8 +21,8 @@ def test_不相連_最後一步():
 
 
 def test_不相連_下一步為區段標記或其他類型():
-    others = (loop(2), loop_end(), branch_start(), branch_or_step(),
-              branch_end(), wait(100), click(1, 2),
+    others = (repeat(2), repeat_end(), branch_start(), branch_or_step(),
+              branch_end(), wait(0.1), click(1, 2),
               drag_step())
     for nxt in others:
         steps = [find("a", confirm="next"), nxt]
@@ -34,7 +34,7 @@ def branch_or_step():
 
 
 def drag_step():
-    return {"type": "drag", "x1": 0, "y1": 0, "x2": 1, "y2": 1}
+    return {"type": "drag", "drag": [0, 0], "to": [1, 1]}
 
 
 def test_uses_confirm_next_只認動作為點擊的找圖步驟():
@@ -43,7 +43,7 @@ def test_uses_confirm_next_只認動作為點擊的找圖步驟():
     assert not runner_mod.uses_confirm_next(find("a"))
     # 「不點擊」時確認無意義 (對話框也不會存出, 這裡守防禦)
     assert not runner_mod.uses_confirm_next(
-        find("a", action="none", confirm="next"))
+        find("a", type="find", confirm="next"))
     assert not runner_mod.uses_confirm_next(click(1, 2))
 
 
@@ -73,7 +73,7 @@ def test_下一步是僅等待出現也能當確認條件(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700)])
     harness.run(retry_interval=0, steps=[find("a.png", confirm="next", interval=0.1),
-                 find("b.png", action="none", interval=0.1)])
+                 find("b.png", type="find", interval=0.1)])
     assert harness.clicks() == [(500, 400), (500, 400)], "b 僅等待, 不該被點"
     assert "已生效" in harness.log_text()
 
@@ -82,7 +82,7 @@ def test_下一步是等待消失也能當確認條件(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700), (700, 700), None])
     harness.run(retry_interval=0, steps=[find("a.png", confirm="next", interval=0.1),
-                 find("b.png", action="wait_gone", interval=0.1)])
+                 find("b.png", type="wait_gone", interval=0.1)])
     assert harness.clicks() == [(500, 400), (500, 400)]
     assert "已生效" in harness.log_text()
     assert "已消失" in harness.log_text()
@@ -138,16 +138,16 @@ def test_補點更新原點供相對座標使用(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700)])
     harness.run(retry_interval=0, steps=[find("a.png", confirm="next", interval=0.1),
-                 find("b.png", action="none", updateOrigin=False, interval=0.1),
-                 click(7, 3, mode="prev")])
+                 find("b.png", type="find", update_origin=False, interval=0.1),
+                 click(7, 3)])
     assert harness.clicks() == [(500, 400), (500, 400), (507, 403)]
 
 
 def test_勾掉更新原點時補點不影響原點(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None, (700, 700)])
-    harness.run(retry_interval=0, steps=[find("a.png", confirm="next", updateOrigin=False, interval=0.1),
-                 find("b.png", action="none", updateOrigin=False, interval=0.1),
-                 click(7, 3, mode="prev")])
+    harness.run(retry_interval=0, steps=[find("a.png", confirm="next", update_origin=False, interval=0.1),
+                 find("b.png", type="find", update_origin=False, interval=0.1),
+                 click(7, 3)])
     assert harness.clicks() == [(500, 400), (500, 400)]
     assert "尚無原點" in harness.log_text()

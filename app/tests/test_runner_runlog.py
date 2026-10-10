@@ -17,8 +17,8 @@ def records(harness, role=None):
 
 def test_找到時一筆_含每個匹配與挑中哪個與點擊落點(harness):
     harness.vision.plan("card", [CARDS])
-    harness.run([find("card", target={"pick": {"kind": "top", "n": 3}},
-                      offsetX=5)])
+    harness.run([find("card", target={"pick": {"top": 3}},
+                      offset=[5, 0])])
     [r] = records(harness)
     assert (r["step"], r["role"], r["template"], r["result"]) == \
         (1, "find", "card", "found")
@@ -39,7 +39,7 @@ def test_輪詢多次只寫一筆(harness):
 
 def test_逾時記最後一次查詢的最高分與未過原因(harness):
     harness.vision.plan("a", [None])
-    harness.run([find("a", timeout=1, interval=0.2, onNotFound="skip")])
+    harness.run([find("a", timeout=1, interval=0.2, on_fail="skip")])
     [r] = records(harness)
     assert r["result"] == "timeout"
     assert r["failed"] == "match"
@@ -48,8 +48,8 @@ def test_逾時記最後一次查詢的最高分與未過原因(harness):
 
 def test_逾時原因_數不到N個(harness):
     harness.vision.plan("card", [CARDS[:2]])
-    harness.run([find("card", target={"pick": {"kind": "left", "n": 3}},
-                      timeout=1, interval=0.2, onNotFound="skip")])
+    harness.run([find("card", target={"pick": {"left": 3}},
+                      timeout=1, interval=0.2, on_fail="skip")])
     [r] = records(harness)
     assert (r["result"], r["failed"]) == ("timeout", "count")
     assert r["matches"].count("0.990") == 2
@@ -57,8 +57,8 @@ def test_逾時原因_數不到N個(harness):
 
 def test_逾時原因_比色門檻_並記下比色分數(harness):
     harness.vision.plan("btn", [[(500, 400, 0.97, 0.88)]])
-    harness.run([find("btn", target={"colorCheck": True}, timeout=1,
-                      interval=0.2, onNotFound="skip")])
+    harness.run([find("btn", target={"color": True}, timeout=1,
+                      interval=0.2, on_fail="skip")])
     [r] = records(harness)
     assert (r["failed"], r["color"]) == ("color", "on")
     assert "c0.880" in r["rejected"]
@@ -66,13 +66,13 @@ def test_逾時原因_比色門檻_並記下比色分數(harness):
 
 def test_找到時記比色分數(harness):
     harness.vision.plan("btn", [[(500, 400, 0.97, 0.99)]])
-    harness.run([find("btn", target={"colorCheck": True})])
+    harness.run([find("btn", target={"color": True})])
     [r] = records(harness)
     assert "(480,390,40,20) 0.970 c0.990" in r["matches"]
 
 
 def test_無法執行也寫一筆(harness):
-    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
+    near = {"pick": {"near": [0, 0]}}
     harness.run([find("card", target=near)])
     [r] = records(harness)
     assert (r["result"], r["failed"]) == ("cannot_run", "origin")
@@ -80,15 +80,14 @@ def test_無法執行也寫一筆(harness):
 
 def test_記下實際的限定矩形(harness):
     harness.vision.plan("btn", [[(1800, 1000)]])
-    harness.run([find("btn", target={"limit": {"kind": "rect", "x": 1280,
-                                               "y": 720, "w": 640, "h": 360}})])
+    harness.run([find("btn", target={"within": [1280, 720, 640, 360]})])
     [r] = records(harness)
     assert r["limit"] == "(1280,720,640,360)"
 
 
 def test_點擊後確認_目標圖消失的判定也有紀錄(harness):
     harness.vision.plan("card", [CARDS, CARDS, CARDS[:2]])
-    harness.run(retry_interval=0, steps=[find("card", target={"pick": {"kind": "top", "n": 3}},
+    harness.run(retry_interval=0, steps=[find("card", target={"pick": {"top": 3}},
                       confirm="gone", interval=0.1)])
     [f] = records(harness, "find")
     [c] = records(harness, "confirm_gone")
@@ -100,7 +99,7 @@ def test_確認圖與下一步的判定各有紀錄(harness):
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("ok", [None, (500, 500)])
     harness.vision.plan("b", [None, (700, 700)])
-    harness.run([find("a", confirm="appear", confirmTarget=tgt("ok"),
+    harness.run([find("a", confirm="appear", confirm_target=tgt("ok"),
                       interval=0.1),
                  find("a", confirm="next", interval=0.1),
                  find("b", interval=0.1)])
@@ -113,15 +112,15 @@ def test_確認圖與下一步的判定各有紀錄(harness):
 def test_點擊後確認逾時也有紀錄(harness):
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("ok", [None])
-    harness.run([find("a", confirm="appear", confirmTarget=tgt("ok"),
-                      interval=0.2, timeout=1, onNotFound="skip")])
+    harness.run([find("a", confirm="appear", confirm_target=tgt("ok"),
+                      interval=0.2, timeout=1, on_fail="skip")])
     [ap] = records(harness, "confirm_appear")
     assert ap["result"] == "timeout"
 
 
 def test_等待消失的判定一筆(harness):
     harness.vision.plan("a", [(300, 300), (300, 300), None])
-    harness.run([find("a", action="wait_gone", interval=0.1)])
+    harness.run([find("a", type="wait_gone", interval=0.1)])
     [r] = records(harness)
     assert (r["role"], r["result"]) == ("wait_gone", "gone")
     assert r["picked"] == "(280,290,40,20)", "記先前挑中的位置"
@@ -148,7 +147,7 @@ def test_寫進真的檔案日誌(tmp_path, monkeypatch):
 
 
 def test_分岔條件沒有原點_紀錄寫無法執行(harness):
-    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
+    near = {"pick": {"near": [0, 0]}}
     harness.vision.plan("y", [None])
     harness.run([branch_start(), find("x", target=near), click(1, 1),
                  branch_or(), find("y"), click(2, 2), branch_end()])

@@ -64,14 +64,14 @@ def rect_margin(tgt, template_size):
 
     找圖目標還沒選範本 (template_size None) 就跳過——流程順序不受限制。
     """
-    lim = tgt.get("limit") or {}
-    if lim.get("kind") != "rect" or template_size is None:
+    lim = tgt.get("within")
+    if lim is None or template_size is None:
         return []
     if not findtarget.valid_fixed_rect(lim):
         return []
     w, h = int(template_size[0]), int(template_size[1])
     need_w, need_h = min_rect((w, h))
-    lw, lh = int(lim["w"]), int(lim["h"])
+    lw, lh = int(lim[2]), int(lim[3])
     if lw >= need_w and lh >= need_h:
         return []
     name = tgt.get("template", "")
@@ -157,7 +157,7 @@ def scale_margin(detector, screen, screen_origin, tgt, anchor=None, scale=1.0,
 
 def exempt_from_unique(tgt):
     """設了「第 N 個」「最接近」這類挑選規則的找圖目標已宣告會有多個匹配, 不查唯一."""
-    return (tgt.get("pick") or {}).get("kind") in ("top", "left", "near")
+    return findtarget.pick_rule(tgt)[0] in ("top", "left", "near")
 
 
 def unique(detector, screen, screen_origin, tgt, anchor=None, scale=1.0,

@@ -62,12 +62,12 @@ def test_不點擊的找圖不補點擊後確認(demo, engine):
 def test_找不到時預設停止且逾時預設10秒(demo, engine):
     s = saved(run(demo, engine, [find("開始"), find("確定")]))
     for x in s:
-        assert x["onNotFound"] == "stop"
+        assert x["on_fail"] == "stop"
         assert x["timeout"] == 10
-        assert x["action"] == "click"
+        assert x["type"] == "find_click"
         assert x["interval"] == 0.5
         assert "button" not in x and "clicks" not in x
-        assert x["updateOrigin"] is True
+        assert x["update_origin"] is True
 
 
 def test_計畫有指定時照計畫(demo, engine):
@@ -75,8 +75,8 @@ def test_計畫有指定時照計畫(demo, engine):
              find("確定", confirm="appear", confirmTemplate="下一步"),
              find("下一步", confirm="none", button="left", clicks=1)]
     s = saved(run(demo, engine, steps))
-    assert (s[0]["confirm"], s[0]["onNotFound"], s[0]["timeout"]) == ("gone", "skip", 30)
-    assert (s[1]["confirm"], s[1]["confirmTarget"]) == ("appear",
+    assert (s[0]["confirm"], s[0]["on_fail"], s[0]["timeout"]) == ("gone", "skip", 30)
+    assert (s[1]["confirm"], s[1]["confirm_target"]) == ("appear",
                                                        {"template": "下一步"})
     # 寫預設值的滑鼠鍵與連點數照收 (欄位已退場, 存檔不帶)
     assert s[2]["confirm"] == "none"
@@ -88,9 +88,9 @@ def test_座標點擊與拖曳補齊編輯器的預設欄位(demo, engine):
              {"type": "drag", "from": [40, 220], "to": [200, 220]},
              {"type": "wait", "ms": 800}]
     s = saved(run(demo, engine, steps))
-    assert s[1]["updateOrigin"] is True
-    assert (s[2]["ms"], s[2]["holdMs"]) == (500, 500)
-    assert s[3] == {"type": "wait", "ms": 800}
+    assert s[1]["update_origin"] is True
+    assert (s[2]["duration"], s[2]["hold"]) == (0.5, 0.5)
+    assert s[3] == {"type": "wait", "wait": 0.8}
 
 
 @pytest.mark.parametrize("bad, match", [

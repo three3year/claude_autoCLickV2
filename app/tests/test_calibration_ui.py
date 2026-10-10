@@ -35,7 +35,7 @@ class _CalApp(app_mod.App):
         self.hub = enginehub.EngineHub()
         self.hub.state = enginehub.READY
         self.runner = _FakeRunner()
-        self.steps = [{"type": "wait", "ms": 10}]
+        self.steps = [{"type": "wait", "wait": 0.01}]
         self.scan_region = None
         self.profile_dir = str(profile_dir)
         self._pending_templates = set()
@@ -87,7 +87,7 @@ def test_執行時把流程的校準資料交給執行器(tkroot, monkeypatch, t
 def test_沒有搜尋範圍也能執行_基準點來自校準(tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
     a = _CalApp(tkroot, tmp_path, cal=FLOW_CAL)
-    a.steps = [{"type": "click", "x": 3, "y": 4}]
+    a.steps = [{"type": "click", "click": [3, 4]}]
     a.start_run()
     assert rec == [] and len(a.runner.started) == 1
 
@@ -118,8 +118,8 @@ def test_拾取值反除倍率換回流程尺度():
 def test_預設原點推算_相對偏移累積乘倍率():
     app = SimpleNamespace(
         steps=[{"type": "find_click", "target": {"template": "a"}},
-               {"type": "click", "x": 30, "y": 40},
-               {"type": "click", "x": 10, "y": 10}],
+               {"type": "click", "click": [30, 40]},
+               {"type": "click", "click": [10, 10]}],
         template_pos=lambda n: [0, 0])
     got = ui_dialogs._resolve_prev_origin(app, {"_index": 3}, None, 2.0, (100, 200))
     assert got == (100 + 60 + 20, 200 + 80 + 20)
@@ -127,7 +127,7 @@ def test_預設原點推算_相對偏移累積乘倍率():
 
 def test_預設原點推算_倍率1沿用原值():
     app = SimpleNamespace(steps=[{"type": "find_click", "target": {"template": "a"}},
-                                 {"type": "click", "x": 30, "y": 40}],
+                                 {"type": "click", "click": [30, 40]}],
                           template_pos=lambda n: [0, 0])
     got = ui_dialogs._resolve_prev_origin(app, {"_index": 2}, None, 1.0, (0, 0))
     assert got == (30, 40)
@@ -238,12 +238,12 @@ def test_新流程設定校準對_當下畫面就是流程尺度_第一張中心
 
 
 def _flow_with_coords(a):
-    rect = {"kind": "rect", "x": 100, "y": 50, "w": 30, "h": 20}
-    a.steps = [{"type": "click", "x": 10, "y": 20},
-               {"type": "drag", "x1": 1, "y1": 2, "x2": 3, "y2": 4},
-               {"type": "find_click", "target": {"template": "a", "limit": dict(rect)},
-                "confirmTarget": {"template": "b", "limit": dict(rect)}}]
-    a.busy_target = {"template": "z", "limit": dict(rect)}
+    rect = [100, 50, 30, 20]
+    a.steps = [{"type": "click", "click": [10, 20]},
+               {"type": "drag", "drag": [1, 2], "to": [3, 4]},
+               {"type": "find_click", "target": {"template": "a", "within": list(rect)},
+                "confirm_target": {"template": "b", "within": list(rect)}}]
+    a.busy_target = {"template": "z", "within": list(rect)}
     a.ws.add("a", b"A", pos=[200, 100])
 
 
@@ -259,19 +259,18 @@ def test_更換校準對_先用舊對量倍率與舊基準點_所有座標改成
     a.designate_pair()
     assert a.flow_cal == {"pair": ["圖示", "關閉"], "baseline": 500.0}
     s = a.steps
-    assert (s[0]["x"], s[0]["y"]) == (10, 20), "相對原點的座標不動"
-    assert (s[1]["x1"], s[1]["y1"], s[1]["x2"], s[1]["y2"]) == (1, 2, 3, 4)
-    assert s[2]["target"]["limit"] == {"kind": "rect", "x": 0, "y": 0, "w": 30, "h": 20}
-    assert s[2]["confirmTarget"]["limit"]["x"] == 0
-    assert a.busy_target["limit"]["x"] == 0
+    assert s[0]["click"] == [10, 20], "相對原點的座標不動"
+    assert (s[1]["drag"], s[1]["to"]) == ([1, 2], [3, 4])
+    assert s[2]["target"]["within"] == [0, 0, 30, 20]
+    assert s[2]["confirm_target"]["within"][0] == 0
+    assert a.busy_target["within"][0] == 0
     assert a.ws.pos_of("a") == [100, 50], "拍攝位置也平移"
     assert a.autosaved == 1 and a.rendered == 1
     assert any("換算" in m and "落點不變" in m for m in a.logged)
     # 落點不變: 舊 (100,50) + 100×0.9 = 190; 新 (190,95) + 0×0.9 = 190
     from automation import flowfmt
-    assert flowfmt.rect_to_screen({"x": 100, "y": 50, "w": 30, "h": 20},
-                                  (100, 50), 0.9) == \
-        flowfmt.rect_to_screen(s[2]["target"]["limit"], (190, 95), 0.9)
+    assert flowfmt.rect_to_screen([100, 50, 30, 20], (100, 50), 0.9) == \
+        flowfmt.rect_to_screen(s[2]["target"]["within"], (190, 95), 0.9)
 
 
 def test_更換校準對時舊對量不到_拒絕且資料不變(tkroot, monkeypatch, tmp_path):
@@ -284,7 +283,7 @@ def test_更換校準對時舊對量不到_拒絕且資料不變(tkroot, monkeyp
     vision.plan("關閉", [(550, 100)])
     a.designate_pair()
     assert a.flow_cal == OLD
-    assert (a.steps[0]["x"], a.steps[0]["y"]) == (10, 20)
+    assert a.steps[0]["click"] == [10, 20]
     assert a.ws.pos_of("a") == [200, 100]
     assert any("舊圖示" in m for m in rec)
     assert a.autosaved == 0
@@ -301,7 +300,7 @@ def test_更換校準對時新對量不到_拒絕且資料不變(tkroot, monkeyp
     vision.plan("關閉", [None])
     a.designate_pair()
     assert a.flow_cal == OLD
-    assert (a.steps[0]["x"], a.steps[0]["y"]) == (10, 20)
+    assert a.steps[0]["click"] == [10, 20]
     assert any("關閉" in m for m in rec)
 
 
@@ -324,7 +323,7 @@ def test_按校準只顯示倍率與基準點_步驟資料不變(tkroot, monkeyp
     assert "×1.20" in a.cal_btn.text
     assert any("×1.200" in m and "(100, 50)" in m for m in a.logged)
     assert a.flow_cal == OLD, "校準只量, 不動校準資料"
-    assert (a.steps[0]["x"], a.steps[0]["y"]) == (10, 20)
+    assert a.steps[0]["click"] == [10, 20]
     assert a.ws.pos_of("a") == [200, 100]
     assert a.autosaved == 0
 

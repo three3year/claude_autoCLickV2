@@ -39,7 +39,7 @@ class _GateApp(app_mod.App):
         self.hub = enginehub.EngineHub()
         self.hub.state = state
         self.runner = _FakeRunner()
-        self.steps = [{"type": "wait", "ms": 10}]
+        self.steps = [{"type": "wait", "wait": 0.01}]
         self.scan_region = None
         self.profile_dir = "_no_such_profile"
         self.flow_cal = {"pair": ["a", "b"], "baseline": 100.0}  # 流程可執行

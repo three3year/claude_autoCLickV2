@@ -6,7 +6,7 @@
 from harness import branch_end, branch_or, branch_start, click, find, tgt
 
 CARDS = [(200, 300), (400, 300), (600, 300), (800, 300)]   # 一排四張同款
-TOP = {"pick": {"kind": "top", "n": 3}}
+TOP = {"pick": {"top": 3}}
 
 
 def test_四張同款時由上到下第3點到第三張(harness):
@@ -24,7 +24,7 @@ def test_匹配不足N個繼續等_等到了才點(harness):
 def test_匹配不足N個到逾時走找不到時_絕不退而點別個(harness):
     harness.vision.plan("card", [CARDS[:2]])
     harness.run([find("card", target=TOP, timeout=1, interval=0.2,
-                      onNotFound="skip")])
+                      on_fail="skip")])
     assert harness.clicks() == []
     assert "未找到" in harness.log_text()
 
@@ -52,7 +52,7 @@ def test_被點的位置仍有匹配就補點那個位置(harness):
 
 def test_等待消失看先前挑中的位置_別處同款不影響(harness):
     harness.vision.plan("card", [CARDS, CARDS, [CARDS[0], CARDS[3]]])
-    r = harness.run([find("card", target=TOP, action="wait_gone",
+    r = harness.run([find("card", target=TOP, type="wait_gone",
                           interval=0.1, timeout=5)])
     assert "已消失" in harness.log_text()
     assert r.ended == "done"
@@ -60,8 +60,8 @@ def test_等待消失看先前挑中的位置_別處同款不影響(harness):
 
 def test_等待消失_挑中位置一直在就逾時(harness):
     harness.vision.plan("card", [CARDS])
-    harness.run([find("card", target=TOP, action="wait_gone", interval=0.2,
-                      timeout=1, onNotFound="skip")])
+    harness.run([find("card", target=TOP, type="wait_gone", interval=0.2,
+                      timeout=1, on_fail="skip")])
     assert "仍未消失" in harness.log_text()
 
 
@@ -75,11 +75,11 @@ def test_點到下一步的圖出現套用下一步的挑選規則(harness):
 
 
 def test_點到下一步的圖出現用點擊後的原點(harness):
-    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
+    near = {"pick": {"near": [0, 0]}}
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("card", [CARDS])
     # a 不更新原點, 之前也沒有任何原點 → 下一步的找圖目標無從判定
-    r = harness.run([find("a", confirm="next", updateOrigin=False,
+    r = harness.run([find("a", confirm="next", update_origin=False,
                           interval=0.1),
                      find("card", target=near, interval=0.1)])
     assert r.ended == "done"
@@ -95,8 +95,8 @@ def test_點到下一步的圖出現用點擊後的原點(harness):
 def test_確認圖套用自己的挑選規則(harness):
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("ok", [[(500, 500)], [(500, 500), (500, 700)]])
-    two = tgt("ok", pick={"kind": "top", "n": 2})
-    harness.run(retry_interval=0, steps=[find("a", confirm="appear", confirmTarget=two, interval=0.1)])
+    two = tgt("ok", pick={"top": 2})
+    harness.run(retry_interval=0, steps=[find("a", confirm="appear", confirm_target=two, interval=0.1)])
     assert harness.clicks() == [(100, 100), (100, 100)]
     assert "確認圖「ok」已出現" in harness.log_text()
 
@@ -104,7 +104,7 @@ def test_確認圖套用自己的挑選規則(harness):
 def test_分支條件套用條件步驟的找圖目標(harness):
     harness.vision.plan("x", [[(100, 100)]])
     harness.vision.plan("y", [(300, 300)])
-    second = {"pick": {"kind": "top", "n": 2}}
+    second = {"pick": {"top": 2}}
     harness.run([branch_start(),
                  find("x", target=second), click(1, 1),
                  branch_or(),
@@ -114,9 +114,9 @@ def test_分支條件套用條件步驟的找圖目標(harness):
 
 
 def test_以原點為基準卻沒有原點_步驟無法執行而跳過(harness):
-    near = {"pick": {"kind": "near", "x": 0, "y": 0}}
+    near = {"pick": {"near": [0, 0]}}
     harness.vision.plan("card", [CARDS])
-    r = harness.run([find("card", target=near, onNotFound="stop")])
+    r = harness.run([find("card", target=near, on_fail="stop")])
     assert r.ended == "done", "與相對座標同處理: 跳過, 不走找不到時"
     assert harness.clicks() == []
     assert harness.lookups() == []
@@ -128,7 +128,7 @@ def test_以原點為基準卻沒有原點_步驟無法執行而跳過(harness):
 def test_開比色的點擊步驟_按鈕變灰就判定目標圖消失(harness):
     orange, grey = (500, 400, 0.99, 0.99), (500, 400, 0.99, 0.88)
     harness.vision.plan("btn", [[orange], [grey]])
-    harness.run([find("btn", target={"colorCheck": True}, confirm="gone",
+    harness.run([find("btn", target={"color": True}, confirm="gone",
                       interval=0.1)])
     assert harness.clicks() == [(500, 400)], "灰掉＝不再是匹配＝已消失, 不補點"
     assert "已生效" in harness.log_text()
@@ -138,21 +138,21 @@ def test_不開比色時灰色按鈕仍算在_會一直補點(harness):
     orange, grey = (500, 400, 0.99, 0.99), (500, 400, 0.99, 0.88)
     harness.vision.plan("btn", [[orange], [grey]])
     harness.run([find("btn", confirm="gone", interval=0.2, timeout=1,
-                      onNotFound="skip")])
+                      on_fail="skip")])
     assert len(harness.clicks()) > 1
 
 
 def test_灰色按鈕開比色時不會被點(harness):
     harness.vision.plan("btn", [[(500, 400, 0.99, 0.88)]])
-    harness.run([find("btn", target={"colorCheck": True}, timeout=1,
-                      interval=0.2, onNotFound="skip")])
+    harness.run([find("btn", target={"color": True}, timeout=1,
+                      interval=0.2, on_fail="skip")])
     assert harness.clicks() == []
 
 
 # ---------- 限定範圍 (票 05) ----------
 # harness 的搜尋範圍預設 (0, 0, 1920, 1080)、座標基準點 (0, 0)
 
-BOTTOM_RIGHT = {"limit": {"kind": "rect", "x": 1280, "y": 720, "w": 640, "h": 360}}
+BOTTOM_RIGHT = {"within": [1280, 720, 640, 360]}
 
 
 def test_限定範圍外的同款不被找到也不被點(harness):
@@ -164,7 +164,7 @@ def test_限定範圍外的同款不被找到也不被點(harness):
 def test_目標不在限定範圍內時逾時走找不到時(harness):
     harness.vision.plan("btn", [[(100, 100)]])
     r = harness.run([find("btn", target=BOTTOM_RIGHT,
-                          timeout=1, interval=0.2, onNotFound="stop")])
+                          timeout=1, interval=0.2, on_fail="stop")])
     assert harness.clicks() == []
     assert r.ended == "error"
 
@@ -172,7 +172,7 @@ def test_目標不在限定範圍內時逾時走找不到時(harness):
 # ---------- 固定矩形 (busy-pause-fixed-rect 票 03; coord-anchor 票 04 改相對基準點) ----------
 # harness 的搜尋範圍預設 (0, 0, 1920, 1080)、座標基準點預設 (0, 0)
 
-FIXED = {"limit": {"kind": "rect", "x": 960, "y": 540, "w": 480, "h": 270}}
+FIXED = {"within": [960, 540, 480, 270]}
 
 
 def _find_rec(harness, role="find"):
@@ -205,9 +205,9 @@ def test_固定矩形_隨畫面倍率換算(harness):
 
 def test_固定矩形_不合法就不找_逾時走找不到時(harness):
     harness.vision.plan("btn", [(1000, 600)])
-    bad = {"limit": {"kind": "rect", "x": 960, "y": 540, "w": 0, "h": 270}}
+    bad = {"within": [960, 540, 0, 270]}
     r = harness.run([find("btn", target=bad, timeout=1, interval=0.2,
-                          onNotFound="stop")])
+                          on_fail="stop")])
     assert r.ended == "error" and harness.clicks() == []
     assert "btn" not in harness.lookups(), "絕不退回整個搜尋範圍"
 
@@ -216,8 +216,8 @@ def test_確認圖也能用固定矩形(harness):
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("ok", [[(300, 300)], [(300, 300), (1000, 600)]])
     r = harness.run([find("a", confirm="appear",
-                          confirmTarget=tgt("ok", **FIXED), interval=0.2,
-                          timeout=2, onNotFound="stop")])
+                          confirm_target=tgt("ok", **FIXED), interval=0.2,
+                          timeout=2, on_fail="stop")])
     assert r.ended == "done"
     [rec] = _find_rec(harness, "confirm_appear")
     assert rec["limit"] == "(960,540,480,270)"

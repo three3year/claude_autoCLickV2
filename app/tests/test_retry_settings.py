@@ -12,8 +12,7 @@ import flowfile
 import ui_dialogs
 from test_calibration_ui import _CalApp, _warnings
 
-BUSY = {"template": "提交中", "limit": {"kind": "rect", "x": 600, "y": 800,
-                                        "w": 300, "h": 100}}
+BUSY = {"template": "提交中", "within": [600, 800, 300, 100]}
 
 
 def _flow(**extra):
@@ -86,10 +85,10 @@ def test_設定忙碌指示_限定範圍由作者在找圖設定裡框(tkroot, m
 
     def opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
         seen["tgt"] = tgt
-        return {"limit": dict(BUSY["limit"]), "pick": None, "color": False}
+        return {"within": list(BUSY["within"]), "pick": None, "color": False}
     monkeypatch.setattr(ui_dialogs, "edit_target_opts", opts)
     a.edit_busy_indicator()
-    assert "limit" not in seen["tgt"], "沒有九宮格預設 (九宮格已退場)"
+    assert "within" not in seen["tgt"], "沒有九宮格預設 (九宮格已退場)"
     assert a.busy_target == BUSY
     assert a.autosaved == 1
 
@@ -153,7 +152,7 @@ def test_忙碌指示不能以原點為基準(tkroot, monkeypatch, tmp_path):
     monkeypatch.setattr(ui_dialogs, "pick_template",
                         lambda app, title, initial=None: "提交中")
     monkeypatch.setattr(ui_dialogs, "edit_target_opts", lambda *a_, **k: {
-        "limit": None, "pick": {"kind": "near", "x": 0, "y": 0}, "color": False})
+        "within": None, "pick": {"near": [0, 0]}, "color": False})
     a.edit_busy_indicator()
     assert a.busy_target is None
     assert any("原點" in m for m in rec)

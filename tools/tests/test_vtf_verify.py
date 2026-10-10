@@ -59,7 +59,7 @@ def test_框到空白處的範本標待重拍且步驟引用與存檔圖名同�
     assert RETAKE + "空白" in r["images"] and "空白" not in r["images"]
     s = r["data"]["steps"]
     assert s[1]["target"]["template"] == RETAKE + "空白"
-    assert s[2]["confirmTarget"]["template"] == RETAKE + "空白"
+    assert s[2]["confirm_target"]["template"] == RETAKE + "空白"
     assert flowfile.used_templates(s) == sorted(r["images"])
     assert RETAKE + "空白" in report(res)
 

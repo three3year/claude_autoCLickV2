@@ -17,7 +17,7 @@ from test_template_picker import _all, _btn, _Driver
 FIXED_ZH = ui_dialogs.LIMIT_ZH["rect"]
 # ANCHOR＝(150, 230): 框 (300,350) 400×150 ＝ 相對基準點 (+150,+120) 400×150
 BOX = {"screenX": 300, "screenY": 350, "w": 400, "h": 150}
-RECT = {"kind": "rect", "x": 150, "y": 120, "w": 400, "h": 150}
+RECT = [150, 120, 400, 150]
 
 
 def _overlay(monkeypatch):
@@ -71,7 +71,7 @@ def test_選固定矩形_框選_確定_存成相對基準點的偏移(make_app, 
     calls = _overlay(monkeypatch)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
                          _press("在畫面上框選"), _press("確定"))
-    assert got["limit"] == RECT
+    assert got["within"] == RECT
     assert calls == [("region", True)], "region 模式, 在清場裡框選"
     assert app.vision.lookups == list(CAL_PAIR), "框選當下量了校準對"
 
@@ -81,7 +81,7 @@ def test_倍率不是1時換回流程尺度(make_app, monkeypatch):
     _overlay(monkeypatch)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
                          _press("在畫面上框選"), _press("確定"))
-    assert got["limit"] == {"kind": "rect", "x": 75, "y": 60, "w": 200, "h": 75}
+    assert got["within"] == [75, 60, 200, 75]
 
 
 def test_視窗挪位置後框同一塊_存下的值不變(make_app, monkeypatch):
@@ -89,7 +89,7 @@ def test_視窗挪位置後框同一塊_存下的值不變(make_app, monkeypatch
     _overlay(monkeypatch)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
                          _press("在畫面上框選"), _press("確定"))
-    assert got["limit"] == {"kind": "rect", "x": -250, "y": 20, "w": 400, "h": 150}
+    assert got["within"] == [-250, 20, 400, 150]
 
 
 def test_重新打開顯示原值_確定不變(make_app, monkeypatch):
@@ -101,20 +101,20 @@ def test_重新打開顯示原值_確定不變(make_app, monkeypatch):
         seen["labels"] = _labels(dr.dlg)
         seen["combo"] = [w.get() for w in _all(dr.dlg)
                          if w.winfo_class() == "TCombobox"]
-    got = _target_dialog(app, {"template": "a", "limit": dict(RECT)},
+    got = _target_dialog(app, {"template": "a", "within": list(RECT)},
                          look, _press("確定"))
     assert FIXED_ZH in seen["combo"]
     assert "固定矩形 (+150,+120) 400×150" in seen["labels"]
-    assert got["limit"] == RECT
+    assert got["within"] == RECT
 
 
 def test_可以重拖(make_app, monkeypatch):
     app = make_app(1.0)
     _overlay(monkeypatch)
-    old = {"kind": "rect", "x": 0, "y": 0, "w": 10, "h": 10}
-    got = _target_dialog(app, {"template": "a", "limit": old},
+    old = [0, 0, 10, 10]
+    got = _target_dialog(app, {"template": "a", "within": old},
                          _press("在畫面上框選"), _press("確定"))
-    assert got["limit"] == RECT
+    assert got["within"] == RECT
 
 
 def test_沒有校準對時按鈕不可用_並說明原因(make_app, monkeypatch):
@@ -179,9 +179,9 @@ def test_找圖步驟對話框_設定固定矩形後存進步驟(make_app, monke
         _btn(dr.dlg, "設定…").invoke()
         _btn(dr.dlg, "確定").invoke()
     step = {"type": "find_click", "target": {"template": "a"}, "timeout": 5,
-            "interval": 0.5, "action": "click", "onNotFound": "skip",
+            "interval": 0.5, "type": "find_click", "on_fail": "skip",
             "_edit": True}
     got = _edit(app, step, open_sub, title="編輯：找圖點擊")
     if sub.error is not None:
         raise sub.error
-    assert got["target"]["limit"] == RECT
+    assert got["target"]["within"] == RECT

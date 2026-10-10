@@ -89,7 +89,7 @@ def _img(fill=200, w=12, h=8):
 
 def _find(template, **extra):
     s = {"type": "find_click", "target": {"template": template},
-         "action": "click"}
+         "type": "find_click"}
     s.update(extra)
     return s
 
@@ -114,7 +114,7 @@ def test_存檔產出自包自足的存檔_只帶被引用的範本(tkroot, tmp_
     a = _app(tkroot, tmp_path)
     imgio.imwrite(a.ws.path_of("btn"), _img(90))
     imgio.imwrite(a.ws.path_of("junk"), _img(10))
-    a.steps = [_find("btn"), {"type": "wait", "ms": 500}]
+    a.steps = [_find("btn"), {"type": "wait", "wait": 0.5}]
     dest = tmp_path / "p" / "flows" / ("morning" + flowfile.EXT)
     _stub_save(monkeypatch, dest)
 
@@ -164,7 +164,7 @@ def test_存檔帶著流程的校準對與那兩張範本(tkroot, tmp_path, monk
 def test_存檔不改寫profile裡的其他流程(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, tmp_path)
     other = os.path.join(a.flows_dir, "other" + flowfile.EXT)
-    flowfile.write(other, {"steps": [{"type": "click", "x": 30, "y": 40}],
+    flowfile.write(other, {"steps": [{"type": "click", "click": [30, 40]}],
                            "coordSpace": "anchor"}, {})
     before = open(other, "rb").read()
     imgio.imwrite(a.ws.path_of("btn"), _img(90))
@@ -277,11 +277,11 @@ def test_開啟外來存檔_複製副本進profile_原始檔不被動到(tkroot,
 def test_開啟外來存檔_原樣使用不換算_校準對跟著走(tkroot, tmp_path, monkeypatch):
     cal = {"pair": ["c1", "c2"], "baseline": 100.0}
     a = _app(tkroot, tmp_path)
-    src = _foreign(tmp_path, [{"type": "click", "x": 30, "y": 40}],
+    src = _foreign(tmp_path, [{"type": "click", "click": [30, 40]}],
                    {"c1": b"1", "c2": b"2"}, cal=cal)
     _stub_open(monkeypatch, src)
     a.open_flow()
-    assert a.steps[0]["x"] == 30 and a.steps[0]["y"] == 40
+    assert a.steps[0]["click"] == [30, 40]
     assert a.flow_cal == cal
     assert a.ws.names() == ["c1", "c2"]
 
@@ -320,7 +320,7 @@ def test_開啟座標相對搜尋範圍的舊存檔_拒絕並說明_目前流程
     a = _app(tkroot, tmp_path)
     good = _loaded(a, tkroot, tmp_path, monkeypatch)
     old = os.path.join(a.flows_dir, "old" + flowfile.EXT)
-    _old_pack(old, {"steps": [_find("btn"), {"type": "click", "x": 30, "y": 40}],
+    _old_pack(old, {"steps": [_find("btn"), {"type": "click", "click": [30, 40]}],
                     "coordSpace": "region", "flowFormat": 4,
                     "calibration": {"pair": ["btn", "x"], "baseline": 100.0}},
               {"btn": b"B"})
@@ -341,7 +341,7 @@ def test_開啟舊flow_json與舊流程包_同樣拒絕_profile不多出存檔(t
     src = tmp_path / "old.json"
     src.write_text(json.dumps({
         "steps": [{"type": "find_click", "template": "cn/V.png"},
-                  {"type": "click", "x": 300, "y": 250}],
+                  {"type": "click", "click": [300, 250]}],
         "scanRegion": [100, 50, 800, 600]}), encoding="utf-8")
     _stub_open(monkeypatch, src)
     a.open_flow()
@@ -386,7 +386,7 @@ def test_自動存檔只寫步驟草稿_不重壓zip(tkroot, tmp_path):
 
     draft = flowfile.draft_path(a.profile_dir)
     assert os.path.isfile(draft)
-    assert json.loads(open(draft, encoding="utf-8").read())["steps"] == a.steps
+    assert flowfile.read_draft(a.profile_dir)["steps"] == a.steps
     assert flowfile.list_flows(a.profile_dir) == [], "沒有壓出任何 zip"
 
 
@@ -411,7 +411,7 @@ def test_舊格式的草稿不復原_開空白並提示一次(tkroot, tmp_path, 
     a = _app(tkroot, tmp_path)
     os.makedirs(a.flows_dir, exist_ok=True)
     with open(flowfile.draft_path(a.profile_dir), "w", encoding="utf-8") as f:
-        json.dump({"steps": [_find("btn"), {"type": "click", "x": 30, "y": 40}],
+        json.dump({"steps": [_find("btn"), {"type": "click", "click": [30, 40]}],
                    "coordSpace": "region", "scanRegion": [1, 2, 300, 200]}, f)
 
     a._load_autosave()

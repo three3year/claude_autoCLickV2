@@ -38,11 +38,11 @@ def test_座標點擊對話框保留確認圖設定_找不到時預設停止(mak
     a = make_app(1.0)
     a.ws.add("ok", b"O")
     got = _edit(a, click(10, 10, confirm="appear", _edit=True,
-                         confirmTarget=tgt("ok", colorCheck=True)),
+                         confirm_target=tgt("ok", color=True)),
                 _press("確定"), title="編輯：座標點擊")
     assert got["confirm"] == "appear"
-    assert got["confirmTarget"] == {"template": "ok", "colorCheck": True}
-    assert got["onNotFound"] == "stop"
+    assert got["confirm_target"] == {"template": "ok", "color": True}
+    assert got["on_fail"] == "stop"
     assert (got["timeout"], got["interval"]) == (10, 0.5)
 
 
@@ -52,16 +52,16 @@ def test_拖曳對話框改成下一步的圖出現(make_app):
                 _pick("做到下一步", "下一步"), _press("確定"),
                 title="編輯：滑鼠拖曳")
     assert got["confirm"] == "next"
-    assert "confirmTarget" not in got and got["onNotFound"] == "stop"
+    assert "confirm_target" not in got and got["on_fail"] == "stop"
 
 
 def test_改回不確認時不留任何確認欄位(make_app):
     a = make_app(1.0)
     a.ws.add("ok", b"O")
-    got = _edit(a, click(10, 10, confirm="appear", confirmTarget=tgt("ok"),
-                         timeout=3, onNotFound="skip", _edit=True),
+    got = _edit(a, click(10, 10, confirm="appear", confirm_target=tgt("ok"),
+                         timeout=3, on_fail="skip", _edit=True),
                 _pick("不確認", "不確認"), _press("確定"), title="編輯：座標點擊")
-    for k in ("confirm", "confirmTarget", "timeout", "interval", "onNotFound"):
+    for k in ("confirm", "confirm_target", "timeout", "interval", "on_fail"):
         assert k not in got, k
 
 
@@ -84,9 +84,9 @@ def test_確認圖出現卻沒選確認圖_擋下(make_app, no_real_dialogs):
 # ---------- 摘要、警告標記、被引用的範本 ----------
 
 def test_步驟摘要顯示座標點擊與拖曳的確認方式():
-    s = app_mod.step_desc(click(1, 2, confirm="appear", confirmTarget=tgt("ok")))
+    s = app_mod.step_desc(click(1, 2, confirm="appear", confirm_target=tgt("ok")))
     assert "做到確認圖「ok」出現（逾時10s→停止）" in s
-    s = app_mod.step_desc(drag(1, 2, 3, 4, confirm="next", onNotFound="skip"))
+    s = app_mod.step_desc(drag(1, 2, 3, 4, confirm="next", on_fail="skip"))
     assert "做到下一步的圖出現（逾時10s→跳過）" in s
     assert "做到" not in app_mod.step_desc(click(1, 2))
 
@@ -106,19 +106,19 @@ def test_下一步不是找圖的座標點擊與拖曳有警告標記(tkroot):
 
 
 def test_座標點擊與拖曳的確認圖是被引用的範本_改名跟著改():
-    steps = [click(1, 2, confirm="appear", confirmTarget=tgt("ok")),
-             drag(1, 2, 3, 4, confirm="appear", confirmTarget=tgt("ok2")),
-             click(1, 2, confirmTarget=tgt("stale"))]   # 沒選 appear 不算
+    steps = [click(1, 2, confirm="appear", confirm_target=tgt("ok")),
+             drag(1, 2, 3, 4, confirm="appear", confirm_target=tgt("ok2")),
+             click(1, 2, confirm_target=tgt("stale"))]   # 沒選 appear 不算
     assert flowfile.used_templates(steps) == ["ok", "ok2"]
     assert flowfile.rename_refs(steps, "ok", "確認") == 1
-    assert steps[0]["confirmTarget"]["template"] == "確認"
+    assert steps[0]["confirm_target"]["template"] == "確認"
 
 
 def test_執行前檢查_座標點擊的確認圖不在本流程就擋下(tkroot, monkeypatch, tmp_path):
     from test_calibration_ui import _CalApp, _warnings
     rec = _warnings(monkeypatch)
     a = _CalApp(tkroot, tmp_path, cal={"pair": ["p", "q"], "baseline": 100.0})
-    a.steps = [click(1, 2, confirm="appear", confirmTarget=tgt("不見了"))]
+    a.steps = [click(1, 2, confirm="appear", confirm_target=tgt("不見了"))]
     a.start_run()
     assert a.runner.started == []
     assert any("不見了（確認圖）" in m for m in rec)
@@ -131,7 +131,7 @@ def test_拖曳對話框可選原點的圖離開_摘要顯示(make_app):
     got = _edit(a, drag(1, 2, 3, 4, _edit=True),
                 _pick("原點的圖離開", "原點的圖離開"), _press("確定"),
                 title="編輯：滑鼠拖曳")
-    assert got["confirm"] == "gone" and got["onNotFound"] == "stop"
+    assert got["confirm"] == "gone" and got["on_fail"] == "stop"
     assert "做到原點的圖離開（逾時10s→停止）" in app_mod.step_desc(got)
 
 
@@ -139,11 +139,11 @@ def test_原點不是來自找圖時有警告標記且執行前擋下(tkroot):
     from harness import wait
     tkroot.withdraw()
     leaves = dict(confirm="gone")
-    a = _MiniApp(tkroot, [find("row1", action="none"), wait(300),
+    a = _MiniApp(tkroot, [find("row1", type="find"), wait(0.3),
                           drag(0, 0, 0, -100, **leaves),     # 原點來自找圖
                           drag(0, 0, 0, -100, **leaves),     # 來自上一個拖曳
                           click(5, 5), click(0, 0, **leaves),  # 來自點擊
-                          find("x", action="none", updateOrigin=False),
+                          find("x", type="find", update_origin=False),
                           click(0, 0, **leaves)])           # 仍是點擊 (找圖沒更新)
     try:
         a.render_steps()

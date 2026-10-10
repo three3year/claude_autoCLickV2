@@ -12,24 +12,24 @@
 """
 from __future__ import annotations
 
+from automation.findtarget import FIND_TYPES
 from automation.runner import POINTER_TYPES, confirm_next_connected, origin_source
 
-FIND = {"timeout": 10, "interval": 0.5, "action": "click",
-        "onNotFound": "stop", "updateOrigin": True}
-CLICK = {"updateOrigin": True}
-DRAG = {"ms": 500, "holdMs": 500}
-CONFIRM = {"timeout": 10, "interval": 0.5, "onNotFound": "stop"}
-WAIT = {"ms": 1000}
+FIND = {"timeout": 10, "interval": 0.5, "on_fail": "stop", "update_origin": True}
+CLICK = {"update_origin": True}
+DRAG = {"duration": 0.5, "hold": 0.5}
+CONFIRM = {"timeout": 10, "interval": 0.5, "on_fail": "stop"}
+WAIT = {"wait": 1}
 
 
 def apply(steps):
     """就地補預設; 回傳同一份清單."""
     for i, s in enumerate(steps):
         t = s["type"]
-        if t == "find_click":
+        if t in FIND_TYPES:
             for k, v in FIND.items():
                 s.setdefault(k, v)
-            if s["action"] != "click":
+            if t != "find_click":
                 s["confirm"] = "none"
             elif "confirm" not in s:
                 s["confirm"] = "next" if confirm_next_connected(steps, i) else "gone"

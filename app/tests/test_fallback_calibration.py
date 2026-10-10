@@ -188,7 +188,7 @@ def test_執行器主對找不到改用備用對_印警告照跑_固定矩形落
     harness.vision.plan(MAIN[1], [(1100, 200)])
     harness.vision.plan(FB[0], [(20, 20)])
     harness.vision.plan(FB[1], [(1514, 20)])     # ×0.8, 基準點 (100,60)
-    rect = {"limit": {"kind": "rect", "x": 100, "y": 50, "w": 300, "h": 120}}
+    rect = {"within": [100, 50, 300, 120]}
     harness.vision.plan("a", [(300, 160)])
     r = harness.run([find("a", target=rect), click(10, 20)],
                     calibration=with_fallback())
@@ -245,6 +245,6 @@ def test_用備用對時找圖的預期尺度是備用對量到的倍率(harness
     harness.vision.plan(FB[0], [(20, 20)])
     harness.vision.plan(FB[1], [(1514, 20)])
     harness.vision.plan("a", [(300, 160)])
-    harness.run([find("a", confirm="appear", confirmTarget=tgt("ok"), interval=0.1)],
+    harness.run([find("a", confirm="appear", confirm_target=tgt("ok"), interval=0.1)],
                 calibration=with_fallback())
     assert all(abs(s - 0.8) < 0.001 for _, s in harness.expected_scales())

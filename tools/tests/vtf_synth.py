@@ -96,7 +96,7 @@ def make_profile(root, region=None, config=None, draft_extra=None, name="p"):
     (profile / "config.yaml").write_text(
         yaml.safe_dump(config if config is not None else {"scale_range": [0.5, 2.0]}),
         encoding="utf-8")
-    draft = {"steps": [{"type": "wait", "ms": 1234}], "runMode": "count",
+    draft = {"steps": [{"type": "wait", "wait": 1.234}], "runMode": "count",
              "runCount": 1, "scanRegion": region, "coordSpace": "anchor"}
     draft.update(draft_extra or {})
     import flowfile   # 草稿照 app 的寫法 (帶現行格式標記), 工具讀草稿才過得了格式關

@@ -17,7 +17,7 @@ def recs(harness):
 def test_來源框仍有匹配就在補做間隔後重拖_框不見就生效_原點變終點(harness):
     # 找圖 1 次 + 輪詢: 0.2..1.0 還在原框 (1.0 那次重拖), 之後捲走了
     harness.vision.plan("row1", [ROW1] * 6 + [(500, 100)])
-    harness.run([find("row1", action="none"),
+    harness.run([find("row1", type="find"),
                  drag(0, 100, 0, -200, **LEAVES),
                  click(3, 3)])
     drags = [e[1:5] for e in harness.events if e[0] == "drag"]
@@ -29,7 +29,7 @@ def test_來源框仍有匹配就在補做間隔後重拖_框不見就生效_原
 
 def test_操作前不多查一次(harness):
     harness.vision.plan("row1", [ROW1, None])
-    harness.run([find("row1", action="none"), drag(0, 100, 0, -200, **LEAVES)])
+    harness.run([find("row1", type="find"), drag(0, 100, 0, -200, **LEAVES)])
     assert harness.lookups() == ["row1", "row1"], "找圖一次 + 拖曳後輪詢一次"
 
 
@@ -38,10 +38,10 @@ def test_沿用來源找圖目標的限定範圍與比色_同款圖顏色不符�
     orange, other = (500, 400, 0.99, 0.99), (500, 400, 0.99, 0.60)
     harness.vision.plan("anchor", [ROW1])
     harness.vision.plan("row1", [[orange], [other]])
-    lim = {"kind": "rect", "x": 400, "y": 300, "w": 200, "h": 200}   # 基準點 (0,0)
-    harness.run([find("anchor", action="none"),
-                 find("row1", target={"colorCheck": True, "limit": lim},
-                      action="none"),
+    lim = [400, 300, 200, 200]   # 基準點 (0,0)
+    harness.run([find("anchor", type="find"),
+                 find("row1", target={"color": True, "within": lim},
+                      type="find"),
                  drag(0, 100, 0, -200, **LEAVES)])
     [rec] = recs(harness)
     assert rec["result"] == "gone" and rec["inputs"] == 1
@@ -60,15 +60,15 @@ def test_原點來自點擊_無法執行_不送輸入_走找不到時(harness):
 
 def test_原點來自拖曳_無法執行(harness):
     harness.vision.plan("row1", [ROW1])
-    r = harness.run([find("row1", action="none"), drag(0, 0, 0, -100),
-                     click(0, 0, confirm="gone", onNotFound="skip")])
+    r = harness.run([find("row1", type="find"), drag(0, 0, 0, -100),
+                     click(0, 0, confirm="gone", on_fail="skip")])
     assert r.ended == "done"
     assert recs(harness)[-1]["result"] == "cannot_run"
     assert harness.clicks() == []
 
 
 def test_沒有原點_無法執行(harness):
-    r = harness.run([click(10, 10, confirm="gone", onNotFound="skip")])
+    r = harness.run([click(10, 10, confirm="gone", on_fail="skip")])
     assert r.ended == "done" and harness.clicks() == []
     assert recs(harness) == [], "沒有原點: 相對座標先被跳過"
     assert "尚無原點" in harness.log_text(r)
@@ -77,7 +77,7 @@ def test_沒有原點_無法執行(harness):
 def test_原點來自等待消失最後看到的位置_也算找圖來源(harness):
     harness.vision.plan("x", [ROW1, None])
     harness.vision.plan("row1", [ROW1, None])
-    harness.run([find("row1", action="none"),
-                 find("x", action="wait_gone", updateOrigin=False),
+    harness.run([find("row1", type="find"),
+                 find("x", type="wait_gone", update_origin=False),
                  click(0, 0, confirm="gone", interval=0.2)])
     assert recs(harness)[0]["result"] == "gone"

@@ -47,24 +47,28 @@ DEFAULT_PROFILE = "arknights"
 
 STEP_LABELS = {
     "find_click": "找圖點擊",
+    "find": "找圖點擊",        # 找圖三態共用一個標籤, 摘要寫出找到之後做什麼
+    "wait_gone": "找圖點擊",
     "click": "座標點擊",
     "drag": "滑鼠拖曳",
     "wait": "等待",
-    "loop_start": "重複開始",
-    "loop_end": "重複結束",
+    "repeat_start": "重複開始",
+    "repeat_end": "重複結束",
     "branch_start": "分岔開始",
     "branch_or": "分岔（或）",
     "branch_end": "分岔結束",
 }
 # 新增時直接加入清單的標記步驟 (無需開對話框)
-MARKER_TYPES = {"loop_end", "branch_start", "branch_or", "branch_end"}
+MARKER_TYPES = {"repeat_end", "branch_start", "branch_or", "branch_end"}
 # 標記步驟中仍可編輯屬性的 (區段結尾: 設定「找不到跳出到此」的後續動作)
-EDITABLE_MARKERS = {"loop_end", "branch_end"}
+EDITABLE_MARKERS = {"repeat_end", "branch_end"}
 # 步驟清單 │ 連線顏色: 依隸屬區塊 (重複=warn, 分岔=info)
-GUIDE_COLORS = {"loop_start": C["warn"], "branch_start": C["info"]}
+GUIDE_COLORS = {"repeat_start": C["warn"], "branch_start": C["info"]}
 # 動作標籤［…］的顏色: 一眼區分步驟類型 (重複/分岔標記沿用整列顏色)
 LABEL_COLORS = {
     "find_click": C["info"],
+    "find": C["info"],
+    "wait_gone": C["info"],
     "click": C["accent"],
     "drag": "#A78BFA",
     "wait": C["muted"],
@@ -88,7 +92,7 @@ def _pointer_confirm_desc(s):
             "gone": "原點的圖離開"}.get(mode)
     if what is None:
         return ""
-    nf = {"skip": "跳過", "break": "跳出"}.get(s.get("onNotFound"), "停止")
+    nf = {"skip": "跳過", "break": "跳出"}.get(s.get("on_fail"), "停止")
     return f"，做到{what}（逾時{float(s.get('timeout', 10)):g}s→{nf}）"
 
 
@@ -100,38 +104,40 @@ def step_desc(s):
 def _step_body(s):
     t = s["type"]
     if t == "click":
-        pos = f"上一步點擊 ({int(s['x']):+d}, {int(s['y']):+d})"
-        uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
+        x, y = s["click"]
+        pos = f"上一步點擊 ({int(x):+d}, {int(y):+d})"
+        uo = "，不更新原點" if not s.get("update_origin", True) else ""
         return f"{pos}{uo}{_pointer_confirm_desc(s)}"
-    if t == "find_click":
-        act = {"click": "點擊", "none": "僅等待出現",
-               "wait_gone": "等待消失"}.get(s.get("action", "click"), "點擊")
-        nf = {"stop": "停止", "break": "跳出"}.get(s.get("onNotFound"), "跳過")
+    if t in findtarget.FIND_TYPES:
+        act = {"find_click": "點擊", "find": "僅等待出現",
+               "wait_gone": "等待消失"}[t]
+        nf = {"stop": "停止", "break": "跳出"}.get(s.get("on_fail"), "跳過")
         cfm = {"gone": "，點到消失", "appear": "，點到確認圖出現",
                "next": "，點到下一步的圖出現"}.get(s.get("confirm"), "")
         if s.get("confirm") == "appear":
             cfm += findtarget.tag_text(findtarget.confirm_target(s))
-        ox, oy = int(s.get("offsetX", 0)), int(s.get("offsetY", 0))
+        ox, oy = (int(v) for v in s.get("offset", (0, 0)))
         off = f"，偏移({ox:+d}, {oy:+d})" if ox or oy else ""
-        uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
+        uo = "，不更新原點" if not s.get("update_origin", True) else ""
         return (f"{findtarget.template(s) or '?'}"
                 f"{findtarget.tag_text(findtarget.target(s))} → {act}{off}{cfm}{uo}"
                 f"（逾時{s.get('timeout', 10)}s→{nf}）")
     if t == "drag":
-        pos = (f"上一步 ({int(s['x1']):+d}, {int(s['y1']):+d}) → "
-               f"({int(s['x2']):+d}, {int(s['y2']):+d})")
-        hd = f" 停{s.get('holdMs')}ms" if s.get("holdMs") else ""
-        return f"{pos} {s.get('ms', 300)}ms{hd}{_pointer_confirm_desc(s)}"
+        (x1, y1), (x2, y2) = s["drag"], s["to"]
+        pos = f"上一步 ({int(x1):+d}, {int(y1):+d}) → ({int(x2):+d}, {int(y2):+d})"
+        hd = f" 停{float(s['hold']):g}s" if s.get("hold") else ""
+        return (f"{pos} {float(s.get('duration', 0.3)):g}s{hd}"
+                f"{_pointer_confirm_desc(s)}")
     if t == "wait":
-        return f"{s.get('ms', 0)} ms"
-    if t == "loop_start":
-        return f"×{s.get('count', 1)} 次"
+        return f"{float(s.get('wait', 0)):g} 秒"
+    if t == "repeat_start":
+        return f"×{s.get('repeat', 1)} 次"
     if t == "branch_start":
         return "每個分支以找圖開頭，先找到誰就走誰"
     if t == "branch_or":
         return "── 或 ──"
-    if t in ("loop_end", "branch_end"):
-        if s.get("onBreak") == "break":
+    if t in ("repeat_end", "branch_end"):
+        if s.get("on_break") == "break":
             return "跳出到此 → 再往外跳一層"
         return "───────"
     return ""
@@ -1051,7 +1057,7 @@ class App:
             add_menu.add_command(label=STEP_LABELS[t],
                                  command=lambda t=t: self.add_step(t))
         add_menu.add_separator()
-        for t in ("loop_start", "loop_end"):
+        for t in ("repeat_start", "repeat_end"):
             add_menu.add_command(label=STEP_LABELS[t],
                                  command=lambda t=t: self.add_step(t))
         add_menu.add_separator()
@@ -1205,17 +1211,17 @@ class App:
             t = s["type"]
             collapsed = False
             end = None
-            row_color = (C["warn"] if t in ("loop_start", "loop_end")
+            row_color = (C["warn"] if t in ("repeat_start", "repeat_end")
                          else C["info"] if t in ("branch_start", "branch_or",
                                                  "branch_end")
                          else C["text"])
-            if t in ("loop_end", "branch_end"):
+            if t in ("repeat_end", "branch_end"):
                 if stack:
                     stack.pop()
                 guides, tail = list(stack), "└ "
             elif t == "branch_or":
                 guides, tail = list(stack[:-1]), "├ "
-            elif t in ("loop_start", "branch_start"):
+            elif t in ("repeat_start", "branch_start"):
                 end = self._region_end(i)
                 collapsed = id(s) in self._collapsed and end is not None
                 guides, tail = list(stack), ("▸ " if collapsed else "▾ ")
@@ -1241,7 +1247,7 @@ class App:
             segs.append((body, row_color))
             rows.append(segs)
             self._view.append(i)
-            if t in ("loop_start", "branch_start"):
+            if t in ("repeat_start", "branch_start"):
                 if collapsed:
                     i = end + 1  # 跳過整個收合區段 (含結束標記)
                     continue
@@ -1265,9 +1271,9 @@ class App:
         depth = 0
         for j in range(i + 1, len(self.steps)):
             t = self.steps[j]["type"]
-            if t in ("loop_start", "branch_start"):
+            if t in ("repeat_start", "branch_start"):
                 depth += 1
-            elif t in ("loop_end", "branch_end"):
+            elif t in ("repeat_end", "branch_end"):
                 if depth == 0:
                     return j
                 depth -= 1
@@ -1284,7 +1290,7 @@ class App:
         i = self._sel()
         if i is None:
             return
-        if self.steps[i]["type"] in ("loop_start", "branch_start"):
+        if self.steps[i]["type"] in ("repeat_start", "branch_start"):
             self._toggle_fold(i)  # 區段起點雙擊 = 收合/展開 (編輯用 ✎ 圖示)
         else:
             self.edit_step()
@@ -1301,14 +1307,14 @@ class App:
 
     def add_step(self, t):
         defaults = {
-            "click": {"type": "click", "x": 0, "y": 0},
-            "drag": {"type": "drag", "x1": 0, "y1": 0, "x2": 0, "y2": -100,
-                     "ms": 500, "holdMs": 500},
+            "click": {"type": "click", "click": [0, 0]},
+            "drag": {"type": "drag", "drag": [0, 0], "to": [0, -100],
+                     "duration": 0.5, "hold": 0.5},
             "find_click": {"type": "find_click", "target": {"template": ""},
-                           "timeout": 10, "interval": 0.5, "action": "click",
-                           "offsetX": 0, "offsetY": 0, "onNotFound": "skip"},
-            "wait": {"type": "wait", "ms": 1000},
-            "loop_start": {"type": "loop_start", "count": 3},
+                           "timeout": 10, "interval": 0.5,
+                           "offset": [0, 0], "on_fail": "skip"},
+            "wait": {"type": "wait", "wait": 1},
+            "repeat_start": {"type": "repeat_start", "repeat": 3},
         }
         # 有選取列 → 插在選取列之後 (收合區段算整段); 沒有 → 接在最後
         idxs = self._expand_collapsed(self._sel_all())
@@ -1350,7 +1356,7 @@ class App:
         for i in idxs:
             out.add(i)
             s = self.steps[i]
-            if (s["type"] in ("loop_start", "branch_start")
+            if (s["type"] in ("repeat_start", "branch_start")
                     and id(s) in self._collapsed):
                 end = self._region_end(i)
                 if end is not None:
@@ -2072,22 +2078,22 @@ class App:
         重複結束→分岔結束), runner 的跳轉解譯無法正確執行交錯結構.
         """
         steps = self.steps if steps is None else steps
-        zh = {"loop_start": "重複", "branch_start": "分岔"}
+        zh = {"repeat_start": "重複", "branch_start": "分岔"}
         stack = []  # 進行中區段的 (start type, 步驟序號)
         for i, s in enumerate(steps):
             t = s["type"]
-            if t in ("loop_start", "branch_start"):
+            if t in ("repeat_start", "branch_start"):
                 if t == "branch_start":
                     lay = branch_layout(steps, i)
                     if lay is None:
                         return "分岔標記不成對（缺少「分岔結束」）"
                     segs, end = lay
                     for st in segs:
-                        if st >= end or steps[st]["type"] != "find_click":
+                        if st >= end or not findtarget.is_find(steps[st]):
                             return "分岔的每個分支開頭必須是「找圖點擊」步驟"
                 stack.append((t, i + 1))
-            elif t in ("loop_end", "branch_end"):
-                need = "loop_start" if t == "loop_end" else "branch_start"
+            elif t in ("repeat_end", "branch_end"):
+                need = "repeat_start" if t == "repeat_end" else "branch_start"
                 if not stack:
                     return f"步驟 {i + 1}「{STEP_LABELS[t]}」缺少對應的開始標記"
                 if stack[-1][0] != need:
@@ -2116,7 +2122,7 @@ class App:
         names = set(self.list_template_names())
         missing = []
         for s in steps:
-            if (s["type"] == "find_click"
+            if (findtarget.is_find(s)
                     and findtarget.template(s) not in names):
                 missing.append(findtarget.template(s) or "(未選擇)")
             if (findtarget.uses_confirm_target(s)
@@ -2222,12 +2228,12 @@ class App:
             if t in ("click", "drag"):
                 if not have:
                     bad.append(base + k + 1)
-                elif t == "drag" or s.get("updateOrigin", True):
+                elif t == "drag" or s.get("update_origin", True):
                     have = True
-            elif t == "find_click":
+            elif t in findtarget.FIND_TYPES:
                 if not have and findtarget.needs_origin(findtarget.target(s)):
                     bad.append(base + k + 1)
-                elif s.get("updateOrigin", True):
+                elif s.get("update_origin", True):
                     have = True
         return bad
 

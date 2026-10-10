@@ -58,7 +58,7 @@ import flowfile
 from automation.runner import (POINTER_TYPES, confirm_next_connected,
                                origin_source, uses_confirm_next)
 
-from . import origin
+from . import keys, origin
 from .errors import ToolError
 
 RETAKE_PREFIX = "待重拍_"   # `待重拍`範本名前綴 (存檔格式不為它加任何欄位)
@@ -406,12 +406,13 @@ def _steps(raw, templates):
                 _err(where, "重複開始要寫 count（重複次數，正整數）")
         out.append(s)
     _check_sections(out)
-    for i, s in enumerate(out):
-        if uses_confirm_next(s) and not confirm_next_connected(out, i):
+    flow = [keys.flow_step(s) for s in out]   # 結構檢查用 app 的判斷 (吃流程的鍵名)
+    for i, s in enumerate(flow):
+        if uses_confirm_next(s) and not confirm_next_connected(flow, i):
             _err(f"步驟 {i + 1}", "「下一步的圖出現」(confirm: next) 需要「找圖相連」："
                  "下一步必須緊接著是找圖步驟（不能是最後一步或區段標記）")
         if (s["type"] in POINTER_TYPES and s.get("confirm") == "gone"
-                and origin_source(out, i) != "find"):
+                and origin_source(flow, i) != "find"):
             _err(f"步驟 {i + 1}", "「原點的圖離開」(confirm: gone) 需要原點來自找圖："
                  "前面最近一個更新原點的步驟要是找圖")
     return out
