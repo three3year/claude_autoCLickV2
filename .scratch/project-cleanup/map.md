@@ -34,6 +34,7 @@ flow.yaml 的具體長相、UI 版面、影片轉流程的新規則、基準集�
 - [影片轉流程產固定矩形與忙碌檢查的規則](issues/04-v2f-fixed-rect-and-busy-check-rules.md) — 各步自己影格的框每邊外推 50%（內容會變的清單由計畫宣告捲動軸、拉到影片邊）、裁到影片邊；忙碌檢查只照計畫明寫（影片看到忙碌或送伺服器即勾，驗證兩向只報告）；唯一不過標待重拍；計畫鍵跟 flow.yaml 一致；全新流程沒校準對就報錯；規則 13 條在票內
 - [打包版佈局與流程存放位置](issues/09-packaged-layout-and-flow-location.md) — 打包版只剩 exe 兩個＋`_internal\`（部署＝整個換掉）；流程預設 `%USERPROFILE%\AutoClick\<名>\`（避開 OneDrive 的「文件」），`交付報告.md` 住流程資料夾裡；開檔選 `flow.yaml`、不做關聯；本機狀態只記上次流程，與日誌放 `%LOCALAPPDATA%\AutoClick\`（原始碼執行放 repo `.local\`）；引擎參數不另放全域檔；佈局樹與給格式階段的連帶事項在票內
 - [記憶體步驟模型與 yaml 鍵名](issues/12-in-memory-step-model-keys.md) — 鍵名改、形狀留：記憶體欄位跟 flow.yaml 同名同單位，`type`＝開頭鍵（`loop_*`→`repeat_*`、`action` 併入），區段仍平面標記、找圖目標仍子 dict；一張預設表讀檔補齊；tools 經 app 解析與寫檔；格式階段內「刪路徑 → 機械改名 → 預設統一 → 換 yaml」，回歸網在票內（ADR 0014 決策 7）
+- [轉換工具規則與驗收](issues/11-converter-rules-and-acceptance.md) — 一次性腳本放格式階段的 `.scratch`、不進 tools/；自己讀舊 zip、經 app 寫檔與讀回自對；只顧四份實有的欄位（缺值為零，套新預設不改行為）；四份各帶 `engine: {scale_range: [0.6, 1.5]}`（ADR 0015 已修訂）；`.md` 原樣成 `交付報告.md`；輸出已存在就拒絕；舊格式讀寫在格式階段內刪
 
 ## Not yet specified
 
