@@ -38,3 +38,6 @@
 `tools/video_to_flow`（`影片轉流程`工具，不進 app、不進打包版）也直接用同一組
 公開 API（`make_library`＋`Engine.register`／`query`）在影片影格上自我驗證範本：
 它不執行流程、沒有 runner，不是 app 的第二條辨識路徑。
+`tools/recruit_tags`（公開招募標籤辨識，可行性驗證用的命令列工具，同樣不進 app、不進打包版）
+也只用這組公開 API，在截圖的五個`標籤格`內查渲染出來的文字範本；同樣不是第二條辨識路徑。
+它的嚴格判定（粗篩差距）讀 `QueryResult.debug` 的候選與驗證分數——格式不承諾穩定，引擎改了它要跟著改。

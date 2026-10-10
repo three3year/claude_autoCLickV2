@@ -1,0 +1,1253 @@
+{
+ "passed": true,
+ "size": [
+  1700,
+  868
+ ],
+ "scale": 0.8854,
+ "client": "tw",
+ "layout": [
+  [
+   636,
+   490,
+   177,
+   58
+  ],
+  [
+   840,
+   490,
+   177,
+   58
+  ],
+  [
+   1045,
+   490,
+   177,
+   58
+  ],
+  [
+   636,
+   578,
+   177,
+   58
+  ],
+  [
+   840,
+   578,
+   177,
+   58
+  ]
+ ],
+ "cells": [
+  {
+   "index": 1,
+   "box": [
+    563,
+    434,
+    157,
+    51
+   ],
+   "status": "pass",
+   "tag": {
+    "id": 1,
+    "name": "近衛幹員"
+   },
+   "best": {
+    "id": 1,
+    "name": "近衛幹員",
+    "coarse": 0.686,
+    "verify": 0.9888,
+    "match": 0.9888
+   },
+   "runner_up": {
+    "id": 14,
+    "name": "資深幹員",
+    "coarse": 0.5589
+   },
+   "margin": 0.1271,
+   "found": [
+    1
+   ],
+   "scores": [
+    {
+     "id": 1,
+     "name": "近衛幹員",
+     "found": true,
+     "coarse": 0.686,
+     "verify": 0.9888
+    },
+    {
+     "id": 14,
+     "name": "資深幹員",
+     "found": false,
+     "coarse": 0.5589,
+     "verify": null
+    },
+    {
+     "id": 2,
+     "name": "狙擊幹員",
+     "found": false,
+     "coarse": 0.5572,
+     "verify": null
+    },
+    {
+     "id": 7,
+     "name": "特種幹員",
+     "found": false,
+     "coarse": 0.5498,
+     "verify": null
+    },
+    {
+     "id": 4,
+     "name": "醫療幹員",
+     "found": false,
+     "coarse": 0.5346,
+     "verify": null
+    },
+    {
+     "id": 6,
+     "name": "術師幹員",
+     "found": false,
+     "coarse": 0.5335,
+     "verify": null
+    },
+    {
+     "id": 3,
+     "name": "重裝幹員",
+     "found": false,
+     "coarse": 0.5248,
+     "verify": null
+    },
+    {
+     "id": 5,
+     "name": "輔助幹員",
+     "found": false,
+     "coarse": 0.5054,
+     "verify": null
+    },
+    {
+     "id": 8,
+     "name": "先鋒幹員",
+     "found": false,
+     "coarse": 0.4867,
+     "verify": null
+    },
+    {
+     "id": 24,
+     "name": "削弱",
+     "found": false,
+     "coarse": 0.4455,
+     "verify": null
+    },
+    {
+     "id": 12,
+     "name": "控場",
+     "found": false,
+     "coarse": 0.41,
+     "verify": null
+    },
+    {
+     "id": 27,
+     "name": "召喚",
+     "found": false,
+     "coarse": 0.4087,
+     "verify": null
+    },
+    {
+     "id": 25,
+     "name": "快速復活",
+     "found": false,
+     "coarse": 0.3933,
+     "verify": null
+    },
+    {
+     "id": 26,
+     "name": "位移",
+     "found": false,
+     "coarse": 0.3921,
+     "verify": null
+    },
+    {
+     "id": 28,
+     "name": "支援機械",
+     "found": false,
+     "coarse": 0.3813,
+     "verify": null
+    },
+    {
+     "id": 11,
+     "name": "高級資深幹員",
+     "found": false,
+     "coarse": 0.2673,
+     "verify": null
+    },
+    {
+     "id": 9,
+     "name": "近戰位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 10,
+     "name": "遠程位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 13,
+     "name": "爆發",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 15,
+     "name": "治療",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 16,
+     "name": "支援",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 17,
+     "name": "新手",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 18,
+     "name": "費用回復",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 19,
+     "name": "輸出",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 20,
+     "name": "生存",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 21,
+     "name": "群攻",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 22,
+     "name": "防護",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 23,
+     "name": "減速",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 29,
+     "name": "元素",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    }
+   ]
+  },
+  {
+   "index": 2,
+   "box": [
+    744,
+    434,
+    157,
+    51
+   ],
+   "status": "pass",
+   "tag": {
+    "id": 17,
+    "name": "新手"
+   },
+   "best": {
+    "id": 17,
+    "name": "新手",
+    "coarse": 0.8597,
+    "verify": 0.9777,
+    "match": 0.9777
+   },
+   "runner_up": {
+    "id": 24,
+    "name": "削弱",
+    "coarse": 0.4863
+   },
+   "margin": 0.3734,
+   "found": [
+    17
+   ],
+   "scores": [
+    {
+     "id": 17,
+     "name": "新手",
+     "found": true,
+     "coarse": 0.8597,
+     "verify": 0.9777
+    },
+    {
+     "id": 24,
+     "name": "削弱",
+     "found": false,
+     "coarse": 0.4863,
+     "verify": null
+    },
+    {
+     "id": 21,
+     "name": "群攻",
+     "found": false,
+     "coarse": 0.4181,
+     "verify": null
+    },
+    {
+     "id": 13,
+     "name": "爆發",
+     "found": false,
+     "coarse": 0.418,
+     "verify": null
+    },
+    {
+     "id": 16,
+     "name": "支援",
+     "found": false,
+     "coarse": 0.4101,
+     "verify": null
+    },
+    {
+     "id": 15,
+     "name": "治療",
+     "found": false,
+     "coarse": 0.3988,
+     "verify": null
+    },
+    {
+     "id": 26,
+     "name": "位移",
+     "found": false,
+     "coarse": 0.395,
+     "verify": null
+    },
+    {
+     "id": 27,
+     "name": "召喚",
+     "found": false,
+     "coarse": 0.3933,
+     "verify": null
+    },
+    {
+     "id": 23,
+     "name": "減速",
+     "found": false,
+     "coarse": 0.3926,
+     "verify": null
+    },
+    {
+     "id": 20,
+     "name": "生存",
+     "found": false,
+     "coarse": 0.3877,
+     "verify": null
+    },
+    {
+     "id": 12,
+     "name": "控場",
+     "found": false,
+     "coarse": 0.3831,
+     "verify": null
+    },
+    {
+     "id": 29,
+     "name": "元素",
+     "found": false,
+     "coarse": 0.3788,
+     "verify": null
+    },
+    {
+     "id": 18,
+     "name": "費用回復",
+     "found": false,
+     "coarse": 0.3563,
+     "verify": null
+    },
+    {
+     "id": 19,
+     "name": "輸出",
+     "found": false,
+     "coarse": 0.3522,
+     "verify": null
+    },
+    {
+     "id": 22,
+     "name": "防護",
+     "found": false,
+     "coarse": 0.3467,
+     "verify": null
+    },
+    {
+     "id": 14,
+     "name": "資深幹員",
+     "found": false,
+     "coarse": 0.3012,
+     "verify": null
+    },
+    {
+     "id": 4,
+     "name": "醫療幹員",
+     "found": false,
+     "coarse": 0.296,
+     "verify": null
+    },
+    {
+     "id": 1,
+     "name": "近衛幹員",
+     "found": false,
+     "coarse": 0.286,
+     "verify": null
+    },
+    {
+     "id": 3,
+     "name": "重裝幹員",
+     "found": false,
+     "coarse": 0.2748,
+     "verify": null
+    },
+    {
+     "id": 7,
+     "name": "特種幹員",
+     "found": false,
+     "coarse": 0.2576,
+     "verify": null
+    },
+    {
+     "id": 8,
+     "name": "先鋒幹員",
+     "found": false,
+     "coarse": 0.2486,
+     "verify": null
+    },
+    {
+     "id": 2,
+     "name": "狙擊幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 5,
+     "name": "輔助幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 6,
+     "name": "術師幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 9,
+     "name": "近戰位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 10,
+     "name": "遠程位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 11,
+     "name": "高級資深幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 25,
+     "name": "快速復活",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 28,
+     "name": "支援機械",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    }
+   ]
+  },
+  {
+   "index": 3,
+   "box": [
+    925,
+    434,
+    157,
+    51
+   ],
+   "status": "pass",
+   "tag": {
+    "id": 18,
+    "name": "費用回復"
+   },
+   "best": {
+    "id": 18,
+    "name": "費用回復",
+    "coarse": 0.6905,
+    "verify": 0.9738,
+    "match": 0.9738
+   },
+   "runner_up": {
+    "id": 24,
+    "name": "削弱",
+    "coarse": 0.4949
+   },
+   "margin": 0.1956,
+   "found": [
+    18
+   ],
+   "scores": [
+    {
+     "id": 18,
+     "name": "費用回復",
+     "found": true,
+     "coarse": 0.6905,
+     "verify": 0.9738
+    },
+    {
+     "id": 24,
+     "name": "削弱",
+     "found": false,
+     "coarse": 0.4949,
+     "verify": null
+    },
+    {
+     "id": 15,
+     "name": "治療",
+     "found": false,
+     "coarse": 0.4271,
+     "verify": null
+    },
+    {
+     "id": 14,
+     "name": "資深幹員",
+     "found": false,
+     "coarse": 0.4199,
+     "verify": null
+    },
+    {
+     "id": 29,
+     "name": "元素",
+     "found": false,
+     "coarse": 0.4182,
+     "verify": null
+    },
+    {
+     "id": 12,
+     "name": "控場",
+     "found": false,
+     "coarse": 0.4155,
+     "verify": null
+    },
+    {
+     "id": 27,
+     "name": "召喚",
+     "found": false,
+     "coarse": 0.4119,
+     "verify": null
+    },
+    {
+     "id": 16,
+     "name": "支援",
+     "found": false,
+     "coarse": 0.405,
+     "verify": null
+    },
+    {
+     "id": 3,
+     "name": "重裝幹員",
+     "found": false,
+     "coarse": 0.3891,
+     "verify": null
+    },
+    {
+     "id": 19,
+     "name": "輸出",
+     "found": false,
+     "coarse": 0.3868,
+     "verify": null
+    },
+    {
+     "id": 4,
+     "name": "醫療幹員",
+     "found": false,
+     "coarse": 0.3837,
+     "verify": null
+    },
+    {
+     "id": 25,
+     "name": "快速復活",
+     "found": false,
+     "coarse": 0.371,
+     "verify": null
+    },
+    {
+     "id": 6,
+     "name": "術師幹員",
+     "found": false,
+     "coarse": 0.3692,
+     "verify": null
+    },
+    {
+     "id": 1,
+     "name": "近衛幹員",
+     "found": false,
+     "coarse": 0.3663,
+     "verify": null
+    },
+    {
+     "id": 28,
+     "name": "支援機械",
+     "found": false,
+     "coarse": 0.3651,
+     "verify": null
+    },
+    {
+     "id": 5,
+     "name": "輔助幹員",
+     "found": false,
+     "coarse": 0.3566,
+     "verify": null
+    },
+    {
+     "id": 7,
+     "name": "特種幹員",
+     "found": false,
+     "coarse": 0.3448,
+     "verify": null
+    },
+    {
+     "id": 8,
+     "name": "先鋒幹員",
+     "found": false,
+     "coarse": 0.3441,
+     "verify": null
+    },
+    {
+     "id": 2,
+     "name": "狙擊幹員",
+     "found": false,
+     "coarse": 0.3212,
+     "verify": null
+    },
+    {
+     "id": 11,
+     "name": "高級資深幹員",
+     "found": false,
+     "coarse": 0.2628,
+     "verify": null
+    },
+    {
+     "id": 9,
+     "name": "近戰位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 10,
+     "name": "遠程位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 13,
+     "name": "爆發",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 17,
+     "name": "新手",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 20,
+     "name": "生存",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 21,
+     "name": "群攻",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 22,
+     "name": "防護",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 23,
+     "name": "減速",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 26,
+     "name": "位移",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    }
+   ]
+  },
+  {
+   "index": 4,
+   "box": [
+    563,
+    512,
+    157,
+    51
+   ],
+   "status": "pass",
+   "tag": {
+    "id": 19,
+    "name": "輸出"
+   },
+   "best": {
+    "id": 19,
+    "name": "輸出",
+    "coarse": 0.7809,
+    "verify": 0.9641,
+    "match": 0.9641
+   },
+   "runner_up": {
+    "id": 23,
+    "name": "減速",
+    "coarse": 0.4413
+   },
+   "margin": 0.3396,
+   "found": [
+    19
+   ],
+   "scores": [
+    {
+     "id": 19,
+     "name": "輸出",
+     "found": true,
+     "coarse": 0.7809,
+     "verify": 0.9641
+    },
+    {
+     "id": 23,
+     "name": "減速",
+     "found": false,
+     "coarse": 0.4413,
+     "verify": null
+    },
+    {
+     "id": 22,
+     "name": "防護",
+     "found": false,
+     "coarse": 0.4395,
+     "verify": null
+    },
+    {
+     "id": 24,
+     "name": "削弱",
+     "found": false,
+     "coarse": 0.429,
+     "verify": null
+    },
+    {
+     "id": 13,
+     "name": "爆發",
+     "found": false,
+     "coarse": 0.4242,
+     "verify": null
+    },
+    {
+     "id": 12,
+     "name": "控場",
+     "found": false,
+     "coarse": 0.4232,
+     "verify": null
+    },
+    {
+     "id": 15,
+     "name": "治療",
+     "found": false,
+     "coarse": 0.4038,
+     "verify": null
+    },
+    {
+     "id": 17,
+     "name": "新手",
+     "found": false,
+     "coarse": 0.4036,
+     "verify": null
+    },
+    {
+     "id": 21,
+     "name": "群攻",
+     "found": false,
+     "coarse": 0.3991,
+     "verify": null
+    },
+    {
+     "id": 16,
+     "name": "支援",
+     "found": false,
+     "coarse": 0.3886,
+     "verify": null
+    },
+    {
+     "id": 18,
+     "name": "費用回復",
+     "found": false,
+     "coarse": 0.3858,
+     "verify": null
+    },
+    {
+     "id": 29,
+     "name": "元素",
+     "found": false,
+     "coarse": 0.3798,
+     "verify": null
+    },
+    {
+     "id": 26,
+     "name": "位移",
+     "found": false,
+     "coarse": 0.3683,
+     "verify": null
+    },
+    {
+     "id": 27,
+     "name": "召喚",
+     "found": false,
+     "coarse": 0.354,
+     "verify": null
+    },
+    {
+     "id": 20,
+     "name": "生存",
+     "found": false,
+     "coarse": 0.3516,
+     "verify": null
+    },
+    {
+     "id": 6,
+     "name": "術師幹員",
+     "found": false,
+     "coarse": 0.3082,
+     "verify": null
+    },
+    {
+     "id": 14,
+     "name": "資深幹員",
+     "found": false,
+     "coarse": 0.2924,
+     "verify": null
+    },
+    {
+     "id": 3,
+     "name": "重裝幹員",
+     "found": false,
+     "coarse": 0.282,
+     "verify": null
+    },
+    {
+     "id": 7,
+     "name": "特種幹員",
+     "found": false,
+     "coarse": 0.2683,
+     "verify": null
+    },
+    {
+     "id": 1,
+     "name": "近衛幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 2,
+     "name": "狙擊幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 4,
+     "name": "醫療幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 5,
+     "name": "輔助幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 8,
+     "name": "先鋒幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 9,
+     "name": "近戰位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 10,
+     "name": "遠程位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 11,
+     "name": "高級資深幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 25,
+     "name": "快速復活",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 28,
+     "name": "支援機械",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    }
+   ]
+  },
+  {
+   "index": 5,
+   "box": [
+    744,
+    512,
+    157,
+    51
+   ],
+   "status": "pass",
+   "tag": {
+    "id": 20,
+    "name": "生存"
+   },
+   "best": {
+    "id": 20,
+    "name": "生存",
+    "coarse": 0.8436,
+    "verify": 0.9704,
+    "match": 0.9704
+   },
+   "runner_up": {
+    "id": 26,
+    "name": "位移",
+    "coarse": 0.4899
+   },
+   "margin": 0.3537,
+   "found": [
+    20
+   ],
+   "scores": [
+    {
+     "id": 20,
+     "name": "生存",
+     "found": true,
+     "coarse": 0.8436,
+     "verify": 0.9704
+    },
+    {
+     "id": 26,
+     "name": "位移",
+     "found": false,
+     "coarse": 0.4899,
+     "verify": null
+    },
+    {
+     "id": 15,
+     "name": "治療",
+     "found": false,
+     "coarse": 0.4733,
+     "verify": null
+    },
+    {
+     "id": 16,
+     "name": "支援",
+     "found": false,
+     "coarse": 0.4602,
+     "verify": null
+    },
+    {
+     "id": 12,
+     "name": "控場",
+     "found": false,
+     "coarse": 0.399,
+     "verify": null
+    },
+    {
+     "id": 27,
+     "name": "召喚",
+     "found": false,
+     "coarse": 0.3969,
+     "verify": null
+    },
+    {
+     "id": 17,
+     "name": "新手",
+     "found": false,
+     "coarse": 0.3896,
+     "verify": null
+    },
+    {
+     "id": 23,
+     "name": "減速",
+     "found": false,
+     "coarse": 0.3864,
+     "verify": null
+    },
+    {
+     "id": 13,
+     "name": "爆發",
+     "found": false,
+     "coarse": 0.3767,
+     "verify": null
+    },
+    {
+     "id": 21,
+     "name": "群攻",
+     "found": false,
+     "coarse": 0.3756,
+     "verify": null
+    },
+    {
+     "id": 24,
+     "name": "削弱",
+     "found": false,
+     "coarse": 0.3748,
+     "verify": null
+    },
+    {
+     "id": 19,
+     "name": "輸出",
+     "found": false,
+     "coarse": 0.3577,
+     "verify": null
+    },
+    {
+     "id": 22,
+     "name": "防護",
+     "found": false,
+     "coarse": 0.3467,
+     "verify": null
+    },
+    {
+     "id": 29,
+     "name": "元素",
+     "found": false,
+     "coarse": 0.335,
+     "verify": null
+    },
+    {
+     "id": 18,
+     "name": "費用回復",
+     "found": false,
+     "coarse": 0.3232,
+     "verify": null
+    },
+    {
+     "id": 4,
+     "name": "醫療幹員",
+     "found": false,
+     "coarse": 0.2998,
+     "verify": null
+    },
+    {
+     "id": 5,
+     "name": "輔助幹員",
+     "found": false,
+     "coarse": 0.2823,
+     "verify": null
+    },
+    {
+     "id": 7,
+     "name": "特種幹員",
+     "found": false,
+     "coarse": 0.2735,
+     "verify": null
+    },
+    {
+     "id": 14,
+     "name": "資深幹員",
+     "found": false,
+     "coarse": 0.2687,
+     "verify": null
+    },
+    {
+     "id": 6,
+     "name": "術師幹員",
+     "found": false,
+     "coarse": 0.2633,
+     "verify": null
+    },
+    {
+     "id": 3,
+     "name": "重裝幹員",
+     "found": false,
+     "coarse": 0.2617,
+     "verify": null
+    },
+    {
+     "id": 1,
+     "name": "近衛幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 2,
+     "name": "狙擊幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 8,
+     "name": "先鋒幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 9,
+     "name": "近戰位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 10,
+     "name": "遠程位",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 11,
+     "name": "高級資深幹員",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 25,
+     "name": "快速復活",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    },
+    {
+     "id": 28,
+     "name": "支援機械",
+     "found": false,
+     "coarse": 0.0,
+     "verify": null
+    }
+   ]
+  }
+ ],
+ "combos": [],
+ "robots": [],
+ "render": {
+  "font": "NotoSansTC-VF.ttf",
+  "size": 25,
+  "weight": 400,
+  "fg": [
+   255,
+   255,
+   255
+  ],
+  "bg": [
+   49,
+   49,
+   49
+  ],
+  "margin": 3
+ },
+ "engine": {
+  "match_threshold": 0.6,
+  "verify_threshold": 0.8,
+  "scale_range": [
+   0.6,
+   1.5
+  ],
+  "verification": "full",
+  "min_margin": 0.1
+ },
+ "pool": {
+  "server": "tw",
+  "gacha_table": "https://raw.githubusercontent.com/arkntools/arknights-data-tw-for-maa/main/gacha_table.json",
+  "character_table": "https://raw.githubusercontent.com/arkntools/arknights-data-tw-for-maa/main/character_table.json",
+  "upstream_updated": "2026-10-08T08:12:56Z",
+  "fetched_at": "2026-10-10T08:21:24Z"
+ }
+}
