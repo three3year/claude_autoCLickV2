@@ -6,7 +6,13 @@ app/CONTEXT.md「啟動與就緒」)。App 與 runner 都只透過這個介面�
 (tests/harness.py 的 Vision) 與它同形狀, 是全 repo 唯一的假件點。
 
 重量級 import (torch/cv2) 全部發生在 load_engine() 內, 本模組保持輕量。
+
+`範本預載`有兩條路, 共用同一把登錄鎖: 讀取流程就在背景預載 (start_preload),
+按執行時執行器再走一次 preload——已載入的直接沿用、正在載的等它載完,
+同一張不會載兩次 (ADR 0004 後記)。
 """
+import threading
+import time
 
 LOADING = "loading"   # 引擎載入中: 辨識類操作一律提示並拒絕
 READY = "ready"       # `引擎就緒`: 辨識可用 (可能已降級 coarse-only)
@@ -32,6 +38,8 @@ class EngineHub:
         self._factory = engine_factory or _default_engine_factory
         self._engine = None
         self.library = None
+        self.generation = 0   # 範本清單整份換掉 (換流程) 的次數; 背景預載據此作廢
+        self._reg_lock = threading.Lock()   # 登錄產物的寫入 (預載、單張載入、換清單)
         self.state = LOADING
         self.error = None    # FAILED 時的例外
         self.warnings = []   # 引擎建構時發出的警告 (降級 coarse-only 等)
@@ -95,13 +103,17 @@ class EngineHub:
         """
         from subject_detection.library import make_library
         library = make_library(templates, config, registered_dir)
-        old = self.library
-        if changed is not None and old is not None and old.config == config:
-            for name, t in library.templates.items():
-                prev = old.templates.get(name)
-                if prev is not None and name not in changed:
-                    t.artifacts = prev.artifacts
-        self.library = library
+        old = self.library   # 只有 UI 執行緒換清單, 鎖外讀得安全
+        keep = changed is not None and old is not None and old.config == config
+        if not keep:
+            self.generation += 1   # 先作廢: 背景預載載完手上那張就停, 不再拿下一張
+        with self._reg_lock:   # 背景預載正在寫的那張寫完才接手, 不會寫進舊清單後遺失
+            if keep:
+                for name, t in library.templates.items():
+                    prev = old.templates.get(name)
+                    if prev is not None and name not in changed:
+                        t.artifacts = prev.artifacts
+            self.library = library
         return library
 
     # ---------- 查詢 / 載入 (runner 偵測接縫的超集) ----------
@@ -131,6 +143,40 @@ class EngineHub:
         缺名丟 KeyError(範本名)——args[0] 是乾淨的範本名, 呼叫端組錯誤
         訊息用 (引擎 query 的 KeyError 是給人看的字串, 兩者用途不同)。
         """
-        if name not in self.library.templates:
-            raise KeyError(name)
-        self._engine.register(self.library, name)
+        with self._reg_lock:
+            library = self.library
+            if name not in library.templates:
+                raise KeyError(name)
+            self._engine.register(library, name)
+
+    def start_preload(self, names, report):
+        """背景`範本預載` (讀取流程就開始); 回傳工作執行緒.
+
+        引擎還沒就緒就等就緒 (失敗就不做)。report(世代, 事件, 內容) 從工作執行緒
+        呼叫: ("start", 張數)、("bad", (範本名, 例外))、("done", None)。範本清單
+        整份換掉 (換流程) 就停下, 不再回報——呼叫端也用世代丟掉舊的回報。
+        被引用卻沒有圖的不在這裡管 (開檔時已警告, 按執行時照舊擋下)。
+        """
+        gen = self.generation
+
+        def work():
+            while self.state == LOADING:
+                time.sleep(0.05)
+            if self.state != READY or gen != self.generation:
+                return
+            report(gen, "start", len(names))
+            for name in names:
+                if gen != self.generation:
+                    return
+                try:
+                    self.ensure_template(name)
+                except KeyError:
+                    continue
+                except Exception as e:   # 壞圖: 當下報出來, 執行時照舊擋下
+                    report(gen, "bad", (name, e))
+            if gen == self.generation:
+                report(gen, "done", None)
+
+        t = threading.Thread(target=work, daemon=True, name="template-preload")
+        t.start()
+        return t

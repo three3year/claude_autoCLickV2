@@ -9,6 +9,7 @@
 """
 import json
 import os
+import queue
 import re
 import sys
 import threading
@@ -504,6 +505,34 @@ class App:
         self.render_steps()
         self.log_ui(f"已重新整理本流程的範本（{len(self.store.names())} 個；"
                     "登錄產物將於使用時載入）", "ok")
+
+    def start_preload(self):
+        """讀取流程後在背景做`範本預載` (被引用、有圖的範本; 引擎沒就緒就等就緒).
+
+        換流程時舊的那份由 hub 依世代作廢; 回報經佇列交回 UI 執行緒 (drain_preload)。
+        """
+        q = self.__dict__.setdefault("_preload_q", queue.Queue())
+        names = [n for n in self.referenced_templates() if n in self.library.templates]
+        if not names:
+            return None
+        self._preload_thread = self.hub.start_preload(
+            names, lambda gen, event, data: q.put((gen, event, data)))
+        return self._preload_thread
+
+    def drain_preload(self):
+        """背景預載的回報寫進執行紀錄 (UI 執行緒; 只認目前這份範本清單的)."""
+        q = self.__dict__.get("_preload_q")
+        while q is not None and not q.empty():
+            gen, event, data = q.get_nowait()
+            if gen != self.hub.generation:
+                continue
+            if event == "start":
+                self.log_ui(f"開始準備範本（{data} 張）")
+            elif event == "bad":
+                name, err = data
+                self.log_ui(f"範本「{name}」載入失敗：{err}（按執行時會停下並報錯）", "warn")
+            elif event == "done":
+                self.log_ui("範本就緒", "ok")
 
     def _mark_dirty(self):
         """有改動還沒存檔 (步驟、範本、校準對、忙碌指示、搜尋範圍、執行輪數)."""
@@ -1879,6 +1908,7 @@ class App:
         self.dirty = False
         if folder:
             apppaths.save_state({"last_flow": os.path.abspath(folder)})
+        self.start_preload()
 
     def confirm_discard(self, title):
         """有未存檔的改動時問「存檔／不存／取消」; 回傳是否繼續往下走.
@@ -2343,6 +2373,7 @@ class App:
         if self.hub.state != self._engine_state_seen:
             self._engine_state_seen = self.hub.state
             self._on_engine_state(self.hub.state)
+        self.drain_preload()
         st = self.runner.status()
         running = st["running"]
         self.btn_run.configure(state="disabled" if running else "normal")

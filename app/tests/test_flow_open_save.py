@@ -550,3 +550,103 @@ def test_匯出與profile入口都不存在(tkroot, monkeypatch):
                  "_load_autosave", "profile_dir"):
         assert not hasattr(a, gone), gone
     assert not hasattr(flowfile, "Workspace")
+
+
+# ---------- 讀取流程就背景預載 (flow-folder-format 11) ----------
+
+def _engine_app(tkroot, monkeypatch, engine, load=True):
+    from test_enginehub import RegEngine  # noqa: F401
+    a = _app(tkroot, monkeypatch)
+    a.hub = enginehub.EngineHub(engine_factory=lambda: engine)
+    if load:
+        a.hub.load()
+    a.rebind_templates()
+    return a
+
+
+def _settle(a):
+    a._preload_thread.join(5)
+    a.drain_preload()
+
+
+def _preload_logs(a):
+    return [m for m in a.logged if "準備範本" in m or "範本就緒" in m or "載入失敗" in m]
+
+
+def test_讀取流程後不按執行_紀錄出現開始準備範本與範本就緒(tkroot, tmp_path, monkeypatch):
+    from test_enginehub import RegEngine
+    engine = RegEngine()
+    a = _engine_app(tkroot, monkeypatch, engine)
+    folder = _write(tmp_path / "f", [_find("a"), _find("b")], {"a": b"A", "b": b"B"},
+                    busy={"template": "b"})
+    _opened(a, monkeypatch, folder)
+    _settle(a)
+    assert sorted(engine.registered) == ["a", "b"]
+    assert _preload_logs(a) == ["開始準備範本（2 張）", "範本就緒"]
+
+
+def test_啟動自動開的上次流程_引擎就緒後才開始預載(tkroot, tmp_path, monkeypatch):
+    import threading
+    from test_enginehub import RegEngine
+    engine = RegEngine()
+    a = _engine_app(tkroot, monkeypatch, engine, load=False)
+    folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
+    apppaths.save_state({"last_flow": folder})
+    a._open_last_flow()
+    a._preload_thread.join(0.3)
+    a.drain_preload()
+    assert engine.registered == [] and _preload_logs(a) == []
+    threading.Thread(target=a.hub.load).start()
+    _settle(a)
+    assert engine.registered == ["a"]
+    assert _preload_logs(a) == ["開始準備範本（1 張）", "範本就緒"]
+
+
+def test_預載中換流程_舊的丟掉新的開始_紀錄不混(tkroot, tmp_path, monkeypatch):
+    import threading
+    import time
+    from test_enginehub import RegEngine
+    gate = threading.Event()
+    engine = RegEngine(gate=gate)
+    a = _engine_app(tkroot, monkeypatch, engine)
+    first = _write(tmp_path / "甲", [_find("a"), _find("b"), _find("c")],
+                   {"a": b"A", "b": b"B", "c": b"C"})
+    second = _write(tmp_path / "乙", [_find("x")], {"x": b"X"})
+    _opened(a, monkeypatch, first)
+    old = a._preload_thread
+    time.sleep(0.1)                 # 卡在甲的第一張
+    threading.Timer(0.2, gate.set).start()
+    _opened(a, monkeypatch, second)  # 換流程要等手上那張登錄完
+    old.join(5)
+    _settle(a)
+    assert "b" not in engine.registered and "c" not in engine.registered
+    assert "x" in engine.registered
+    assert _preload_logs(a) == ["開始準備範本（1 張）", "範本就緒"], "只有乙的兩行"
+
+
+def test_預載發現壞圖_當下警告(tkroot, tmp_path, monkeypatch):
+    from test_enginehub import RegEngine
+    a = _engine_app(tkroot, monkeypatch, RegEngine(bad={"a"}))
+    folder = _write(tmp_path / "f", [_find("a"), _find("b")], {"a": b"A", "b": b"B"})
+    _opened(a, monkeypatch, folder)
+    _settle(a)
+    logs = _preload_logs(a)
+    assert any("「a」載入失敗" in m and "停下" in m for m in logs)
+    assert logs[-1] == "範本就緒"
+
+
+def test_新增範本後只有那張要重新登錄_其他留在記憶體(tkroot, tmp_path, monkeypatch):
+    from test_enginehub import RegEngine
+    engine = RegEngine()
+    a = _engine_app(tkroot, monkeypatch, engine)
+    folder = _write(tmp_path / "f", [_find("a"), _find("b")], {"a": b"A", "b": b"B"})
+    _opened(a, monkeypatch, folder)
+    _settle(a)
+    before = {n: t.artifacts for n, t in a.library.templates.items()}
+
+    name = _shot(a, "新圖")
+    app_mod.App.ensure_registered(a)   # 子類把它換成空操作; 這裡要真的跑
+
+    arts = {n: t.artifacts for n, t in a.library.templates.items()}
+    assert arts["a"] is before["a"] and arts["b"] is before["b"]
+    assert arts[name] is None, "新的那張用到時才登錄"
