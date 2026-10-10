@@ -31,7 +31,7 @@ import time
 
 import calibration as calib
 
-from . import capture, findtarget, flowfmt, win
+from . import capture, findtarget, flowdefaults, flowfmt, win
 
 
 class StopRequested(Exception):
@@ -85,7 +85,7 @@ def effect_confirm(step):
     """
     if step.get("type") not in findtarget.CONFIRMABLE:
         return "none"
-    return step.get("confirm", "none")
+    return step["confirm"]
 
 
 def origin_source(steps, idx):
@@ -99,9 +99,9 @@ def origin_source(steps, idx):
         t = s.get("type")
         if t == "drag":
             return "pointer"
-        if t == "click" and s.get("update_origin", True):
+        if t == "click" and s["update_origin"]:
             return "pointer"
-        if t in findtarget.FIND_TYPES and s.get("update_origin", True):
+        if t in findtarget.FIND_TYPES and s["update_origin"]:
             return "find"
     return None
 
@@ -151,7 +151,7 @@ def sends_input(step):
 
 def has_busy_check(step):
     """步驟有沒有勾`忙碌檢查` (只有送出輸入的步驟算)."""
-    return sends_input(step) and bool(step.get(BUSY_CHECK_KEY))
+    return sends_input(step) and step[BUSY_CHECK_KEY]
 
 
 GATE_ZH = findtarget.GATE_ZH
@@ -382,7 +382,7 @@ class Runner:
                     step = steps[idx]
                     t = step.get("type")
                     if t == "repeat_start":
-                        total = max(1, int(step.get("repeat", 1)))
+                        total = max(1, int(step["repeat"]))
                         self._loop_stack.append([idx, total, total])
                         self.log(f"[{idx + 1}] 重複區段開始（共 {total} 次）")
                         idx += 1
@@ -568,7 +568,8 @@ class Runner:
         ＝放行 (not_appeared; 就算生效確認其實已成立也等滿); 看到就等它消失
         ——挑中的位置不再有匹配 (gone, 同等待消失的同位置判定); 等到
         BUSY_GONE_CAP 秒仍在＝停止流程 (timeout, 不走「找不到時」)。輪詢間隔
-        沿用步驟的找圖輪詢節奏。每次寫一筆 `busy.check` 檔案日誌。
+        沿用步驟的找圖輪詢節奏 (沒有等待的步驟用預設表的輪詢間隔)。每次寫一筆
+        `busy.check` 檔案日誌。
         """
         if not has_busy_check(step):
             return
@@ -578,7 +579,8 @@ class Runner:
             return
         sent = self._last_input
         region = getattr(self, "scan_region", None)
-        clock = WaitClock(BUSY_GONE_CAP, max(0.1, float(step.get("interval", 0.5))),
+        interval = step.get("interval", flowdefaults.WAIT["interval"])
+        clock = WaitClock(BUSY_GONE_CAP, max(0.1, float(interval)),
                           appear_limit=self.busy_appear, start=sent)
         box = None   # 看到時挑中的框; None＝還沒看到
         polls = 0
@@ -661,7 +663,7 @@ class Runner:
             return self._exec_pointer(steps, idx)
 
         if t == "wait":
-            secs = float(step.get("wait", 1.0))
+            secs = float(step["wait"])
             self.log(f"[{no}] 等待 {secs:g} 秒")
             self._sleep(secs)
 
@@ -690,7 +692,7 @@ class Runner:
             y = base[1] + self._sc(dy)
             args, kw = (x, y), {}
             after = (x, y)
-            updates = step.get("update_origin", True)
+            updates = step["update_origin"]
             text = f"點擊 ({x}, {y})（上一步 {int(dx):+d},{int(dy):+d}）"
             fields = {"at": f"({x},{y})"}
         else:
@@ -699,8 +701,8 @@ class Runner:
             where = f"（上一步 {x1:+d},{y1:+d} → {x2:+d},{y2:+d}）"
             x1, y1, x2, y2 = (base[0] + x1, base[1] + y1,
                               base[0] + x2, base[1] + y2)
-            duration = float(step.get("duration", 0.3))
-            hold = float(step.get("hold", 0.0))
+            duration = float(step["duration"])
+            hold = float(step["hold"])
             args = (x1, y1, x2, y2)
             kw = {"duration_ms": int(round(duration * 1000)),
                   "hold_ms": int(round(hold * 1000))}
@@ -718,7 +720,7 @@ class Runner:
             self._log_file("input.confirm", step=no, kind=t, mode=mode,
                             result="cannot_run", **fields)
             return self._on_not_found(no, f"[{no}] 原點不是來自找圖，無法確認生效",
-                                      step.get("on_fail", "stop"))
+                                      step["on_fail"])
         self._input(t, *args, **kw)
         self.log(f"[{no}] {text}")
         if mode == "next" and not confirm_next_connected(steps, idx):
@@ -766,7 +768,7 @@ class Runner:
                 gates.see(f)
                 return f.picked is not None, f
             waiting, done, fail = f"{what}出現", f"{what}已出現", f"未見{what}"
-        timeout = float(step.get("timeout", 10))
+        timeout = float(step["timeout"])
         self.log(f"[{no}] 等待生效（直到{waiting}）")
 
         def stopped(last, polls, inputs):
@@ -774,7 +776,7 @@ class Runner:
                            **dict(rec, polls=polls, inputs=inputs,
                                   **gate_fields(last)))
         ok, f, polls, inputs, delay = self._await_effect(
-            no, timeout, float(step.get("interval", 0.5)), check,
+            no, timeout, float(step["interval"]), check,
             lambda screen, org: True, lambda: self._input(t, *args, **kw),
             on_stop=stopped)
         rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}")
@@ -794,7 +796,7 @@ class Runner:
         why = f"，{why}" if why else ""
         return self._on_not_found(
             no, f"[{no}] {'點擊' if t == 'click' else '拖曳'}後 {timeout}s 內"
-                f"{fail}（送了 {inputs} 次{why}）", step.get("on_fail", "stop"))
+                f"{fail}（送了 {inputs} 次{why}）", step["on_fail"])
 
     def _await_effect(self, no, timeout, interval, check, may_retry, resend,
                       on_stop=None):
@@ -868,7 +870,7 @@ class Runner:
                 self.log(f"[{end + 1}] 跳出重複區段（放棄剩餘次數）", "warn")
             else:
                 self.log(f"[{end + 1}] 跳出分岔區段", "warn")
-            if steps[end].get("on_break", "continue") == "break":
+            if steps[end]["on_break"] == "break":
                 pos = end  # 再往外跳出一層
                 continue
             return end + 1
@@ -956,8 +958,8 @@ class Runner:
                 return end + 1
             conds.append(steps[s])
 
-        timeout = max(float(c.get("timeout", 10)) for c in conds)
-        interval = min(float(c.get("interval", 0.5)) for c in conds)
+        timeout = max(float(c["timeout"]) for c in conds)
+        interval = min(float(c["interval"]) for c in conds)
         region = getattr(self, "scan_region", None)
         tgts = [findtarget.target(c) for c in conds]
         names = " | ".join(t.get("template") or "?" for t in tgts)
@@ -993,12 +995,12 @@ class Runner:
             self._record(segs[k] + 1, "branch", f,
                          "cannot_run" if f.reason == "origin" else "timeout",
                          polls=polls)
-        if any(c.get("on_fail") == "stop" for c in conds):
+        if any(c["on_fail"] == "stop" for c in conds):
             raise RuntimeError(
                 f"[{idx + 1}] 分岔逾時 {timeout}s, 沒有任何分支條件成立 → 停止執行")
         self.log(f"[{idx + 1}] 分岔逾時 {timeout}s, 沒有任何分支成立 → 跳過", "warn")
         # 分岔結束設「再往外跳出一層」時, 全逾時跳過也連外層區段一起跳出
-        if steps[end].get("on_break", "continue") == "break":
+        if steps[end]["on_break"] == "break":
             return self._break_out(end, steps)
         return end + 1
 
@@ -1017,13 +1019,13 @@ class Runner:
         no = idx + 1
         tgt = findtarget.target(step)
         name = tgt.get("template", "")
-        timeout = float(step.get("timeout", 10))
-        interval = float(step.get("interval", 0.5))
+        timeout = float(step["timeout"])
+        interval = float(step["interval"])
         region = getattr(self, "scan_region", None)  # 全域搜尋範圍 [x,y,w,h] 或 None
         action = step["type"]
         do_click = action == "find_click"
-        on_nf = step.get("on_fail", "skip")
-        off = tuple(self._sc(v) for v in step.get("offset", (0, 0)))
+        on_nf = step["on_fail"]
+        off = tuple(self._sc(v) for v in step["offset"])
         # 這一步判定所依據的原點 (本步驟執行前的): 點擊/補做更新原點後, 本步
         # 自己的找圖目標仍以它為準
         origin = self._last_click
@@ -1054,7 +1056,7 @@ class Runner:
                            else findtarget.still_there(tracked, f.matches))
                     if hit is not None:
                         tracked = hit.box
-                        if step.get("update_origin", True):
+                        if step["update_origin"]:
                             # 記錄最後看到的位置 (不點擊也算相對座標原點)
                             cx, cy = hit.center
                             self._set_origin((cx + off[0], cy + off[1]), tgt,
@@ -1125,7 +1127,7 @@ class Runner:
         self._record(no, "find", f, "found", polls=polls,
                      **({"click": f"({sx},{sy})"} if do_click else {}))
         if not do_click:
-            if step.get("update_origin", True):
+            if step["update_origin"]:
                 # 不點擊也記錄找到的位置 (含偏移), 供相對座標步驟當原點
                 self._set_origin((sx, sy), tgt, hit.box, origin)
             self.log(f"[{no}] 找到「{name}」(相似度 {hit.score:.3f}{many}) "
@@ -1133,10 +1135,10 @@ class Runner:
             return None
 
         self._input("click", sx, sy)
-        if step.get("update_origin", True):
+        if step["update_origin"]:
             self._set_origin((sx, sy), tgt, hit.box, origin)
         self._busy_check(no, step)   # 點擊 → 忙碌檢查 → 生效確認
-        confirm = step.get("confirm", "none")
+        confirm = step["confirm"]
         if confirm == "next" and not confirm_next_connected(steps, idx):
             # 執行期防禦線: 理論上已被存檔與執行前檢查擋下, 退化成「不確認」
             self.log(f"[{no}] 「點到下一步的圖出現」但下一步不是找圖步驟"
@@ -1218,7 +1220,7 @@ class Runner:
             cx, cy = cur["still"].center
             sx, sy = cx + off[0], cy + off[1]
             self._input("click", sx, sy)
-            if step.get("update_origin", True):
+            if step["update_origin"]:
                 self._set_origin((sx, sy), tgt, cur["box"], origin)
 
         ok, f, polls, n_clicks, delay = self._await_effect(

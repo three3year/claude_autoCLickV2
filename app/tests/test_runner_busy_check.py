@@ -14,7 +14,9 @@ from harness import (branch_end, branch_or, branch_start, click, drag, find,
 AT = (500, 400)
 BUSY_AT = (960, 1000)
 BUSY = tgt("busy", within=[640, 720, 640, 360])
-# 送出後 0.5s 出現、3.0s 消失 (輪詢 0.5s: 0.0 沒有, 0.5..2.5 在, 3.0 消失)
+# 輪詢 0.5s 的步驟 (有生效確認的寫 interval=0.5): 送出後 0.5s 出現、3.0s 消失
+# (0.0 沒有, 0.5..2.5 在, 3.0 消失); 沒有等待的座標點擊照預設表 0.3s 輪詢
+# (0.0 沒有, 0.3..1.5 在, 1.8 消失)
 APPEAR_THEN_GONE = [None] + [BUSY_AT] * 5 + [None]
 
 
@@ -33,10 +35,10 @@ def test_座標點擊勾了_忙碌出現後消失_下一步才送出(harness):
     r = harness.run([here(), click(100, 100, busy_check=True), click(9, 9)], busy=BUSY)
     assert r.ended == "done"
     assert harness.clicks() == [(100, 100), (109, 109)]
-    assert gap(harness) == pytest.approx(3.0, abs=0.01)
+    assert gap(harness) == pytest.approx(1.8, abs=0.01), "沒有等待的點擊照預設 0.3s 輪詢"
     [rec] = checks(harness)
     assert (rec["step"], rec["result"], rec["waited"], rec["polls"]) == (
-        2, "gone", "3.00", 7)
+        2, "gone", "1.80", 7)
     assert rec["picked"] == "(940,990,40,20)", "看到時挑中的框"
 
 
@@ -103,7 +105,7 @@ def test_出現等候內沒看到_等滿才放行(harness):
     assert gap(harness) == pytest.approx(1.0, abs=0.01), "預設 1000ms"
     [rec] = checks(harness)
     assert (rec["result"], rec["waited"], rec["polls"]) == ("not_appeared",
-                                                            "1.00", 3)
+                                                            "1.00", 5)
     assert "picked" not in rec
 
 

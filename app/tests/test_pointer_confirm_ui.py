@@ -43,7 +43,7 @@ def test_座標點擊對話框保留確認圖設定_找不到時預設停止(mak
     assert got["confirm"] == "appear"
     assert got["confirm_target"] == {"template": "ok", "color": True}
     assert got["on_fail"] == "stop"
-    assert (got["timeout"], got["interval"]) == (10, 0.5)
+    assert (got["timeout"], got["interval"]) == (10, 0.3), "「沒寫＝」表的預設"
 
 
 def test_拖曳對話框改成下一步的圖出現(make_app):
@@ -61,7 +61,8 @@ def test_改回不確認時不留任何確認欄位(make_app):
     got = _edit(a, click(10, 10, confirm="appear", confirm_target=tgt("ok"),
                          timeout=3, on_fail="skip", _edit=True),
                 _pick("不確認", "不確認"), _press("確定"), title="編輯：座標點擊")
-    for k in ("confirm", "confirm_target", "timeout", "interval", "on_fail"):
+    assert got["confirm"] == "none"
+    for k in ("confirm_target", "timeout", "interval", "on_fail"):
         assert k not in got, k
 
 

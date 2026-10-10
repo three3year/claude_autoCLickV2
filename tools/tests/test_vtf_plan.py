@@ -56,7 +56,7 @@ def test_不點擊的找圖不補點擊後確認(demo, engine):
     steps = [find("開始", action="none"), find("確定", action="wait_gone"),
              find("下一步")]
     s = saved(run(demo, engine, steps))
-    assert [x["confirm"] for x in s[:2]] == ["none", "none"]
+    assert all("confirm" not in x for x in s[:2]), "不點擊的找圖沒有生效確認"
 
 
 def test_找不到時預設停止且逾時預設10秒(demo, engine):
@@ -65,7 +65,7 @@ def test_找不到時預設停止且逾時預設10秒(demo, engine):
         assert x["on_fail"] == "stop"
         assert x["timeout"] == 10
         assert x["type"] == "find_click"
-        assert x["interval"] == 0.5
+        assert x["interval"] == 0.3, "app 的「沒寫＝」表"
         assert "button" not in x and "clicks" not in x
         assert x["update_origin"] is True
 

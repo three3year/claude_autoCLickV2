@@ -36,7 +36,8 @@ import ui_dialogs
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import capture, findtarget, flowfmt, hotkey, imgio, pickcheck, win
+from automation import (capture, findtarget, flowdefaults, flowfmt, hotkey, imgio,
+                        pickcheck, win)
 from automation.runner import (Runner, branch_layout, has_busy_check,
                                confirm_next_connected, origin_source,
                                uses_confirm_next, uses_origin_leaves)
@@ -85,15 +86,15 @@ FUSE_TRIP = 3
 
 def _pointer_confirm_desc(s):
     """座標點擊/拖曳的`生效確認`摘要 (沒設＝空字串)."""
-    mode = s.get("confirm", "none")
+    mode = s["confirm"]
     what = {"appear": f"確認圖「{findtarget.confirm_template(s) or '?'}」"
                       f"{findtarget.tag_text(findtarget.confirm_target(s))}出現",
             "next": "下一步的圖出現",
             "gone": "原點的圖離開"}.get(mode)
     if what is None:
         return ""
-    nf = {"skip": "跳過", "break": "跳出"}.get(s.get("on_fail"), "停止")
-    return f"，做到{what}（逾時{float(s.get('timeout', 10)):g}s→{nf}）"
+    nf = {"skip": "跳過", "break": "跳出", "stop": "停止"}[s["on_fail"]]
+    return f"，做到{what}（逾時{float(s['timeout']):g}s→{nf}）"
 
 
 def step_desc(s):
@@ -106,38 +107,38 @@ def _step_body(s):
     if t == "click":
         x, y = s["click"]
         pos = f"上一步點擊 ({int(x):+d}, {int(y):+d})"
-        uo = "，不更新原點" if not s.get("update_origin", True) else ""
+        uo = "，不更新原點" if not s["update_origin"] else ""
         return f"{pos}{uo}{_pointer_confirm_desc(s)}"
     if t in findtarget.FIND_TYPES:
         act = {"find_click": "點擊", "find": "僅等待出現",
                "wait_gone": "等待消失"}[t]
-        nf = {"stop": "停止", "break": "跳出"}.get(s.get("on_fail"), "跳過")
+        nf = {"stop": "停止", "break": "跳出", "skip": "跳過"}[s["on_fail"]]
         cfm = {"gone": "，點到消失", "appear": "，點到確認圖出現",
                "next": "，點到下一步的圖出現"}.get(s.get("confirm"), "")
         if s.get("confirm") == "appear":
             cfm += findtarget.tag_text(findtarget.confirm_target(s))
-        ox, oy = (int(v) for v in s.get("offset", (0, 0)))
+        ox, oy = (int(v) for v in s["offset"])
         off = f"，偏移({ox:+d}, {oy:+d})" if ox or oy else ""
-        uo = "，不更新原點" if not s.get("update_origin", True) else ""
+        uo = "，不更新原點" if not s["update_origin"] else ""
         return (f"{findtarget.template(s) or '?'}"
                 f"{findtarget.tag_text(findtarget.target(s))} → {act}{off}{cfm}{uo}"
-                f"（逾時{s.get('timeout', 10)}s→{nf}）")
+                f"（逾時{float(s['timeout']):g}s→{nf}）")
     if t == "drag":
         (x1, y1), (x2, y2) = s["drag"], s["to"]
         pos = f"上一步 ({int(x1):+d}, {int(y1):+d}) → ({int(x2):+d}, {int(y2):+d})"
-        hd = f" 停{float(s['hold']):g}s" if s.get("hold") else ""
-        return (f"{pos} {float(s.get('duration', 0.3)):g}s{hd}"
+        hd = f" 停{float(s['hold']):g}s" if s["hold"] else ""
+        return (f"{pos} {float(s['duration']):g}s{hd}"
                 f"{_pointer_confirm_desc(s)}")
     if t == "wait":
-        return f"{float(s.get('wait', 0)):g} 秒"
+        return f"{float(s['wait']):g} 秒"
     if t == "repeat_start":
-        return f"×{s.get('repeat', 1)} 次"
+        return f"×{s['repeat']} 次"
     if t == "branch_start":
         return "每個分支以找圖開頭，先找到誰就走誰"
     if t == "branch_or":
         return "── 或 ──"
     if t in ("repeat_end", "branch_end"):
-        if s.get("on_break") == "break":
+        if s["on_break"] == "break":
             return "跳出到此 → 再往外跳一層"
         return "───────"
     return ""
@@ -1306,24 +1307,14 @@ class App:
         self.render_steps(keep=i)
 
     def add_step(self, t):
-        defaults = {
-            "click": {"type": "click", "click": [0, 0]},
-            "drag": {"type": "drag", "drag": [0, 0], "to": [0, -100],
-                     "duration": 0.5, "hold": 0.5},
-            "find_click": {"type": "find_click", "target": {"template": ""},
-                           "timeout": 10, "interval": 0.5,
-                           "offset": [0, 0], "on_fail": "skip"},
-            "wait": {"type": "wait", "wait": 1},
-            "repeat_start": {"type": "repeat_start", "repeat": 3},
-        }
         # 有選取列 → 插在選取列之後 (收合區段算整段); 沒有 → 接在最後
         idxs = self._expand_collapsed(self._sel_all())
         at = (idxs[-1] + 1) if idxs else len(self.steps)
         if t in MARKER_TYPES:  # 沒有可設定的欄位, 直接加入
-            self.steps.insert(at, {"type": t})
+            self.steps.insert(at, flowdefaults.new_step(t))
             self.render_steps(keep=at)
             return
-        s = defaults[t]
+        s = flowdefaults.new_step(t)   # 「沒寫＝」表補齊的完整步驟
         s["_index"] = at  # 新步驟的插入位置, 供推算前一步
         s = ui_dialogs.edit_step(self, s)
         if s:
@@ -2228,12 +2219,12 @@ class App:
             if t in ("click", "drag"):
                 if not have:
                     bad.append(base + k + 1)
-                elif t == "drag" or s.get("update_origin", True):
+                elif t == "drag" or s["update_origin"]:
                     have = True
             elif t in findtarget.FIND_TYPES:
                 if not have and findtarget.needs_origin(findtarget.target(s)):
                     bad.append(base + k + 1)
-                elif s.get("update_origin", True):
+                elif s["update_origin"]:
                     have = True
         return bad
 

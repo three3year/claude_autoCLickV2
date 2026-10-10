@@ -32,9 +32,9 @@ def busy_lookups(harness):
 
 def _branch(timeout=5):
     return [branch_start(),
-            find("a", timeout=timeout, interval=0.5),
+            find("a", timeout=timeout, interval=0.5, on_fail="skip"),
             branch_or(),
-            find("b", timeout=timeout, interval=0.5),
+            find("b", timeout=timeout, interval=0.5, on_fail="skip"),
             branch_end()]
 
 

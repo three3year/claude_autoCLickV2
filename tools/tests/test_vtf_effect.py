@@ -102,7 +102,7 @@ def test_原點不是找圖時拖曳不設確認(demo, engine):
     s = saved(run(demo, engine, [find("開始", action="none"),
                                  {"type": "click", "at": [x, y + 40]},
                                  drag_from("開始")]))["steps"]
-    assert "confirm" not in s[2] and "on_fail" not in s[2]
+    assert s[2]["confirm"] == "none" and "on_fail" not in s[2]
 
 
 # ---------- 交付報告 ----------

@@ -52,9 +52,11 @@ def test_分岔全部逾時時跳過整個分岔(harness):
     harness.run([
         here(),
         branch_start(),
-        find("a.png", type="find", timeout=1, interval=0.1), tap(1, 1),
+        find("a.png", type="find", timeout=1, interval=0.1, on_fail="skip"),
+        tap(1, 1),
         branch_or(),
-        find("b.png", type="find", timeout=1, interval=0.1), tap(2, 2),
+        find("b.png", type="find", timeout=1, interval=0.1, on_fail="skip"),
+        tap(2, 2),
         branch_end(),
         tap(9, 9),
     ])

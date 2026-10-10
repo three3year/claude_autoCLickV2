@@ -27,7 +27,7 @@ def test_忙碌檢查存檔往返(tmp_path):
     steps = [click(1, 2, busy_check=True), find("a"), drag(1, 2, 3, 4, busy_check=True)]
     flowfile.write(path, {"steps": steps, "coordSpace": "anchor"}, {"a": b"A"})
     data = flowfile.read(path)["data"]
-    assert [s.get("busy_check") for s in data["steps"]] == [True, None, True]
+    assert [s.get("busy_check") for s in data["steps"]] == [True, False, True]
 
 
 def test_舊存檔讀進來沒勾(tmp_path):
@@ -35,7 +35,7 @@ def test_舊存檔讀進來沒勾(tmp_path):
     flowfile.write(path, {"steps": [click(1, 2), find("a")],
                           "coordSpace": "anchor"}, {"a": b"A"})
     data = flowfile.read(path)["data"]
-    assert all("busy_check" not in s for s in data["steps"])
+    assert not any(s.get("busy_check") for s in data["steps"])
 
 
 # ---------- 對話框 ----------
@@ -86,7 +86,7 @@ def test_重開顯示原本的勾選_取消勾選就不留鍵(make_app):
     got = _edit(a, click(10, 10, busy_check=True, _edit=True), _see(seen),
                 _toggle, _press("確定"), title="編輯：座標點擊")
     assert seen["text"].startswith("☑") and seen["shown"]
-    assert "busy_check" not in got
+    assert got["busy_check"] is False
 
 
 def test_找圖點擊對話框_動作為點擊時有勾選(make_app):

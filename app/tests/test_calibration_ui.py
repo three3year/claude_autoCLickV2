@@ -87,7 +87,7 @@ def test_執行時把流程的校準資料交給執行器(tkroot, monkeypatch, t
 def test_沒有搜尋範圍也能執行_基準點來自校準(tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
     a = _CalApp(tkroot, tmp_path, cal=FLOW_CAL)
-    a.steps = [{"type": "click", "click": [3, 4]}]
+    a.steps = _full({"type": "click", "click": [3, 4]})
     a.start_run()
     assert rec == [] and len(a.runner.started) == 1
 
@@ -109,6 +109,12 @@ def test_校準對的範本不在本流程_不執行(tkroot, monkeypatch, tmp_pa
 
 # ---------- 拾取換算的純邏輯 ----------
 
+def _full(*steps):
+    """記憶體裡的步驟一律是完整步驟 (照「沒寫＝」表補齊)."""
+    from automation import flowdefaults
+    return [flowdefaults.complete(s) for s in steps]
+
+
 def test_拾取值反除倍率換回流程尺度():
     assert ui_dialogs._unscale(150, 1.5) == 100
     assert ui_dialogs._unscale(-75, 1.5) == -50
@@ -117,17 +123,17 @@ def test_拾取值反除倍率換回流程尺度():
 
 def test_預設原點推算_相對偏移累積乘倍率():
     app = SimpleNamespace(
-        steps=[{"type": "find_click", "target": {"template": "a"}},
-               {"type": "click", "click": [30, 40]},
-               {"type": "click", "click": [10, 10]}],
+        steps=_full({"type": "find_click", "target": {"template": "a"}},
+                    {"type": "click", "click": [30, 40]},
+                    {"type": "click", "click": [10, 10]}),
         template_pos=lambda n: [0, 0])
     got = ui_dialogs._resolve_prev_origin(app, {"_index": 3}, None, 2.0, (100, 200))
     assert got == (100 + 60 + 20, 200 + 80 + 20)
 
 
 def test_預設原點推算_倍率1沿用原值():
-    app = SimpleNamespace(steps=[{"type": "find_click", "target": {"template": "a"}},
-                                 {"type": "click", "click": [30, 40]}],
+    app = SimpleNamespace(steps=_full({"type": "find_click", "target": {"template": "a"}},
+                                      {"type": "click", "click": [30, 40]}),
                           template_pos=lambda n: [0, 0])
     got = ui_dialogs._resolve_prev_origin(app, {"_index": 2}, None, 1.0, (0, 0))
     assert got == (30, 40)

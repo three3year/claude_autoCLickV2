@@ -21,10 +21,11 @@ import cv2
 
 import calibration
 import flowfile
-from automation import findtarget, flowfmt
+from automation import findtarget, flowdefaults, flowfmt
+from automation.runner import confirm_next_connected, origin_source
 from subject_detection.library import load_config
 
-from . import defaults, keys
+from . import keys
 from . import origin as origin_mod
 from . import plan as plan_mod
 from . import report as report_mod
@@ -99,6 +100,24 @@ def _measure_pair(c, checker, frames):
     return cal, m.anchor, None, fb_problem
 
 
+def _complete(steps):
+    """補齊步驟 (就地): 計畫沒寫的`生效確認`照工具的規則推, 其餘照 app 的「沒寫＝」表.
+
+    - 找圖點擊: 下一步是找圖 → 點到下一步的圖出現 (next), 否則 (含最後一步、下一步是
+      區段標記) → 目標圖消失 (gone)
+    - 拖曳的原點來自找圖: `原點的圖離開` (gone)——捲動被吃掉時重拖, 不在後面靜靜點錯列
+      (ADR 0008); 原點不是找圖時不設
+    """
+    for i, s in enumerate(steps):
+        t = s["type"]
+        if t == "find_click" and "confirm" not in s:
+            s["confirm"] = "next" if confirm_next_connected(steps, i) else "gone"
+        elif t == "drag" and "confirm" not in s and origin_source(steps, i) == "find":
+            s["confirm"] = "gone"
+        steps[i] = flowdefaults.complete(s)
+    return steps
+
+
 def _crop(frames, name, t, info):
     x, y, w, h = t["box"]
     if x < 0 or y < 0 or x + w > info["width"] or y + h > info["height"]:
@@ -139,7 +158,7 @@ def assemble(plan, engine=None, report_path=None):
     checker = verify_mod.Checker(engine, crops, p["templates"], p["steps"],
                                  frames, load_config(profile),
                                  extra_targets=[p["busy"]] if p["busy"] else [])
-    steps = defaults.apply(origin_mod.derive(p["steps"], p["templates"],
+    steps = _complete(origin_mod.derive(p["steps"], p["templates"],
                                              checker.locate))
     checked = checker.finish()
     cal, anchor, cal_problem, fb_problem = _measure_pair(p["calibration"], checker,

@@ -88,10 +88,11 @@ def _img(fill=200, w=12, h=8):
 
 
 def _find(template, **extra):
-    s = {"type": "find_click", "target": {"template": template},
-         "type": "find_click"}
+    """完整的找圖步驟 (記憶體裡的步驟一律照「沒寫＝」表補齊)."""
+    from automation import flowdefaults
+    s = {"type": "find_click", "target": {"template": template}}
     s.update(extra)
-    return s
+    return flowdefaults.complete(s)
 
 
 def _app(tkroot, tmp_path, name="p"):

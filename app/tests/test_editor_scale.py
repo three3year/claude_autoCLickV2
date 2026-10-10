@@ -18,7 +18,7 @@ import app as app_mod
 import enginehub
 import flowfile
 import ui_dialogs
-from automation import findtarget, imgio
+from automation import findtarget, flowdefaults, imgio
 from test_template_picker import TITLE, _Driver, _open, _PickApp
 
 REGION = [100, 200, 800, 600]
@@ -81,10 +81,13 @@ def _overlay(monkeypatch, result):
 
 
 def _edit(app, step, *actions, title):
-    """開步驟對話框, 依序做 actions, 回傳對話框的結果 step."""
+    """開步驟對話框, 依序做 actions, 回傳對話框的結果 step.
+
+    app 交給對話框的一律是完整步驟 (照「沒寫＝」表補齊), 這裡也先補齊。
+    """
     d = _Driver(app.root, title)
     d.run(*actions)
-    got = ui_dialogs.edit_step(app, step)
+    got = ui_dialogs.edit_step(app, flowdefaults.complete(step))
     if d.error is not None:
         raise d.error
     return got
@@ -115,7 +118,7 @@ def test_拖曳兩端點_相對原點_除以當下倍率(make_app, monkeypatch):
 def test_相對座標_預設原點推算用當下基準點與倍率_拾取值除以倍率(make_app, monkeypatch):
     app = make_app(2.0)
     app.ws.add("a", b"A", pos=[30, 40])      # 拍攝位置相對基準點
-    app.steps = [{"type": "find_click", "target": {"template": "a"}}]
+    app.steps = [flowdefaults.complete({"type": "find_click", "target": {"template": "a"}})]
     monkeypatch.setattr(ui_dialogs, "_find_template_now",
                         lambda *a, **k: None)   # 圖此刻不在畫面上 → 退用拍攝位置
     calls = _overlay(monkeypatch, {"dx": 50, "dy": -30})
@@ -259,9 +262,8 @@ def test_上傳的範本不縮放(make_app, monkeypatch, tmp_path):
 def test_預設原點退用拍攝位置_依當下基準點換到螢幕(make_app, monkeypatch):
     app = make_app(1.0, anchor=(550, 330))    # 視窗挪過了
     app.ws.add("a", b"A", pos=[100, 50])      # 拍的時候相對基準點 (+100,+50)
-    app.steps = [{"type": "find_click", "target": {"template": "a"},
-                  "offset": [0, 0]},
-                 {"type": "click", "click": [0, 0]}]
+    app.steps = [flowdefaults.complete({"type": "find_click", "target": {"template": "a"}}),
+                 flowdefaults.complete({"type": "click", "click": [0, 0]})]
     monkeypatch.setattr(ui_dialogs, "_find_template_now",
                         lambda *a, **k: None)   # 圖此刻不在畫面上
     calls = _overlay(monkeypatch, {"dx": 5, "dy": 5})
@@ -271,8 +273,9 @@ def test_預設原點退用拍攝位置_依當下基準點換到螢幕(make_app,
 
 
 def test_預設原點推算_相對點擊累積偏移乘倍率_找圖退用拍攝位置():
-    app = type("A", (), {"steps": [{"type": "find_click", "target": {"template": "a"}},
-                                   {"type": "click", "click": [30, 40]}],
+    app = type("A", (), {"steps": [flowdefaults.complete(s) for s in (
+                                       {"type": "find_click", "target": {"template": "a"}},
+                                       {"type": "click", "click": [30, 40]})],
                          "template_pos": lambda self, n: [10, 10]})()
     got = ui_dialogs._resolve_prev_origin(app, {"_index": 2}, None, 1.5, (100, 200))
     assert got == (100 + 15 + 45, 200 + 15 + 60), "拍攝位置 + 點擊偏移, 都乘倍率"

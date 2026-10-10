@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import calibration  # noqa: E402
 import flowfile  # noqa: E402
-from automation import flowfmt  # noqa: E402
+from automation import flowdefaults, flowfmt  # noqa: E402
 
 
 def make_profile(tmp_path, name="p"):
@@ -28,8 +28,7 @@ def make_profile(tmp_path, name="p"):
 
 def find_step(template, confirm_tmpl=None, **extra):
     """找圖步驟: 範本在`找圖目標`裡; confirm_tmpl＝確認圖 (點到確認圖出現)."""
-    s = {"type": "find_click", "target": {"template": template},
-         "type": "find_click"}
+    s = {"type": "find_click", "target": {"template": template}}
     if confirm_tmpl is not None:
         s.update(confirm="appear", confirm_target={"template": confirm_tmpl})
     s.update(extra)
@@ -38,6 +37,11 @@ def find_step(template, confirm_tmpl=None, **extra):
 
 def tmpl(step):
     return step["target"]["template"]
+
+
+def full(steps):
+    """讀回來的步驟是完整步驟 (照「沒寫＝」表補齊)."""
+    return [flowdefaults.complete(s) for s in steps]
 
 
 def flow(steps, **extra):
@@ -86,7 +90,7 @@ def test_存檔讀回等價的流程資料與範本(tmp_path):
                 scanRegion=[10, 20, 800, 600])
     flowfile.write(str(path), data, {"btn": b"IMG"}, {"btn": [11, -22]})
     r = flowfile.read(str(path))
-    assert r["data"]["steps"] == steps
+    assert r["data"]["steps"] == full(steps)
     assert r["data"]["scanRegion"] == [10, 20, 800, 600]
     assert r["images"] == {"btn": b"IMG"}
     assert r["pos"] == {"btn": [11, -22]}, "拍攝位置相對基準點, 可以是負的"
@@ -182,7 +186,7 @@ def test_草稿寫入時蓋同一套格式標記_讀回照常(tmp_path):
     flowfile.write_draft(str(profile), flow([find_step("a")]))
     raw = json.loads(open(flowfile.draft_path(str(profile)), encoding="utf-8").read())
     assert raw["flowFormat"] == flowfile.FORMAT and raw["coordSpace"] == "anchor"
-    assert flowfile.read_draft(str(profile))["steps"] == [find_step("a")]
+    assert flowfile.read_draft(str(profile))["steps"] == full([find_step("a")])
 
 
 def test_開外來的舊格式檔也拒絕_profile不多任何檔(tmp_path):
@@ -441,7 +445,7 @@ def test_存檔與載入的round_trip(tmp_path):
 
     ws2 = flowfile.Workspace(str(make_profile(tmp_path, "q")))
     r = ws2.load_flow(path)
-    assert r["data"]["steps"] == steps
+    assert r["data"]["steps"] == full(steps)
     assert r["data"]["scanRegion"] == [10, 20, 800, 600]
     assert ws2.names() == ["a", "b"]
     assert open(ws2.path_of("a"), "rb").read() == b"AAA"
@@ -473,7 +477,7 @@ def test_開啟外來檔_原樣複製不換算_校準對跟著走(tmp_path):
     profile = make_profile(tmp_path)
     src = _foreign_flow(tmp_path, CAL)
     r = flowfile.adopt_foreign_flow(src, str(profile))
-    assert r["data"]["steps"] == _steps_with_offsets()
+    assert r["data"]["steps"] == full(_steps_with_offsets())
     assert calibration.flow_pair(r["data"]) == CAL
     assert flowfile.template_names(r["flow_path"]) == sorted(["a", "圖示", "關閉"])
     assert sorted(os.listdir(str(profile))) == ["flows"], \

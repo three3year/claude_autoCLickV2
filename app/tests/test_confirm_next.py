@@ -62,8 +62,9 @@ def test_點到下一步的圖出現前會自動補點(harness):
 def test_逾時未見下一步的圖依找不到時處置(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.vision.plan("b.png", [None])
-    harness.run([find("a.png", confirm="next", timeout=1, interval=0.5),
-                 find("b.png", timeout=1, interval=0.5),
+    harness.run([find("a.png", confirm="next", timeout=1, interval=0.5,
+                      on_fail="skip"),
+                 find("b.png", timeout=1, interval=0.5, on_fail="skip"),
                  click(9, 9)])
     assert "未見下一步的圖「b.png」" in harness.log_text()
     assert harness.clicks()[-1] == (509, 409), "跳過後應繼續執行後續步驟 (原點＝點 a 的落點)"

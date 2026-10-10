@@ -126,13 +126,14 @@ def _describe(s):
     if t in findtarget.FIND_TYPES:
         text = f"「{findtarget.template(s)}」{findtarget.tag_text(findtarget.target(s))}" \
             f"{_ACTION[t]}"
-        ox, oy = s.get("offset", (0, 0))
+        ox, oy = s["offset"]
         if ox or oy:
             text += f"，偏移 {ox:+d},{oy:+d}"
-        text += _CONFIRM[s["confirm"]]
-        if s["confirm"] == "appear":
-            text += (f"「{findtarget.confirm_template(s)}」"
-                     f"{findtarget.tag_text(findtarget.confirm_target(s))}")
+        if t == "find_click":   # 只有找到就點的找圖有生效確認
+            text += _CONFIRM[s["confirm"]]
+            if s["confirm"] == "appear":
+                text += (f"「{findtarget.confirm_template(s)}」"
+                         f"{findtarget.tag_text(findtarget.confirm_target(s))}")
         text += f"；逾時 {s['timeout']}s 找不到時{_NF[s['on_fail']]}"
         if not s["update_origin"]:
             text += "；不更新原點"
@@ -142,7 +143,7 @@ def _describe(s):
             text = "相對原點 {:+d},{:+d}".format(*s["click"])
         else:
             text = "相對原點 {:+d},{:+d} → {:+d},{:+d}".format(*s["drag"], *s["to"])
-        mode = s.get("confirm", "none")
+        mode = s["confirm"]
         if mode != "none":
             text += _POINTER_CONFIRM[mode]
             if mode == "appear":

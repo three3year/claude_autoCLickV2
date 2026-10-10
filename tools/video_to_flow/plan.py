@@ -55,6 +55,7 @@ import json
 import os
 
 import flowfile
+from automation import flowdefaults
 from automation.runner import (POINTER_TYPES, confirm_next_connected,
                                origin_source, uses_confirm_next)
 
@@ -406,7 +407,8 @@ def _steps(raw, templates):
                 _err(where, "重複開始要寫 count（重複次數，正整數）")
         out.append(s)
     _check_sections(out)
-    flow = [keys.flow_step(s) for s in out]   # 結構檢查用 app 的判斷 (吃流程的鍵名)
+    # 結構檢查用 app 的判斷 (吃流程的完整步驟)
+    flow = [flowdefaults.complete(keys.flow_step(s)) for s in out]
     for i, s in enumerate(flow):
         if uses_confirm_next(s) and not confirm_next_connected(flow, i):
             _err(f"步驟 {i + 1}", "「下一步的圖出現」(confirm: next) 需要「找圖相連」："

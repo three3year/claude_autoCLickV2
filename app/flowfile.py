@@ -31,7 +31,7 @@ import zipfile
 from pathlib import Path
 
 import calibration
-from automation import findtarget, flowfmt
+from automation import findtarget, flowdefaults, flowfmt
 
 EXT = ".autoclickpack"          # 流程存檔副檔名 (沿用舊流程包的副檔名)
 DRAFT_NAME = "_autosave.json"   # 步驟草稿 (自動存檔; 輕量 JSON, 圖留在工作區)
@@ -282,7 +282,8 @@ def _new_step(s):
 def _from_old(data):
     """flow.json (舊鍵) → 記憶體的流程資料 (步驟與忙碌指示換成新鍵)."""
     data = dict(data)
-    data["steps"] = [_old_step(s) for s in data.get("steps") or []]
+    data["steps"] = [flowdefaults.complete(_old_step(s))
+                     for s in data.get("steps") or []]
     if isinstance(data.get(BUSY_KEY), dict):
         data[BUSY_KEY] = _old_target(data[BUSY_KEY])
     data.pop("avoidHover", None)

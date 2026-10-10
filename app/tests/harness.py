@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from subject_detection.engine import Match, QueryResult  # noqa: E402
 
 import enginehub  # noqa: E402
+from automation import flowdefaults  # noqa: E402
 from automation import runner as runner_mod  # noqa: E402
 
 
@@ -46,19 +47,22 @@ def cal(pair=CAL_PAIR, baseline=CAL_BASELINE):
 
 
 # ---------- 步驟建構器 (鍵名與單位跟 flow.yaml 相同; 見 app/CONTEXT.md) ----------
+# 記憶體裡的步驟一律是完整步驟 (讀檔與新增步驟時照「沒寫＝」表補齊), 建構器也一樣
+
+_full = flowdefaults.complete
 
 def wait(secs):
-    return {"type": "wait", "wait": secs}
+    return _full({"type": "wait", "wait": secs})
 
 
 def click(x, y, **kw):
     """座標點擊 (相對原點)."""
-    return dict({"type": "click", "click": [x, y]}, **kw)
+    return _full(dict({"type": "click", "click": [x, y]}, **kw))
 
 
 def drag(x1, y1, x2, y2, **kw):
     """拖曳 (起訖都相對原點)."""
-    return dict({"type": "drag", "drag": [x1, y1], "to": [x2, y2]}, **kw)
+    return _full(dict({"type": "drag", "drag": [x1, y1], "to": [x2, y2]}, **kw))
 
 
 def tgt(template, **attrs):
@@ -69,8 +73,8 @@ def tgt(template, **attrs):
 def find(template, target=None, **kw):
     """找圖步驟 (預設 find_click; type="find" / "wait_gone" 換三態);
     target 給`找圖目標`的其餘屬性 (within/pick/color)."""
-    return dict({"type": "find_click", "target": tgt(template, **(target or {}))},
-                **kw)
+    return _full(dict({"type": "find_click",
+                       "target": tgt(template, **(target or {}))}, **kw))
 
 
 HERE = "here"   # 定位找圖的範本: 預設擺在 (0, 0) (見 Vision)
@@ -83,23 +87,23 @@ def here(**kw):
 
 
 def repeat(n):
-    return {"type": "repeat_start", "repeat": n}
+    return _full({"type": "repeat_start", "repeat": n})
 
 
 def repeat_end(**kw):
-    return dict({"type": "repeat_end"}, **kw)
+    return _full(dict({"type": "repeat_end"}, **kw))
 
 
 def branch_start():
-    return {"type": "branch_start"}
+    return _full({"type": "branch_start"})
 
 
 def branch_or():
-    return {"type": "branch_or"}
+    return _full({"type": "branch_or"})
 
 
 def branch_end(**kw):
-    return dict({"type": "branch_end"}, **kw)
+    return _full(dict({"type": "branch_end"}, **kw))
 
 
 class Clock:
