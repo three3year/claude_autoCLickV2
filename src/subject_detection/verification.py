@@ -37,7 +37,10 @@ class Verifier:
     def __init__(self) -> None:
         import torch  # deferred so environments without torch fail here only
         self._torch = torch
-        self._model = torch.hub.load("facebookresearch/dinov2",
+        # pin the branch: without it torch.hub asks GitHub for the default
+        # branch on every load and raises on a 5xx (only a dead network
+        # falls back to the cache), silently dropping us to coarse-only
+        self._model = torch.hub.load("facebookresearch/dinov2:main",
                                      "dinov2_vits14", trust_repo=True,
                                      verbose=False)
         self._model.eval()
