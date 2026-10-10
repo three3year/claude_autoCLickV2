@@ -60,14 +60,12 @@ def test_座標點擊與拖曳的確認欄位照計畫寫進存檔(demo, engine)
         "next", 0.3, "stop")
 
 
-def test_流程層級的補做間隔與忙碌指示_出現等候上限(demo, engine):
-    steps = [find("開始"), find("確定", action="wait_gone", appearLimitMs=1000),
-             find("下一步")]
+def test_流程層級的補做間隔與忙碌指示(demo, engine):
+    steps = [find("開始"), find("確定", action="wait_gone"), find("下一步")]
     data = saved(run(demo, engine, steps, retryIntervalMs=800,
                      busyTarget={"template": "下一步", "colorCheck": True}))
     assert flowfile.retry_interval_ms(data) == 800
     assert flowfile.busy_target(data) == {"template": "下一步", "colorCheck": True}
-    assert data["steps"][1]["appearLimitMs"] == 1000
 
 
 @pytest.mark.parametrize("steps, extra, match", [
@@ -77,7 +75,6 @@ def test_流程層級的補做間隔與忙碌指示_出現等候上限(demo, eng
                                    "confirm": "appear"}], {}, "確認圖"),
     ([find("開始", action="none"), {"type": "click", "at": [1, 1],
                                    "timeout": 3}], {}, "生效確認的設定"),
-    ([find("開始", appearLimitMs=500)], {}, "出現等候上限"),
     ([find("開始")], {"busyTarget": {"template": "沒這張"}}, "忙碌指示的範本"),
     ([find("開始")], {"busyTarget": {"template": "開始", "limit": {
         "kind": "origin", "rect": [0, 0, 10, 10]}}}, "限定範圍"),
@@ -85,8 +82,8 @@ def test_流程層級的補做間隔與忙碌指示_出現等候上限(demo, eng
     ([find("開始", action="none"), {"type": "click", "at": [5, 5]},
       {"type": "drag", "from": [5, 5], "to": [5, 50], "confirm": "gone"}],
      {}, "原點來自找圖"),
-], ids=["confirm值", "appear沒確認圖", "沒confirm寫逾時", "上限只給等待消失",
-        "忙碌指示範本不在清單", "忙碌指示用原點矩形", "間隔負數", "原點不是找圖"])
+], ids=["confirm值", "appear沒確認圖", "沒confirm寫逾時",
+        "忙碌指示範本不在清單", "忙碌指示寫限定範圍", "間隔負數", "原點不是找圖"])
 def test_非法值仍被擋(demo, engine, steps, extra, match):
     refused(demo, engine, steps, match, **extra)
 

@@ -80,6 +80,6 @@ def test_照skill程序走一遍產出app開得起來的流程存檔(tmp_path):
     s = r["data"]["steps"]
     assert [x["type"] for x in s] == ["find_click", "find_click", "click"]
     assert s[0]["confirm"] == "next" and s[1]["confirm"] == "gone"
-    assert s[2]["mode"] == "prev"
+    assert "mode" not in s[2]
     assert r["data"]["scanRegion"] == [0, 0, VIDEO_W, VIDEO_H]
     assert (profile / "flows" / "走一遍.md").is_file()

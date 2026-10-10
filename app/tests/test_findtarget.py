@@ -156,41 +156,6 @@ def test_沒設限定範圍就是整個搜尋範圍():
     assert r.limit is None
 
 
-def test_以原點為基準的矩形_只回報裡面的匹配():
-    lim = {"limit": {"kind": "origin", "x": -50, "y": 20, "w": 200, "h": 100}}
-    r, _ = run([(520, 360), (900, 360), (520, 600)], target=lim,
-               origin=(500, 300))
-    assert r.limit == (450, 320, 200, 100)
-    assert [center(m) for m in r.matches] == [(520, 360)], "匹配仍是螢幕座標"
-
-
-def test_原點矩形隨畫面倍率換算():
-    lim = {"limit": {"kind": "origin", "x": -50, "y": 20, "w": 200, "h": 100}}
-    r, _ = run([(700, 500)], target=lim, origin=(500, 300), scale=2.0)
-    assert r.limit == (400, 340, 400, 200)
-    assert [center(m) for m in r.matches] == [(700, 500)]
-
-
-def test_以原點為基準的限定範圍卻沒有原點_無法執行():
-    lim = {"limit": {"kind": "origin", "x": 0, "y": 0, "w": 10, "h": 10}}
-    r, vision = run([(300, 300)], target=lim, origin=None)
-    assert r.reason == "origin" and vision.lookups == []
-
-
-def test_限定範圍超出搜尋範圍的部分被裁掉():
-    lim = {"limit": {"kind": "origin", "x": -100, "y": -100, "w": 300, "h": 300}}
-    r, _ = run([(120, 70)], target=lim, origin=(150, 100))
-    assert r.limit == (100, 50, 250, 250)
-    assert [center(m) for m in r.matches] == [(120, 70)]
-
-
-def test_限定範圍完全在搜尋範圍外_沒有匹配也不查詢():
-    lim = {"limit": {"kind": "origin", "x": 5000, "y": 0, "w": 100, "h": 100}}
-    r, vision = run([(300, 300)], target=lim, origin=(500, 300))
-    assert r.picked is None and r.matches == []
-    assert vision.lookups == []
-
-
 def test_最接近指定點不受限定範圍裁切影響():
     tgt = {"limit": {"kind": "rect", "x": 600, "y": 600, "w": 400, "h": 200},
            "pick": {"kind": "near", "x": 300, "y": 200}}
@@ -217,8 +182,6 @@ def test_拾取的螢幕位置反除畫面倍率存成基準尺度():
     # 與相對座標拾取一致: (螢幕位置 − 基準點) ÷ 倍率
     assert findtarget.offset_from_screen((650, 280), (500, 300), 1.0) == (150, -20)
     assert findtarget.offset_from_screen((650, 280), (500, 300), 2.0) == (75, -10)
-    rect = findtarget.rect_from_screen((400, 340, 400, 200), (500, 300), 2.0)
-    assert rect == {"kind": "origin", "x": -50, "y": 20, "w": 200, "h": 100}
 
 
 def test_步驟清單的簡短標記():
@@ -237,9 +200,8 @@ def test_設定摘要():
     assert findtarget.summary({"template": "a"}) == "整個搜尋範圍；分數最高；不比色"
     text = findtarget.summary({
         "template": "a", "colorCheck": True,
-        "limit": {"kind": "origin", "x": -50, "y": 20, "w": 200, "h": 100},
         "pick": {"kind": "near", "x": 10, "y": 20}})
-    assert text == "原點矩形 (-50,+20) 200×100；最接近原點 (+10,+20)；比色"
+    assert text == "整個搜尋範圍；最接近原點 (+10,+20)；比色"
     assert findtarget.summary({"template": "a",
                                "limit": {"kind": "rect", "x": -5, "y": 40,
                                          "w": 300, "h": 60},

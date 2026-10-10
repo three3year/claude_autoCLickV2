@@ -14,10 +14,10 @@ from __future__ import annotations
 
 from automation.runner import POINTER_TYPES, confirm_next_connected, origin_source
 
-FIND = {"timeout": 10, "interval": 0.5, "action": "click", "button": "left",
-        "clicks": 1, "onNotFound": "stop", "updateOrigin": True}
-CLICK = {"button": "left", "clicks": 1, "updateOrigin": True}
-DRAG = {"button": "left", "ms": 500, "holdMs": 500}
+FIND = {"timeout": 10, "interval": 0.5, "action": "click",
+        "onNotFound": "stop", "updateOrigin": True}
+CLICK = {"updateOrigin": True}
+DRAG = {"ms": 500, "holdMs": 500}
 CONFIRM = {"timeout": 10, "interval": 0.5, "onNotFound": "stop"}
 WAIT = {"ms": 1000}
 

@@ -10,7 +10,7 @@ threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分
 
 每次執行開頭先`校準` (ADR 0009、0012): 流程自帶`校準對`與`基準距離`, 執行器在
 `搜尋範圍`內找到兩張圖, 中心距離 ÷ 基準距離＝這次的`畫面倍率`, 第一張的中心＝這次的
-`座標基準點`——存檔裡的座標 (絕對座標、固定矩形) 都是相對它的偏移, 落點＝基準點 +
+`座標基準點`——存檔裡的座標 (固定矩形) 都是相對它的偏移, 落點＝基準點 +
 偏移×倍率; 每次找圖把倍率當`預期尺度`交給偵測器。執行中不重量。量不到 (或流程沒有
 校準對) 就一個輸入都不送。
 
@@ -21,7 +21,7 @@ threshold (見 ADR 0002)。每個找圖點 (找圖三態、點擊後確認、分
 所有找圖的等待 (分岔、一般找圖、生效確認、等待消失) 共用 `WaitClock` 判斷逾時,
 逾時照常計時、不看忙碌指示 (ADR 0011 取代 ADR 0010 的忙碌暫停)。
 
-`忙碌檢查` (ADR 0011): 勾了的步驟 (座標點擊、拖曳、按鍵、找圖點擊) 送出輸入後,
+`忙碌檢查` (ADR 0011): 勾了的步驟 (座標點擊、拖曳、找圖點擊) 送出輸入後,
 在`忙碌出現等候`內輪詢忙碌指示, 一次都沒看到＝放行; 看到就等它消失 (挑中的位置
 不再有匹配), 從送出起最多 BUSY_GONE_CAP 秒, 等不到＝停止流程。之後才做生效確認;
 補做重送後不再另等。
@@ -95,7 +95,7 @@ def origin_source(steps, idx):
     """`原點`在 steps[idx] 執行前來自哪種步驟 (靜態推算): "find" / "pointer" / None.
 
     與編輯器的「預設原點推算」同一套走法: 往上找最近一個會更新原點的步驟
-    (找圖三態、座標點擊勾著更新原點、拖曳), 等待/按鍵/區段標記略過。
+    (找圖三態、座標點擊勾著更新原點、拖曳), 等待/區段標記略過。
     「原點的圖離開」只在原點來自找圖時才判斷得了。
     """
     for s in reversed(steps[:idx]):
@@ -141,11 +141,11 @@ def _matching_branch_end(steps, i):
 BUSY_GONE_CAP = 60.0    # `忙碌檢查`: 從送出輸入起等忙碌指示消失的上限 (秒), 超過＝停止流程
 BUSY_APPEAR_DEFAULT = 1.0   # `忙碌出現等候`預設 (秒); 流程設定帶入時以毫秒存
 BUSY_CHECK_KEY = "busyCheck"    # 步驟上的布林鍵: 只在勾了時寫入, 缺鍵＝沒勾
-BUSY_CHECK_TYPES = ("click", "drag", "key", "find_click")   # 送出輸入的步驟種類
+BUSY_CHECK_TYPES = ("click", "drag", "find_click")   # 送出輸入的步驟種類
 
 
 def sends_input(step):
-    """步驟會不會送出輸入: 座標點擊、拖曳、按鍵、動作為點擊的找圖 (編輯器與執行器共用)."""
+    """步驟會不會送出輸入: 座標點擊、拖曳、動作為點擊的找圖 (編輯器與執行器共用)."""
     t = step.get("type")
     if t == "find_click":
         return step.get("action", "click") == "click"
@@ -222,7 +222,7 @@ def gate_fields(f):
 class WaitClock:
     """找圖等待共用的等待時鐘: 截止時間、輪詢間隔、逾時判定.
 
-    分岔的輪詢、一般找圖 (等待消失另有`出現等候上限`)、生效確認、忙碌檢查都用它
+    分岔的輪詢、一般找圖、生效確認、忙碌檢查 (另有`忙碌出現等候`) 都用它
     判斷逾時。逾時照常計時, 不因忙碌指示延後 (ADR 0011)。start: 起算時間
     (monotonic), 沒給＝現在 (忙碌檢查從送出輸入的時間起算)。
     """
@@ -239,12 +239,12 @@ class WaitClock:
         return time.monotonic() >= self._deadline
 
     def appear_expired(self):
-        """`出現等候上限`到了沒 (沒設＝永遠沒到)."""
+        """`忙碌出現等候`到了沒 (沒設＝永遠沒到)."""
         return (self._appear_by is not None
                 and time.monotonic() >= self._appear_by)
 
     def nap(self, appear=False):
-        """下一輪前該睡多久: 輪詢間隔, 但不超過截止時間 (appear＝出現等候上限)."""
+        """下一輪前該睡多久: 輪詢間隔, 但不超過截止時間 (appear＝忙碌出現等候)."""
         by = self._appear_by if appear and self._appear_by is not None else self._deadline
         return max(0.0, min(self.interval, by - time.monotonic()))
 
@@ -553,7 +553,7 @@ class Runner:
         where = (f"校準對第一張「{c.pair[0]}」的中心" if c.used == "main" else
                  f"備用校準對第一張「{c.pair[0]}」的中心加上設定時量好的偏移")
         self.log(f"座標基準點 ({self.anchor[0]}, {self.anchor[1]})"
-                 f"（{where}；絕對座標與固定矩形以它為原點）", "ok")
+                 f"（{where}；固定矩形以它為原點）", "ok")
 
     def _log_calibrate(self, **fields):
         self._log_file("calibrate", **fields)
@@ -577,12 +577,12 @@ class Runner:
                             {"target": target, "box": box, "origin": origin})
 
     # ---------- 輸入與`補做` ----------
-    def _input(self, kind, *args):
-        """送出一個輸入 (win.click / drag / press_keys) 並記下時間.
+    def _input(self, kind, *args, **kw):
+        """送出一個輸入 (win.click / drag) 並記下時間.
 
         執行器所有實際送出輸入的地方都經過這裡: 補做間隔從上一次輸入算起。
         """
-        getattr(win, kind)(*args)
+        getattr(win, kind)(*args, **kw)
         self._last_input = time.monotonic()
 
     def _busy_seen(self, no, screen, org):
@@ -680,20 +680,10 @@ class Runner:
             gate["busy_since"] = None
 
     # ---------- 步驟 ----------
-    def _abs_origin(self):
-        """`絕對座標`的基準＝這次的`座標基準點` (ADR 0012).
-
-        座標存的是相對基準點的偏移, 所以視窗挪位置、搜尋範圍重框時, 所有絕對座標
-        自動跟著搬過去, 不必重新拾取。開頭校準成功後才會執行到步驟, 這裡是防禦線。
-        """
-        if self.anchor is None:
-            raise RuntimeError("絕對座標需要座標基準點，但開頭校準尚未完成")
-        return self.anchor
-
     def _sc(self, v):
         """步驟偏移 ×`畫面倍率`四捨五入為整數像素 (倍率 1 = 恆等).
 
-        只換算偏移量 (找圖偏移、相對/絕對座標、拖曳兩端點); 搜尋範圍與
+        只換算偏移量 (找圖偏移、相對座標、拖曳兩端點); 搜尋範圍與
         原點等執行期螢幕座標本來就是本機量測值, 不換算。
         """
         return flowfmt.scale_px(v, self.scale)
@@ -719,12 +709,6 @@ class Runner:
         elif t == "find_click":
             return self._exec_find(steps, idx)
 
-        elif t == "key":
-            keys = step.get("keys", "")
-            self._input("press_keys", keys)
-            self.log(f"[{no}] 按鍵 {keys}")
-            self._busy_check(no, step)
-
         else:
             self.log(f"[{no}] 未知步驟類型: {t}", "warn")
 
@@ -737,38 +721,32 @@ class Runner:
         step = steps[idx]
         no = idx + 1
         t = step["type"]
-        rel = step.get("mode", "abs") == "prev"
-        if rel and self._last_click is None:
+        if self._last_click is None:
             self.log(f"[{no}] 相對座標: 尚無原點 → 跳過", "warn")
             return None
-        base = self._last_click if rel else self._abs_origin()
-        button = step.get("button", "left")
+        base = self._last_click
         if t == "click":
             x = base[0] + self._sc(step["x"])
             y = base[1] + self._sc(step["y"])
-            clicks = int(step.get("clicks", 1))
-            args = (x, y, button, clicks)
+            args, kw = (x, y), {}
             after = (x, y)
             updates = step.get("updateOrigin", True)
-            where = (f"（上一步 {int(step['x']):+d},{int(step['y']):+d}）" if rel
-                     else f"（基準點 {int(step['x']):+d},{int(step['y']):+d}）")
-            text = f"點擊 ({x}, {y}){where} {_btn_name(button)}×{clicks}"
+            text = (f"點擊 ({x}, {y})"
+                    f"（上一步 {int(step['x']):+d},{int(step['y']):+d}）")
             fields = {"at": f"({x},{y})"}
         else:
             x1, y1 = self._sc(step["x1"]), self._sc(step["y1"])
             x2, y2 = self._sc(step["x2"]), self._sc(step["y2"])
-            where = (f"（上一步 {x1:+d},{y1:+d} → {x2:+d},{y2:+d}）" if rel
-                     else f"（基準點 {x1:+d},{y1:+d} → {x2:+d},{y2:+d}）")
+            where = f"（上一步 {x1:+d},{y1:+d} → {x2:+d},{y2:+d}）"
             x1, y1, x2, y2 = (base[0] + x1, base[1] + y1,
                               base[0] + x2, base[1] + y2)
             ms = int(step.get("ms", 300))
             hold = int(step.get("holdMs", 0))
-            args = (x1, y1, x2, y2, button, ms, hold)
+            args, kw = (x1, y1, x2, y2), {"duration_ms": ms, "hold_ms": hold}
             after = (x2, y2)
             updates = True   # 拖曳終點一律是新原點
             hd = f" 停頓{hold}ms放開" if hold else ""
-            text = (f"拖曳 ({x1}, {y1}) → ({x2}, {y2}){where} "
-                    f"{_btn_name(button)} {ms}ms{hd}")
+            text = f"拖曳 ({x1}, {y1}) → ({x2}, {y2}){where} {ms}ms{hd}"
             fields = {"from": f"({x1},{y1})", "to": f"({x2},{y2})"}
         before, src = self._last_click, self._origin_src
         mode = effect_confirm(step)
@@ -780,7 +758,7 @@ class Runner:
                             result="cannot_run", **fields)
             return self._on_not_found(no, f"[{no}] 原點不是來自找圖，無法確認生效",
                                       step.get("onNotFound", "stop"))
-        self._input(t, *args)
+        self._input(t, *args, **kw)
         self.log(f"[{no}] {text}")
         if mode == "next" and not confirm_next_connected(steps, idx):
             # 執行期防禦線: 理論上已被執行前檢查擋下, 退化成「不確認」
@@ -836,7 +814,7 @@ class Runner:
                                   **gate_fields(last)))
         ok, f, polls, inputs, delay = self._await_effect(
             no, timeout, float(step.get("interval", 0.5)), check,
-            lambda screen, org: True, lambda: self._input(t, *args),
+            lambda screen, org: True, lambda: self._input(t, *args, **kw),
             on_stop=stopped)
         rec.update(inputs=inputs, polls=polls, busy_delay=f"{delay:.2f}")
         if ok:
@@ -1086,8 +1064,6 @@ class Runner:
         do_click = action == "click"
         on_nf = step.get("onNotFound", "skip")
         off = (self._sc(step.get("offsetX", 0)), self._sc(step.get("offsetY", 0)))
-        button = step.get("button", "left")
-        clicks = int(step.get("clicks", 1))
         # 這一步判定所依據的原點 (本步驟執行前的): 點擊/補做更新原點後, 本步
         # 自己的找圖目標仍以它為準
         origin = self._last_click
@@ -1101,12 +1077,8 @@ class Runner:
         # ---- 等待消失: 必須先看到圖至少一次, 之後消失才算通過 ----
         # (從未出現不能判定成功: 可能畫面根本沒進到預期狀態)
         # 「消失」＝先前挑中的那個位置不再有匹配; 別處的同款圖不影響
-        # `出現等候上限` (appearLimitMs, 預設不設): 這段時間內一次都沒看到＝通過
-        # ——等「可能出現、也可能根本不出現」的圖
         if action == "wait_gone":
-            limit_ms = step.get("appearLimitMs")
-            clock = WaitClock(timeout, interval,
-                              float(limit_ms) / 1000.0 if limit_ms else None)
+            clock = WaitClock(timeout, interval)
             tracked = None
             polls = 0
             gates = GateBest()
@@ -1131,11 +1103,6 @@ class Runner:
                         self.log(f"[{no}] 「{name}」已消失", "ok")
                         self._record(no, "wait_gone", f, "gone", polls=polls,
                                      picked=findtarget.fmt_box(tracked))
-                        return None
-                    elif clock.appear_expired():
-                        self.log(f"[{no}] 「{name}」在出現等候上限 {int(limit_ms)}ms "
-                                 "內沒出現 → 通過", "ok")
-                        self._record(no, "wait_gone", f, "not_appeared", polls=polls)
                         return None
                     # 圖還在 (或還沒出現): 沒達成
                     if clock.expired():
@@ -1205,7 +1172,7 @@ class Runner:
                      f"位置 ({sx}, {sy})", "ok")
             return None
 
-        self._input("click", sx, sy, button, clicks)
+        self._input("click", sx, sy)
         if step.get("updateOrigin", True):
             self._set_origin((sx, sy), tgt, hit.box, origin)
         self._busy_check(no, step)   # 點擊 → 忙碌檢查 → 生效確認
@@ -1221,11 +1188,10 @@ class Runner:
             return None
         # ---- 點擊後確認生效階段 ----
         return self._confirm_click(steps, idx, confirm, tgt, origin, hit.box,
-                                   off, button, clicks, timeout, interval,
-                                   on_nf)
+                                   off, timeout, interval, on_nf)
 
     def _confirm_click(self, steps, idx, mode, tgt, origin, box,
-                       off, button, clicks, timeout, interval, on_nf):
+                       off, timeout, interval, on_nf):
         """點擊後重試直到「確認生效」: 目標圖消失(gone)、確認圖出現(appear)
         或下一步的圖出現(next)。
 
@@ -1291,7 +1257,7 @@ class Runner:
         def resend():
             cx, cy = cur["still"].center
             sx, sy = cx + off[0], cy + off[1]
-            self._input("click", sx, sy, button, clicks)
+            self._input("click", sx, sy)
             if step.get("updateOrigin", True):
                 self._set_origin((sx, sy), tgt, cur["box"], origin)
 
@@ -1313,6 +1279,3 @@ class Runner:
         why = "" if mode == "gone" else gates.text(f)
         return self._on_not_found(no, fail + (f"（{why}）" if why else ""), on_nf)
 
-
-def _btn_name(b):
-    return {"left": "左鍵", "right": "右鍵", "middle": "中鍵"}.get(b, b)

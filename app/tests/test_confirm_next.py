@@ -3,7 +3,7 @@
 執行語意: 找到本步的圖 → 點一次 → 補點迴圈以「執行清單中下一步的範本圖
 出現」為生效條件; 確認對象依清單位置現算 (不記名)。
 """
-from harness import branch_end, branch_start, click, find, key, loop, loop_end, wait
+from harness import branch_end, branch_start, click, find, loop, loop_end, wait
 
 from automation import runner as runner_mod
 
@@ -22,7 +22,7 @@ def test_不相連_最後一步():
 
 def test_不相連_下一步為區段標記或其他類型():
     others = (loop(2), loop_end(), branch_start(), branch_or_step(),
-              branch_end(), wait(100), click(1, 2), key("enter"),
+              branch_end(), wait(100), click(1, 2),
               drag_step())
     for nxt in others:
         steps = [find("a", confirm="next"), nxt]
@@ -66,7 +66,7 @@ def test_逾時未見下一步的圖依找不到時處置(harness):
                  find("b.png", timeout=1, interval=0.5),
                  click(9, 9)])
     assert "未見下一步的圖「b.png」" in harness.log_text()
-    assert harness.clicks()[-1] == (9, 9), "跳過後應繼續執行後續步驟"
+    assert harness.clicks()[-1] == (509, 409), "跳過後應繼續執行後續步驟 (原點＝點 a 的落點)"
 
 
 def test_下一步是僅等待出現也能當確認條件(harness):
@@ -92,7 +92,7 @@ def test_下一步不相連時警告退化為不確認並繼續(harness):
     harness.vision.plan("a.png", [(500, 400)])
     harness.run([find("a.png", confirm="next", interval=0.1),
                  click(9, 9)])
-    assert harness.clicks() == [(500, 400), (9, 9)], "點一次就走, 不補點"
+    assert harness.clicks() == [(500, 400), (509, 409)], "點一次就走, 不補點"
     assert "下一步不是找圖" in harness.log_text()
     assert harness.runner.ended == "done"
 

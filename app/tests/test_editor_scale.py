@@ -1,8 +1,7 @@
 """編輯器每次拾取當下量`座標基準點`與`畫面倍率` (coord-anchor 票 02–06, ADR 0012).
 
-編輯器從螢幕取得的東西都在拾取的那張截圖上校準後再存: 絕對座標、固定矩形相對當下
-的基準點; 相對座標、限定範圍、指定點除以當下倍率; 截下的範本圖以 1/倍率縮放、拍攝
-位置相對基準點。量不到＝不存並提示; 沒有校準對＝需要基準點的拾取擋下、只依原點的照常。
+編輯器從螢幕取得的東西都在拾取的那張截圖上校準後再存: 固定矩形相對當下的基準點;
+相對座標、指定點除以當下倍率; 截下的範本圖以 1/倍率縮放、拍攝位置相對基準點。量不到＝不存並提示; 沒有校準對＝需要基準點的拾取擋下、只依原點的照常。
 拾取覆蓋層與清場以樁取代, 校準用的截圖走假偵測器 (harness.Vision), 對話框照常用
 `_Driver` 真的按按鈕。
 """
@@ -97,97 +96,56 @@ def _press(text):
 
 # ---------- 座標類拾取 ----------
 
-def test_絕對座標點擊_相對當下基準點_除以當下倍率(make_app, monkeypatch):
-    app = make_app(2.0)
-    _overlay(monkeypatch, {"screenX": 300, "screenY": 400})
-    got = _edit(app, {"type": "click", "mode": "abs", "x": 0, "y": 0},
-                _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
-    assert (got["x"], got["y"]) == (75, 85), "(300-150)/2, (400-230)/2"
-    assert app.vision.lookups == list(CAL_PAIR), "拾取當下量了一次校準對"
-
-
-def test_拖曳兩端點_相對當下基準點(make_app, monkeypatch):
+def test_拖曳兩端點_相對原點_除以當下倍率(make_app, monkeypatch):
     app = make_app(0.5)
-    _overlay(monkeypatch, {"startX": 160, "startY": 240,
-                           "endX": 180, "endY": 290})
-    got = _edit(app, {"type": "drag", "mode": "abs", "x1": 0, "y1": 0,
-                      "x2": 0, "y2": 0},
+    calls = []
+
+    def pick(root, mode, prompt, **kw):
+        calls.append(mode)
+        if mode == "point":      # 推算不出原點: 先點一下原點
+            return {"screenX": 150, "screenY": 230}
+        return {"startX": 160, "startY": 240, "endX": 180, "endY": 290}
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", pick)
+    got = _edit(app, {"type": "drag", "x1": 0, "y1": 0, "x2": 0, "y2": 0,
+                      "_index": 0},
                 _press("截圖拾取"), _press("確定"), title="新增：滑鼠拖曳")
+    assert calls == ["point", "line"]
     assert (got["x1"], got["y1"], got["x2"], got["y2"]) == (20, 20, 60, 120)
-
-
-def test_視窗挪位置後拾取同一點_存下的值不變(make_app, monkeypatch):
-    """同一個遊戲畫面位置, 視窗 (與基準點) 整個挪了 (+400,+100): 偏移一樣."""
-    app = make_app(1.0, anchor=(550, 330))
-    _overlay(monkeypatch, {"screenX": 700, "screenY": 500})
-    got = _edit(app, {"type": "click", "mode": "abs", "x": 0, "y": 0},
-                _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
-    assert (got["x"], got["y"]) == (150, 170)
 
 
 def test_相對座標_預設原點推算用當下基準點與倍率_拾取值除以倍率(make_app, monkeypatch):
     app = make_app(2.0)
-    app.steps = [{"type": "click", "mode": "abs", "x": 30, "y": 40}]
+    app.ws.add("a", b"A", pos=[30, 40])      # 拍攝位置相對基準點
+    app.steps = [{"type": "find_click", "target": {"template": "a"}}]
+    monkeypatch.setattr(ui_dialogs, "_find_template_now",
+                        lambda *a, **k: None)   # 圖此刻不在畫面上 → 退用拍攝位置
     calls = _overlay(monkeypatch, {"dx": 50, "dy": -30})
-    got = _edit(app, {"type": "click", "mode": "prev", "x": 0, "y": 0,
-                      "_index": 1},
+    got = _edit(app, {"type": "click", "x": 0, "y": 0, "_index": 1},
                 _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
     mode, kw = calls[0]
     assert kw["base"] == (150 + 60, 230 + 80), "原點＝基準點＋偏移×倍率"
     assert (got["x"], got["y"]) == (25, -15)
 
 
-def test_倍率1時拾取值原樣(make_app, monkeypatch):
-    app = make_app(1.0)
-    _overlay(monkeypatch, {"screenX": 333, "screenY": 444})
-    got = _edit(app, {"type": "click", "mode": "abs", "x": 0, "y": 0},
-                _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
-    assert (got["x"], got["y"]) == (183, 214)
-
-
-def test_沒有校準對_絕對座標拾取擋下並提示先設校準對(make_app, monkeypatch,
-                                             no_real_dialogs):
-    app = make_app(pair=False)
-    calls = _overlay(monkeypatch, {"screenX": 300, "screenY": 400})
-    got = _edit(app, {"type": "click", "mode": "abs", "x": 7, "y": 8},
-                _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
-    assert calls == [], "沒進拾取"
-    assert (got["x"], got["y"]) == (7, 8), "值沒被動到"
-    assert any("校準對" in m for m in no_real_dialogs["warning"])
-
-
 def test_沒有校準對_相對座標照常拾取_倍率1(make_app, monkeypatch):
     app = make_app(pair=False)
     _overlay(monkeypatch, {"dx": 50, "dy": -30})
-    got = _edit(app, {"type": "click", "mode": "prev", "x": 0, "y": 0,
-                      "_index": 0},
+    got = _edit(app, {"type": "click", "x": 0, "y": 0, "_index": 0},
                 _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
     assert (got["x"], got["y"]) == (50, -30)
     assert app.vision.lookups == []
 
 
-def test_拾取當下找不到校準對_不存並提示重框搜尋範圍(make_app, monkeypatch,
-                                             no_real_dialogs):
-    app = make_app(1.0)
-    app.vision.plan(CAL_PAIR[1], [None])
-    calls = _overlay(monkeypatch, {"screenX": 300, "screenY": 400})
-    got = _edit(app, {"type": "click", "mode": "abs", "x": 7, "y": 8},
-                _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
-    assert calls == [], "量不到就不進拾取"
-    assert (got["x"], got["y"]) == (7, 8)
-    assert any("搜尋範圍" in m and CAL_PAIR[1] in m
-               for m in no_real_dialogs["warning"])
-
-
 def test_拾取當下找不到校準對_相對座標也不存(make_app, monkeypatch, no_real_dialogs):
     app = make_app(1.0)
     app.vision.plan(CAL_PAIR[0], [None])
-    _overlay(monkeypatch, {"dx": 50, "dy": -30})
-    got = _edit(app, {"type": "click", "mode": "prev", "x": 1, "y": 2,
-                      "_index": 0},
+    calls = _overlay(monkeypatch, {"dx": 50, "dy": -30})
+    got = _edit(app, {"type": "click", "x": 1, "y": 2, "_index": 0},
                 _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
+    assert calls == [], "量不到就不進拾取"
     assert (got["x"], got["y"]) == (1, 2)
-    assert no_real_dialogs["warning"]
+    assert any("搜尋範圍" in m and CAL_PAIR[0] in m
+               for m in no_real_dialogs["warning"])
 
 
 def _target_dialog(app, monkeypatch, tgt, *actions):
@@ -200,17 +158,6 @@ def _target_dialog(app, monkeypatch, tgt, *actions):
     return got
 
 
-def test_限定範圍框選_除以當下倍率(make_app, monkeypatch):
-    app = make_app(2.0)
-    _overlay(monkeypatch, {"screenX": 400, "screenY": 520, "w": 300,
-                           "h": 100})
-    tgt = {"template": "a", "limit": {"kind": "origin", "x": 0, "y": 0,
-                                      "w": 10, "h": 10}}
-    got = _target_dialog(app, monkeypatch, tgt, _press("框選"), _press("確定"))
-    assert got["limit"] == {"kind": "origin", "x": -50, "y": 10,
-                            "w": 150, "h": 50}
-
-
 def test_指定點_只存相對原點的偏移_除以當下倍率(make_app, monkeypatch):
     app = make_app(2.0)
     _overlay(monkeypatch, {"screenX": 560, "screenY": 440})
@@ -219,7 +166,7 @@ def test_指定點_只存相對原點的偏移_除以當下倍率(make_app, monk
     assert got["pick"] == {"kind": "near", "x": 30, "y": -30}
 
 
-def test_指定點沒有基準下拉_限定範圍沒有九宮格(make_app):
+def test_指定點沒有基準下拉_限定範圍只有不限定與固定矩形(make_app):
     app = make_app(1.0)
     seen = {}
 
@@ -232,7 +179,7 @@ def test_指定點沒有基準下拉_限定範圍沒有九宮格(make_app):
     values = [v for vs in seen["combos"] for v in vs]
     assert not any("九宮格" in v for v in values)
     assert not any("搜尋範圍左上" in v for v in values)
-    assert ui_dialogs.LIMIT_ZH.keys() == {"none", "origin", "rect"}
+    assert ui_dialogs.LIMIT_ZH.keys() == {"none", "rect"}
 
 
 # ---------- 截範本 ----------
@@ -315,22 +262,23 @@ def test_預設原點退用拍攝位置_依當下基準點換到螢幕(make_app,
     app.ws.add("a", b"A", pos=[100, 50])      # 拍的時候相對基準點 (+100,+50)
     app.steps = [{"type": "find_click", "target": {"template": "a"},
                   "offsetX": 0, "offsetY": 0},
-                 {"type": "click", "mode": "prev", "x": 0, "y": 0}]
+                 {"type": "click", "x": 0, "y": 0}]
     monkeypatch.setattr(ui_dialogs, "_find_template_now",
                         lambda *a, **k: None)   # 圖此刻不在畫面上
     calls = _overlay(monkeypatch, {"dx": 5, "dy": 5})
-    _edit(app, {"type": "click", "mode": "prev", "x": 0, "y": 0, "_index": 2},
+    _edit(app, {"type": "click", "x": 0, "y": 0, "_index": 2},
           _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
     assert calls[0][1]["base"] == (650, 380), "◎ 標在圖實際的位置 (基準點 + 偏移)"
 
 
-def test_預設原點推算_絕對點擊_基準點加偏移乘倍率():
-    app = type("A", (), {"steps": [{"type": "click", "x": 30, "y": 40}],
-                         "template_pos": lambda self, n: None})()
-    got = ui_dialogs._resolve_prev_origin(app, {"_index": 1}, None, 1.5, (100, 200))
-    assert got == (100 + 45, 200 + 60)
-    assert ui_dialogs._resolve_prev_origin(app, {"_index": 1}, None, 1.5, None) \
-        is None, "沒有基準點無從推算"
+def test_預設原點推算_相對點擊累積偏移乘倍率_找圖退用拍攝位置():
+    app = type("A", (), {"steps": [{"type": "find_click", "target": {"template": "a"}},
+                                   {"type": "click", "x": 30, "y": 40}],
+                         "template_pos": lambda self, n: [10, 10]})()
+    got = ui_dialogs._resolve_prev_origin(app, {"_index": 2}, None, 1.5, (100, 200))
+    assert got == (100 + 15 + 45, 200 + 15 + 60), "拍攝位置 + 點擊偏移, 都乘倍率"
+    assert ui_dialogs._resolve_prev_origin(app, {"_index": 2}, None, 1.5, None) \
+        is None, "沒有基準點: 拍攝位置無從換到螢幕"
 
 
 # ---------- 比對測試 ----------

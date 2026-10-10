@@ -138,7 +138,7 @@ def test_拖曳對話框可選原點的圖離開_摘要顯示(make_app):
 def test_原點不是來自找圖時有警告標記且執行前擋下(tkroot):
     from harness import wait
     tkroot.withdraw()
-    leaves = dict(mode="prev", confirm="gone")
+    leaves = dict(confirm="gone")
     a = _MiniApp(tkroot, [find("row1", action="none"), wait(300),
                           drag(0, 0, 0, -100, **leaves),     # 原點來自找圖
                           drag(0, 0, 0, -100, **leaves),     # 來自上一個拖曳
@@ -161,7 +161,7 @@ def test_執行時原點的圖離開不成立就擋下(tkroot, monkeypatch, tmp_
     from test_calibration_ui import _CalApp, _warnings
     rec = _warnings(monkeypatch)
     a = _CalApp(tkroot, tmp_path, cal={"pair": ["p", "q"], "baseline": 100.0})
-    a.steps = [click(1, 2), drag(0, 0, 0, 9, mode="prev", confirm="gone")]
+    a.steps = [click(1, 2), drag(0, 0, 0, 9, confirm="gone")]
     a.start_run()
     assert a.runner.started == []
     assert any("原點的圖離開" in m and "步驟 2" in m for m in rec)

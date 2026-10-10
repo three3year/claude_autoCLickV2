@@ -510,22 +510,16 @@ def test_換校準對後所有存下的座標改成相對新基準點():
     rect = {"kind": "rect", "x": 100, "y": 50, "w": 30, "h": 20}
     data = {"steps": [
         {"type": "click", "x": 10, "y": 20},
-        {"type": "click", "x": 10, "y": 20, "mode": "prev"},
         {"type": "drag", "x1": 1, "y1": 2, "x2": 3, "y2": 4},
         {"type": "find_click", "target": {"template": "a", "limit": dict(rect)},
          "confirmTarget": {"template": "b", "limit": dict(rect)}},
-        {"type": "find_click", "target": {"template": "c",
-                                          "limit": {"kind": "origin", "x": 1, "y": 1,
-                                                    "w": 5, "h": 5}}},
     ], "busyTarget": {"template": "z", "limit": dict(rect)}}
-    assert flowfmt.shift_flow(data, (100, 100), (130, 90)) == 1 + 2 + 2 + 1
+    assert flowfmt.shift_flow(data, (100, 100), (130, 90)) == 2 + 1
     s = data["steps"]
-    assert (s[0]["x"], s[0]["y"]) == (-20, 30)
-    assert (s[1]["x"], s[1]["y"]) == (10, 20), "相對座標不動"
-    assert (s[2]["x1"], s[2]["y1"], s[2]["x2"], s[2]["y2"]) == (-29, 12, -27, 14)
-    assert s[3]["target"]["limit"] == {"kind": "rect", "x": 70, "y": 60, "w": 30, "h": 20}
-    assert s[3]["confirmTarget"]["limit"]["x"] == 70
-    assert s[4]["target"]["limit"]["x"] == 1, "原點矩形不動"
+    assert (s[0]["x"], s[0]["y"]) == (10, 20), "相對原點的座標不動"
+    assert (s[1]["x1"], s[1]["y1"], s[1]["x2"], s[1]["y2"]) == (1, 2, 3, 4)
+    assert s[2]["target"]["limit"] == {"kind": "rect", "x": 70, "y": 60, "w": 30, "h": 20}
+    assert s[2]["confirmTarget"]["limit"]["x"] == 70
     assert data["busyTarget"]["limit"] == {"kind": "rect", "x": 70, "y": 60,
                                            "w": 30, "h": 20}
 
@@ -533,14 +527,9 @@ def test_換校準對後所有存下的座標改成相對新基準點():
 def test_倍率不是1時換校準對_落點在捨入誤差內不變():
     """每個座標用舊基準點換到螢幕、再用新基準點換回 (流程尺度存整數, 誤差 ≤ 倍率/2 px)."""
     k, old, new = 1.7, (100, 50), (233, 97)
-    data = {"steps": [{"type": "click", "x": 13, "y": -29},
-                      {"type": "find_click", "target": {"template": "a", "limit": {
-                          "kind": "rect", "x": 101, "y": 51, "w": 31, "h": 21}}}]}
-    before = (flowfmt.to_screen((13, -29), old, k),
-              flowfmt.rect_to_screen({"x": 101, "y": 51, "w": 31, "h": 21}, old, k))
+    data = {"steps": [{"type": "find_click", "target": {"template": "a", "limit": {
+        "kind": "rect", "x": 101, "y": 51, "w": 31, "h": 21}}}]}
+    before = flowfmt.rect_to_screen({"x": 101, "y": 51, "w": 31, "h": 21}, old, k)
     flowfmt.shift_flow(data, old, new, k)
-    s = data["steps"]
-    after = (flowfmt.to_screen((s[0]["x"], s[0]["y"]), new, k),
-             flowfmt.rect_to_screen(s[1]["target"]["limit"], new, k))
-    assert all(abs(a - b) <= 1 for a, b in zip(before[0], after[0]))
-    assert all(abs(a - b) <= 1 for a, b in zip(before[1], after[1]))
+    after = flowfmt.rect_to_screen(data["steps"][0]["target"]["limit"], new, k)
+    assert all(abs(a - b) <= 1 for a, b in zip(before, after))

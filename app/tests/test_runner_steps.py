@@ -1,7 +1,7 @@
-"""執行器的既有行為回歸網: 等待、找圖三態、點擊後確認、按鍵."""
+"""執行器的既有行為回歸網: 等待、找圖三態、點擊後確認."""
 
 
-from harness import click, find, key, tgt, wait
+from harness import click, find, here, tgt, wait
 
 
 # ---------- 等待 ----------
@@ -73,14 +73,14 @@ def test_等待消失仍未消失算逾時失敗(harness):
 
 def test_找圖逾時未找到依找不到時跳過(harness):
     harness.vision.plan("a.png", [None])
-    harness.run([find("a.png", timeout=1, interval=0.1), click(9, 9)])
+    harness.run([here(), find("a.png", timeout=1, interval=0.1), click(9, 9)])
     assert "跳過" in harness.log_text()
     assert harness.clicks() == [(9, 9)], "跳過後應繼續執行後續步驟"
 
 
 def test_找圖逾時未找到可停止整份流程(harness):
     harness.vision.plan("a.png", [None])
-    harness.run([find("a.png", timeout=1, interval=0.1, onNotFound="stop"),
+    harness.run([here(), find("a.png", timeout=1, interval=0.1, onNotFound="stop"),
                  click(9, 9)])
     assert harness.clicks() == []
     assert "停止執行" in harness.log_text()
@@ -116,14 +116,8 @@ def test_點擊後確認逾時未生效依找不到時處置(harness):
     harness.run([find("a.png", confirm="gone", timeout=1, interval=0.1),
                  click(9, 9)])
     assert "未確認生效" in harness.log_text()
-    assert harness.clicks()[-1] == (9, 9), "跳過後應繼續執行後續步驟"
-
-
-# ---------- 按鍵 ----------
-
-def test_按鍵送出組合鍵(harness):
-    harness.run([key("ctrl+v")])
-    assert ("keys", "ctrl+v") in harness.events
+    # 相對最後一次點 a 的落點 (原點)
+    assert harness.clicks()[-1] == (509, 409), "跳過後應繼續執行後續步驟"
 
 
 # ---------- 搜尋範圍 ----------

@@ -50,7 +50,6 @@ STEP_LABELS = {
     "click": "座標點擊",
     "drag": "滑鼠拖曳",
     "wait": "等待",
-    "key": "按鍵",
     "loop_start": "重複開始",
     "loop_end": "重複結束",
     "branch_start": "分岔開始",
@@ -61,7 +60,6 @@ STEP_LABELS = {
 MARKER_TYPES = {"loop_end", "branch_start", "branch_or", "branch_end"}
 # 標記步驟中仍可編輯屬性的 (區段結尾: 設定「找不到跳出到此」的後續動作)
 EDITABLE_MARKERS = {"loop_end", "branch_end"}
-BTN_ZH = {"left": "左鍵", "right": "右鍵", "middle": "中鍵"}
 # 步驟清單 │ 連線顏色: 依隸屬區塊 (重複=warn, 分岔=info)
 GUIDE_COLORS = {"loop_start": C["warn"], "branch_start": C["info"]}
 # 動作標籤［…］的顏色: 一眼區分步驟類型 (重複/分岔標記沿用整列顏色)
@@ -70,7 +68,6 @@ LABEL_COLORS = {
     "click": C["accent"],
     "drag": "#A78BFA",
     "wait": C["muted"],
-    "key": "#F472B6",
 }
 # 執行紀錄各等級的文字色 (執行紀錄面板與迷你狀態視窗共用)
 LOG_COLORS = {"info": "#CBD5E1", "ok": C["accent"],
@@ -103,13 +100,9 @@ def step_desc(s):
 def _step_body(s):
     t = s["type"]
     if t == "click":
-        if s.get("mode", "abs") == "prev":
-            pos = f"上一步點擊 ({int(s['x']):+d}, {int(s['y']):+d})"
-        else:
-            pos = f"基準點 ({int(s['x']):+d}, {int(s['y']):+d})"
+        pos = f"上一步點擊 ({int(s['x']):+d}, {int(s['y']):+d})"
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
-        return (f"{pos} {BTN_ZH.get(s.get('button', 'left'))}×{s.get('clicks', 1)}"
-                f"{uo}{_pointer_confirm_desc(s)}")
+        return f"{pos}{uo}{_pointer_confirm_desc(s)}"
     if t == "find_click":
         act = {"click": "點擊", "none": "僅等待出現",
                "wait_gone": "等待消失"}.get(s.get("action", "click"), "點擊")
@@ -118,8 +111,6 @@ def _step_body(s):
                "next": "，點到下一步的圖出現"}.get(s.get("confirm"), "")
         if s.get("confirm") == "appear":
             cfm += findtarget.tag_text(findtarget.confirm_target(s))
-        if s.get("action") == "wait_gone" and s.get("appearLimitMs"):
-            act += f"（出現等候上限 {int(s['appearLimitMs'])}ms）"
         ox, oy = int(s.get("offsetX", 0)), int(s.get("offsetY", 0))
         off = f"，偏移({ox:+d}, {oy:+d})" if ox or oy else ""
         uo = "，不更新原點" if not s.get("updateOrigin", True) else ""
@@ -127,19 +118,12 @@ def _step_body(s):
                 f"{findtarget.tag_text(findtarget.target(s))} → {act}{off}{cfm}{uo}"
                 f"（逾時{s.get('timeout', 10)}s→{nf}）")
     if t == "drag":
-        if s.get("mode", "abs") == "prev":
-            pos = (f"上一步 ({int(s['x1']):+d}, {int(s['y1']):+d}) → "
-                   f"({int(s['x2']):+d}, {int(s['y2']):+d})")
-        else:
-            pos = (f"基準點 ({int(s['x1']):+d}, {int(s['y1']):+d}) → "
-                   f"({int(s['x2']):+d}, {int(s['y2']):+d})")
+        pos = (f"上一步 ({int(s['x1']):+d}, {int(s['y1']):+d}) → "
+               f"({int(s['x2']):+d}, {int(s['y2']):+d})")
         hd = f" 停{s.get('holdMs')}ms" if s.get("holdMs") else ""
-        return (f"{pos} {BTN_ZH.get(s.get('button', 'left'))} {s.get('ms', 300)}ms"
-                f"{hd}{_pointer_confirm_desc(s)}")
+        return f"{pos} {s.get('ms', 300)}ms{hd}{_pointer_confirm_desc(s)}"
     if t == "wait":
         return f"{s.get('ms', 0)} ms"
-    if t == "key":
-        return s.get("keys", "")
     if t == "loop_start":
         return f"×{s.get('count', 1)} 次"
     if t == "branch_start":
@@ -681,7 +665,7 @@ class App:
         還沒有校準對: 當下的畫面就是`流程尺度` (倍率 1), 量到的距離＝基準距離,
         第一張的中心就是座標基準點 (之後可以開始拾取)。
         已有校準對: 先用舊的那對量出倍率與舊基準點, 新的基準距離＝新距離 ÷ 倍率
-        (換對不改變流程尺度); 所有存下的座標 (絕對座標、固定矩形、範本拍攝位置) 依
+        (換對不改變流程尺度); 所有存下的座標 (固定矩形、範本拍攝位置) 依
         新舊兩個基準點的差 (換回流程尺度) 一次平移, 每個落點都不變。舊對量不到就
         拒絕 (不知道差多少就換基準, 整份流程會點偏)。兩對在同一張截圖上量。
         任何一步失敗都不改動原本的校準資料與座標。
@@ -735,7 +719,7 @@ class App:
                     f"座標基準點 {tuple(m.anchor)}", "ok")
         if old_anchor is not None:
             self.log_ui(f"基準點從 {tuple(old_anchor)} 換到 {tuple(m.anchor)}，"
-                        f"已換算 {moved} 個存下的座標（絕對座標、固定矩形、範本拍攝位置），"
+                        f"已換算 {moved} 個存下的座標（固定矩形、範本拍攝位置），"
                         "落點不變（捨入誤差內）"
                         + ("；備用校準對的偏移已跟著重算" if fb else ""), "ok")
 
@@ -873,10 +857,10 @@ class App:
                 self, self.root, base, "忙碌指示的找圖設定", test_fn=test)
             tgt = findtarget.make_target(name, **opts) if opts else None
             if tgt is not None and findtarget.needs_origin(tgt):
-                # 補做前才查、那時的原點不固定: 只能用固定矩形或不限定
+                # 補做前才查、那時的原點不固定: 不能挑「最接近指定點」
                 messagebox.showwarning(
-                    "忙碌指示", "忙碌指示的限定範圍與指定點不能以原點為基準，"
-                    "請改用固定矩形或不限定", parent=self.root)
+                    "忙碌指示", "忙碌指示的指定點不能以原點為基準（補做前才查，"
+                    "那時的原點不固定），請改用其他挑選規則", parent=self.root)
             elif tgt is not None:
                 self.busy_target = tgt
                 self._autosave()
@@ -1107,7 +1091,7 @@ class App:
         add_menu = tk.Menu(add_btn, tearoff=0, bg=C["panel"], fg=C["text"],
                            activebackground=C["sel"], activeforeground=C["text"],
                            bd=0, font=FONT)
-        for t in ("find_click", "click", "drag", "wait", "key"):
+        for t in ("find_click", "click", "drag", "wait"):
             add_menu.add_command(label=STEP_LABELS[t],
                                  command=lambda t=t: self.add_step(t))
         add_menu.add_separator()
@@ -1366,15 +1350,13 @@ class App:
 
     def add_step(self, t):
         defaults = {
-            "click": {"type": "click", "x": 500, "y": 400, "button": "left", "clicks": 1},
-            "drag": {"type": "drag", "x1": 400, "y1": 300, "x2": 600, "y2": 400,
-                     "button": "left", "ms": 500, "holdMs": 500},
+            "click": {"type": "click", "x": 0, "y": 0},
+            "drag": {"type": "drag", "x1": 0, "y1": 0, "x2": 0, "y2": -100,
+                     "ms": 500, "holdMs": 500},
             "find_click": {"type": "find_click", "target": {"template": ""},
                            "timeout": 10, "interval": 0.5, "action": "click",
-                           "button": "left", "clicks": 1, "offsetX": 0, "offsetY": 0,
-                           "onNotFound": "skip"},
+                           "offsetX": 0, "offsetY": 0, "onNotFound": "skip"},
             "wait": {"type": "wait", "ms": 1000},
-            "key": {"type": "key", "keys": "enter"},
             "loop_start": {"type": "loop_start", "count": 3},
         }
         # 有選取列 → 插在選取列之後 (收合區段算整段); 沒有 → 接在最後
@@ -2288,16 +2270,16 @@ class App:
     def _fragment_origin_error(self, steps, base):
         """片段內「執行到時必然沒有原點」的相對座標步驟編號 (完整清單編號).
 
-        原點來源: 絕對座標點擊/拖曳、找圖步驟; 相對步驟 (含以原點為基準的
-        `找圖目標`) 在原點出現前執行只會被 runner 跳過, 測試片段時直接在
-        執行前擋下.
+        原點來源: 點擊/拖曳 (本身也要先有原點)、找圖步驟; 以原點為基準的步驟
+        (座標點擊、拖曳、指定點相對原點的`找圖目標`) 在原點出現前執行只會被
+        runner 跳過, 測試片段時直接在執行前擋下.
         """
         have = False
         bad = []
         for k, s in enumerate(steps):
             t = s.get("type")
             if t in ("click", "drag"):
-                if s.get("mode", "abs") == "prev" and not have:
+                if not have:
                     bad.append(base + k + 1)
                 elif t == "drag" or s.get("updateOrigin", True):
                     have = True
@@ -2320,7 +2302,7 @@ class App:
         if bad:
             messagebox.showwarning(
                 "測試選取",
-                "以下以原點為基準的步驟（相對座標，或找圖的限定範圍／指定點"
+                "以下以原點為基準的步驟（座標點擊、拖曳，或找圖的指定點"
                 "以原點為基準）的原點不在選取範圍內，執行時會沒有基準：\n"
                 f"步驟 {', '.join(map(str, bad))}\n"
                 "請把作為原點的步驟（前面的點擊／拖曳／找圖）一起選進來",

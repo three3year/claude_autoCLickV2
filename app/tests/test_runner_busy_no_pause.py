@@ -1,13 +1,13 @@
 """找圖等待不看忙碌指示 (busy-check 票 01; ADR 0011 取代 ADR 0010 的`忙碌暫停`).
 
-分岔的條件、一般找圖、生效確認、等待消失 (含`出現等候上限`) 在畫面上有`忙碌指示`
+分岔的條件、一般找圖、生效確認、等待消失在畫面上有`忙碌指示`
 期間照原本時間逾時, 也不為了暫停去查忙碌指示; 只剩`補做`的門 (ADR 0008) 在確認
 沒生效的那一輪用同一張截圖查一次。
 斷言對象: 點擊、結束原因、擷取時間 (虛擬時鐘)、查詢紀錄、檔案日誌。
 """
 import pytest
 
-from harness import branch_end, branch_or, branch_start, click, find, tgt
+from harness import branch_end, branch_or, branch_start, click, find, here, tgt
 
 AT = (500, 400)
 BUSY_AT = (960, 1000)
@@ -97,7 +97,8 @@ def test_生效確認_忙碌不延後逾時_補做門照舊每輪查一次(harne
                           timeout=1.5, interval=0.2, onNotFound="skip"),
                      click(9, 9)], busy=BUSY)
     assert r.ended == "done"
-    assert harness.clicks() == [AT, (9, 9)], "一直忙碌: 不補做; 1.5s 逾時跳過"
+    # 點擊當下就更新原點 → 下一步相對 AT
+    assert harness.clicks() == [AT, (509, 409)], "一直忙碌: 不補做; 1.5s 逾時跳過"
     [rec] = [x for x in records(harness) if x["role"] == "confirm_appear"]
     assert rec["result"] == "timeout" and "busy_pause" not in rec
     # 補做的門: 確認沒生效的每一輪 (0.2..1.6s 共 8 輪) 各查一次
@@ -117,9 +118,10 @@ def test_生效確認_補做門用同一張截圖查_沒忙碌就照間隔補做
 def test_座標點擊的生效確認_忙碌不延後逾時_日誌沒有暫停欄位(harness):
     harness.vision.plan("ok", [None])
     harness.vision.plan("busy", [BUSY_AT])
-    r = harness.run([click(9, 9, confirm="appear", confirmTarget=tgt("ok"),
+    r = harness.run([here(), click(9, 9, confirm="appear", confirmTarget=tgt("ok"),
                            timeout=1.5, interval=0.2, onNotFound="skip"),
                      click(1, 1)], busy=BUSY)
+    # 沒生效 → 原點不更新, 下一步仍相對定位找圖的 (0, 0)
     assert r.ended == "done" and harness.clicks() == [(9, 9), (1, 1)]
     [rec] = records(harness, "input.confirm")
     assert rec["result"] == "timeout" and "busy_pause" not in rec
@@ -141,22 +143,12 @@ def test_等待消失_忙碌不延後逾時(harness):
     assert "busy" not in harness.lookups()
 
 
-def test_出現等候上限不因忙碌延後(harness):
-    harness.vision.plan("x", [None] * 6 + [AT, None])   # 3.0s 才出現
-    harness.vision.plan("busy", [BUSY_AT])
-    r = harness.run([find("x", appearLimitMs=1000, **dict(GONE, timeout=10)),
-                     click(9, 9)], busy=BUSY)
-    assert r.ended == "done" and harness.clicks() == [(9, 9)]
-    [rec] = records(harness)
-    assert rec["result"] == "not_appeared", "1.0s 內沒看到就通過"
-    assert span(harness) == pytest.approx(1.0, abs=0.1)
-
-
 def test_等待消失的目標就是忙碌指示_只查步驟自己那一次(harness):
     harness.vision.plan("busy", [BUSY_AT] * 3 + [None])   # 0.0..1.0s 在, 1.5s 消失
     r = harness.run([find("busy", target={"limit": BUSY["limit"]}, **GONE),
                      click(9, 9)], busy=BUSY)
-    assert r.ended == "done" and harness.clicks() == [(9, 9)]
+    # 等待消失記下最後看到的位置當原點
+    assert r.ended == "done" and harness.clicks() == [(969, 1009)]
     [rec] = records(harness)
     assert rec["result"] == "gone"
     assert harness.lookups() == ["busy"] * 4, "每輪只有步驟自己那一次查詢"

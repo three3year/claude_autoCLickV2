@@ -1,6 +1,6 @@
 """流程存檔的座標空間與換算 (純函式; 詞彙見 app/CONTEXT.md「座標與原點」).
 
-存檔裡所有的座標數值 (`絕對座標`、`固定矩形`、範本拍攝位置) 都是相對`座標基準點`
+存檔裡所有的座標數值 (`固定矩形`、範本拍攝位置) 都是相對`座標基準點`
 的偏移、`流程尺度` (ADR 0012)。座標基準點＝`校準對`第一張圖的中心, 執行開頭與每次
 拾取當下量得, 不存檔。這裡的兩個換算是執行器、編輯器、換算工具共用的唯一實作::
 
@@ -15,8 +15,6 @@ import math
 COORD_SPACE = "coordSpace"
 ANCHOR = "anchor"   # 現行: 座標相對`座標基準點` (ADR 0012)
 # 舊值只在拒絕時認: "region"＝相對搜尋範圍左上角, 沒標記＝螢幕座標 (更早)
-
-_ABS_KEYS = {"click": (("x", "y"),), "drag": (("x1", "y1"), ("x2", "y2"))}
 
 
 def scale_px(v, k):
@@ -64,29 +62,16 @@ def rect_from_screen(box, anchor, k=1.0):
             "h": scale_px(box[3], 1.0 / k)}
 
 
-# ================= 流程裡的絕對座標 =================
+# ================= 流程裡相對基準點的矩形 =================
 
-def abs_steps(steps):
-    """流程中使用`絕對座標`的步驟 (1-based 序號, 步驟)."""
-    return [(i + 1, s) for i, s in enumerate(steps)
-            if s.get("type") in _ABS_KEYS and s.get("mode", "abs") == "abs"]
+def remap_flow(data, rect_fn):
+    """整份流程資料裡相對座標基準點的矩形逐個重算 (就地); 回傳改動筆數.
 
-
-def remap_flow(data, point_fn, rect_fn=None):
-    """整份流程資料裡存下的座標逐個重算 (就地); 回傳改動筆數.
-
-    point_fn((x, y)) → 新偏移: 絕對座標 (座標點擊、拖曳兩端點); rect_fn({x, y, w, h}) →
-    新矩形: `固定矩形` (步驟的找圖目標、確認圖、流程層級的忙碌指示), None＝不動矩形。
-    相對座標、以原點為基準的設定不是相對基準點, 不動。
+    rect_fn({x, y, w, h}) → 新矩形: `固定矩形` (步驟的找圖目標、確認圖、流程層級的
+    忙碌指示)。相對座標與指定點相對原點, 不動。
     """
     changed = 0
     steps = data.get("steps") or []
-    for _, s in abs_steps(steps):
-        for kx, ky in _ABS_KEYS[s["type"]]:
-            s[kx], s[ky] = point_fn((int(s[kx]), int(s[ky])))
-            changed += 1
-    if rect_fn is None:
-        return changed
     targets = [s.get(k) for s in steps for k in ("target", "confirmTarget")]
     targets.append(data.get("busyTarget"))
     for t in targets:
@@ -106,5 +91,4 @@ def shift_flow(data, old_anchor, new_anchor, k=1.0):
     """
     return remap_flow(
         data,
-        lambda xy: from_screen(to_screen(xy, old_anchor, k), new_anchor, k),
         lambda r: rect_from_screen(rect_to_screen(r, old_anchor, k), new_anchor, k))

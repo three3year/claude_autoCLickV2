@@ -139,9 +139,9 @@ def test_換成與備用對相同的主對_拒絕(tkroot, monkeypatch, tmp_path)
 
 
 def test_拾取當下主對找不到_改用備用對並提示(make_app, monkeypatch):
-    """沿用 test_editor_scale 的步驟對話框: 絕對座標拾取相對備用對換回的基準點."""
+    """沿用 test_editor_scale 的截範本: 拍攝位置相對備用對換回的基準點."""
     from harness import CAL_PAIR
-    from test_editor_scale import _edit, _overlay, _press
+    from test_editor_scale import _shot
     app = make_app(1.0)                      # 主對本來擺在基準點 (150,230)
     app.flow_cal[calibration.FALLBACK_KEY] = calibration.make_fallback(FB, 100.0, (50, 30))
     for n in FB:
@@ -149,10 +149,10 @@ def test_拾取當下主對找不到_改用備用對並提示(make_app, monkeypa
     app.vision.plan(CAL_PAIR[0], [None])     # 主對第一張被蓋住
     app.vision.plan(FB[0], [(100, 200)])     # 備用: 距離 100 → ×1.0, 基準點 (100,200)+(50,30)
     app.vision.plan(FB[1], [(200, 200)])
-    _overlay(monkeypatch, {"screenX": 300, "screenY": 400})
-    got = _edit(app, {"type": "click", "mode": "abs", "x": 0, "y": 0},
-                _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
-    assert (got["x"], got["y"]) == (150, 170), "基準點仍是 (150,230) (備用對換回)"
+    monkeypatch.setattr(app, "pick_region_raw",
+                        lambda hide=(): _shot(40, 20, 280, 390))   # 中心 (300,400)
+    name = app.capture_template()
+    assert app.ws.pos_of(name) == [150, 170], "基準點仍是 (150,230) (備用對換回)"
     assert any("備用校準對" in m for _, m in app.logged)
 
 

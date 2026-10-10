@@ -20,14 +20,11 @@ from automation import capture, findtarget, flowfmt, pickcheck, win
 from automation.runner import BUSY_CHECK_KEY, sends_input
 from ui_theme import C, FONT
 
-BTN_NAMES = [("left", "左鍵"), ("right", "右鍵"), ("middle", "中鍵")]
-BTN_ZH2KEY = {n: k for k, n in BTN_NAMES}
 STEP_TITLES = {
     "click": "座標點擊",
     "find_click": "找圖點擊",
     "drag": "滑鼠拖曳",
     "wait": "等待",
-    "key": "按鍵",
     "loop_start": "重複開始",
     "loop_end": "重複結束",
     "branch_end": "分岔結束",
@@ -599,7 +596,7 @@ def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取",
     回傳 (body 的結果, 座標基準點, 畫面倍率); 被擋下或量不到時回 None (已提示, 這次
     什麼都不存)。frame＝校準用的那張搜尋範圍截圖 (影像, 左上角螢幕座標), 比對測試
     直接拿它當畫面; 沒有校準對時為 None。
-    - 流程沒有校準對: need_anchor 的拾取 (絕對座標、固定矩形) 擋下並提示先設校準對;
+    - 流程沒有校準對: need_anchor 的拾取 (固定矩形) 擋下並提示先設校準對;
       只依原點的拾取照常, anchor＝None、k＝1 (新流程還沒有尺度, 當下畫面就是)。
     - 有校準對: 量不到 (範圍內找不到、兩張重疊) ＝不存、提示重框搜尋範圍。
     所有提示都在清場「之外」彈 (清場中彈 modal 會隱形卡死)。quiet＝只是檢查 (拾取檢查):
@@ -685,13 +682,12 @@ def _resolve_prev_origin(app, step, dlg, k=1.0, anchor=None):
     """推算相對座標拾取的預設原點 (螢幕座標), 無法推算回傳 None.
 
     步驟裡存的都是流程尺度的偏移量, 換算成螢幕座標時一律乘上當下的`畫面倍率` k;
-    絕對座標與範本拍攝位置相對當下的`座標基準點` anchor (與 runner 執行期同一套
-    換算, ADR 0009、0012)。
+    範本拍攝位置相對當下的`座標基準點` anchor (與 runner 執行期同一套換算,
+    ADR 0009、0012)。
 
-    從本步驟往上找「有座標的動作」(跳過等待/按鍵):
-    - 絕對座標點擊 → 基準點 + 偏移×k (沒有基準點時無從推算)
-    - 相對座標點擊 → 累積偏移×k, 繼續往上找基準
-    - 滑鼠拖曳 → 其終點位置 (相對拖曳 → 累積終點偏移×k, 繼續往上找)
+    從本步驟往上找「有座標的動作」(跳過等待):
+    - 座標點擊 → 累積偏移×k, 繼續往上找基準
+    - 滑鼠拖曳 → 累積終點偏移×k, 繼續往上找
     - 找圖點擊 → 只有它就是「直接前一個原點步驟」(途中沒經過相對步驟)
       才在畫面上即時找一次 (找不到退用拍攝位置, 依當下基準點換到螢幕); 途中隔了
       相對點擊/拖曳時, 畫面通常已被那次點擊切換, 即時找到的殘留同圖不可信,
@@ -705,20 +701,10 @@ def _resolve_prev_origin(app, step, dlg, k=1.0, anchor=None):
         prev = app.steps[i]
         t = prev["type"]
         if t == "click" and prev.get("updateOrigin", True):
-            if prev.get("mode", "abs") == "abs":
-                if anchor is None:
-                    return None  # 絕對座標沒有基準點, 無從換算成螢幕座標
-                x, y = flowfmt.to_screen((prev["x"], prev["y"]), anchor, k)
-                return x + dx, y + dy
             dx += flowfmt.scale_px(prev["x"], k)
             dy += flowfmt.scale_px(prev["y"], k)
             via_rel = True
         elif t == "drag":
-            if prev.get("mode", "abs") == "abs":
-                if anchor is None:
-                    return None
-                x, y = flowfmt.to_screen((prev["x2"], prev["y2"]), anchor, k)
-                return x + dx, y + dy
             dx += flowfmt.scale_px(prev["x2"], k)
             dy += flowfmt.scale_px(prev["y2"], k)
             via_rel = True
@@ -738,14 +724,13 @@ def _resolve_prev_origin(app, step, dlg, k=1.0, anchor=None):
             if pos:
                 return pos[0] + off[0] + dx, pos[1] + off[1] + dy
             return None  # 找圖位置無法推算, 中斷
-        i -= 1  # 等待 / 按鍵 / 不更新原點的找圖 → 往上繼續找
+        i -= 1  # 等待 / 不更新原點的找圖 → 往上繼續找
     return None
 
 
 # ================= `找圖目標`的設定 (限定範圍/挑選規則/比色) =================
 
-LIMIT_ZH = {"none": "不限定（整個搜尋範圍）", "origin": "以原點為基準的矩形",
-            "rect": "固定矩形"}
+LIMIT_ZH = {"none": "不限定（整個搜尋範圍）", "rect": "固定矩形"}
 PICK_ZH = {"score": "分數最高", "top": "由上到下第 N 個",
            "left": "由左到右第 N 個", "near": "最接近指定點"}
 
@@ -813,11 +798,11 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     找圖步驟與`確認圖`共用。回傳表單值 {"limit", "pick", "color"} (交給
     `findtarget.make_target` 組回找圖目標), 取消回 None。
 
-    origin_fn(anchor, k): 這個找圖目標判定時的預設原點 (螢幕座標) 或 None——框選
-    原點矩形與點選指定點時預先標出 (◎); test_fn(表單值, 子對話框): 以這組
-    設定比對測試 (提示以子對話框為 parent, 才不會被壓在它後面)。
-    所有拾取都在拾取當下量`座標基準點`與`畫面倍率` (measured_pick): 原點矩形、
-    指定點相對原點、`固定矩形`相對基準點, 一律反除倍率換回流程尺度。
+    origin_fn(anchor, k): 這個找圖目標判定時的預設原點 (螢幕座標) 或 None——點選
+    指定點時預先標出 (◎); test_fn(表單值, 子對話框): 以這組設定比對測試 (提示以
+    子對話框為 parent, 才不會被壓在它後面)。
+    所有拾取都在拾取當下量`座標基準點`與`畫面倍率` (measured_pick): 指定點相對原點、
+    `固定矩形`相對基準點, 一律反除倍率換回流程尺度。
     """
     root = app.root
     sub = tk.Toplevel(root)
@@ -855,9 +840,6 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     v_lim = tk.StringVar(value=LIMIT_ZH[lim.get("kind")
                                         if lim.get("kind") in LIMIT_ZH
                                         else "none"])
-    is_origin = lim.get("kind") == "origin"
-    rect = {k_: tk.IntVar(value=int(lim.get(k_, d)) if is_origin else d)
-            for k_, d in (("x", -100), ("y", 0), ("w", 300), ("h", 100))}
     # `固定矩形`: 框選結果 (相對座標基準點); None＝還沒框過
     fixed = [dict(lim) if lim.get("kind") == "rect" else None]
     v_pick = tk.StringVar(value=PICK_ZH[pick.get("kind")
@@ -873,32 +855,6 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     lim_cb = ttk.Combobox(fr, textvariable=v_lim, width=22, state="readonly",
                           values=list(LIMIT_ZH.values()))
     lim_cb.pack(side="left")
-    rect_fr = add_row("")
-    for k_, label in (("x", "X"), ("y", "Y"), ("w", "寬"), ("h", "高")):
-        entry(rect_fr, rect[k_], label)
-
-    def pick_rect():
-        def body(anchor, k, _frame):
-            base = _origin_or_click(root, origin_fn, anchor, k, (sub,))
-            if base is None:
-                return None
-            r = ui_overlay.pick(root, "region",
-                                "框出只在這一塊找圖的範圍（以原點為基準）",
-                                hide=(sub,), mark=base)
-            return (r, base) if r else None
-
-        got = measured_pick(app, sub, body, hide=(sub,), title="限定範圍")
-        if got and got[0]:
-            (r, base), _anchor, k = got
-            lim_ = findtarget.rect_from_screen(
-                (r["screenX"], r["screenY"], r["w"], r["h"]), base, k)
-            for k_ in ("x", "y", "w", "h"):
-                rect[k_].set(lim_[k_])
-
-    ttk.Button(rect_fr, text="框選", style="Accent.TButton",
-               command=pick_rect).pack(side="left")
-    rect_note = add_note("矩形左上角相對原點的偏移與大小（流程尺度，隨畫面倍率縮放）；"
-                         "框選時畫面上的 ◎ 是推算出的預設原點")
     fixed_fr = add_row("")
     has_pair = app.flow_cal is not None
 
@@ -998,8 +954,6 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
 
     def sync(*_):
         lk = _key_of(LIMIT_ZH, v_lim.get())
-        for w in (rect_fr, rect_note):
-            w.grid() if lk == "origin" else w.grid_remove()
         for w in (fixed_fr, fixed_note):
             w.grid() if lk == "rect" else w.grid_remove()
         if lk == "rect" and fixed_warn.cget("text"):
@@ -1020,12 +974,7 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
         """表單 → {"limit", "pick", "color"}; 數值不合法丟 ValueError/TclError."""
         lk = _key_of(LIMIT_ZH, v_lim.get())
         limit = None
-        if lk == "origin":
-            limit = {"kind": "origin", **{k_: int(rect[k_].get())
-                                          for k_ in ("x", "y", "w", "h")}}
-            if limit["w"] <= 0 or limit["h"] <= 0:
-                raise ValueError("限定範圍的寬與高要大於 0")
-        elif lk == "rect":
+        if lk == "rect":
             if fixed[0] is None:
                 raise ValueError("固定矩形還沒框選：請按「在畫面上框選」拖一個框")
             limit = dict(fixed[0])
@@ -1119,19 +1068,6 @@ def edit_step(app, step):
         w.pack(side="left", padx=(0, 4))
         return w
 
-    def mouse_row(v):
-        fr = add_row("滑鼠按鍵")
-        cb = ttk.Combobox(fr, width=6, state="readonly",
-                          values=[n for _, n in BTN_NAMES])
-        cb.set(dict(BTN_NAMES)[v["button"].get()])
-        cb.bind("<<ComboboxSelected>>",
-                lambda e: v["button"].set(BTN_ZH2KEY[cb.get()]))
-        cb.pack(side="left", padx=(0, 8))
-        lbl(fr, "連點")
-        ttk.Spinbox(fr, textvariable=v["clicks"], from_=1, to=10, width=4).pack(
-            side="left", padx=(0, 4))
-        lbl(fr, "次")
-
     result = [None]
     t = step["type"]
     v = {}
@@ -1150,32 +1086,9 @@ def edit_step(app, step):
     added = []
 
     if t == "click":
-        MODE_KEY = {n: k for k, n in MODE_ZH.items()}
-        MODE_NOTE = {
-            "abs": ABS_NOTE + "「截圖拾取」在畫面上點一下即填入",
-            "prev": "以前一個點擊位置為原點的偏移量（找圖步驟選「不點擊」時，"
-                    "找到的位置也算）；勾選「預設原點」時截圖拾取會自動標出原點，"
-                    "點一下目標即完成；取消勾選則拖線：起點＝基準、終點＝目標",
-        }
-        v["x"] = tk.IntVar(value=step.get("x", 500))
-        v["y"] = tk.IntVar(value=step.get("y", 400))
-        # 新增預設「相對上一步」; 編輯時缺 mode 鍵必須維持絕對 (執行期預設 abs)
-        v["mode"] = tk.StringVar(
-            value=MODE_ZH.get(step.get("mode",
-                                       "abs" if step.get("_edit") else "prev"),
-                              MODE_ZH["abs"]))
-        v["button"] = tk.StringVar(value=step.get("button", "left"))
-        v["clicks"] = tk.IntVar(value=step.get("clicks", 1))
-
-        fr = add_row("座標基準")
-        mode_cb = ttk.Combobox(fr, textvariable=v["mode"], width=20,
-                               state="readonly", values=list(MODE_ZH.values()))
-        mode_cb.pack(side="left")
-
-        note_lbl = add_note(MODE_NOTE[MODE_KEY[v["mode"].get()]])
-        mode_cb.bind("<<ComboboxSelected>>",
-                     lambda e: note_lbl.configure(
-                         text=MODE_NOTE[MODE_KEY[v["mode"].get()]]))
+        v["x"] = tk.IntVar(value=step.get("x", 0))
+        v["y"] = tk.IntVar(value=step.get("y", 0))
+        add_note(PREV_NOTE)
 
         fr = add_row("座標")
         lbl(fr, "X")
@@ -1188,50 +1101,28 @@ def edit_step(app, step):
         def pick_pos():
             # 整段 (量校準、找圖預查、拾取) 包進同一個 screen_clear: 視窗保持隱藏,
             # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
-            mode = MODE_KEY[v["mode"].get()]
-
             def body(anchor, k, _frame):
-                if mode == "prev":
-                    base = (_resolve_prev_origin(app, step, dlg, k, anchor)
-                            if v["use_base"].get() else None)
-                    if base is not None:
-                        return ui_overlay.pick(root, "line", "點一下要點擊的位置（原點＝上一步位置）",
-                                               hide=(dlg,), base=base)
-                    return ui_overlay.pick(
-                        root, "line",
-                        "拖曳一條線：起點＝上一步點擊位置（基準），終點＝要點擊的位置",
-                        hide=(dlg,))
-                return ui_overlay.pick(root, "point", "在畫面上點一下，選取要點擊的位置",
-                                       hide=(dlg,))
+                base = (_resolve_prev_origin(app, step, dlg, k, anchor)
+                        if v["use_base"].get() else None)
+                if base is not None:
+                    return ui_overlay.pick(root, "line", "點一下要點擊的位置（原點＝上一步位置）",
+                                           hide=(dlg,), base=base)
+                return ui_overlay.pick(
+                    root, "line",
+                    "拖曳一條線：起點＝上一步點擊位置（基準），終點＝要點擊的位置",
+                    hide=(dlg,))
 
-            # 絕對座標相對座標基準點: 沒有校準對就擋下 (量不到也不存); 相對座標只要倍率
-            got = measured_pick(app, dlg, body, need_anchor=(mode != "prev"),
-                                hide=(dlg,), title="拾取座標")
+            # 相對座標只要倍率 (不需要座標基準點)
+            got = measured_pick(app, dlg, body, hide=(dlg,), title="拾取座標")
             if not got or not got[0]:
                 return
-            r, anchor, k = got
-            if mode == "prev":
-                v["x"].set(_unscale(r["dx"], k))
-                v["y"].set(_unscale(r["dy"], k))
-            else:
-                x, y = flowfmt.from_screen((r["screenX"], r["screenY"]), anchor, k)
-                v["x"].set(x)
-                v["y"].set(y)
+            r, _anchor, k = got
+            v["x"].set(_unscale(r["dx"], k))
+            v["y"].set(_unscale(r["dy"], k))
 
         ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
                    command=pick_pos).pack(side="left")
-        base_chk = _check(fr, "預設原點", v["use_base"])
-
-        def sync_base_chk():
-            # 只有「相對上一步點擊」模式才有預設原點可用
-            if MODE_KEY[v["mode"].get()] == "prev":
-                base_chk.pack(side="left", padx=(8, 0))
-            else:
-                base_chk.pack_forget()
-
-        sync_base_chk()
-        mode_cb.bind("<<ComboboxSelected>>", lambda e: sync_base_chk(), add=True)
-        mouse_row(v)
+        _check(fr, "預設原點", v["use_base"]).pack(side="left", padx=(8, 0))
         v["updateOrigin"] = tk.BooleanVar(value=step.get("updateOrigin", True))
         fr = add_row("相對座標")
         _check(fr, "把點擊位置更新為相對座標原點", v["updateOrigin"]).pack(
@@ -1239,32 +1130,13 @@ def edit_step(app, step):
         busy_row()
 
     elif t == "drag":
-        MODE_KEY = {n: k for k, n in MODE_ZH.items()}
-        MODE_NOTE = {
-            "abs": ABS_NOTE + "「截圖拾取」在畫面上拖一條線，起點與終點會一併填入",
-            "prev": "起點與終點都是以前一個點擊位置為原點的偏移量（找圖步驟不點擊時"
-                    "找到的位置、拖曳終點也算）；勾選「預設原點」時截圖拾取會標出原點◎，"
-                    "直接拖出拖曳路徑即可；取消勾選則先點一下原點，再拖出拖曳路徑",
-        }
-        v["x1"] = tk.IntVar(value=step.get("x1", 400))
-        v["y1"] = tk.IntVar(value=step.get("y1", 300))
-        v["x2"] = tk.IntVar(value=step.get("x2", 600))
-        v["y2"] = tk.IntVar(value=step.get("y2", 400))
-        v["mode"] = tk.StringVar(
-            value=MODE_ZH.get(step.get("mode", "abs"), MODE_ZH["abs"]))
-        v["button"] = tk.StringVar(value=step.get("button", "left"))
+        v["x1"] = tk.IntVar(value=step.get("x1", 0))
+        v["y1"] = tk.IntVar(value=step.get("y1", 0))
+        v["x2"] = tk.IntVar(value=step.get("x2", 0))
+        v["y2"] = tk.IntVar(value=step.get("y2", -100))
         v["ms"] = tk.IntVar(value=step.get("ms", 500))
         v["holdMs"] = tk.IntVar(value=step.get("holdMs", 0))
-
-        fr = add_row("座標基準")
-        mode_cb = ttk.Combobox(fr, textvariable=v["mode"], width=20,
-                               state="readonly", values=list(MODE_ZH.values()))
-        mode_cb.pack(side="left")
-
-        note_lbl = add_note(MODE_NOTE[MODE_KEY[v["mode"].get()]])
-        mode_cb.bind("<<ComboboxSelected>>",
-                     lambda e: note_lbl.configure(
-                         text=MODE_NOTE[MODE_KEY[v["mode"].get()]]))
+        add_note(DRAG_NOTE)
 
         fr = add_row("起點")
         lbl(fr, "X")
@@ -1277,33 +1149,27 @@ def edit_step(app, step):
         def pick_drag():
             # 整段 (量校準、預查、兩段拾取) 包進同一個 screen_clear: 視窗保持隱藏,
             # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
-            mode = MODE_KEY[v["mode"].get()]
-
             def body(anchor, k, _frame):
-                base = None
-                if mode == "prev":
-                    base = (_resolve_prev_origin(app, step, dlg, k, anchor)
-                            if v["use_base"].get() else None)
-                    if base is None:
-                        p = ui_overlay.pick(
-                            root, "point",
-                            "先點一下原點（上一步點擊位置），接著再拖出拖曳路徑",
-                            hide=(dlg,))
-                        if not p:
-                            return None
-                        base = (p["screenX"], p["screenY"])
+                base = (_resolve_prev_origin(app, step, dlg, k, anchor)
+                        if v["use_base"].get() else None)
+                if base is None:
+                    p = ui_overlay.pick(
+                        root, "point",
+                        "先點一下原點（上一步點擊位置），接著再拖出拖曳路徑",
+                        hide=(dlg,))
+                    if not p:
+                        return None
+                    base = (p["screenX"], p["screenY"])
                 r = ui_overlay.pick(root, "line",
                                     "拖曳一條線：起點＝按下位置，終點＝放開位置",
                                     hide=(dlg,), mark=base)
                 return (r, base) if r else None
 
-            got = measured_pick(app, dlg, body, need_anchor=(mode != "prev"),
-                                hide=(dlg,), title="拾取座標")
+            got = measured_pick(app, dlg, body, hide=(dlg,), title="拾取座標")
             if not got or not got[0]:
                 return
-            (r, base), anchor, k = got
-            # 兩端點都相對同一個基準: 相對座標＝原點, 絕對座標＝座標基準點
-            base = base if mode == "prev" else anchor
+            (r, base), _anchor, k = got
+            # 兩端點都相對同一個原點
             x1, y1 = flowfmt.from_screen((r["startX"], r["startY"]), base, k)
             x2, y2 = flowfmt.from_screen((r["endX"], r["endY"]), base, k)
             v["x1"].set(x1)
@@ -1313,17 +1179,7 @@ def edit_step(app, step):
 
         ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
                    command=pick_drag).pack(side="left")
-        base_chk = _check(fr, "預設原點", v["use_base"])
-
-        def sync_base_chk():
-            # 只有「相對上一步點擊」模式才有預設原點可用
-            if MODE_KEY[v["mode"].get()] == "prev":
-                base_chk.pack(side="left", padx=(8, 0))
-            else:
-                base_chk.pack_forget()
-
-        sync_base_chk()
-        mode_cb.bind("<<ComboboxSelected>>", lambda e: sync_base_chk(), add=True)
+        _check(fr, "預設原點", v["use_base"]).pack(side="left", padx=(8, 0))
 
         fr = add_row("終點")
         lbl(fr, "X")
@@ -1331,14 +1187,7 @@ def edit_step(app, step):
         lbl(fr, "Y")
         ttk.Entry(fr, textvariable=v["y2"], width=7).pack(side="left", padx=(0, 8))
 
-        fr = add_row("滑鼠按鍵")
-        cb = ttk.Combobox(fr, width=6, state="readonly",
-                          values=[n for _, n in BTN_NAMES])
-        cb.set(dict(BTN_NAMES)[v["button"].get()])
-        cb.bind("<<ComboboxSelected>>",
-                lambda e: v["button"].set(BTN_ZH2KEY[cb.get()]))
-        cb.pack(side="left", padx=(0, 8))
-        lbl(fr, "拖曳時間")
+        fr = add_row("拖曳時間")
         ttk.Spinbox(fr, textvariable=v["ms"], from_=50, to=10000,
                     increment=50, width=7).pack(side="left", padx=(0, 4))
         lbl(fr, "毫秒")
@@ -1380,13 +1229,6 @@ def edit_step(app, step):
                  "例如重複(FOR)內的分岔(IF)找不到時，直接跳出整個重複區段。"
                  "（正常執行流程到達此處不受影響）")
 
-    elif t == "key":
-        v["keys"] = tk.StringVar(value=step.get("keys", "enter"))
-        fr = add_row("按鍵")
-        ttk.Entry(fr, textvariable=v["keys"], width=24).pack(side="left")
-        add_note("單鍵如 enter、esc、f5、a；組合鍵用 + 連接，如 ctrl+v、alt+f4")
-        busy_row()
-
     elif t == "find_click":
         v["template"] = tk.StringVar(value=findtarget.template(step))
         v["timeout"] = tk.DoubleVar(value=step.get("timeout", 10))
@@ -1397,8 +1239,6 @@ def edit_step(app, step):
         ACT_KEY = {n: k for k, n in ACT_ZH.items()}
         v["action"] = tk.StringVar(
             value=ACT_ZH.get(step.get("action", "click"), ACT_ZH["click"]))
-        v["button"] = tk.StringVar(value=step.get("button", "left"))
-        v["clicks"] = tk.IntVar(value=step.get("clicks", 1))
         v["offsetX"] = tk.IntVar(value=step.get("offsetX", 0))
         v["offsetY"] = tk.IntVar(value=step.get("offsetY", 0))
         v["onNotFound"] = tk.StringVar(
@@ -1515,20 +1355,6 @@ def edit_step(app, step):
         act_cb = ttk.Combobox(fr, textvariable=v["action"], width=20,
                               state="readonly", values=list(ACT_ZH.values()))
         act_cb.pack(side="left")
-        # `出現等候上限` (只對等待消失): 自建 label 方便隨動作整列顯示/隱藏
-        v["appearLimitMs"] = tk.IntVar(value=int(step.get("appearLimitMs") or 0))
-        appear_lbl = ttk.Label(body, text="出現等候上限", style="Muted.TLabel")
-        appear_lbl.grid(row=row_i[0], column=0, sticky="w", pady=3, padx=(0, 12))
-        appear_fr = ttk.Frame(body, style="Panel.TFrame")
-        appear_fr.grid(row=row_i[0], column=1, sticky="w", pady=3)
-        row_i[0] += 1
-        ttk.Spinbox(appear_fr, textvariable=v["appearLimitMs"], from_=0,
-                    to=600000, increment=100, width=8).pack(side="left",
-                                                            padx=(0, 4))
-        lbl(appear_fr, "毫秒（0＝不設）")
-        appear_note = add_note("這段時間內一次都沒看到＝通過（等可能不出現的圖）；"
-                               "看到了就照常等它消失、受逾時限制")
-        mouse_row(v)
 
         fr = add_row("點擊偏移")
         lbl(fr, "X")
@@ -1609,9 +1435,6 @@ def edit_step(app, step):
             is_click = ACT_KEY[v["action"].get()] == "click"
             for w in (cfm_mode_lbl, cfm_mode_fr, cfm_main_note, *busy_widgets):
                 w.grid() if is_click else w.grid_remove()
-            gone = ACT_KEY[v["action"].get()] == "wait_gone"
-            for w in (appear_lbl, appear_fr, appear_note):
-                w.grid() if gone else w.grid_remove()
             appear = is_click and CFM_KEY[v["confirm"].get()] == "appear"
             for w in (cfm_lbl, cfm_row, cfm_tmpl_note, summary_lbl["cfm"]):
                 w.grid() if appear else w.grid_remove()
@@ -1656,17 +1479,16 @@ def edit_step(app, step):
         s.pop("_edit", None)
         s.pop("_index", None)
         try:
+            for k in RETIRED_KEYS:
+                s.pop(k, None)
             if t == "click":
                 s.update(x=v["x"].get(), y=v["y"].get(),
-                         mode=MODE_KEY_ALL[v["mode"].get()],
-                         button=v["button"].get(), clicks=v["clicks"].get(),
                          updateOrigin=v["updateOrigin"].get())
                 pointer_confirm(s)
             elif t == "drag":
                 s.update(x1=v["x1"].get(), y1=v["y1"].get(),
                          x2=v["x2"].get(), y2=v["y2"].get(),
-                         mode=MODE_KEY_ALL[v["mode"].get()],
-                         button=v["button"].get(), ms=max(50, v["ms"].get()),
+                         ms=max(50, v["ms"].get()),
                          holdMs=max(0, v["holdMs"].get()))
                 pointer_confirm(s)
             elif t == "loop_start":
@@ -1676,11 +1498,6 @@ def edit_step(app, step):
                                   "再往外跳出一層區段": "break"}[v["onBreak"].get()])
             elif t == "wait":
                 s.update(ms=max(10, v["ms"].get()))
-            elif t == "key":
-                keys = v["keys"].get().strip()
-                if not keys:
-                    raise ValueError("請輸入按鍵")
-                s.update(keys=keys)
             elif t == "find_click":
                 if not v["template"].get():
                     raise ValueError("請選擇範本圖片")
@@ -1700,17 +1517,11 @@ def edit_step(app, step):
                     timeout=v["timeout"].get(),
                     interval=max(0.1, v["interval"].get()),
                     action=action,
-                    button=v["button"].get(), clicks=v["clicks"].get(),
                     offsetX=v["offsetX"].get(), offsetY=v["offsetY"].get(),
                     onNotFound={n: k for k, n in NF_ZH.items()}[v["onNotFound"].get()],
                     confirm=confirm,
                     updateOrigin=v["updateOrigin"].get(),
                 )
-                limit_ms = max(0, int(v["appearLimitMs"].get()))
-                if action == "wait_gone" and limit_ms:
-                    s["appearLimitMs"] = limit_ms
-                else:
-                    s.pop("appearLimitMs", None)
                 s.pop("region", None)  # 舊版步驟範圍 (已廢除; 限定範圍在找圖目標裡)
                 s.pop("rotate", None)  # 舊版執行期旋轉比對已移除
             # `忙碌檢查`: 只在勾了 (且是送出輸入的步驟) 時寫鍵; 找圖選「不點擊」
@@ -1741,11 +1552,15 @@ def edit_step(app, step):
 
 
 BUSY_CHECK_TEXT = "送出後等忙碌指示消失再往下（會讓遊戲忙的操作才勾）"
-# 座標點擊/拖曳的座標基準 (ADR 0012): 絕對座標＝相對`座標基準點`, 相對座標＝相對`原點`
-MODE_ZH = {"abs": "絕對座標（相對座標基準點）", "prev": "相對上一步點擊位置"}
-MODE_KEY_ALL = {n: k for k, n in MODE_ZH.items()}
-ABS_NOTE = ("相對座標基準點（校準對第一張圖的中心）的偏移，流程尺度；"
-            "視窗挪位置、搜尋範圍重框都不影響。拾取時在那張截圖上量基準點與倍率；")
+# 座標點擊/拖曳一律相對`原點` (絕對座標已退場, ADR 0014)
+PREV_NOTE = ("以前一個點擊位置為原點的偏移量（找圖步驟選「不點擊」時，"
+             "找到的位置也算）；勾選「預設原點」時截圖拾取會自動標出原點，"
+             "點一下目標即完成；取消勾選則拖線：起點＝基準、終點＝目標")
+DRAG_NOTE = ("起點與終點都是以前一個點擊位置為原點的偏移量（找圖步驟不點擊時"
+             "找到的位置、拖曳終點也算）；勾選「預設原點」時截圖拾取會標出原點◎，"
+             "直接拖出拖曳路徑即可；取消勾選則先點一下原點，再拖出拖曳路徑")
+# 已退場的步驟欄位 (ADR 0014): 舊存檔帶著也照常開, 編輯後存回時拿掉
+RETIRED_KEYS = ("mode", "button", "clicks", "appearLimitMs")
 POINTER_CFM_ZH = {"none": "不確認（送一次就走）",
                   "gone": "做到原點的圖離開",
                   "appear": "做到確認圖出現為止",
@@ -1928,7 +1743,7 @@ def _annotate_find(screen_bgr, org, f, origin=None, anchor=None):
         cv2.circle(img, (cx, cy), 9, _BLUE, 2)
         cv2.circle(img, (cx, cy), 3, _BLUE, -1)
     if anchor is not None:
-        # ⊕＝座標基準點 (固定矩形與絕對座標的基準)
+        # ⊕＝座標基準點 (固定矩形的基準)
         ax, ay = anchor[0] - ox, anchor[1] - oy
         cv2.circle(img, (ax, ay), 9, _YELLOW, 2)
         cv2.line(img, (ax - 12, ay), (ax + 12, ay), _YELLOW, 2)

@@ -11,11 +11,9 @@
       },
       "steps": [
         {"type": "find_click", "template": "開始行動", "frame": 130, "at": [x, y],
-         "colorCheck": true, "pick": {"kind": "top", "n": 3},
-         "limit": {"kind": "origin", "rect": [x, y, w, h]}},
+         "colorCheck": true, "pick": {"kind": "top", "n": 3}},
         {"type": "click", "at": [x, y]},
         {"type": "drag", "from": [x, y], "to": [x, y]},
-        {"type": "key", "keys": "esc"},
         {"type": "loop_start", "count": 5}, ..., {"type": "loop_end"}
       ],
       "calibration": {"pair": ["左上圖示", "右下按鈕"], "frame": 120,
@@ -28,15 +26,17 @@
 步驟用流程既有的步驟種類與欄位詞彙; 位置一律寫**影片像素的畫面位置**
 (`at` / `from` / `to`), 不寫偏移、不寫相對座標——那由組裝依`原點`規則推算。
 `frame` 是「這一步在影片裡看的是哪一幀」: 找圖步驟在這一幀上照它的`找圖目標`
-實際挑到範本框 (預設＝範本的取材幀)。偏移欄位 (offsetX/Y、x/y、x1…y2) 與座標模式
-(mode) 由組裝產生, 計畫寫了就報錯。
+實際挑到範本框 (預設＝範本的取材幀)。偏移欄位 (offsetX/Y、x/y、x1…y2) 由組裝產生,
+計畫寫了就報錯。
 
 找圖步驟 (與確認圖 `confirmTarget`) 的`找圖目標`屬性: `colorCheck` (比色)、
-`pick` (挑選規則: {kind: top/left, n} 或 {kind: near, at: [x, y]})、`limit`
-(限定範圍: {kind: origin, rect: [x, y, w, h]})。矩形與指定點同樣寫影片像素的畫面
-位置, 組裝依該步的`原點`換成相對值 (確認圖用點擊後的原點); 工具只產出以原點為基準的
-設定 (`固定矩形`相對`座標基準點`, 請在 app 的找圖設定裡框)。`confirmTemplate` 是
-只有範本的確認圖簡寫。
+`pick` (挑選規則: {kind: top/left, n} 或 {kind: near, at: [x, y]})。指定點寫影片
+像素的畫面位置, 組裝依該步的`原點`換成相對值 (確認圖用點擊後的原點)。工具不產出
+限定範圍 (`固定矩形`相對`座標基準點`, 影片轉流程階段才會產; 以原點為基準的矩形已退場)。
+`confirmTemplate` 是只有範本的確認圖簡寫。
+
+已退場的寫法 (ADR 0014) 一律報錯: 按鍵步驟、限定範圍 (limit)、出現等候上限
+(appearLimitMs)、非左鍵 (button)、連點 (clicks); 寫預設值 (左鍵、1 下) 的照收。
 
 `calibration` 指名這份流程的`校準對` (兩個計畫裡的範本: 遊戲畫面內相距夠遠的兩張
 固定圖) 與量基準距離的那一幀 (預設＝第一張的取材幀)。影片尺度就是流程尺度
@@ -48,7 +48,7 @@
 `生效確認` (ADR 0008): 座標點擊與拖曳也可寫 confirm (gone＝`原點的圖離開`、
 appear、next) 與 confirmTemplate/confirmTarget、timeout、interval、onNotFound;
 流程層級的`補做間隔` (retryIntervalMs) 與`忙碌指示` (busyTarget: 範本＋比色,
-不限定範圍); 等待消失的`出現等候上限` (appearLimitMs)。
+不限定範圍)。
 """
 from __future__ import annotations
 
@@ -69,18 +69,17 @@ _POS_KEYS = {"frame", "at", "from", "to"}
 
 # 每種步驟允許的欄位 (流程既有詞彙 + 位置詞彙); type 另計
 STEP_FIELDS = {
-    "find_click": {"template", "frame", "at", "action", "button", "clicks",
+    "find_click": {"template", "frame", "at", "action",
                    "timeout", "interval", "onNotFound", "confirm",
                    "confirmTemplate", "confirmTarget", "updateOrigin",
-                   "colorCheck", "pick", "limit", "appearLimitMs"},
-    "click": {"at", "frame", "button", "clicks", "updateOrigin", "confirm",
+                   "colorCheck", "pick"},
+    "click": {"at", "frame", "updateOrigin", "confirm",
               "confirmTemplate", "confirmTarget", "timeout", "interval",
               "onNotFound"},
-    "drag": {"from", "to", "frame", "button", "ms", "holdMs", "confirm",
+    "drag": {"from", "to", "frame", "ms", "holdMs", "confirm",
              "confirmTemplate", "confirmTarget", "timeout", "interval",
              "onNotFound"},
     "wait": {"ms"},
-    "key": {"keys"},
     "loop_start": {"count"},
     "loop_end": {"onBreak"},
     "branch_start": set(),
@@ -92,12 +91,10 @@ ENUMS = {
     "action": ("click", "none", "wait_gone"),
     "onNotFound": ("skip", "break", "stop"),
     "confirm": ("none", "gone", "appear", "next"),
-    "button": ("left", "right", "middle"),
     "onBreak": ("continue", "break"),
 }
 
-_NUMBERS = {"clicks", "timeout", "interval", "ms", "holdMs", "count", "frame",
-            "appearLimitMs"}
+_NUMBERS = {"timeout", "interval", "ms", "holdMs", "count", "frame"}
 
 TEMPLATE_FIELDS = {"frame", "box", "present", "absent", "clean"}
 
@@ -120,11 +117,31 @@ def _frame(where, v):
     return v
 
 
-_TARGET_ATTRS = {"colorCheck", "pick", "limit"}
+_TARGET_ATTRS = {"colorCheck", "pick"}
+
+
+def _retired(where, s):
+    """已退場的計畫寫法 (ADR 0014) 一律報錯; 寫預設值的滑鼠鍵與連點數照收 (拿掉)."""
+    if s.get("type") == "key":
+        _err(where, "按鍵步驟已退場（ADR 0014）：流程不支援按鍵，請改用點擊；"
+             "影片裡看不到的按鍵寫進 report.keys")
+    if "appearLimitMs" in s:
+        _err(where, "出現等候上限（appearLimitMs）已退場（ADR 0014）："
+             "要等遊戲忙完，改在送出輸入的那一步勾忙碌檢查")
+    for d, what in ((s, ""), (s.get("confirmTarget"), "確認圖的")):
+        if isinstance(d, dict) and "limit" in d:
+            _err(where, f"{what}以原點為基準的限定範圍（limit）已退場（ADR 0014）；"
+                 "影片轉流程階段改產固定矩形，現在先不寫限定範圍")
+    if s.get("button", "left") != "left":
+        _err(where, f"滑鼠鍵只剩左鍵（button 已退場，ADR 0014），收到 {s['button']!r}")
+    if s.get("clicks", 1) != 1:
+        _err(where, f"連點已退場（clicks，ADR 0014）：一步點一下，收到 {s['clicks']!r}")
+    s.pop("button", None)
+    s.pop("clicks", None)
 
 
 def _target_attrs(where, d):
-    """驗證並正規化找圖目標的屬性 (比色、挑選規則、限定範圍), 就地改寫 d."""
+    """驗證並正規化找圖目標的屬性 (比色、挑選規則), 就地改寫 d."""
     if "colorCheck" in d and not isinstance(d["colorCheck"], bool):
         _err(where, f"colorCheck 要是 true/false，收到 {d['colorCheck']!r}")
     if "pick" in d:
@@ -145,22 +162,6 @@ def _target_attrs(where, d):
                 _err(where, "pick 的 near 只寫 at（影片像素的指定點畫面位置，組裝換成"
                      f"相對原點的偏移；沒有以搜尋範圍為基準這回事），收到 {p!r}")
             d["pick"] = {"kind": "near", "at": _xy(where + " pick.at", p["at"])}
-    if "limit" in d:
-        lim = d["limit"]
-        kind = lim.get("kind") if isinstance(lim, dict) else None
-        if kind == "origin":
-            r = lim.get("rect")
-            if (set(lim) - {"kind", "rect"} or not isinstance(r, (list, tuple))
-                    or len(r) != 4
-                    or not all(isinstance(c, int) and not isinstance(c, bool)
-                               for c in r) or r[2] <= 0 or r[3] <= 0):
-                _err(where, "limit 的 rect 要寫成 [x, y, w, h] 整數（影片像素的畫面"
-                     f"位置）且寬高 > 0，收到 {lim!r}")
-            d["limit"] = {"kind": "origin", "rect": list(r)}
-        else:
-            _err(where, "limit（限定範圍）的 kind 只能是 origin（以原點為基準的矩形；"
-                 "九宮格已退場，固定矩形請在 app 的找圖設定裡框），"
-                 f"收到 {lim!r}")
 
 
 def load(plan):
@@ -308,7 +309,7 @@ def _busy(raw, templates):
         return None
     where = "busyTarget"
     if not isinstance(raw, dict) or set(raw) - {"template", "colorCheck", "limit"}:
-        _err(where, f"要是 {{template, colorCheck, limit}} 物件，收到 {raw!r}")
+        _err(where, f"要是 {{template, colorCheck}} 物件，收到 {raw!r}")
     if raw.get("template") not in templates:
         _err(where, f"忙碌指示的範本「{raw.get('template')}」不在計畫的範本清單裡")
     d = dict(raw)
@@ -342,6 +343,8 @@ def _steps(raw, templates):
         where = f"步驟 {i + 1}"
         if not isinstance(s, dict):
             _err(where, "要是物件")
+        s = dict(s)
+        _retired(where, s)
         t = s.get("type")
         if t not in STEP_FIELDS:
             _err(where, f"不認得的步驟種類 {t!r}"
@@ -351,9 +354,8 @@ def _steps(raw, templates):
             hint = ""
             if set(extra) & {"x", "y", "x1", "y1", "x2", "y2", "offsetX",
                              "offsetY", "mode"}:
-                hint = "（位置一律寫影片像素的 at/from/to，偏移與座標模式由組裝推算）"
+                hint = "（位置一律寫影片像素的 at/from/to，偏移由組裝推算）"
             _err(where, f"「{t}」沒有欄位 {', '.join(extra)}{hint}")
-        s = dict(s)
         for k, choices in ENUMS.items():
             if k in s and s[k] not in choices:
                 _err(where, f"{k} 只能是 {'/'.join(choices)}，收到 {s[k]!r}")
@@ -377,7 +379,7 @@ def _steps(raw, templates):
                          "（confirmTemplate 是只有範本的確認圖簡寫）")
                 ct = s["confirmTarget"]
                 if not isinstance(ct, dict) or set(ct) - (_TARGET_ATTRS | {"template"}):
-                    _err(where, "confirmTarget 要是 {template, colorCheck, pick, limit}"
+                    _err(where, "confirmTarget 要是 {template, colorCheck, pick}"
                          f" 物件，收到 {ct!r}")
                 ct = dict(ct)
                 _target_attrs(where + " confirmTarget", ct)
@@ -390,8 +392,6 @@ def _steps(raw, templates):
                     s.get("confirm", "none") != "none" or s.get("confirmTarget")):
                 _err(where, "生效確認 (confirm/confirmTemplate/confirmTarget) 只有"
                      "動作為點擊的找圖才有意義，不點擊的找圖不要寫")
-            if "appearLimitMs" in s and s.get("action") != "wait_gone":
-                _err(where, "appearLimitMs（出現等候上限）只有等待消失的找圖才有意義")
             if s.get("confirm") == "appear":
                 cname = (s.get("confirmTarget") or {}).get("template")
                 if cname not in templates:
@@ -410,9 +410,6 @@ def _steps(raw, templates):
                 _err(where, "拖曳要寫 from 與 to（影片像素的起訖位置）")
             s["from"] = _xy(where + " from", s["from"])
             s["to"] = _xy(where + " to", s["to"])
-        elif t == "key":
-            if not isinstance(s.get("keys"), str) or not s["keys"].strip():
-                _err(where, "按鍵要寫 keys（例如 \"esc\"）")
         elif t == "loop_start":
             if not isinstance(s.get("count"), int) or s["count"] < 1:
                 _err(where, "重複開始要寫 count（重複次數，正整數）")
@@ -436,7 +433,7 @@ def _pointer_confirm(where, s, templates):
             _err(where, "confirmTemplate 與 confirmTarget 只能擇一")
         ct = s["confirmTarget"]
         if not isinstance(ct, dict) or set(ct) - (_TARGET_ATTRS | {"template"}):
-            _err(where, "confirmTarget 要是 {template, colorCheck, pick, limit}"
+            _err(where, "confirmTarget 要是 {template, colorCheck, pick}"
                  f" 物件，收到 {ct!r}")
         ct = dict(ct)
         _target_attrs(where + " confirmTarget", ct)

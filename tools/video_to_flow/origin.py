@@ -6,8 +6,8 @@
 - 座標點擊: 原點＝落點; 拖曳: 原點＝終點 (一律更新)
 - `更新原點`取消者不更新
 
-座標點擊/拖曳一律輸出`相對座標` (mode: prev), 偏移＝位置 − 當下原點;
-找圖點擊的偏移＝點擊位置 − 找到框中心。不產出`絕對座標`。
+座標點擊/拖曳一律是`相對座標` (唯一的座標模式), 偏移＝位置 − 當下原點;
+找圖點擊的偏移＝點擊位置 − 找到框中心。
 
 區段的保守規則 (計畫只描述影片裡走過的那一次):
 
@@ -40,18 +40,11 @@ def _target_no_origin(no, what, why):
 def _target(no, name, attrs, origin, why, what):
     """計畫的找圖目標屬性 (影片像素的畫面位置) → 存檔的`找圖目標`.
 
-    以原點為基準的矩形/指定點換成相對 origin 的偏移 (工具只產出這一種, ADR 0012:
-    九宮格與以搜尋範圍為基準的指定點已退場)。影片像素就是`流程尺度`, 原樣進存檔
-    (ADR 0009)。
+    指定點換成相對 origin 的偏移。影片像素就是`流程尺度`, 原樣進存檔 (ADR 0009)。
+    工具不產出限定範圍 (固定矩形留到影片轉流程階段, ADR 0014)。
     """
-    lim, pick = attrs.get("limit"), attrs.get("pick")
-    limit = p = None
-    if lim:
-        if origin is None:
-            _target_no_origin(no, f"{what}的限定範圍", why)
-        x, y, w, h = lim["rect"]
-        limit = {"kind": "origin", "x": x - origin[0], "y": y - origin[1],
-                 "w": w, "h": h}
+    pick = attrs.get("pick")
+    p = None
     if pick and pick["kind"] == "near":
         if origin is None:
             _target_no_origin(no, f"{what}的指定點", why)
@@ -59,7 +52,7 @@ def _target(no, name, attrs, origin, why, what):
         p = {"kind": "near", "x": x - origin[0], "y": y - origin[1]}
     elif pick:
         p = dict(pick)
-    return findtarget.make_target(name, limit=limit, pick=p,
+    return findtarget.make_target(name, pick=p,
                                   color=attrs.get("colorCheck", False))
 
 
@@ -119,14 +112,14 @@ def derive(steps, templates, located):
             if cfm:
                 s["confirmTarget"] = _target(no, cfm["template"], cfm, origin,
                                              why, "確認圖")
-            for k in ("template", "colorCheck", "pick", "limit"):
+            for k in ("template", "colorCheck", "pick"):
                 s.pop(k, None)
             s["target"] = tgt
         elif t == "click":
             at = s.pop("at")
             if origin is None:
                 _no_origin(no, s, why)
-            s.update(mode="prev", x=at[0] - origin[0], y=at[1] - origin[1])
+            s.update(x=at[0] - origin[0], y=at[1] - origin[1])
             if s.get("updateOrigin", True):
                 origin = tuple(at)
             _pointer_confirm_target(no, s, origin, why)
@@ -134,7 +127,7 @@ def derive(steps, templates, located):
             a, b = s.pop("from"), s.pop("to")
             if origin is None:
                 _no_origin(no, s, why)
-            s.update(mode="prev", x1=a[0] - origin[0], y1=a[1] - origin[1],
+            s.update(x1=a[0] - origin[0], y1=a[1] - origin[1],
                      x2=b[0] - origin[0], y2=b[1] - origin[1])
             origin = tuple(b)
             _pointer_confirm_target(no, s, origin, why)

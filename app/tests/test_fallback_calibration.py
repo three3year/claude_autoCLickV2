@@ -201,7 +201,7 @@ def test_執行器主對找不到改用備用對_印警告照跑_固定矩形落
     assert rec["pair"] == ",".join(FB) and MAIN[0] in rec["main_missing"]
     [ft] = harness.filelog.of("find.target")
     assert ft["limit"] == "(180,100,240,96)", "基準點 (100,60) + 偏移×0.8"
-    assert harness.clicks()[-1] == (108, 76)
+    assert harness.clicks()[-1] == (308, 176), "相對找到的位置 + 偏移×0.8"
 
 
 def test_執行器主對找得到_不碰備用對_紀錄不標備用(harness):

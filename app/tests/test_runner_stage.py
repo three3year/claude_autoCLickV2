@@ -8,7 +8,7 @@
 """
 
 
-from harness import (branch_end, branch_start, click, drag, find, key, wait)
+from harness import (branch_end, branch_start, click, drag, find, here, wait)
 
 
 def stage_events(harness):
@@ -19,19 +19,19 @@ def stage_events(harness):
 
 def test_未注入舞台時完全不碰舞台(harness):
     """單流程執行的回歸保護: 整份既有測試都在這個模式下跑."""
-    harness.run([click(1, 1), wait(100), click(2, 2)])
+    harness.run([here(), click(1, 1), wait(100), click(2, 2)])
     assert harness.kinds() == ["click", "click"]
 
 
 # ---------- 讓出點 ----------
 
 def test_第一個動作之前先上台(harness):
-    harness.run([click(1, 1)], stage=harness.make_stage())
+    harness.run([here(), click(1, 1)], stage=harness.make_stage())
     assert harness.kinds() == ["acquire", "click", "leave"]
 
 
 def test_等待期間讓出舞台(harness):
-    harness.run([click(1, 1), wait(3000), click(2, 2)],
+    harness.run([here(), click(1, 1), wait(3000), click(2, 2)],
                 stage=harness.make_stage())
     assert harness.kinds() == [
         "acquire", "click", "release", "acquire", "click", "leave"]
@@ -47,7 +47,6 @@ def test_點擊拖曳按鍵都不讓出(harness):
     harness.run([
         click(1, 1),
         drag(0, 0, 5, 5),
-        key("enter"),
     ], stage=harness.make_stage())
     assert stage_events(harness) == ["acquire", "leave"]
 
@@ -59,7 +58,7 @@ def test_拖曳之後才讓出時紀錄會標註(harness):
 
 
 def test_一般的等待不會標註拖曳(harness):
-    harness.run([click(1, 1), wait(1000)], stage=harness.make_stage())
+    harness.run([here(), click(1, 1), wait(1000)], stage=harness.make_stage())
     assert "上一步是拖曳" not in harness.log_text()
 
 
@@ -106,7 +105,7 @@ def test_分岔輪詢期間不讓出(harness):
 
 def test_正常跑完交還舞台(harness):
     st = harness.make_stage()
-    harness.run([click(1, 1)], stage=st)
+    harness.run([here(), click(1, 1)], stage=st)
     assert st.left == 1
 
 
@@ -166,13 +165,13 @@ def test_排隊等舞台時被急停也能收工(harness):
 
 def test_取得舞台回傳否代表整場已結束(harness):
     st = harness.make_stage(acquire_returns=[False])
-    harness.run([click(1, 1)], stage=st)
+    harness.run([here(), click(1, 1)], stage=st)
     assert harness.clicks() == [], "整場已結束就不該再有任何動作"
     assert st.left == 1
 
 
 def test_排隊期間整場結束時不執行後續步驟(harness):
     st = harness.make_stage(acquire_returns=[True, False])
-    harness.run([click(1, 1), wait(3000), click(2, 2)], stage=st)
+    harness.run([here(), click(1, 1), wait(3000), click(2, 2)], stage=st)
     assert harness.clicks() == [(1, 1)]
     assert st.left == 1

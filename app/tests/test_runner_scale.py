@@ -12,27 +12,16 @@ def test_找圖偏移乘上倍率(harness):
     assert harness.clicks() == [(515, 370)], "落點 = 中心 + 偏移×1.5 (四捨五入)"
 
 
-def test_絕對座標乘上倍率(harness):
-    harness.run([click(30, 40)], anchor=(100, 200), scale=2.0)
-    assert harness.clicks() == [(160, 280)], "基準點不換算, 偏移 ×2"
-
-
 def test_相對座標乘上倍率(harness):
     harness.vision.plan("a.png", [(500, 400)])
-    harness.run([find("a.png"), click(10, -6, mode="prev")], scale=1.5)
+    harness.run([find("a.png"), click(10, -6)], scale=1.5)
     assert harness.clicks() == [(500, 400), (515, 391)], \
         "原點 (螢幕座標) 不換算, 相對偏移 ×1.5 (負值對稱四捨五入)"
 
 
-def test_拖曳兩端點都乘上倍率_絕對(harness):
-    harness.run([drag(10, 10, 60, 80)], anchor=(100, 200), scale=2.0)
-    ev = [e for e in harness.events if e[0] == "drag"][0]
-    assert (ev[1], ev[2], ev[3], ev[4]) == (120, 220, 220, 360)
-
-
-def test_拖曳兩端點都乘上倍率_相對(harness):
+def test_拖曳兩端點都乘上倍率(harness):
     harness.vision.plan("a.png", [(500, 400)])
-    harness.run([find("a.png"), drag(10, 10, 60, 80, mode="prev")], scale=1.5)
+    harness.run([find("a.png"), drag(10, 10, 60, 80)], scale=1.5)
     ev = [e for e in harness.events if e[0] == "drag"][0]
     assert (ev[1], ev[2], ev[3], ev[4]) == (515, 415, 590, 520)
 
@@ -48,7 +37,7 @@ def test_找圖不點擊時原點也含倍率後的偏移(harness):
     """wait_gone / none 記錄的原點 = 找到位置 + 偏移×倍率."""
     harness.vision.plan("a.png", [(500, 400)])
     harness.run([find("a.png", action="none", offsetX=10, offsetY=0),
-                 click(0, 0, mode="prev")], scale=2.0)
+                 click(0, 0)], scale=2.0)
     assert harness.clicks() == [(520, 400)]
 
 

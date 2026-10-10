@@ -96,11 +96,9 @@ def render(res, plan):
         lines += [f"- {n}" for n in notes[key]] or [empty]
         lines.append("")
 
-    # 按鍵影片裡看不到, 一定來自口頭補充: 流程裡的按鍵步驟一律列出, 再附計畫的說明
-    lines += ["## 口頭補充的按鍵", ""]
-    keys = [f"- 步驟 {i}：按鍵 `{s['keys']}`"
-            for i, s in enumerate(res["step_list"], 1) if s["type"] == "key"]
-    lines += keys + [f"- {n}" for n in notes["keys"]] or ["無。"]
+    # 按鍵影片裡看不到, 一定來自口頭補充; 流程不支援按鍵, 請使用者改用點擊
+    lines += ["## 口頭補充的按鍵（流程不支援，請改用點擊）", ""]
+    lines += [f"- {n}" for n in notes["keys"]] or ["無。"]
     lines.append("")
 
     lines += ["## 步驟清單", "", "| # | 步驟 | 內容 |", "|---|---|---|"]
@@ -111,7 +109,7 @@ def render(res, plan):
 
 
 _LABELS = {"find_click": "找圖點擊", "click": "座標點擊", "drag": "滑鼠拖曳",
-           "wait": "等待", "key": "按鍵", "loop_start": "重複開始",
+           "wait": "等待", "loop_start": "重複開始",
            "loop_end": "重複結束", "branch_start": "分岔開始",
            "branch_or": "分岔（或）", "branch_end": "分岔結束"}
 _ACTION = {"click": "點擊", "none": "僅等待出現", "wait_gone": "等待消失"}
@@ -151,8 +149,6 @@ def _describe(s):
         return text
     if t == "wait":
         return f"{s['ms']} ms"
-    if t == "key":
-        return s["keys"]
     if t == "loop_start":
         return f"{s['count']} 次"
     return ""

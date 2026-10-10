@@ -3,17 +3,16 @@
 存檔裡的找圖目標是步驟上的巢狀物件 (flowFormat 3)::
 
     {"template": "範本名",
-     "limit":      {"kind": "origin", "x", "y", "w", "h"}   以`原點`為基準的矩形
-                 | {"kind": "rect", "x", "y", "w", "h"}     `固定矩形`: 相對`座標基準點`的矩形
+     "limit":      {"kind": "rect", "x", "y", "w", "h"}     `固定矩形`: 相對`座標基準點`的矩形
      "pick":       {"kind": "top" | "left", "n": N}          由上到下 / 由左到右第 N 個
                  | {"kind": "near", "x", "y"}                最接近指定點 (原點 + 偏移)
      "colorCheck": true}
 
 缺欄位＝不限定 / 分數最高 / 不比色。找圖步驟的找圖目標在 `target`, `確認圖`在
 `confirmTarget`; 「點到下一步的圖出現」沿用下一步的 `target`。所有像素欄位
-(原點矩形、固定矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率`
-(ADR 0009); 固定矩形再加上`座標基準點`的螢幕位置 (ADR 0012)。九宮格與以搜尋範圍
-為基準的指定點已退場 (舊格式由 flowfile 整份拒絕開啟, 不需要讀檔遷移)。
+(固定矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率` (ADR 0009);
+固定矩形再加上`座標基準點`的螢幕位置 (ADR 0012)。九宮格、以原點為基準的矩形與
+以搜尋範圍為基準的指定點已退場 (ADR 0014)。
 
 本模組維持輕量 (不 import cv2/numpy): 編輯器、執行器、影片轉流程都經這裡的
 存取函式讀寫步驟上的找圖目標, 解析並執行一個找圖目標的邏輯也在這裡 (三處行為
@@ -148,10 +147,8 @@ class Found:
 
 
 def needs_origin(tgt):
-    """找圖目標的設定是否以`原點`為基準 (沒有原點時無法執行): 原點矩形、最接近指定點."""
-    pick = tgt.get("pick") or {}
-    limit = tgt.get("limit") or {}
-    return pick.get("kind") == "near" or limit.get("kind") == "origin"
+    """找圖目標的設定是否以`原點`為基準 (沒有原點時無法執行): 最接近指定點."""
+    return (tgt.get("pick") or {}).get("kind") == "near"
 
 
 def needs_anchor(tgt):
@@ -162,27 +159,19 @@ def needs_anchor(tgt):
 def limit_rect(tgt, region, origin, scale=1.0, anchor=None):
     """`限定範圍`的螢幕矩形 (x, y, w, h), 已裁到搜尋範圍 region 內.
 
-    None＝不限定 (整個搜尋範圍); 裁完沒有交集時寬高為 0。以原點為基準的矩形＝
-    原點 + 偏移×`畫面倍率`; `固定矩形`＝`座標基準點` + 偏移×倍率 (ADR 0012), 落在
-    搜尋範圍外的部分照裁 (範圍框太小時被裁掉那塊裡的圖就找不到)。設定壞掉
-    (欄位不是整數、寬高不正) 時寬高為 0——不找, 絕不退成整個範圍。
-    呼叫端保證以原點為基準時 origin、固定矩形時 anchor 都不是 None。
+    None＝不限定 (整個搜尋範圍); 裁完沒有交集時寬高為 0。`固定矩形`＝`座標基準點` +
+    偏移×`畫面倍率` (ADR 0012), 落在搜尋範圍外的部分照裁 (範圍框太小時被裁掉那塊裡的
+    圖就找不到)。設定壞掉 (欄位不是整數、寬高不正) 時寬高為 0——不找, 絕不退成整個
+    範圍。呼叫端保證固定矩形時 anchor 不是 None。
     """
     lim = tgt.get("limit") or {}
-    kind = lim.get("kind")
     rx, ry, rw, rh = region
-    if kind == "origin":
-        x = origin[0] + flowfmt.scale_px(lim.get("x", 0), scale)
-        y = origin[1] + flowfmt.scale_px(lim.get("y", 0), scale)
-        x1 = x + flowfmt.scale_px(lim.get("w", 0), scale)
-        y1 = y + flowfmt.scale_px(lim.get("h", 0), scale)
-    elif kind == "rect":
-        if not _valid_fixed_rect(lim):
-            return (rx, ry, 0, 0)
-        x, y, w, h = flowfmt.rect_to_screen(lim, anchor, scale)
-        x1, y1 = x + w, y + h
-    else:
+    if lim.get("kind") != "rect":
         return None
+    if not _valid_fixed_rect(lim):
+        return (rx, ry, 0, 0)
+    x, y, w, h = flowfmt.rect_to_screen(lim, anchor, scale)
+    x1, y1 = x + w, y + h
     x0, y0 = max(x, rx), max(y, ry)
     x1, y1 = min(x1, rx + rw), min(y1, ry + rh)
     return (x0, y0, max(0, x1 - x0), max(0, y1 - y0))
@@ -320,7 +309,7 @@ def pick_text(tgt):
 def make_target(template, limit=None, pick=None, color=False):
     """由表單值組一個找圖目標; 預設值 (不限定/分數最高/不比色) 不寫進存檔."""
     tgt = {"template": template}
-    if limit and limit.get("kind") in ("origin", "rect"):
+    if limit and limit.get("kind") == "rect":
         tgt["limit"] = dict(limit)
     if pick and pick.get("kind", "score") != "score":
         tgt["pick"] = dict(pick)
@@ -334,11 +323,6 @@ def offset_from_screen(xy, base, k):
     (與相對座標拾取同一套換算)."""
     return (flowfmt.scale_px(xy[0] - base[0], 1.0 / k),
             flowfmt.scale_px(xy[1] - base[1], 1.0 / k))
-
-
-def rect_from_screen(box, origin, k):
-    """框選到的螢幕矩形 → 以原點為基準的限定範圍 (流程尺度)."""
-    return dict(flowfmt.rect_from_screen(box, origin, k), kind="origin")
 
 
 def fixed_rect_from_screen(box, anchor, k):
@@ -358,7 +342,7 @@ def tag_text(tgt):
 def tags(tgt):
     """步驟清單上的簡短標記: 有特別設定的屬性 (限定範圍、挑選規則、比色)."""
     out = []
-    if (tgt.get("limit") or {}).get("kind") in ("origin", "rect"):
+    if (tgt.get("limit") or {}).get("kind") == "rect":
         out.append("限定")
     pick = tgt.get("pick") or {}
     if pick.get("kind") == "top":
@@ -375,9 +359,6 @@ def tags(tgt):
 def limit_text(lim):
     """`限定範圍`的一段描述 (摘要的第一段; 編輯器顯示固定矩形的值)."""
     lim = lim or {}
-    if lim.get("kind") == "origin":
-        return (f"原點矩形 ({int(lim.get('x', 0)):+d},{int(lim.get('y', 0)):+d})"
-                f" {int(lim.get('w', 0))}×{int(lim.get('h', 0))}")
     if lim.get("kind") == "rect":
         if not _valid_fixed_rect(lim):
             return "固定矩形（設定無效）"

@@ -1,6 +1,6 @@
 """`忙碌檢查` (busy-check 票 02/03, ADR 0011).
 
-勾了的步驟 (座標點擊、拖曳、按鍵、找圖點擊): 送出輸入 → `忙碌出現等候`內輪詢
+勾了的步驟 (座標點擊、拖曳、找圖點擊): 送出輸入 → `忙碌出現等候`內輪詢
 `忙碌指示`, 一次都沒看到＝放行 (就算確認其實已成立也等滿); 看到就等它消失 (挑中的
 位置不再有匹配); 從送出起 60 秒沒消失＝停止流程。之後才做`生效確認`。補做重送後
 不再另等。沒勾的步驟完全不變。
@@ -9,7 +9,7 @@
 import pytest
 
 from harness import (branch_end, branch_or, branch_start, click, drag, find,
-                     key, tgt)
+                     here, tgt)
 
 AT = (500, 400)
 BUSY_AT = (960, 1000)
@@ -30,20 +30,20 @@ def gap(harness):
 
 def test_座標點擊勾了_忙碌出現後消失_下一步才送出(harness):
     harness.vision.plan("busy", APPEAR_THEN_GONE)
-    r = harness.run([click(100, 100, busyCheck=True), click(9, 9)], busy=BUSY)
+    r = harness.run([here(), click(100, 100, busyCheck=True), click(9, 9)], busy=BUSY)
     assert r.ended == "done"
-    assert harness.clicks() == [(100, 100), (9, 9)]
+    assert harness.clicks() == [(100, 100), (109, 109)]
     assert gap(harness) == pytest.approx(3.0, abs=0.01)
     [rec] = checks(harness)
     assert (rec["step"], rec["result"], rec["waited"], rec["polls"]) == (
-        1, "gone", "3.00", 7)
+        2, "gone", "3.00", 7)
     assert rec["picked"] == "(940,990,40,20)", "看到時挑中的框"
 
 
 def test_拖曳勾了有生效確認_確認在忙碌消失後才開始(harness):
     harness.vision.plan("busy", APPEAR_THEN_GONE)
     harness.vision.plan("ok", [(300, 300)])
-    r = harness.run([drag(10, 20, 30, 40, busyCheck=True, confirm="appear",
+    r = harness.run([here(), drag(10, 20, 30, 40, busyCheck=True, confirm="appear",
                           confirmTarget=tgt("ok"), interval=0.5),
                      click(9, 9)], busy=BUSY)
     assert r.ended == "done"
@@ -59,13 +59,14 @@ def test_拖曳勾了有生效確認_確認在忙碌消失後才開始(harness):
 def test_確認逾時從忙碌檢查結束起算(harness):
     harness.vision.plan("busy", APPEAR_THEN_GONE)
     harness.vision.plan("ok", [None])
-    r = harness.run([click(100, 100, busyCheck=True, confirm="appear",
+    r = harness.run([here(), click(100, 100, busyCheck=True, confirm="appear",
                            confirmTarget=tgt("ok"), timeout=1, interval=0.5,
                            onNotFound="skip"),
                      click(9, 9)], busy=BUSY)
     assert r.ended == "done"
     # 3.0s 消失後才開始確認: 3.5s 沒生效且已過補做間隔 → 補做一次 (不再另等忙碌),
     # 4.0s 確認逾時 → 跳過 → 下一步
+    # 沒生效 → 原點不更新, 下一步仍相對定位找圖的 (0, 0)
     assert harness.clicks() == [(100, 100), (100, 100), (9, 9)]
     times = [t for _, t in harness.input_times()]
     assert times[-1] - times[0] == pytest.approx(4.0, abs=0.01)
@@ -91,22 +92,14 @@ def test_找圖點擊勾了沒設確認_點完等忙碌就結束(harness):
     harness.vision.plan("busy", [None, BUSY_AT, BUSY_AT, None])
     r = harness.run([find("a", busyCheck=True, interval=0.5), click(9, 9)],
                     busy=BUSY)
-    assert r.ended == "done" and harness.clicks() == [AT, (9, 9)]
-    assert gap(harness) == pytest.approx(1.5, abs=0.01)
-
-
-def test_按鍵勾了_等忙碌(harness):
-    harness.vision.plan("busy", [None, BUSY_AT, BUSY_AT, None])
-    r = harness.run([key("enter", busyCheck=True), click(9, 9)], busy=BUSY)
-    assert r.ended == "done"
-    assert [k for k, _ in harness.input_times()] == ["keys", "click"]
+    assert r.ended == "done" and harness.clicks() == [AT, (509, 409)]
     assert gap(harness) == pytest.approx(1.5, abs=0.01)
 
 
 def test_出現等候內沒看到_等滿才放行(harness):
     harness.vision.plan("busy", [None])
-    r = harness.run([click(100, 100, busyCheck=True), click(9, 9)], busy=BUSY)
-    assert r.ended == "done" and harness.clicks() == [(100, 100), (9, 9)]
+    r = harness.run([here(), click(100, 100, busyCheck=True), click(9, 9)], busy=BUSY)
+    assert r.ended == "done" and harness.clicks() == [(100, 100), (109, 109)]
     assert gap(harness) == pytest.approx(1.0, abs=0.01), "預設 1000ms"
     [rec] = checks(harness)
     assert (rec["result"], rec["waited"], rec["polls"]) == ("not_appeared",
@@ -116,7 +109,7 @@ def test_出現等候內沒看到_等滿才放行(harness):
 
 def test_忙碌出現等候是流程設定(harness):
     harness.vision.plan("busy", [None])
-    harness.run([click(100, 100, busyCheck=True), click(9, 9)], busy=BUSY,
+    harness.run([here(), click(100, 100, busyCheck=True), click(9, 9)], busy=BUSY,
                 busy_appear=0.3)
     assert gap(harness) == pytest.approx(0.3, abs=0.01)
     assert checks(harness)[0]["waited"] == "0.30"
@@ -125,7 +118,7 @@ def test_忙碌出現等候是流程設定(harness):
 def test_確認條件已成立仍等滿出現等候(harness):
     harness.vision.plan("busy", [None])
     harness.vision.plan("ok", [(300, 300)])   # 一開始就在
-    harness.run([click(100, 100, busyCheck=True, confirm="appear",
+    harness.run([here(), click(100, 100, busyCheck=True, confirm="appear",
                        confirmTarget=tgt("ok"), interval=0.5),
                  click(9, 9)], busy=BUSY)
     assert harness.lookups() == ["busy", "busy", "busy", "ok"]
@@ -134,7 +127,7 @@ def test_確認條件已成立仍等滿出現等候(harness):
 
 def test_忙碌60秒不消失_停止流程_不走找不到時(harness):
     harness.vision.plan("busy", [None, BUSY_AT])   # 0.5s 出現後一直在
-    r = harness.run([click(100, 100, busyCheck=True, onNotFound="skip"),
+    r = harness.run([here(), click(100, 100, busyCheck=True, onNotFound="skip"),
                      click(9, 9)], busy=BUSY)
     assert r.ended == "error", "停止流程, 不是跳過"
     assert harness.clicks() == [(100, 100)], "後面沒有任何輸入"
@@ -148,7 +141,7 @@ def test_補做重送後不再等忙碌_補做門照舊(harness):
     # 2.0s 生效。補做前查一次忙碌指示 (門), 重送後沒有第二次忙碌檢查
     harness.vision.plan("busy", [None])
     harness.vision.plan("ok", [None, (300, 300)])
-    r = harness.run([click(100, 100, busyCheck=True, confirm="appear",
+    r = harness.run([here(), click(100, 100, busyCheck=True, confirm="appear",
                            confirmTarget=tgt("ok"), interval=0.5)], busy=BUSY)
     assert r.ended == "done"
     assert harness.clicks() == [(100, 100), (100, 100)]
@@ -160,7 +153,7 @@ def test_補做重送後不再等忙碌_補做門照舊(harness):
 def test_補做門在忙碌時照舊不重送(harness):
     harness.vision.plan("busy", [None, None, None, BUSY_AT, None])
     harness.vision.plan("ok", [None, None, (300, 300)])
-    harness.run([click(100, 100, busyCheck=True, confirm="appear",
+    harness.run([here(), click(100, 100, busyCheck=True, confirm="appear",
                        confirmTarget=tgt("ok"), interval=0.5)], busy=BUSY)
     assert harness.clicks() == [(100, 100), (100, 100)], "1.5s 忙碌不補, 2.0s 補"
 
@@ -168,7 +161,7 @@ def test_補做門在忙碌時照舊不重送(harness):
 def test_沒勾的步驟不變_也不查忙碌指示(harness):
     harness.vision.plan("busy", [BUSY_AT])
     harness.vision.plan("a", [AT])
-    r = harness.run([click(100, 100), drag(1, 2, 3, 4), key("esc"), find("a"),
+    r = harness.run([here(), click(100, 100), drag(1, 2, 3, 4), find("a"),
                      click(9, 9)], busy=BUSY)
     assert r.ended == "done"
     assert "busy" not in harness.lookups()
@@ -184,7 +177,7 @@ def test_分岔開頭的找圖點擊勾了_選中後點擊等忙碌(harness):
     r = harness.run([branch_start(), find("a", busyCheck=True, interval=0.5),
                      branch_or(), find("b"), branch_end(), click(9, 9)],
                     busy=BUSY)
-    assert r.ended == "done" and harness.clicks() == [AT, (9, 9)]
+    assert r.ended == "done" and harness.clicks() == [AT, (509, 409)]
     assert gap(harness) == pytest.approx(1.0, abs=0.01)
     [rec] = checks(harness)
     assert rec["step"] == 2 and rec["result"] == "gone"
@@ -201,13 +194,13 @@ def test_找圖不點擊時勾了也不等(harness):
 
 def test_沒設忙碌指示卻勾了_記警告不等(harness):
     harness.vision.plan("busy", [BUSY_AT])
-    r = harness.run([click(100, 100, busyCheck=True), click(9, 9)])
+    r = harness.run([here(), click(100, 100, busyCheck=True), click(9, 9)])
     assert r.ended == "done" and gap(harness) == 0.0
     assert any("沒設忙碌指示" in m for m in harness.logs(r))
 
 
 def test_日誌順序_輸入那筆之後_確認之前(harness):
     harness.vision.plan("busy", [None])
-    harness.run([click(100, 100, busyCheck=True)], busy=BUSY)
+    harness.run([here(), click(100, 100, busyCheck=True)], busy=BUSY)
     assert [e for e, _ in harness.filelog.records
             if e in ("input", "busy.check")] == ["input", "busy.check"]

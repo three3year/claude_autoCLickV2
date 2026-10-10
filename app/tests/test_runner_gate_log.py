@@ -4,7 +4,7 @@
 生效確認逾時的 `input.confirm` 檔案紀錄帶最高分與沒過的那一關; 手動停止落在找圖或
 生效確認的輪詢裡時, 先寫一筆結果為 stopped 的檔案紀錄再停止。
 """
-from harness import click, drag, find, miss, tgt
+from harness import click, drag, find, here, miss, tgt
 
 
 def records(harness, event="find.target", role=None):
@@ -65,7 +65,7 @@ def test_等待消失從未出現也印哪一關(harness):
 
 def test_座標點擊確認圖逾時_紀錄帶最高分與沒過的那一關(harness):
     harness.vision.plan("ok", [miss("verify", 0.71)])
-    harness.run([click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
+    harness.run([here(), click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
                        timeout=1, interval=0.5, onNotFound="skip")])
     [rec] = records(harness, "input.confirm")
     assert rec["result"] == "timeout"
@@ -84,7 +84,7 @@ def test_拖曳原點的圖離開逾時_紀錄寫仍在原位與它的分數(har
 
 def test_座標點擊確認圖逾時_訊息印哪一關(harness):
     harness.vision.plan("ok", [miss("match", 0.55)])
-    r = harness.run([click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
+    r = harness.run([here(), click(100, 100, confirm="appear", confirmTarget=tgt("ok"),
                            timeout=1, interval=0.5, onNotFound="skip")])
     msg = next(m for m in harness.logs(r) if "未見確認圖「ok」" in m)
     assert "粗篩最高 0.550" in msg
@@ -151,7 +151,7 @@ def test_手動停止落在找圖輪詢裡_寫一筆stopped帶最高分與那一
 
 def test_手動停止落在座標點擊確認裡_input_confirm寫stopped(harness):
     harness.vision.plan("ok", [miss("verify", 0.73)])
-    r = _run_stopping(harness, [click(100, 100, confirm="appear",
+    r = _run_stopping(harness, [here(), click(100, 100, confirm="appear",
                                       confirmTarget=tgt("ok"), timeout=60,
                                       interval=0.5)], n_sleep=15)
     assert r.ended == "stopped"

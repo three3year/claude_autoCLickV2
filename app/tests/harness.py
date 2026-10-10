@@ -71,8 +71,13 @@ def find(template, target=None, **kw):
                 **kw)
 
 
-def key(keys, **kw):
-    return dict({"type": "key", "keys": keys}, **kw)
+HERE = "here"   # 定位找圖的範本: 預設擺在 (0, 0) (見 Vision)
+
+
+def here(**kw):
+    """定位找圖 (只找不點、更新原點): 原點落在 HERE 擺的位置 (預設 (0, 0)),
+    後面的相對座標點擊/拖曳的數字就等於螢幕座標 (座標點擊只有相對原點一種)."""
+    return find(HERE, action="none", **kw)
 
 
 def loop(count):
@@ -178,8 +183,8 @@ class Vision:
     def __init__(self, default=(1000, 500), size=(40, 20), clock=None):
         self.default = default
         self.size = size
-        self._plans = {}
-        self._calls = {}
+        self._plans = {HERE: [(0, 0)]}
+        self._calls = {HERE: 0}
         self._missing = set()
         self._lock = threading.Lock()
         self.grabs = []      # 每次擷取用的搜尋範圍
@@ -469,8 +474,8 @@ class Harness:
         return (set(cal["pair"]) | set(fb["pair"] if fb else ())) if cal else set()
 
     def lookups(self):
-        """步驟的查詢 (範本名序列), 不含開頭校準查校準對的那兩次."""
-        skip = self._cal_names()
+        """步驟的查詢 (範本名序列), 不含開頭校準查校準對的那兩次與定位找圖 (HERE)."""
+        skip = self._cal_names() | {HERE}
         return [n for n in self.vision.lookups if n not in skip]
 
     def grabs(self):

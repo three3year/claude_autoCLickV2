@@ -110,7 +110,7 @@ def test_分支條件套用條件步驟的找圖目標(harness):
                  branch_or(),
                  find("y"), click(2, 2),
                  branch_end()])
-    assert harness.clicks() == [(300, 300), (2, 2)], "x 只有一個匹配, 第 2 個不成立"
+    assert harness.clicks() == [(300, 300), (302, 302)], "x 只有一個匹配, 第 2 個不成立"
 
 
 def test_以原點為基準卻沒有原點_步驟無法執行而跳過(harness):
@@ -167,23 +167,6 @@ def test_目標不在限定範圍內時逾時走找不到時(harness):
                           timeout=1, interval=0.2, onNotFound="stop")])
     assert harness.clicks() == []
     assert r.ended == "error"
-
-
-def test_下一步的限定範圍以點擊後的原點計算(harness):
-    below = {"limit": {"kind": "origin", "x": -50, "y": 150, "w": 200,
-                       "h": 100}}
-    harness.vision.plan("a", [(100, 100)])
-    harness.vision.plan("card", [[(600, 300)], [(600, 300), (200, 300)]])
-    harness.run(retry_interval=0, steps=[find("a", confirm="next", interval=0.1),
-                 find("card", target=below, interval=0.1)])
-    # 點擊後原點 (100,100) → 限定 (50,250)-(250,350): 只有 (200,300) 在裡面
-    assert harness.clicks() == [(100, 100), (100, 100), (200, 300)]
-
-
-def test_以原點為基準的限定範圍卻沒有原點_步驟跳過(harness):
-    lim = {"limit": {"kind": "origin", "x": 0, "y": 0, "w": 100, "h": 100}}
-    r = harness.run([find("btn", target=lim, onNotFound="stop")])
-    assert r.ended == "done" and harness.clicks() == []
 
 
 # ---------- 固定矩形 (busy-pause-fixed-rect 票 03; coord-anchor 票 04 改相對基準點) ----------

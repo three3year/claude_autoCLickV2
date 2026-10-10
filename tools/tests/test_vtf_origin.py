@@ -49,7 +49,7 @@ def test_相對座標點擊的偏移等於點擊位置減前一個找圖實際�
 
     cx, cy = found_center(res, "開始")
     s = saved(res)[1]
-    assert s["type"] == "click" and s["mode"] == "prev"
+    assert s["type"] == "click"
     assert (s["x"], s["y"]) == (sc(150 - cx), sc(100 - cy))
 
 
@@ -77,7 +77,6 @@ def test_連續兩個座標點擊第二個以第一個的落點為原點(demo, e
     res = run(demo, engine, [find("開始"), click(150, 100), click(170, 90)])
 
     s = saved(res)[2]
-    assert s["mode"] == "prev"
     assert (s["x"], s["y"]) == (sc(20), sc(-10))
 
 
@@ -89,7 +88,7 @@ def test_拖曳輸出為相對座標拖曳且之後以拖曳終點為原點(demo
 
     cx, cy = found_center(res, "開始")
     d, c = saved(res)[1:]
-    assert d["type"] == "drag" and d["mode"] == "prev"
+    assert d["type"] == "drag"
     assert (d["x1"], d["y1"], d["x2"], d["y2"]) == (
         sc(100 - cx), sc(200 - cy), sc(300 - cx), sc(210 - cy))
     assert (c["x"], c["y"]) == (sc(10), sc(-10))
@@ -149,13 +148,14 @@ def test_等待消失的找圖也以找到的位置為原點(demo, engine):
     assert (c["x"], c["y"]) == (sc(40 - cx), sc(220 - cy))
 
 
-def test_存檔中沒有任何絕對座標步驟(demo, engine):
+def test_存檔的座標點擊與拖曳不帶座標模式(demo, engine):
+    """相對座標是唯一的座標模式 (絕對座標已退場, ADR 0014)."""
     steps = [find("開始"), click(150, 100),
              {"type": "drag", "from": [100, 200], "to": [300, 210]},
              find("確定"), click(40, 220)]
     res = run(demo, engine, steps)
 
-    assert flowfmt.abs_steps(saved(res)) == []
+    assert all("mode" not in s for s in saved(res))
 
 
 def test_重複區段內的相對座標要有區段內的原點(demo, engine):

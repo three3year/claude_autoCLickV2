@@ -65,30 +65,48 @@ def test_找不到時預設停止且逾時預設10秒(demo, engine):
         assert x["onNotFound"] == "stop"
         assert x["timeout"] == 10
         assert x["action"] == "click"
-        assert (x["button"], x["clicks"], x["interval"]) == ("left", 1, 0.5)
+        assert x["interval"] == 0.5
+        assert "button" not in x and "clicks" not in x
         assert x["updateOrigin"] is True
 
 
 def test_計畫有指定時照計畫(demo, engine):
     steps = [find("開始", confirm="gone", onNotFound="skip", timeout=30),
              find("確定", confirm="appear", confirmTemplate="下一步"),
-             find("下一步", confirm="none", button="right", clicks=2)]
+             find("下一步", confirm="none", button="left", clicks=1)]
     s = saved(run(demo, engine, steps))
     assert (s[0]["confirm"], s[0]["onNotFound"], s[0]["timeout"]) == ("gone", "skip", 30)
     assert (s[1]["confirm"], s[1]["confirmTarget"]) == ("appear",
                                                        {"template": "下一步"})
-    assert (s[2]["confirm"], s[2]["button"], s[2]["clicks"]) == ("none", "right", 2)
+    # 寫預設值的滑鼠鍵與連點數照收 (欄位已退場, 存檔不帶)
+    assert s[2]["confirm"] == "none"
+    assert "button" not in s[2] and "clicks" not in s[2]
 
 
 def test_座標點擊與拖曳補齊編輯器的預設欄位(demo, engine):
     steps = [find("開始"), {"type": "click", "at": [40, 220]},
              {"type": "drag", "from": [40, 220], "to": [200, 220]},
-             {"type": "key", "keys": "esc"}, {"type": "wait", "ms": 800}]
+             {"type": "wait", "ms": 800}]
     s = saved(run(demo, engine, steps))
-    assert (s[1]["button"], s[1]["clicks"], s[1]["updateOrigin"]) == ("left", 1, True)
-    assert (s[2]["button"], s[2]["ms"], s[2]["holdMs"]) == ("left", 500, 500)
-    assert s[3] == {"type": "key", "keys": "esc"}
-    assert s[4] == {"type": "wait", "ms": 800}
+    assert s[1]["updateOrigin"] is True
+    assert (s[2]["ms"], s[2]["holdMs"]) == (500, 500)
+    assert s[3] == {"type": "wait", "ms": 800}
+
+
+@pytest.mark.parametrize("bad, match", [
+    ({"type": "key", "keys": "esc"}, "按鍵步驟已退場"),
+    (dict(find("確定"), action="wait_gone", appearLimitMs=500), "出現等候上限"),
+    (dict(find("確定"), limit={"kind": "origin", "rect": [0, 0, 50, 50]}),
+     "限定範圍"),
+    (dict(find("確定"), confirm="appear",
+          confirmTarget={"template": "下一步",
+                         "limit": {"kind": "origin", "rect": [0, 0, 50, 50]}}),
+     "確認圖的以原點為基準的限定範圍"),
+    (dict(find("確定"), button="right"), "左鍵"),
+    ({"type": "click", "at": [1, 2], "clicks": 2}, "連點"),
+], ids=["按鍵", "出現等候上限", "原點矩形", "確認圖原點矩形", "右鍵", "連點"])
+def test_計畫寫了已退場的寫法就報錯並說明已退場(demo, engine, bad, match):
+    refused(demo, engine, [find("開始"), bad], match)
 
 
 # ---------- 結構檢查 ----------
@@ -146,8 +164,7 @@ def test_交付報告收進計畫寫的分岔建議畫面變化與口頭補充�
     notes = {"branches": ["步驟 2 之後可能跳出「每日簽到」彈窗"],
              "unexplained": ["12.4s：畫面整個變暗又恢復"],
              "keys": ["步驟 3：使用者說這裡按了 Esc"]}
-    steps = [find("開始"), find("確定"), {"type": "key", "keys": "esc"},
-             find("下一步")]
+    steps = [find("開始"), find("確定"), find("下一步")]
     res = run(demo, engine, steps, report=notes)
     text = open(res["report_path"], encoding="utf-8").read()
     for line in notes["branches"] + notes["unexplained"] + notes["keys"]:
@@ -159,14 +176,6 @@ def test_交付報告沒有說明時寫無(demo, engine):
     res = run(demo, engine, [find("開始")])
     text = open(res["report_path"], encoding="utf-8").read()
     assert "分岔建議" in text
-
-
-def test_交付報告列出流程裡的按鍵步驟即使計畫沒寫說明(demo, engine):
-    steps = [find("開始"), {"type": "key", "keys": "esc"}, find("確定")]
-    res = run(demo, engine, steps)
-    text = open(res["report_path"], encoding="utf-8").read()
-    section = text.split("## 口頭補充的按鍵")[1].split("##")[0]
-    assert "步驟 2" in section and "esc" in section
 
 
 @pytest.mark.parametrize("extra", [{"confirm": "gone"},

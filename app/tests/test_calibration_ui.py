@@ -86,7 +86,7 @@ def test_執行時把流程的校準資料交給執行器(tkroot, monkeypatch, t
     assert "scale" not in a.runner.started[0][1], "倍率由執行器開頭自己量"
 
 
-def test_絕對座標步驟沒有搜尋範圍也能執行_基準點來自校準(tkroot, monkeypatch, tmp_path):
+def test_沒有搜尋範圍也能執行_基準點來自校準(tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
     a = _CalApp(tkroot, tmp_path, cal=FLOW_CAL)
     a.steps = [{"type": "click", "x": 3, "y": 4}]
@@ -117,19 +117,21 @@ def test_拾取值反除倍率換回流程尺度():
     assert ui_dialogs._unscale(33, 1.0) == 33, "倍率 1 與現狀等價"
 
 
-def test_預設原點推算_相對偏移累積乘倍率_絕對點擊相對基準點():
+def test_預設原點推算_相對偏移累積乘倍率():
     app = SimpleNamespace(
-        steps=[{"type": "click", "x": 30, "y": 40},
-               {"type": "click", "x": 10, "y": 10, "mode": "prev"}],
-        template_pos=lambda n: None)
-    got = ui_dialogs._resolve_prev_origin(app, {"_index": 2}, None, 2.0, (100, 200))
+        steps=[{"type": "find_click", "target": {"template": "a"}},
+               {"type": "click", "x": 30, "y": 40},
+               {"type": "click", "x": 10, "y": 10}],
+        template_pos=lambda n: [0, 0])
+    got = ui_dialogs._resolve_prev_origin(app, {"_index": 3}, None, 2.0, (100, 200))
     assert got == (100 + 60 + 20, 200 + 80 + 20)
 
 
 def test_預設原點推算_倍率1沿用原值():
-    app = SimpleNamespace(steps=[{"type": "click", "x": 30, "y": 40}],
-                          template_pos=lambda n: None)
-    got = ui_dialogs._resolve_prev_origin(app, {"_index": 1}, None, 1.0, (0, 0))
+    app = SimpleNamespace(steps=[{"type": "find_click", "target": {"template": "a"}},
+                                 {"type": "click", "x": 30, "y": 40}],
+                          template_pos=lambda n: [0, 0])
+    got = ui_dialogs._resolve_prev_origin(app, {"_index": 2}, None, 1.0, (0, 0))
     assert got == (30, 40)
 
 
@@ -240,7 +242,6 @@ def test_新流程設定校準對_當下畫面就是流程尺度_第一張中心
 def _flow_with_coords(a):
     rect = {"kind": "rect", "x": 100, "y": 50, "w": 30, "h": 20}
     a.steps = [{"type": "click", "x": 10, "y": 20},
-               {"type": "click", "x": 10, "y": 20, "mode": "prev"},
                {"type": "drag", "x1": 1, "y1": 2, "x2": 3, "y2": 4},
                {"type": "find_click", "target": {"template": "a", "limit": dict(rect)},
                 "confirmTarget": {"template": "b", "limit": dict(rect)}}]
@@ -260,19 +261,19 @@ def test_更換校準對_先用舊對量倍率與舊基準點_所有座標改成
     a.designate_pair()
     assert a.flow_cal == {"pair": ["圖示", "關閉"], "baseline": 500.0}
     s = a.steps
-    assert (s[0]["x"], s[0]["y"]) == (-90, -30), "絕對座標減 (100,50)"
-    assert (s[1]["x"], s[1]["y"]) == (10, 20), "相對座標不動"
-    assert (s[2]["x1"], s[2]["y1"], s[2]["x2"], s[2]["y2"]) == (-99, -48, -97, -46)
-    assert s[3]["target"]["limit"] == {"kind": "rect", "x": 0, "y": 0, "w": 30, "h": 20}
-    assert s[3]["confirmTarget"]["limit"]["x"] == 0
+    assert (s[0]["x"], s[0]["y"]) == (10, 20), "相對原點的座標不動"
+    assert (s[1]["x1"], s[1]["y1"], s[1]["x2"], s[1]["y2"]) == (1, 2, 3, 4)
+    assert s[2]["target"]["limit"] == {"kind": "rect", "x": 0, "y": 0, "w": 30, "h": 20}
+    assert s[2]["confirmTarget"]["limit"]["x"] == 0
     assert a.busy_target["limit"]["x"] == 0
     assert a.ws.pos_of("a") == [100, 50], "拍攝位置也平移"
     assert a.autosaved == 1 and a.rendered == 1
     assert any("換算" in m and "落點不變" in m for m in a.logged)
-    # 落點不變: 舊 (100,50) + 10×0.9 = 109; 新 (190,95) + (−90)×0.9 = 109
+    # 落點不變: 舊 (100,50) + 100×0.9 = 190; 新 (190,95) + 0×0.9 = 190
     from automation import flowfmt
-    assert flowfmt.to_screen((10, 20), (100, 50), 0.9) == \
-        flowfmt.to_screen((s[0]["x"], s[0]["y"]), (190, 95), 0.9)
+    assert flowfmt.rect_to_screen({"x": 100, "y": 50, "w": 30, "h": 20},
+                                  (100, 50), 0.9) == \
+        flowfmt.rect_to_screen(s[2]["target"]["limit"], (190, 95), 0.9)
 
 
 def test_更換校準對時舊對量不到_拒絕且資料不變(tkroot, monkeypatch, tmp_path):

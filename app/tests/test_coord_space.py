@@ -1,63 +1,16 @@
 """存下的座標以`座標基準點`為原點 (coord-anchor 票 03/04, ADR 0012).
 
-基準點＝開頭校準時`校準對`第一張圖的中心。`絕對座標`的落點＝基準點 + 偏移×倍率;
-`固定矩形`的查詢矩形＝基準點 + 偏移×倍率再裁到搜尋範圍內。兩者都與搜尋範圍
-框在哪裡、框得鬆緊無關——視窗挪位置、重框範圍後落點不變。
+基準點＝開頭校準時`校準對`第一張圖的中心。`固定矩形`的查詢矩形＝基準點 +
+偏移×倍率再裁到搜尋範圍內, 與搜尋範圍框在哪裡、框得鬆緊無關——視窗挪位置、
+重框範圍後落點不變 (絕對座標已退場, ADR 0014)。
 斷言對象: 送出的落點、每次查詢實際裁的矩形 (假偵測器收到的搜尋區域)。
 """
-from harness import click, drag, find, tgt
-
-
-def test_絕對座標以座標基準點為原點(harness):
-    harness.run([click(30, 40)], scan_region=[100, 200, 800, 600],
-                anchor=(150, 230))
-    assert harness.clicks() == [(180, 270)]
-
-
-def test_重新框範圍後絕對座標不變(harness):
-    """同一份步驟、同一個基準點, 只換搜尋範圍 → 落點完全相同."""
-    harness.run([click(30, 40)], scan_region=[0, 0, 800, 600], anchor=(50, 60))
-    first = harness.clicks()[-1]
-    harness.events.clear()
-    harness.run([click(30, 40)], scan_region=[5, 3, 1200, 900], anchor=(50, 60))
-    second = harness.clicks()[-1]
-    assert first == second == (80, 100)
-
-
-def test_視窗挪位置後絕對座標跟著基準點走(harness):
-    harness.run([click(30, 40)], scan_region=[0, 0, 1920, 1080], anchor=(50, 60))
-    harness.events.clear()
-    harness.run([click(30, 40)], scan_region=[0, 0, 1920, 1080], anchor=(550, 360))
-    assert harness.clicks() == [(580, 400)]
-
-
-def test_拖曳的絕對座標同樣以基準點為原點(harness):
-    harness.run([drag(10, 10, 60, 80)], scan_region=[100, 200, 800, 600],
-                anchor=(120, 220))
-    ev = [e for e in harness.events if e[0] == "drag"][0]
-    assert (ev[1], ev[2], ev[3], ev[4]) == (130, 230, 180, 300)
-
-
-def test_絕對座標乘上倍率再加基準點(harness):
-    harness.run([click(30, -40)], anchor=(100, 200), scale=2.0)
-    assert harness.clicks() == [(160, 120)]
-
-
-def test_相對座標不受基準點影響(harness):
-    """相對座標是以`原點`為基準, 換基準點不影響它與原點的相對關係."""
-    harness.run([click(30, 40), click(5, 5, mode="prev")], anchor=(100, 200))
-    assert harness.clicks() == [(130, 240), (135, 245)]
-
-
-def test_沒有搜尋範圍時絕對座標照常執行_基準點來自校準(harness):
-    harness.run([click(30, 40)], scan_region=None, anchor=(7, 9))
-    assert harness.clicks() == [(37, 49)]
+from harness import click, find, tgt
 
 
 def test_執行紀錄寫出座標基準點位置(harness):
-    r = harness.run([click(1, 1)], anchor=(115, 76))
+    r = harness.run([find("a")], anchor=(115, 76))
     assert "座標基準點 (115, 76)" in harness.log_text(r)
-    assert any("基準點 +1,+1" in m for m in harness.logs(r))
 
 
 # ---------- 固定矩形 ----------

@@ -9,7 +9,7 @@ import tkinter as tk
 from types import SimpleNamespace
 
 import harness  # noqa: F401  # 先把 app/ 加進 sys.path
-from harness import click, drag, find, key, tgt
+from harness import click, drag, find, tgt
 
 import app as app_mod
 import flowfile
@@ -24,7 +24,7 @@ from test_template_picker import _all
 
 def test_忙碌檢查與忙碌出現等候存檔往返(tmp_path):
     path = str(tmp_path / ("f" + flowfile.EXT))
-    steps = [click(1, 2, busyCheck=True), find("a"), key("esc", busyCheck=True)]
+    steps = [click(1, 2, busyCheck=True), find("a"), drag(1, 2, 3, 4, busyCheck=True)]
     flowfile.write(path, {"steps": steps, "coordSpace": "anchor",
                           "busyAppearMs": 800}, {"a": b"A"})
     data = flowfile.read(path)["data"]
@@ -77,13 +77,10 @@ def test_座標點擊對話框勾忙碌檢查_存回步驟(make_app):
     assert got["busyCheck"] is True
 
 
-def test_拖曳與按鍵對話框也有勾選(make_app):
+def test_拖曳對話框也有勾選(make_app):
     a = make_app(1.0)
     got = _edit(a, drag(1, 2, 3, 4, _edit=True), _toggle, _press("確定"),
                 title="編輯：滑鼠拖曳")
-    assert got["busyCheck"] is True
-    got = _edit(a, key("esc", _edit=True), _toggle, _press("確定"),
-                title="編輯：按鍵")
     assert got["busyCheck"] is True
 
 
@@ -126,7 +123,7 @@ def test_找圖切到不點擊_勾選隱藏並存為沒勾(make_app):
 
 def test_步驟摘要顯示忙碌檢查():
     for s in (click(1, 2, busyCheck=True), drag(1, 2, 3, 4, busyCheck=True),
-              key("esc", busyCheck=True), find("a", busyCheck=True)):
+              find("a", busyCheck=True)):
         assert app_mod.step_desc(s).endswith("〔忙碌檢查〕"), s["type"]
     for s in (click(1, 2), find("a"), find("a", action="none", busyCheck=True),
               find("a", action="wait_gone", busyCheck=True)):
@@ -185,7 +182,7 @@ def test_有步驟勾了忙碌檢查但沒設忙碌指示_整份執行與測試�
         tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
     a = _CalApp(tkroot, tmp_path, cal={"pair": ["p", "q"], "baseline": 100.0})
-    a.steps = [key("esc"), key("enter", busyCheck=True), find("p"),
+    a.steps = [click(1, 2), click(3, 4, busyCheck=True), find("p"),
                find("q", busyCheck=True)]
     a.start_run()
     assert a.runner.started == []
@@ -204,6 +201,6 @@ def test_設了忙碌指示就不擋(tkroot, monkeypatch, tmp_path):
     a = _CalApp(tkroot, tmp_path, cal={"pair": ["p", "q"], "baseline": 100.0},
                 names=["p", "q", "busy"])
     a.busy_target = tgt("busy")
-    a.steps = [key("enter", busyCheck=True)]
+    a.steps = [click(1, 2, busyCheck=True)]
     a.start_run()
     assert rec == [] and len(a.runner.started) == 1
