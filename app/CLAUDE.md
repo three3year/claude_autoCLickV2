@@ -77,7 +77,10 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     之前）：`calibration.calibrate` 一次得出`畫面倍率`與`座標基準點`（`Runner.anchor`，校準對
     第一張的中心，ADR 0012）；校準查詢**不帶**預期尺度、只在搜尋範圍內截圖；量不到或沒有
     校準對＝零輸入結束，寫 `calibrate` 日誌。抖動內貼齊 1（`snap_identity`）——倍率 1 時座標
-    原樣、網格對準 1.0。執行中不重量
+    原樣、網格對準 1.0。執行中不重量。量到`支援倍率範圍`外（`Calibrated.in_range`，兩端常數只在
+    `calibration.SCALE_LOW/HIGH`）也零輸入結束（`calibrate` 日誌 `result=out_of_range`）；編輯器
+    （「校準」鈕、`measured_pick`）量到區間外只在紀錄區警告、照常拾取（ADR 0013 決策 1）。
+    改倍率相關測試時倍率要取區間內的值，否則執行器不跑
   - **存下的座標一律相對座標基準點、流程尺度**：`固定矩形`（`within`，
     `findtarget.limit_rect(anchor=…)`）、範本拍攝位置 `template_pos`。換算只有 `flowfmt.to_screen`／
     `from_screen`（與 `rect_*` 版）一對純函式，執行器、編輯器、換算工具都用它

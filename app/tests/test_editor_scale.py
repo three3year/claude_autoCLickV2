@@ -340,3 +340,25 @@ def test_比對測試補記的拍攝位置相對基準點(make_app, monkeypatch)
     ui_dialogs.show_match_test(app, {"template": "a"})
     _close_result(app)
     assert app.store.pos_of("a") == [50, 35], "((250-150)/2, (300-230)/2)"
+
+
+# ---------- `支援倍率範圍`外只警告 (scale-out-of-range 票 02) ----------
+
+def test_範圍外拾取座標_照存_另印一行警告(make_app, monkeypatch, no_real_dialogs):
+    app = make_app(0.7)
+    _overlay(monkeypatch, {"dx": 70, "dy": -35})
+    got = _edit(app, {"type": "click", "click": [0, 0], "_index": 0},
+                _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
+    assert got["click"] == [100, -50], "照樣除以倍率存"
+    assert any("×0.700" in m and "×0.85–1.15" in m and "調大" in m
+               for _lvl, m in app.logged)
+    assert not any(no_real_dialogs.values()), "只印紀錄, 不彈對話框"
+
+
+def test_範圍內拾取_沒有範圍外警告(make_app, monkeypatch):
+    app = make_app(1.1)
+    _overlay(monkeypatch, {"dx": 55, "dy": -33})
+    got = _edit(app, {"type": "click", "click": [0, 0], "_index": 0},
+                _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
+    assert got["click"] == [50, -30]
+    assert not any("支援倍率範圍" in m for _lvl, m in app.logged)

@@ -503,11 +503,14 @@ class Runner:
             self._log_calibrate(result="too_close", pair=",".join(c.pair),
                                 centers=centers, **used)
             raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行")
+        measured = dict(pair=",".join(c.pair), centers=centers,
+                        distance=f"{m.distance:.1f}", baseline=f"{c.baseline:.1f}",
+                        scale=f"{c.scale:.3f}", **used)
+        if not c.in_range:   # `支援倍率範圍`外＝不執行 (ADR 0013 決策 1)
+            self._log_calibrate(result="out_of_range", **measured)
+            raise RuntimeError(f"開頭校準：{calib.out_of_range_text(c.scale)} → 不執行")
         self.scale, self.anchor = c.scale, c.anchor
-        self._log_calibrate(result="ok", pair=",".join(c.pair),
-                            centers=centers, distance=f"{m.distance:.1f}",
-                            baseline=f"{c.baseline:.1f}",
-                            scale=f"{self.scale:.3f}", **used)
+        self._log_calibrate(result="ok", **measured)
         if c.used == "fallback":
             self.log(f"主校準對找不到（缺「{'」「'.join(c.main.missing)}」），"
                      f"改用備用校準對「{c.pair[0]}」×「{c.pair[1]}」，座標誤差略大",

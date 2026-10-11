@@ -49,6 +49,24 @@ def snap_identity(scale):
     return 1.0 if abs(scale - 1.0) < IDENTITY_EPS else scale
 
 
+# `支援倍率範圍`兩端 (閉區間; ADR 0013): 執行開頭量到區間外＝不執行, 編輯器量到只警告;
+# 拾取檢查的縮放餘裕也以這兩端模擬。改動它們要改 ADR 0013
+SCALE_LOW, SCALE_HIGH = 0.85, 1.15
+SCALE_RANGE_LABEL = f"×{SCALE_LOW:.2f}–{SCALE_HIGH:.2f}"
+
+
+def in_supported_range(scale):
+    """`畫面倍率`是否在`支援倍率範圍`內 (端點算支援)."""
+    return SCALE_LOW <= scale <= SCALE_HIGH
+
+
+def out_of_range_text(scale):
+    """區間外的一句說明: 倍率、支援倍率範圍、遊戲視窗該調大或調小."""
+    way = "調大" if scale < SCALE_LOW else "調小"
+    return (f"畫面倍率 ×{scale:.3f} 不在支援倍率範圍 {SCALE_RANGE_LABEL}，"
+            f"請把遊戲視窗{way}")
+
+
 # 兩張圖中心距離小於這個值 (px) 就不能當比例尺 (重疊在同一處)
 MIN_DISTANCE = 1.0
 
@@ -227,6 +245,12 @@ class Calibrated:
     @property
     def ok(self):
         return self.problem is None
+
+    @property
+    def in_range(self):
+        """量到的倍率在`支援倍率範圍`內 (量不到時 False). 出界不是量測失敗:
+        ok 仍為 True——執行器據此不執行, 編輯器照常拾取、只警告."""
+        return self.ok and in_supported_range(self.scale)
 
     def describe(self):
         """量不到的原因一句話; 用到備用對仍失敗時兩組各說一遍."""

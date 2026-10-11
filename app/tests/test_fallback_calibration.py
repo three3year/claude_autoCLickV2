@@ -196,9 +196,9 @@ def test_編輯器設定備用對的偏移換算_與量測互逆():
 
 def test_執行器主對找不到改用備用對_印警告照跑_固定矩形落點對(harness):
     harness.vision.plan(MAIN[0], [None])
-    harness.vision.plan(MAIN[1], [(1100, 200)])
+    harness.vision.plan(MAIN[1], [(1200, 200)])
     harness.vision.plan(FB[0], [(20, 20)])
-    harness.vision.plan(FB[1], [(1514, 20)])     # ×0.8, 基準點 (100,60)
+    harness.vision.plan(FB[1], [(1701, 20)])     # 1681 ÷ 1868 ≈ ×0.9, 基準點 (110,65)
     rect = {"within": [100, 50, 300, 120]}
     harness.vision.plan("a", [(300, 160)])
     r = harness.run([find("a", target=rect), click(10, 20)],
@@ -211,15 +211,15 @@ def test_執行器主對找不到改用備用對_印警告照跑_固定矩形落
     assert rec["result"] == "ok" and rec["used"] == "fallback"
     assert rec["pair"] == ",".join(FB) and MAIN[0] in rec["main_missing"]
     [ft] = harness.filelog.of("find.target")
-    assert ft["limit"] == "(180,100,240,96)", "基準點 (100,60) + 偏移×0.8"
-    assert harness.clicks()[-1] == (308, 176), "相對找到的位置 + 偏移×0.8"
+    assert ft["limit"] == "(200,110,270,108)", "基準點 (110,65) + 偏移×0.9"
+    assert harness.clicks()[-1] == (309, 178), "相對找到的位置 + 偏移×0.9"
 
 
 def test_執行器主對找得到_不碰備用對_紀錄不標備用(harness):
     harness.vision.plan(MAIN[0], [(300, 200)])
-    harness.vision.plan(MAIN[1], [(1100, 200)])
+    harness.vision.plan(MAIN[1], [(1200, 200)])
     harness.vision.plan(FB[0], [(20, 20)])
-    harness.vision.plan(FB[1], [(1514, 20)])
+    harness.vision.plan(FB[1], [(1701, 20)])
     r = harness.run([click(1, 1)], calibration=with_fallback())
     assert r.ended == "done"
     assert "備用" not in harness.log_text(r)
@@ -230,9 +230,9 @@ def test_執行器主對找得到_不碰備用對_紀錄不標備用(harness):
 
 def test_執行器主備皆無_不送任何輸入_訊息列出兩組各缺哪張(harness):
     harness.vision.plan(MAIN[0], [None])
-    harness.vision.plan(MAIN[1], [(1100, 200)])
+    harness.vision.plan(MAIN[1], [(1200, 200)])
     harness.vision.plan(FB[0], [None])
-    harness.vision.plan(FB[1], [(1514, 20)])
+    harness.vision.plan(FB[1], [(1701, 20)])
     r = harness.run([click(1, 1), find("a")], calibration=with_fallback())
     assert r.ended == "error"
     assert harness.kinds() == []
@@ -245,17 +245,32 @@ def test_執行器主備皆無_不送任何輸入_訊息列出兩組各缺哪張
 
 def test_備用對列入範本預載(harness):
     harness.vision.plan(MAIN[0], [(300, 200)])
-    harness.vision.plan(MAIN[1], [(1100, 200)])
+    harness.vision.plan(MAIN[1], [(1200, 200)])
     harness.run([find("a")], calibration=with_fallback())
     assert harness.vision.preloads == [["a", *MAIN, *FB]]
 
 
 def test_用備用對時找圖的預期尺度是備用對量到的倍率(harness):
     harness.vision.plan(MAIN[0], [None])
-    harness.vision.plan(MAIN[1], [(1100, 200)])
+    harness.vision.plan(MAIN[1], [(1200, 200)])
     harness.vision.plan(FB[0], [(20, 20)])
-    harness.vision.plan(FB[1], [(1514, 20)])
+    harness.vision.plan(FB[1], [(1701, 20)])
     harness.vision.plan("a", [(300, 160)])
     harness.run([find("a", confirm="appear", confirm_target=tgt("ok"), interval=0.1)],
                 calibration=with_fallback())
-    assert all(abs(s - 0.8) < 0.001 for _, s in harness.expected_scales())
+    assert all(abs(s - 0.9) < 0.001 for _, s in harness.expected_scales())
+
+
+def test_執行器備用對量到支援倍率範圍外_不執行(harness):
+    harness.vision.plan(MAIN[0], [None])
+    harness.vision.plan(MAIN[1], [(1200, 200)])
+    harness.vision.plan(FB[0], [(20, 20)])
+    harness.vision.plan(FB[1], [(1514, 20)])     # 1494 ÷ 1868 ≈ ×0.8
+    r = harness.run([click(1, 1), find("a")], calibration=with_fallback())
+    assert r.ended == "error"
+    assert harness.kinds() == []
+    text = harness.log_text(r)
+    assert "×0.800" in text and "調大" in text
+    [rec] = harness.filelog.of("calibrate")
+    assert rec["result"] == "out_of_range" and rec["used"] == "fallback"
+    assert rec["pair"] == ",".join(FB)

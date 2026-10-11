@@ -579,6 +579,12 @@ NO_PAIR_MSG = ("這份流程還沒有校準對，就沒有座標基準點可以�
                "請先在主視窗「設定校準對」（例：遊戲視窗標題列的圖示與關閉鈕）")
 
 
+def out_of_range_warning(scale):
+    """編輯器量到`支援倍率範圍`外的一行警告 (只警告不擋, ADR 0013 決策 1)."""
+    return (f"{calibration.out_of_range_text(scale)}"
+            "（用這個大小執行會被擋，拾取的範本與座標不可靠）")
+
+
 def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取",
                   quiet=False):
     """一次`拾取`的共同骨架 (ADR 0012): 清場前檢查 → 清場 → 先在這次的截圖上`校準` →
@@ -589,7 +595,8 @@ def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取",
     直接拿它當畫面; 沒有校準對時為 None。
     - 流程沒有校準對: need_anchor 的拾取 (固定矩形) 擋下並提示先設校準對;
       只依原點的拾取照常, anchor＝None、k＝1 (新流程還沒有尺度, 當下畫面就是)。
-    - 有校準對: 量不到 (範圍內找不到、兩張重疊) ＝不存、提示重框搜尋範圍。
+    - 有校準對: 量不到 (範圍內找不到、兩張重疊) ＝不存、提示重框搜尋範圍;
+      量到`支援倍率範圍`外照常拾取, 只在紀錄區印一行警告。
     所有提示都在清場「之外」彈 (清場中彈 modal 會隱形卡死)。quiet＝只是檢查 (拾取檢查):
     引擎沒就緒、校準圖載不起來、量不到都不彈 modal, 寫一行紀錄區就回 None。
     """
@@ -616,6 +623,8 @@ def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取",
     if c.ok and c.used == "fallback":
         app.log_ui(f"{title}：主校準對找不到（缺「{'」「'.join(c.main.missing)}」），"
                    "改用備用校準對量座標基準點與倍率", "warn")
+    if c.ok and not c.in_range:
+        app.log_ui(f"{title}：{out_of_range_warning(c.scale)}", "warn")
     if not c.ok:
         if quiet:
             app.log_ui(f"{title}略過：{c.describe()}", "warn")

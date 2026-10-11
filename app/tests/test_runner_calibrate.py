@@ -5,6 +5,8 @@
 當`預期尺度`交給偵測器。任一張找不到或沒有校準資料＝一個輸入都不送。
 斷言對象: 送出的輸入、每次查詢帶的預期尺度、執行紀錄與檔案日誌。
 """
+import pytest
+
 from harness import cal, click, drag, find, tgt
 
 PAIR = ("標題列圖示", "關閉鈕")
@@ -21,12 +23,12 @@ def run(harness, steps, calibration=None, **kw):
 
 
 def test_兩張都找到_倍率是距離比_落點乘上倍率(harness):
-    place(harness, (100, 40), (900, 40))          # 距離 800 ÷ 基準 1000 = 0.8
+    place(harness, (100, 40), (1000, 40))         # 距離 900 ÷ 基準 1000 = 0.9
     harness.vision.plan("a", [(500, 400)])
     r = run(harness, [find("a", offset=[50, 0]), click(100, -50)])
     assert r.ended == "done"
-    assert harness.clicks() == [(540, 400), (620, 360)]
-    assert "×0.800" in harness.log_text(r)
+    assert harness.clicks() == [(545, 400), (635, 355)]
+    assert "×0.900" in harness.log_text(r)
 
 
 def test_其後每次查詢的預期尺度都是這個倍率(harness):
@@ -42,7 +44,7 @@ def test_其後每次查詢的預期尺度都是這個倍率(harness):
 
 
 def test_校準本身的查詢不帶預期尺度(harness):
-    place(harness, (100, 40), (900, 40))
+    place(harness, (100, 40), (1000, 40))
     run(harness, [click(1, 1)])
     cal_queries = [(n, s) for n, s in harness.vision.expected_scales
                    if n in PAIR]
@@ -94,33 +96,70 @@ def test_兩張重疊在同一處_不能當比例尺(harness):
 
 
 def test_檔案日誌記兩張圖位置_距離_倍率(harness):
-    place(harness, (100, 40), (900, 40))
+    place(harness, (100, 40), (1000, 40))
     run(harness, [click(1, 1)], scan_region=[0, 0, 1920, 1080])
     [rec] = harness.filelog.of("calibrate")
     assert rec["result"] == "ok"
-    assert rec["centers"] == "(100,40);(900,40)"
-    assert rec["distance"] == "800.0" and rec["scale"] == "0.800"
+    assert rec["centers"] == "(100,40);(1000,40)"
+    assert rec["distance"] == "900.0" and rec["scale"] == "0.900"
 
 
 def test_校準在搜尋範圍內找_位置是螢幕座標_第一張中心是基準點(harness):
-    place(harness, (300, 240), (1100, 240))
+    place(harness, (300, 240), (1200, 240))
     r = run(harness, [find("a")], scan_region=[200, 200, 1200, 700])
     assert harness.vision.grabs[0] == (200, 200, 1200, 700)
     [rec] = harness.filelog.of("calibrate")
-    assert rec["centers"] == "(300,240);(1100,240)"
+    assert rec["centers"] == "(300,240);(1200,240)"
     assert "座標基準點 (300, 240)" in harness.log_text(r)
 
 
 def test_校準對列入範本預載(harness):
-    place(harness, (100, 40), (900, 40))
+    place(harness, (100, 40), (1000, 40))
     run(harness, [find("a")])
     assert harness.vision.preloads == [["a", *PAIR]]
 
 
 def test_校準在第一個動作之前_延遲之後(harness):
-    place(harness, (100, 40), (900, 40))
+    place(harness, (100, 40), (1000, 40))
     r = run(harness, [click(1, 1)], start_delay=3)
     logs = harness.logs(r)
     i_delay = next(i for i, m in enumerate(logs) if "秒後開始執行" in m)
     i_cal = next(i for i, m in enumerate(logs) if "校準" in m)
     assert i_delay < i_cal
+
+
+# ---------- `支援倍率範圍`外不執行 (scale-out-of-range 票 01, ADR 0013 決策 1) ----------
+
+def test_倍率小於支援倍率範圍_一個輸入都不送_紀錄寫倍率範圍與調大(harness):
+    place(harness, (100, 40), (800, 40))          # 700 ÷ 1000 = 0.7
+    harness.vision.plan("a", [(500, 400)])
+    r = run(harness, [click(10, 10), find("a"), drag(1, 1, 5, 5)])
+    assert r.ended == "error"
+    assert harness.kinds() == []
+    assert harness.lookups() == [], "出界就不往下找圖"
+    text = harness.log_text(r)
+    assert "×0.700" in text and "×0.85–1.15" in text and "調大" in text
+    [rec] = harness.filelog.of("calibrate")
+    assert rec["result"] == "out_of_range"
+    assert rec["scale"] == "0.700" and rec["distance"] == "700.0"
+    assert rec["baseline"] == "1000.0" and rec["pair"] == ",".join(PAIR)
+
+
+def test_倍率大於支援倍率範圍_不執行_紀錄寫調小(harness):
+    place(harness, (100, 40), (1300, 40))         # 1.2
+    r = run(harness, [click(10, 10)])
+    assert r.ended == "error" and harness.kinds() == []
+    text = harness.log_text(r)
+    assert "×1.200" in text and "調小" in text
+
+
+@pytest.mark.parametrize("right, landing", [(950, (585, 400)),    # ×0.85
+                                            (1250, (615, 400))])  # ×1.15
+def test_支援倍率範圍兩端照常執行(harness, right, landing):
+    place(harness, (100, 40), (right, 40))
+    harness.vision.plan("a", [(500, 400)])
+    r = run(harness, [find("a", type="find"), click(100, 0)])
+    assert r.ended == "done"
+    assert harness.clicks() == [landing]
+    [rec] = harness.filelog.of("calibrate")
+    assert rec["result"] == "ok"

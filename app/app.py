@@ -749,6 +749,8 @@ class App:
         self.log_ui(f"目前畫面倍率 ×{c.scale:.3f}"
                     f"（距離 {m.distance:.1f}px ÷ 基準 {c.baseline:.1f}px，{which}）、"
                     f"座標基準點 {tuple(c.anchor)}；只是顯示，拾取時會各自重量", "ok")
+        if not c.in_range:   # 只警告不擋 (ADR 0013 決策 1)
+            self.log_ui(f"校準：{ui_dialogs.out_of_range_warning(c.scale)}", "warn")
 
     # ================= `忙碌指示` (ADR 0008、0011) =================
 

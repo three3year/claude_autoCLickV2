@@ -197,10 +197,10 @@ def test_固定矩形_跟著基準點走_不跟搜尋範圍(harness):
 
 
 def test_固定矩形_隨畫面倍率換算(harness):
-    harness.vision.plan("btn", [(1500, 900)])
-    harness.run([find("btn", target=FIXED)], scale=1.5)
+    harness.vision.plan("btn", [(1300, 700)])
+    harness.run([find("btn", target=FIXED)], scale=1.1)
     [rec] = _find_rec(harness)
-    assert rec["limit"] == "(1440,810,480,270)", "右下角 (2160,1215) 裁到搜尋範圍"
+    assert rec["limit"] == "(1056,594,528,297)", "位置與大小都 ×1.1"
 
 
 def test_固定矩形_不合法就不找_逾時走找不到時(harness):
@@ -222,3 +222,13 @@ def test_確認圖也能用固定矩形(harness):
     [rec] = _find_rec(harness, "confirm_appear")
     assert rec["limit"] == "(960,540,480,270)"
     assert rec["picked"] == "(980,590,40,20)"
+
+
+def test_固定矩形_倍率換算後超出搜尋範圍的部分照裁(harness):
+    corner = {"within": [1600, 900, 400, 200]}
+    harness.vision.plan("btn", [(1800, 1000)])
+    harness.run([find("btn", target=corner)], scale=1.1)
+    [rec] = _find_rec(harness)
+    assert rec["limit"] == "(1760,990,160,90)", \
+        "×1.1 → (1760,990) 440×220, 右下角 (2200,1210) 裁到搜尋範圍"
+    assert harness.clicks() == [(1800, 1000)]

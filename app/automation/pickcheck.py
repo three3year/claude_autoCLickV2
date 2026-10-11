@@ -17,9 +17,10 @@
 """
 import math
 
+from calibration import SCALE_HIGH, SCALE_LOW   # `支援倍率範圍`兩端 (ADR 0013)
+
 from . import findtarget
 
-SCALE_LOW, SCALE_HIGH = 0.85, 1.15   # `支援倍率範圍`兩端 (ADR 0013)
 MATCH_MIN = 0.7      # 縮放餘裕: 粗篩最高分低於此就警告 (引擎 match_threshold 0.6 再留一截)
 VERIFY_MIN = 0.85    # 縮放餘裕: 驗證最高分低於此就警告 (引擎 verify_threshold 0.8 再留一截)
 RECT_MARGIN = 0.20   # 矩形餘裕: 固定矩形每邊至少比範本多 20%

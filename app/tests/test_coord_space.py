@@ -44,10 +44,10 @@ def test_視窗挪位置後固定矩形跟著基準點搬(harness):
 
 
 def test_固定矩形隨倍率縮放(harness):
-    harness.vision.plan("a", [(500, 300)])
-    harness.run([find("a", target=RECT)], anchor=(100, 100), scale=2.0)
+    harness.vision.plan("a", [(400, 250)])
+    harness.run([find("a", target=RECT)], anchor=(100, 100), scale=1.1)
     [rec] = harness.filelog.of("find.target")
-    assert rec["limit"] == "(300,200,600,240)"
+    assert rec["limit"] == "(210,155,330,132)"
 
 
 def test_固定矩形落在搜尋範圍外的部分照裁_裁掉那塊裡的圖找不到(harness):

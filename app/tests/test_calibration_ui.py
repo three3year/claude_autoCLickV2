@@ -368,7 +368,8 @@ def test_拾取檢查的安靜量測_備用對的範本也先確認載得起來(
     cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
         ["標題左", "標題右"], 500.0, (0, 0))
     asked = []
-    measured = SimpleNamespace(ok=True, used="main", anchor=(1, 2), scale=1.0)
+    measured = SimpleNamespace(ok=True, used="main", anchor=(1, 2), scale=1.0,
+                               in_range=True)
     app = SimpleNamespace(
         root=tkroot, flow_cal=cal, logged=[],
         template_ready=lambda n: asked.append(n) or True,
@@ -429,3 +430,29 @@ def test_開流程或切換流程時校準鈕回到只有名字(tkroot, monkeypa
                        calibration={"pair": ["x", "y"], "baseline": 50.0}))
     assert a.flow_cal == {"pair": ["x", "y"], "baseline": 50.0}
     assert a.cal_btn.text == "校準" and "x × y" in a.cal_info.text
+
+
+# ---------- `支援倍率範圍`外只警告 (scale-out-of-range 票 02, ADR 0013 決策 1) ----------
+
+def test_按校準量到支援倍率範圍外_照常顯示倍率_另印一行警告(tkroot, monkeypatch, tmp_path):
+    rec = _warnings(monkeypatch)
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
+    _flow_with_coords(a)
+    vision.plan("舊圖示", [(100, 50)])
+    vision.plan("舊關閉", [(800, 50)])            # 700 ÷ 1000 = ×0.70
+    a.calibrate_now()
+    assert "×0.70" in a.cal_btn.text
+    assert any("×0.700" in m and "(100, 50)" in m for m in a.logged)
+    assert any("×0.700" in m and "×0.85–1.15" in m and "調大" in m
+               for m in a.logged)
+    assert rec == [], "只印紀錄, 不彈對話框"
+    assert a.flow_cal == OLD
+    assert a.steps[0]["click"] == [10, 20]
+
+
+def test_按校準量到範圍內_沒有範圍外警告(tkroot, monkeypatch, tmp_path):
+    a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
+    vision.plan("舊圖示", [(100, 50)])
+    vision.plan("舊關閉", [(1100, 50)])
+    a.calibrate_now()
+    assert not any("支援倍率範圍" in m for m in a.logged)
