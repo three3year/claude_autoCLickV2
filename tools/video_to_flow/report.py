@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 import flowfile
 from automation import findtarget
+from automation.runner import branch_layout
 
 from . import verify as verify_mod
 
@@ -144,14 +145,18 @@ def outline(steps, start=0, end=None):
     """平面步驟 → 縮排的條列 (區段巢狀照縮排; 不寫步驟編號)."""
     end = len(steps) if end is None else end
     lines, depth = [], 0
-    for s in steps[start:end]:
+    for i in range(start, end):
+        s = steps[i]
         t = s["type"]
         pad = "  " * depth
         if t == "repeat_start":
             lines.append(f"{pad}- 重複 {s['repeat']} 次：")
             depth += 1
         elif t == "branch_start":
-            lines.append(f"{pad}- 分岔（先找到哪個走哪個）：")
+            lay = branch_layout(steps, i)
+            one = lay is not None and len(lay[0]) == 1
+            lines.append(f"{pad}- " + ("分岔（只有一個分支：找到第一步那張才往下做）：" if one
+                                       else "分岔（先找到哪個走哪個）："))
             depth += 1
         elif t in ("repeat_end", "branch_end"):
             depth -= 1
