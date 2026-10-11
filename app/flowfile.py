@@ -259,6 +259,23 @@ def parse_flow(text):
     return flow
 
 
+def parse_steps(items):
+    """yaml 的步驟清單 (巢狀) → 記憶體的平面步驟 (補齊預設); 寫錯丟 FlowError.
+
+    影片轉流程用它驗證計畫的步驟 (計畫的鍵與 flow.yaml 相同), 不另帶一份鍵表與預設。
+    """
+    if not isinstance(items, list):
+        raise FlowError("steps 要是步驟清單")
+    out = []
+    _parse_steps(items, out)
+    return out
+
+
+def parse_target(where, d, head="template"):
+    """yaml 的找圖目標 ({head: 名, within, pick, color}) → 記憶體的找圖目標; 寫錯丟 FlowError."""
+    return _yaml_target(where, d, head)
+
+
 def _int(v):
     return isinstance(v, int) and not isinstance(v, bool)
 

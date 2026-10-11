@@ -1,4 +1,4 @@
-"""票 03 — 自我驗證與`待重拍`.
+"""自我驗證與`待重拍` (拾取檢查三項; 不唯一標待重拍、流程照寫).
 
 用真引擎 (比照引擎端以合成影像跑真引擎的既有測試做法), 只打組裝入口;
 斷言存檔裡的範本名與步驟引用、組裝結果的驗證摘要與報告文字。
@@ -7,11 +7,9 @@ import pytest
 
 import flowfile
 import video_to_flow
-from vtf_synth import (BLANK, BUTTONS, FRAME, VIDEO_H, VIDEO_W, box, center,
-                       demo_plan, demo_templates, demo_video, find, make_out,
-                       screen, timeline, write_video)
-
-REGION = [0, 0, VIDEO_W, VIDEO_H]
+from vtf_synth import (BLANK, BUTTONS, FRAME, box, center, demo_plan,
+                       demo_templates, demo_video, find, make_out, screen, timeline,
+                       write_video)
 
 
 @pytest.fixture
@@ -34,7 +32,8 @@ def images(res):
 
 
 def report(res):
-    with open(res["report_path"], encoding="utf-8") as f:
+    import os
+    with open(os.path.join(res["report_path"], "總覽.md"), encoding="utf-8") as f:
         return f.read()
 
 
@@ -43,7 +42,7 @@ def test_框在清楚按鈕上的範本驗證通過且名稱不變(demo, engine)
     res = run(demo_plan(video, profile), engine)
 
     assert res["retake"] == {}
-    assert images(res) == {"開始", "確定", "下一步"}
+    assert images(res) == {"開始", "確定", "下一步", "圖示", "關閉"}
     assert res["verification"] == "full"
 
 
@@ -52,9 +51,8 @@ def test_框到空白處的範本標待重拍_名稱不加前綴只列在報告(
     templates = demo_templates()
     templates["空白"] = {"frame": 5, "box": [BLANK[0] + 10, BLANK[1] + 10, 40, 30]}
     steps = [find("開始"),
-             {"type": "find_click", "template": "空白", "frame": 5,
-              "at": [BLANK[0] + 30, BLANK[1] + 25]},
-             find("確定", confirm="appear", confirmTemplate="空白"),
+             {"find_click": "空白", "frame": 5, "at": [BLANK[0] + 30, BLANK[1] + 25]},
+             find("確定", confirm={"appear": "空白"}),
              find("下一步")]
 
     res = run(demo_plan(video, profile, steps=steps, templates=templates), engine)
@@ -67,6 +65,7 @@ def test_框到空白處的範本標待重拍_名稱不加前綴只列在報告(
     assert s[2]["confirm_target"]["template"] == "空白"
     assert set(flowfile.template_refs(r)) == images(res)
     assert "| 空白 |" in report(res) and "待重拍_空白" not in report(res)
+    assert s[1]["target"]["within"], "待重拍的範本照樣有固定矩形 (用計畫的取材框算)"
 
 
 def test_在該點的那一幀找不到的範本標待重拍(demo, engine):
@@ -104,10 +103,10 @@ def test_該找不到的幀確實沒有時驗證通過(demo, engine):
 
 
 def moving_video(tmp_path):
-    """「開始」先在 (60, 40), 第 10 幀起移到 (300, 180)."""
+    """「開始」先在 (60, 40), 第 10 幀起移到 (200, 180)."""
     btn = BUTTONS["開始"]
-    frames = timeline((screen([(btn, 60, 40)]), 10),
-                      (screen([(btn, 300, 180)]), 10))
+    frames = timeline((screen([(btn, 60, 40)], title=True), 10),
+                      (screen([(btn, 200, 180)], title=True), 10))
     return write_video(tmp_path / "moving.mp4", frames)
 
 
@@ -128,7 +127,7 @@ def test_出現幀寫明新位置時驗證通過(tmp_path, engine):
     profile = make_out(tmp_path)
     w, h = box("開始")[2:]
     templates = {"開始": {"frame": 5, "box": box("開始"),
-                          "present": [{"frame": 15, "at": [300 + w // 2, 180 + h // 2]}]}}
+                          "present": [{"frame": 15, "at": [200 + w // 2, 180 + h // 2]}]}}
 
     res = run(demo_plan(video, profile, steps=[find("開始")],
                         templates=templates), engine)
@@ -200,7 +199,7 @@ def test_只能粗篩時命令列輸出明說驗證不完整(demo, coarse_engine
 
 
 def test_該點的那一幀找到的是別處的同款圖時標待重拍原因寫位置不符(tmp_path, engine):
-    # 第 15 幀起「開始」搬到 (300, 180); 步驟卻說在第 15 幀點了原位置
+    # 第 15 幀起「開始」搬到 (200, 180); 步驟卻說在第 15 幀點了原位置
     video = moving_video(tmp_path)
     profile = make_out(tmp_path)
     templates = {"開始": {"frame": 5, "box": box("開始")}}
@@ -212,35 +211,44 @@ def test_該點的那一幀找到的是別處的同款圖時標待重拍原因�
     assert any("位置不符" in why for why in res["retake"]["開始"])
 
 
-# ---------- `拾取檢查` (scale-range 票 06): 縮放餘裕與唯一 ----------
+# ---------- `拾取檢查`: 縮放餘裕與唯一 (照固定矩形查) ----------
 
 def twin_video(tmp_path, dx=150):
     """每一幀都有兩個一模一樣的「開始」(第二個在右邊 dx 處, 同一列)."""
     from vtf_synth import POS
     x, y = POS["開始"]
-    frames = [screen([(BUTTONS["開始"], x, y), (BUTTONS["開始"], x + dx, y)])] * 30
+    frames = [screen([(BUTTONS["開始"], x, y), (BUTTONS["開始"], x + dx, y)],
+                     title=True)] * 30
     return write_video(tmp_path / "twin.mp4", frames)
 
 
-def test_同款不只一個_沒設挑選規則_標待重拍原因寫唯一(tmp_path, engine):
+def test_同款在固定矩形外_唯一照框查所以通過(tmp_path, engine):
     video = twin_video(tmp_path)
-    profile = make_out(tmp_path)
+    out = make_out(tmp_path)
     templates = {"開始": {"frame": 5, "box": box("開始")}}
-    res = run(demo_plan(video, profile, steps=[find("開始")], templates=templates),
-              engine)
+    res = run(demo_plan(video, out, steps=[find("開始")], templates=templates), engine)
+    assert res["retake"] == {}
+
+
+def test_同款在固定矩形內_沒設挑選規則_標待重拍原因寫唯一_框不縮(tmp_path, engine):
+    video = twin_video(tmp_path)
+    out = make_out(tmp_path)
+    templates = {"開始": {"frame": 5, "box": box("開始")}}
+    steps = [find("開始", scroll="horizontal")]     # 橫向捲動軸: 框拉到影片兩端, 兩個都在框裡
+    res = run(demo_plan(video, out, steps=steps, templates=templates), engine)
     assert list(res["retake"]) == ["開始"]
     why = res["retake"]["開始"]
     assert any("唯一" in w and "2 個匹配" in w for w in why), why
-    text = report(res)
-    assert "加限定範圍（以原點為基準）" in text, "待重拍建議表有唯一的修法"
+    assert saved(res)["steps"][0]["target"]["within"][2] == 480, "不自動縮框"
+    assert "換一張畫面上唯一的圖當參考點" in report(res), "待重拍建議表有唯一的修法"
 
 
-def test_同款不只一個_設了由上到下第1個_不查唯一(tmp_path, engine):
+def test_同款在框內_設了由上到下第1個_不查唯一(tmp_path, engine):
     video = twin_video(tmp_path)
-    profile = make_out(tmp_path)
+    out = make_out(tmp_path)
     templates = {"開始": {"frame": 5, "box": box("開始")}}
-    steps = [find("開始", pick={"kind": "top", "n": 1})]
-    res = run(demo_plan(video, profile, steps=steps, templates=templates), engine)
+    steps = [find("開始", pick={"left": 1}, scroll="horizontal")]
+    res = run(demo_plan(video, out, steps=steps, templates=templates), engine)
     assert res["retake"] == {}
 
 

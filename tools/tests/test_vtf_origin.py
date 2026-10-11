@@ -8,11 +8,9 @@ import pytest
 import flowfile
 import video_to_flow
 from automation import flowfmt
-from vtf_synth import (FRAME, VIDEO_H, VIDEO_W, center, demo_plan, demo_video,
-                       find, make_out, snapshot)
+from vtf_synth import (FRAME, VIDEO_H, VIDEO_W, center, click, demo_plan,
+                       demo_video, find, make_out, snapshot)
 
-# 搜尋範圍比影片大: 偏移仍是影片像素原樣 (影片與實際畫面同尺度)
-REGION = [0, 0, round(VIDEO_W * 1.5), round(VIDEO_H * 1.5)]
 
 
 @pytest.fixture
@@ -38,10 +36,6 @@ def sc(v):
 def found_center(res, name, frame=None):
     x, y, w, h = res["found"][name][FRAME[name] if frame is None else frame]
     return x + w // 2, y + h // 2
-
-
-def click(x, y, **kw):
-    return dict({"type": "click", "at": [x, y]}, **kw)
 
 
 def test_相對座標點擊的偏移等於點擊位置減前一個找圖實際找到的中心(demo, engine):
@@ -82,7 +76,7 @@ def test_連續兩個座標點擊第二個以第一個的落點為原點(demo, e
 
 def test_拖曳輸出為相對座標拖曳且之後以拖曳終點為原點(demo, engine):
     steps = [find("開始"),
-             {"type": "drag", "from": [100, 200], "to": [300, 210]},
+             {"drag": [100, 200], "to": [300, 210]},
              click(310, 200)]
     res = run(demo, engine, steps)
 
@@ -95,7 +89,7 @@ def test_拖曳輸出為相對座標拖曳且之後以拖曳終點為原點(demo
 
 
 def test_取消更新原點的座標點擊不改變後續原點(demo, engine):
-    steps = [find("開始"), click(150, 100, updateOrigin=False), click(160, 110)]
+    steps = [find("開始"), click(150, 100, update_origin=False), click(160, 110)]
     res = run(demo, engine, steps)
 
     cx, cy = found_center(res, "開始")
@@ -106,7 +100,7 @@ def test_取消更新原點的座標點擊不改變後續原點(demo, engine):
 
 def test_取消更新原點的找圖不改變後續原點(demo, engine):
     steps = [find("開始"), click(150, 100),
-             find("確定", updateOrigin=False), click(160, 110)]
+             find("確定", update_origin=False), click(160, 110)]
     res = run(demo, engine, steps)
 
     s = saved(res)[3]
@@ -123,11 +117,11 @@ def test_第一個座標點擊之前沒有原點就報錯且沒有新檔(demo, e
 
 def test_拖曳之前沒有原點也報錯(demo, engine):
     with pytest.raises(video_to_flow.ToolError, match="原點"):
-        run(demo, engine, [{"type": "drag", "from": [1, 2], "to": [3, 4]}])
+        run(demo, engine, [{"drag": [1, 2], "to": [3, 4]}])
 
 
 def test_定位找圖成為後續相對座標的原點(demo, engine):
-    steps = [find("確定", action="none", at=None), click(40, 220)]
+    steps = [find("確定", head="find"), click(40, 220)]
     steps[0].pop("at")
     res = run(demo, engine, steps)
 
@@ -139,7 +133,7 @@ def test_定位找圖成為後續相對座標的原點(demo, engine):
 
 
 def test_等待消失的找圖也以找到的位置為原點(demo, engine):
-    steps = [find("確定", action="wait_gone"), click(40, 220)]
+    steps = [find("確定", head="wait_gone"), click(40, 220)]
     steps[0].pop("at")
     res = run(demo, engine, steps)
 
@@ -151,7 +145,7 @@ def test_等待消失的找圖也以找到的位置為原點(demo, engine):
 def test_存檔的座標點擊與拖曳不帶座標模式(demo, engine):
     """相對座標是唯一的座標模式 (絕對座標已退場, ADR 0014)."""
     steps = [find("開始"), click(150, 100),
-             {"type": "drag", "from": [100, 200], "to": [300, 210]},
+             {"drag": [100, 200], "to": [300, 210]},
              find("確定"), click(40, 220)]
     res = run(demo, engine, steps)
 
@@ -160,15 +154,13 @@ def test_存檔的座標點擊與拖曳不帶座標模式(demo, engine):
 
 def test_重複區段內的相對座標要有區段內的原點(demo, engine):
     # 第二次起的原點是上一輪結尾, 與第一次不同 → 偏移會錯, 要求區段內先定位
-    steps = [find("開始"), {"type": "loop_start", "count": 3},
-             click(150, 100), find("確定"), {"type": "loop_end"}]
+    steps = [find("開始"), {"repeat": 3, "steps": [click(150, 100), find("確定")]}]
     with pytest.raises(video_to_flow.ToolError, match="重複區段"):
         run(demo, engine, steps)
 
 
 def test_重複區段內先找圖再相對點擊可以組裝且結束後沿用區段內的原點(demo, engine):
-    steps = [{"type": "loop_start", "count": 3}, find("開始"), click(150, 100),
-             {"type": "loop_end"}, click(160, 100)]
+    steps = [{"repeat": 3, "steps": [find("開始"), click(150, 100)]}, click(160, 100)]
     res = run(demo, engine, steps)
 
     s = saved(res)

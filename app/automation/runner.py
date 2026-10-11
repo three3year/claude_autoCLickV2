@@ -88,22 +88,30 @@ def effect_confirm(step):
     return step["confirm"]
 
 
-def origin_source(steps, idx):
-    """`原點`在 steps[idx] 執行前來自哪種步驟 (靜態推算): "find" / "pointer" / None.
+def origin_step(steps, idx):
+    """`原點`在 steps[idx] 執行前由哪一步產生 (靜態推算): 那一步的索引, 沒有＝None.
 
     與編輯器的「預設原點推算」同一套走法: 往上找最近一個會更新原點的步驟
     (找圖三態、座標點擊勾著更新原點、拖曳), 等待/區段標記略過。
+    """
+    for j in range(idx - 1, -1, -1):
+        s = steps[j]
+        t = s.get("type")
+        if t == "drag" or (t in ("click",) + findtarget.FIND_TYPES
+                           and s["update_origin"]):
+            return j
+    return None
+
+
+def origin_source(steps, idx):
+    """`原點`在 steps[idx] 執行前來自哪種步驟 (靜態推算): "find" / "pointer" / None.
+
     「原點的圖離開」只在原點來自找圖時才判斷得了。
     """
-    for s in reversed(steps[:idx]):
-        t = s.get("type")
-        if t == "drag":
-            return "pointer"
-        if t == "click" and s["update_origin"]:
-            return "pointer"
-        if t in findtarget.FIND_TYPES and s["update_origin"]:
-            return "find"
-    return None
+    j = origin_step(steps, idx)
+    if j is None:
+        return None
+    return "find" if steps[j].get("type") in findtarget.FIND_TYPES else "pointer"
 
 
 def uses_origin_leaves(step):

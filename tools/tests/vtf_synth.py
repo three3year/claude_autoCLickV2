@@ -1,7 +1,7 @@
-"""影片轉流程測試用的合成輸入: 小影片 + 合成 profile (全部落在 tmp_path).
+"""影片轉流程測試用的合成輸入: 小影片與計畫 (全部落在 tmp_path).
 
 示範影片用 OpenCV 的影片寫入真的編碼成檔 (有壓縮失真, 與真實錄影同一條讀取
-路徑); profile 是真的資料夾 (config.yaml + 步驟草稿), 工具只透過檔案看到它。
+路徑); 計畫用 flow.yaml 的鍵 (位置是影片像素)。
 
 (名稱刻意不叫 synth: tests/ 的引擎測試已有 synth.py, 同名模組會互相遮蔽。)
 """
@@ -57,9 +57,12 @@ def make_background(w=VIDEO_W, h=VIDEO_H, seed=99):
 BLANK = (10, 190, 120, 70)
 
 
-def screen(buttons, seed=99):
-    """一個畫面: 底圖 + 若干按鈕 [(按鈕影像, x, y), ...] (x, y 為左上角)."""
+def screen(buttons, seed=99, title=False):
+    """一個畫面: 底圖 + 若干按鈕 [(按鈕影像, x, y), ...] (x, y 為左上角);
+    title＝另畫上校準對兩張 (圖示、關閉)."""
     img = make_background(seed=seed)
+    if title:
+        buttons = list(buttons) + [(TITLE[n], *TITLE_POS[n]) for n in TITLE]
     for tpl, x, y in buttons:
         h, w = tpl.shape[:2]
         img[y:y + h, x:x + w] = tpl
@@ -115,10 +118,11 @@ def center(name):
     return [x + w // 2, y + h // 2]
 
 
-# 遊戲視窗的標題列 (每一幀都在): 左上的圖示與右上的關閉鈕＝`校準對`
-TITLE = {"圖示": make_button(w=40, h=30, seed=11),
-         "關閉": make_button(w=40, h=30, seed=13)}
-TITLE_POS = {"圖示": (4, 3), "關閉": (VIDEO_W - 44, 3)}
+# 每一幀都在的兩張固定圖＝`校準對` (名字沿用標題列的圖示與關閉鈕; 擺在離畫面邊緣有點距離
+# 的地方, 貼邊的合成圖縮放後找不到, 過不了拾取檢查的縮放餘裕)
+TITLE = {"圖示": make_button(w=48, h=36, seed=5),
+         "關閉": make_button(w=48, h=36, seed=11)}
+TITLE_POS = {"圖示": (418, 100), "關閉": (360, 214)}
 
 
 def title_box(name):
@@ -127,13 +131,13 @@ def title_box(name):
     return [x, y, w, h]
 
 
-def demo_video(tmp_path, title=False):
+def demo_video(tmp_path, title=True, name="demo.mp4"):
     """標準示範影片; title＝每一幀都畫上標題列的圖示與關閉鈕 (校準對)."""
     bar = [(TITLE[n], *TITLE_POS[n]) for n in TITLE] if title else []
     frames = []
-    for name, lo, hi in SCREENS:
-        frames += [screen([(BUTTONS[name], *POS[name])] + bar)] * (hi - lo)
-    return write_video(Path(tmp_path) / "demo.mp4", frames)
+    for name_, lo, hi in SCREENS:
+        frames += [screen([(BUTTONS[name_], *POS[name_])] + bar)] * (hi - lo)
+    return write_video(Path(tmp_path) / name, frames)
 
 
 def demo_templates(*names):
@@ -141,19 +145,47 @@ def demo_templates(*names):
     return {n: {"frame": FRAME[n], "box": box(n)} for n in names}
 
 
-def find(name, **kw):
-    """點在按鈕中心的找圖點擊 (計畫用影片像素寫位置)."""
-    return dict({"type": "find_click", "template": name, "frame": FRAME[name],
-                 "at": center(name)}, **kw)
+TITLE_TEMPLATES = {n: {"frame": 5, "box": title_box(n)} for n in TITLE}
+CALIBRATION = {"pair": ["圖示", "關閉"]}
+# 座標基準點＝校準對第一張 (圖示) 的中心
+ANCHOR = (TITLE_POS["圖示"][0] + 24, TITLE_POS["圖示"][1] + 18)
+
+
+def find(name, head="find_click", **kw):
+    """點在按鈕中心的找圖 (計畫用影片像素寫位置; 新鍵: 開頭鍵即動作)."""
+    return dict({head: name, "frame": FRAME[name], "at": center(name)}, **kw)
+
+
+def click(x, y, **kw):
+    return dict({"click": [x, y]}, **kw)
 
 
 def demo_plan(video, out, steps=None, templates=None, name="日常", **extra):
-    plan = {"video": str(video), "out": str(out), "name": name,
-            "templates": templates if templates is not None else demo_templates(),
+    """標準計畫: 範本另加標題列兩張 (校準對); 沒指定 calibration 就用它們."""
+    tpl = dict(templates if templates is not None else demo_templates())
+    tpl.update({n: t for n, t in TITLE_TEMPLATES.items() if n not in tpl})
+    plan = {"video": str(video), "out": str(out), "name": name, "templates": tpl,
+            "calibration": CALIBRATION,
             "steps": steps if steps is not None else [
                 find("開始"), find("確定"), find("下一步")]}
     plan.update(extra)
+    if plan["calibration"] is None:
+        del plan["calibration"]
     return plan
+
+
+def expand(b, size=(VIDEO_W, VIDEO_H), anchor=ANCHOR, scroll=None):
+    """固定矩形的期望值: 框每邊外推 50%、裁到影片邊、相對基準點."""
+    import math
+    x, y, w, h = b
+    mx, my = math.ceil(w / 2), math.ceil(h / 2)
+    x0, y0, x1, y1 = x - mx, y - my, x + w + mx, y + h + my
+    if scroll == "vertical":
+        y0, y1 = 0, size[1]
+    if scroll == "horizontal":
+        x0, x1 = 0, size[0]
+    x0, y0, x1, y1 = max(0, x0), max(0, y0), min(size[0], x1), min(size[1], y1)
+    return [x0 - anchor[0], y0 - anchor[1], x1 - x0, y1 - y0]
 
 
 def read_frame(video, index):
@@ -187,12 +219,14 @@ def draw_ring(img, x, y, k):
 
 
 def scan_video(path, clicks=(), drags=(), n_frames=120, fps=20, effect=True,
-               scenes=((0, ("開始",)), (60, ("確定", "下一步")))):
+               scenes=((0, ("開始",)), (60, ("確定", "下一步"))), title=False,
+               seeds=None):
     """合成一支示範影片.
 
     clicks: [(幀, (x, y))]——游標先移過去停住, 該幀起畫特效 (effect=False 不畫);
     drags: [(起幀, (x1, y1), 訖幀, (x2, y2))]——按住期間特效跟著游標;
-    scenes: [(起幀, (按鈕名, ...))]——畫面切換 (換底圖＝全畫面變化, 不是點擊)。
+    scenes: [(起幀, (按鈕名, ...))]——畫面切換 (換底圖＝全畫面變化, 不是點擊);
+    title: 每一幀都畫上校準對兩張; seeds: 各畫面的底圖種子 (預設 99、100…)。
     """
     keys = [(0, (20.0, 20.0))]
     events = sorted([(f, "click", p, f, p) for f, p in clicks]
@@ -217,7 +251,8 @@ def scan_video(path, clicks=(), drags=(), n_frames=120, fps=20, effect=True,
 
     def screen_at(f):
         k = [i for i, (start, _) in enumerate(scenes) if start <= f][-1]
-        return screen([(BUTTONS[n], *POS[n]) for n in scenes[k][1]], seed=99 + k)
+        return screen([(BUTTONS[n], *POS[n]) for n in scenes[k][1]],
+                      seed=seeds[k] if seeds else 99 + k, title=title)
 
     frames = []
     for f in range(n_frames):

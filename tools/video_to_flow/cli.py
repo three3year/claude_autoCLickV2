@@ -4,13 +4,13 @@
                                    [--frames 120,130,...]
     python tools/video_to_flow learn-cursor <影片> --at "幀:x,y;幀:x,y;..." --out <樣本.json>
     python tools/video_to_flow assemble <轉換計畫.json> [--out <輸出位置>]
+    python tools/video_to_flow insert <補充計畫.json> <流程資料夾>
 
 結果摘要印在 stdout (UTF-8); 拒絕時把原因印在 stderr 並以 1 結束。
 """
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 
 from .errors import ToolError
@@ -47,6 +47,17 @@ def _points(text):
     return out
 
 
+def _lists(res):
+    for name, why in res["retake"].items():
+        print(f"待重拍：{name}：{'；'.join(why)}")
+    for _, text in res["scroll_confirm"]:
+        print(f"待確認（捲動）：{text}——同一段有拖曳，沒宣告捲動軸")
+    for _, text in res["busy_unseen"]:
+        print(f"待確認（忙碌）：{text} 勾了忙碌檢查，之後沒看到忙碌指示")
+    for _, text in res["busy_unchecked"]:
+        print(f"待確認（忙碌）：{text} 沒勾忙碌檢查，之後看到忙碌指示")
+
+
 def main(argv=None):
     _utf8()
     ap = argparse.ArgumentParser(prog="video_to_flow",
@@ -64,10 +75,13 @@ def main(argv=None):
     lc.add_argument("--at", type=_points, required=True,
                     help="游標尖端位置，「幀:x,y;幀:x,y;...」，至少 4 幀、背景各不相同")
     lc.add_argument("--out", required=True, help="樣本 JSON（游標圖寫在旁邊同名 .png）")
-    asm = sub.add_parser("assemble", help="轉換計畫 → 自我驗證 → 流程資料夾 + 交付報告")
+    asm = sub.add_parser("assemble", help="轉換計畫 → 自我驗證 → 新的流程資料夾 + 交付報告")
     asm.add_argument("plan")
     asm.add_argument("--out", help="輸出位置：流程資料夾建在它底下"
                                    "（預設計畫的 out，再沒有就是 %%USERPROFILE%%\\AutoClick\\）")
+    ins = sub.add_parser("insert", help="補充計畫 → 量好的步驟插進既有流程（直接改寫，不備份）")
+    ins.add_argument("plan")
+    ins.add_argument("folder", help="既有流程資料夾（有 flow.yaml 的那一層）")
     args = ap.parse_args(argv)
 
     try:
@@ -89,26 +103,26 @@ def main(argv=None):
             print("  各幀相似度：" + "、".join(f"{f}={v}" for f, v in res["fits"].items()))
             for w in res["warnings"]:
                 print(f"提醒：{w}")
+        elif args.cmd == "insert":
+            from .insert import insert
+            res = insert(args.plan, args.folder)
+            print(f"已插入 {res['inserted']} 步（從步驟 {res['position']} 起）→ {res['flow_path']}")
+            print(f"影片倍率 ×{res['video_scale']:.3f}（{res['scale_from']}）")
+            _lists(res)
+            for n, e in res["similar"].items():
+                print(f"建議：新範本「{n}」跟既有的「{e}」幾乎一樣，考慮改用既有的")
+            print(f"交付報告更新：{'、'.join(res['report_files'])}")
         else:
             from .assemble import assemble
             res = assemble(args.plan, out_dir=args.out)
             print(f"流程資料夾：{res['flow_path']}")
-            print(f"交付報告：{res['report_path']}")
-            for w in res["warnings"]:
-                print(f"提醒：{w}")
-            if not res["calibration"]:
-                why = res["calibration_problem"] or "計畫沒有指定"
-                print(f"警告：沒有校準對（{why}）——這份流程不能執行")
-            elif res.get("fallback_problem"):
+            print(f"交付報告：{res['report_path']}（{'、'.join(res['report_files'])}）")
+            if res.get("fallback_problem"):
                 print(f"警告：備用校準對量不到（{res['fallback_problem']}）——流程不帶備用對")
             if res["verification"] == "coarse":
                 print("警告：驗證不完整——深度驗證模型無法載入，只做了粗篩")
-            for name, why in res["retake"].items():
-                print(f"待重拍：{name}：{'；'.join(why)}")
-            summary = {k: v for k, v in res.items()
-                       if k not in ("flow_path", "report_path", "found", "step_list",
-                                    "warnings")}
-            print(json.dumps(summary, ensure_ascii=False, indent=2))
+            _lists(res)
+            print(f"步驟 {res['steps']}、範本 {res['templates']}")
     except ToolError as e:
         print(f"錯誤：{e}", file=sys.stderr)
         return 1

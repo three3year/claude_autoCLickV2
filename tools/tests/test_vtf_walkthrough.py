@@ -1,4 +1,4 @@
-"""票 07 — 用合成影片照 video-to-flow skill 的程序走一遍.
+"""用合成影片照 video-to-flow / video-measure skill 的程序走一遍.
 
 學特效樣本 (退路掃描 → 取色 → 帶樣本重掃) → 依候選寫轉換計畫 (以程式扮演
 Claude 的判斷: 點在按鈕上＝找圖、其餘＝相對座標點擊) → 命令列組裝 → 產出的
@@ -13,7 +13,7 @@ import numpy as np
 
 import flowfile
 import video_to_flow
-from vtf_synth import (ROOT, VIDEO_H, VIDEO_W, box, center, make_out,
+from vtf_synth import (CALIBRATION, ROOT, TITLE_TEMPLATES, box, center, make_out,
                        scan_video)
 
 CLICKS = [(20, tuple(center("開始"))), (60, tuple(center("確定"))),
@@ -29,7 +29,9 @@ def inside(xy, b, pad=4):
 
 
 def test_照skill程序走一遍產出app開得起來的流程資料夾(tmp_path):
-    video = scan_video(tmp_path / "demo.mp4", clicks=CLICKS, scenes=SCENES)
+    # 底圖都用 99: 「確定」在種子 100 的底圖上縮到 ×0.85 粗篩只有 0.68 (合成圖的巧合), 會被標待重拍
+    video = scan_video(tmp_path / "demo.mp4", clicks=CLICKS, scenes=SCENES, title=True,
+                       seeds=(99, 99))
     work = tmp_path / "work"
 
     # 學特效樣本: 退路掃描的高信心候選取色中位數
@@ -53,15 +55,18 @@ def test_照skill程序走一遍產出app開得起來的流程資料夾(tmp_path
             name = on[0]
             templates[name] = {"frame": CLEAN[name], "box": box(name),
                                "absent": ABSENT[name]}
-            steps.append({"type": "find_click", "template": name,
-                          "frame": CLEAN[name], "at": [c["x"], c["y"]]})
+            steps.append({"find_click": name, "frame": CLEAN[name],
+                          "at": [c["x"], c["y"]]})
         else:
-            steps.append({"type": "click", "at": [c["x"], c["y"]]})
-    assert [s["type"] for s in steps] == ["find_click", "find_click", "click"]
+            steps.append({"click": [c["x"], c["y"]], "frame": c["frame"]})
+    assert [next(iter(s)) for s in steps] == ["find_click", "find_click", "click"]
+    # 生效確認照 skill 的寫法明寫: 下一步是找圖 → next, 否則 → gone
+    steps[0]["confirm"], steps[1]["confirm"] = "next", "gone"
+    templates.update(TITLE_TEMPLATES)
 
     out = make_out(tmp_path)
     plan = {"video": str(video), "out": str(out), "name": "走一遍",
-            "templates": templates, "steps": steps,
+            "templates": templates, "steps": steps, "calibration": CALIBRATION,
             "report": {"branches": ["(示範) 這裡可能跳出彈窗"]}}
     plan_path = work / "plan.json"
     plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
@@ -76,11 +81,12 @@ def test_照skill程序走一遍產出app開得起來的流程資料夾(tmp_path
     folder = out / "走一遍"
     assert os.listdir(out) == ["走一遍"]
     r = flowfile.read_flow(folder)
-    assert sorted(os.listdir(folder / "templates")) == ["開始.png", "確定.png"] or \
-        set(os.listdir(folder / "templates")) == {"開始.png", "確定.png"}
+    assert set(os.listdir(folder / "templates")) == {"開始.png", "確定.png", "圖示.png",
+                                                     "關閉.png"}
     assert flowfile.missing_templates(folder, r) == []
     s = r["steps"]
     assert [x["type"] for x in s] == ["find_click", "find_click", "click"]
     assert s[0]["confirm"] == "next" and s[1]["confirm"] == "gone"
     assert r["scan_region"] is None
-    assert (folder / "交付報告.md").is_file()
+    assert (folder / "交付報告" / "總覽.md").is_file()
+    assert all(x.get("target", {}).get("within") for x in s if x["type"] == "find_click")

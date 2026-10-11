@@ -1,8 +1,8 @@
-"""自我驗證: 用引擎公開 API 對影格重跑每張範本, 沒過的標`待重拍`.
+"""自我驗證: 用引擎公開 API 對影格重跑每張範本, 沒過的標`待重拍`; 順便算`固定矩形`.
 
 範本經 `make_library` + `Engine.register` 一張一張登錄 (一張登錄失敗不拖垮
 其他張), 再以 `Engine.query` 在指定影格上查詢; 搜尋區域就是整張影格
-(影片＝遊戲畫面＝搜尋範圍)。
+(影片＝遊戲畫面＝搜尋範圍)。影格已是`流程尺度` (補充時先縮放過), 查詢一律帶預期尺度 1。
 
 每張範本要通過的檢查 (以引用它的找圖目標用到的每一種`比色`設定各查一次):
 
@@ -10,29 +10,29 @@
   present 可寫明新位置)——同款多張時其他位置也有匹配不算錯
 - absent 幀 (還沒出現的那幾幀): 整張影格上沒有任何匹配
 - 計畫標示 clean: false (找不到乾淨影格): 不論結果都待重拍
-- `拾取檢查`的縮放餘裕 (ADR 0013): 取材幀縮到 ×0.85 與放大到 ×1.15 各找一次 (影片尺度＝
-  流程尺度, 以倍率 1 為基準), 找不到或粗篩/驗證貼門檻＝待重拍
+- `拾取檢查`的縮放餘裕 (ADR 0013): 取材幀縮到 ×0.85 與放大到 ×1.15 各找一次
 
-引用它的每個找圖步驟, 在該步驟的 frame 上照**步驟的`找圖目標`**完整執行一次
-(與執行器同一個模組: 裁限定範圍 → 查詢 → 比色 → 挑選規則, 原點用組裝推算的
-那一步之前的原點): 要挑得到, 且步驟的點擊位置 `at` 落在挑中的框附近 (框外最多
-再一個框寬高; 沒寫 at 而該幀就是取材幀時, 挑中的要是取材的那一個)——挑中的框就是
-原點推算用的框, 挑錯同款圖偏移就全錯。驗證通過＝執行時會挑到同一個。
-再跑`拾取檢查`的唯一: 照步驟的找圖目標 (含限定範圍) 在那一幀上匹配多於一個＝待重拍
-(設了「第 N 個」「最接近」挑選規則的不查)。三項判斷都只呼叫 app 的 pickcheck 模組, 與
-編輯器同一套標準。
+每個找圖目標 (找圖步驟、確認圖、忙碌指示) 在它那一幀上照它的設定完整執行一次
+(與執行器同一個模組: 裁限定範圍 → 查詢 → 比色 → 挑選規則): 挑中的框就是原點推算用的框,
+`固定矩形`＝挑中的框每邊外推範本寬高的 50% (宣告了捲動軸的那一軸拉到影片兩端), 超出影片的
+部分裁掉; 加上固定矩形再挑一次要挑到同一個, 再跑`拾取檢查`的唯一與矩形餘裕。判斷都只呼叫
+app 的 pickcheck 模組。矩形餘裕照規則必過 (裁過的那一側不算), 沒過＝工具的 bug。
+報告裡的原因用內容 (範本、動作、影格) 指稱步驟, 不寫步驟編號。
 """
 from __future__ import annotations
 
+import math
 import os
 import tempfile
 
 import cv2
 
-from automation import findtarget, pickcheck
+from automation import findtarget, flowfmt, pickcheck
 
 from .errors import ToolError
 from .geom import center as _center
+
+ACTION = {"find_click": "找圖點擊", "find": "找圖", "wait_gone": "等待消失"}
 
 
 def position_tolerance(box):
@@ -50,38 +50,21 @@ def make_engine():
         return Engine()
 
 
-def frames_needed(templates, steps):
-    """驗證要讀的影格編號."""
-    need = set()
-    for t in templates.values():
-        need.add(t["frame"])
-        need.update(p["frame"] for p in t["present"])
-        need.update(t["absent"])
-    for s in steps:
-        if s["type"] == "find_click":
-            need.add(step_frame(s, templates))
-    return need
-
-
-def step_frame(step, templates):
-    """找圖步驟看的是哪一幀 (預設＝範本的取材幀)."""
-    return step.get("frame", templates[step["template"]]["frame"])
-
-
-def _color_modes(name, steps, extra=()):
-    """引用這張範本的找圖目標用到的`比色`設定 (沒人引用＝只查不比色).
-
-    extra: 流程層級的找圖目標 (忙碌指示)。
-    """
-    modes = {bool(t.get("colorCheck")) for t in extra
-             if t.get("template") == name}
-    for s in steps:
-        if s["type"] == "find_click" and s["template"] == name:
-            modes.add(bool(s.get("colorCheck")))
-        cfm = s.get("confirmTarget")
-        if cfm and cfm.get("template") == name:
-            modes.add(bool(cfm.get("colorCheck")))
-    return sorted(modes) or [False]
+def fixed_rect(box, size, anchor, scroll=None):
+    """`固定矩形`: 挑中的框每邊外推框寬高的 50% (中心不變), 宣告捲動軸的那一軸拉到影片兩端,
+    超出影片的部分裁掉 → (相對座標基準點的 [x, y, w, h], 被裁掉的邊 set)."""
+    x, y, w, h = box
+    W, H = size
+    mx, my = math.ceil(w / 2), math.ceil(h / 2)
+    x0, y0, x1, y1 = x - mx, y - my, x + w + mx, y + h + my
+    if scroll == "vertical":
+        y0, y1 = 0, H
+    elif scroll == "horizontal":
+        x0, x1 = 0, W
+    clipped = {side for side, out in (("left", x0 < 0), ("top", y0 < 0),
+                                      ("right", x1 > W), ("bottom", y1 > H)) if out}
+    x0, y0, x1, y1 = max(0, x0), max(0, y0), min(W, x1), min(H, y1)
+    return flowfmt.rect_from_screen((x0, y0, x1 - x0, y1 - y0), anchor), clipped
 
 
 class _Detector:
@@ -95,21 +78,40 @@ class _Detector:
                                  expected_scale=expected_scale)
 
 
+def color_modes(name, steps, extra=()):
+    """引用這張範本的找圖目標用到的`比色`設定 (沒人引用＝只查不比色)."""
+    tgts = list(extra)
+    for s in steps:
+        if findtarget.is_find(s):
+            tgts.append(findtarget.target(s))
+        if findtarget.uses_confirm_target(s):
+            tgts.append(findtarget.confirm_target(s))
+    modes = {bool(t.get("color")) for t in tgts if t.get("template") == name}
+    return sorted(modes) or [False]
+
+
 class Checker:
-    """自我驗證: 建構時登錄範本並跑範本層級的檢查; `locate` 在原點推算時
-    逐步驗證找圖步驟 (要知道那一步之前的原點, 才能照找圖目標挑).
+    """自我驗證: 建構時登錄範本並跑範本層級的檢查; `locate`/`locate_target` 在原點推算時
+    逐一驗證找圖目標並算固定矩形.
+
+    crops: {範本名: 影像 (流程尺度)}——計畫裁的新範本＋引用到的既有範本;
+    templates: 計畫的範本 (有取材證據; 既有範本不在這裡, 不跑範本層級的檢查);
+    anchor: `座標基準點`在影格上的位置; size: 影格 (寬, 高)。
 
     results: {範本名: {"reasons": [...], "boxes": {幀: 框或 None}}}; reasons
-    為空＝通過。boxes 是各檢查幀實際用到的框 (影片像素; 步驟幀＝挑中的那個)。
+    為空＝通過。
     """
 
-    def __init__(self, engine, crops, templates, steps, frames, config,
+    def __init__(self, engine, crops, templates, steps, frames, config, anchor, size,
                  extra_targets=()):
         from subject_detection import make_library
 
         self.engine, self.templates, self.frames = engine, templates, frames
-        self.results = {n: {"reasons": [], "boxes": {}} for n in templates}
+        self.anchor, self.size = anchor, size
+        self.sizes = {n: (img.shape[1], img.shape[0]) for n, img in crops.items()}
+        self.results = {n: {"reasons": [], "boxes": {}} for n in crops}
         self._registered = set()
+        self._scale_checked = set()
         with tempfile.TemporaryDirectory(prefix="vtf_verify_") as tmp:
             paths = {}
             for i, (name, img) in enumerate(crops.items()):
@@ -120,7 +122,7 @@ class Checker:
                 buf.tofile(p)
                 paths[name] = p
             self.lib = make_library(paths, config, os.path.join(tmp, "registered"))
-            for name in templates:
+            for name in crops:
                 try:   # 登錄產物載進記憶體, 暫存目錄刪掉後照樣能查
                     engine.register(self.lib, name)
                     self._registered.add(name)
@@ -131,17 +133,18 @@ class Checker:
         self.registered = frozenset(self._registered)
         self._cache = {}
         for name, t in templates.items():
+            if name not in crops:
+                continue
             if name in self._registered:
-                for color in _color_modes(name, steps, extra_targets):
+                for color in color_modes(name, steps, extra_targets):
                     self._check_template(name, t, color)
-                    self._check_scale(name, t, color)
+                    self._check_scale(name, t["frame"], color)
             if not t["clean"]:
                 self.results[name]["reasons"].append("找不到乾淨影格（計畫標示）")
 
     def _matches(self, name, frame, color):
         key = (name, frame, color)
         if key not in self._cache:
-            # 影片尺度＝流程尺度: 與倍率 1 的執行同樣以預期尺度 1 查詢
             r = self.engine.query(self.lib, name, self.frames[frame],
                                   color_check=color, expected_scale=1.0)
             self._cache[key] = [tuple(int(v) for v in m.box) for m in r.matches]
@@ -171,58 +174,78 @@ class Checker:
             if self._matches(name, frame, color):
                 res["reasons"].append(f"出現前就匹配（第 {frame} 幀不該找得到）")
 
-    def _check_scale(self, name, t, color):
-        """`拾取檢查`的縮放餘裕: 取材幀 ×0.85 / ×1.15 各查一次 (pickcheck 的標準)."""
+    def _check_scale(self, name, frame, color):
+        """`拾取檢查`的縮放餘裕: 那一幀 ×0.85 / ×1.15 各查一次 (pickcheck 的標準)."""
+        key = (name, color)
+        if key in self._scale_checked:
+            return
+        self._scale_checked.add(key)
         probe = {"template": name, "color": color}
-        for w in pickcheck.scale_margin(self.detector, self.frames[t["frame"]], (0, 0),
+        for w in pickcheck.scale_margin(self.detector, self.frames[frame], (0, 0),
                                         probe, anchor=None, scale=1.0):
             self.results[name]["reasons"].append(f"縮放餘裕：{w.text}")
 
-    def locate(self, i, step, target, origin):
-        """照找圖步驟的找圖目標在它那一幀挑一次; 回傳挑中的框 (影片像素),
-        挑不到或範本登錄失敗時回傳取材的裁切框 (範本會標待重拍).
+    def locate_target(self, tgt, frame, origin, label, at=None, scroll=None,
+                      fallback_box=None):
+        """照找圖目標在 frame 上挑一次, 算固定矩形 → (挑中的框, within).
 
-        target: 該步驟的找圖目標 (像素設定已換成相對原點/搜尋範圍的影片像素);
-        origin: 這一步之前的原點 (影片像素)。
+        tgt: 找圖目標 (pick near 已是相對 origin 的值, 沒有 within); 挑不到時用
+        fallback_box (計畫的取材框) 算框並標待重拍。at: 計畫寫的點擊位置 (要落在挑中的框附近)。
         """
-        name = step["template"]
-        t = self.templates[name]
+        name = tgt["template"]
         res = self.results[name]
-        if name not in self._registered:
-            return t["box"]
-        no, frame = i + 1, step_frame(step, self.templates)
-        f = findtarget.find(target, self.detector, self.frames[frame], (0, 0),
-                            origin=origin, scale=1.0)
-        if f.picked is None:
-            why = {"count": f"（挑選規則挑不到：只有 {len(f.matches)} 個匹配）",
-                   "none": "（限定範圍內沒有）" if f.limit else ""}.get(f.reason, "")
-            res["reasons"].append(
-                f"步驟 {no} 該點的那一幀（第 {frame} 幀）找不到{why}")
-            res["boxes"].setdefault(frame, None)
-            return t["box"]
-        got = f.picked.box
-        res["boxes"][frame] = got
-        gx, gy = _center(got)
-        # `拾取檢查`的唯一: 照這一步的找圖目標 (限定範圍、比色、挑選規則豁免) 查
-        for w in pickcheck.unique(self.detector, self.frames[frame], (0, 0), target,
-                                  anchor=None, scale=1.0, origin=origin):
-            res["reasons"].append(f"步驟 {no} 唯一：{w.text}")
-        if "at" in step:
-            if abs(step["at"][0] - gx) > got[2] or abs(step["at"][1] - gy) > got[3]:
+        size = self.sizes[name]
+        if frame not in self.frames:
+            raise ToolError(f"工具錯誤：第 {frame} 幀沒有讀進來")
+        box = fallback_box
+        picked = None
+        if name in self._registered:
+            if name not in self.templates:   # 引用的既有範本: 在它第一次被用的那一幀查縮放餘裕
+                self._check_scale(name, frame, bool(tgt.get("color")))
+            f = findtarget.find(tgt, self.detector, self.frames[frame], (0, 0),
+                                origin=origin, scale=1.0)
+            if f.picked is None:
+                why = {"count": f"（挑選規則挑不到：只有 {len(f.matches)} 個匹配）"}.get(
+                    f.reason, "")
+                res["reasons"].append(f"{label}（第 {frame} 幀）找不到{why}")
+                res["boxes"].setdefault(frame, None)
+            else:
+                picked = box = f.picked.box
+                res["boxes"][frame] = box
+                gx, gy = _center(box)
+                if at is not None:
+                    if abs(at[0] - gx) > box[2] or abs(at[1] - gy) > box[3]:
+                        res["reasons"].append(
+                            f"位置不符（{label}，第 {frame} 幀：點擊位置 {at[0]},{at[1]} "
+                            f"離挑中的框 {gx},{gy} 太遠）")
+                elif (name in self.templates and frame == self.templates[name]["frame"]
+                      and fallback_box is not None):
+                    want = _center(fallback_box)
+                    if math.dist((gx, gy), want) > position_tolerance(fallback_box):
+                        res["reasons"].append(
+                            f"位置不符（{label}，第 {frame} 幀：挑中的是 {gx},{gy}，"
+                            f"不是取材的 {want[0]},{want[1]}）")
+        if box is None:
+            box = (0, 0, size[0], size[1])
+        within, clipped = fixed_rect(box, self.size, self.anchor, scroll)
+        full = dict(tgt, within=within)
+        for w in pickcheck.rect_margin(full, size):
+            if not clipped:
+                raise ToolError(f"工具錯誤：{label} 的固定矩形沒過矩形餘裕：{w.text}")
+        if picked is not None:
+            f2 = findtarget.find(full, self.detector, self.frames[frame], (0, 0),
+                                 origin=origin, scale=1.0, anchor=self.anchor)
+            if (f2.picked is None or math.dist(_center(f2.picked.box), _center(picked))
+                    > position_tolerance(picked)):
                 res["reasons"].append(
-                    f"位置不符（步驟 {no} 第 {frame} 幀：點擊位置 "
-                    f"{step['at'][0]},{step['at'][1]} 離挑中的框 {gx},{gy} 太遠）")
-        elif frame == t["frame"]:
-            want = _center(t["box"])
-            if ((gx - want[0]) ** 2 + (gy - want[1]) ** 2) ** 0.5 \
-                    > position_tolerance(t["box"]):
-                res["reasons"].append(
-                    f"位置不符（步驟 {no} 第 {frame} 幀：挑中的是 {gx},{gy}，"
-                    f"不是取材的 {want[0]},{want[1]}）")
-        return got
+                    f"加上固定矩形後挑到的不是同一個（{label}，第 {frame} 幀）")
+            for w in pickcheck.unique(self.detector, self.frames[frame], (0, 0), full,
+                                      anchor=self.anchor, scale=1.0, origin=origin):
+                res["reasons"].append(f"唯一（{label}，第 {frame} 幀）：{w.text}")
+        return box, within
 
     def finish(self):
-        """原點推算 (逐步 locate) 跑完後的最終結果 (原因去重、保序)."""
+        """全部驗證跑完後的最終結果 (原因去重、保序)."""
         for res in self.results.values():
             res["reasons"] = list(dict.fromkeys(res["reasons"]))
         return self.results
@@ -232,14 +255,15 @@ RETAKE_ADVICE = {
     "找不到乾淨影格": "在遊戲裡停在這個畫面、游標移開後，用編輯器的範本面板重新拾取",
     "縮放餘裕": "範本在縮放後貼近門檻（視窗模式／最大化會縮放畫面）；重截或裁小：框按鈕本體、"
              "避開會變的數字與透出的背景，或換一幀",
-    "唯一": "畫面上有多個同款：這張圖不能當參考點；加限定範圍（以原點為基準）、換一張畫面上唯一"
-          "的圖當參考點，或設挑選規則（第 N 個／最接近指定點）",
+    "唯一": "固定矩形裡有多個同款：這張圖不能當參考點；換一張畫面上唯一的圖當參考點，"
+          "或設挑選規則（第 N 個／最接近指定點）",
     "出現前就匹配": "範本框到了畫面上本來就有的東西；重新框只屬於這個按鈕的部分（文字、圖示）；"
                "只差顏色時開比色",
     "位置不符": "畫面上可能有長得一樣的東西；框大一點把周邊有辨識度的部分包進來，"
-            "或用挑選規則／限定範圍指定是哪一個",
+            "或用挑選規則指定是哪一個",
+    "加上固定矩形後": "框附近有同款圖；換一張唯一的圖或設挑選規則",
     "找不到": "範本可能框到空白處或被游標/特效污染；換一幀或重新框按鈕本體；"
-           "有設限定範圍或挑選規則時確認設定",
+           "有設挑選規則時確認設定",
     "引擎無法登錄": "範本沒有可辨識的結構（純色）；改框有文字或圖示的地方",
 }
 

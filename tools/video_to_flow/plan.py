@@ -1,101 +1,96 @@
-"""`轉換計畫`: Claude 寫、組裝讀的 JSON 介面 (不是領域詞彙).
+"""`轉換計畫`: Claude 寫、組裝與補充讀的 JSON 介面 (不是領域詞彙; 格式見
+.claude/skills/video-measure/plan-format.md).
 
-    {
-      "video":   "示範影片路徑",
-      "name":    "流程名稱 (流程資料夾名, 撞名自動加序號)",
-      "out":     "輸出位置 (可不寫; 預設 %USERPROFILE%\\AutoClick\\, 命令列 --out 優先)",
-      "templates": {
-        "開始行動": {"frame": 120, "box": [x, y, w, h],
-                     "present": [150, {"frame": 300, "at": [x, y]}],
-                     "absent": [100], "clean": true}
-      },
-      "steps": [
-        {"type": "find_click", "template": "開始行動", "frame": 130, "at": [x, y],
-         "colorCheck": true, "pick": {"kind": "top", "n": 3}},
-        {"type": "click", "at": [x, y]},
-        {"type": "drag", "from": [x, y], "to": [x, y]},
-        {"type": "loop_start", "count": 5}, ..., {"type": "loop_end"}
-      ],
-      "calibration": {"pair": ["左上圖示", "右下按鈕"], "frame": 120,
-                      "fallback": {"pair": ["標題列圖示", "關閉鈕"]}},
-      "busyTarget": {"template": "提交中", "colorCheck": true},
-      "report": {"branches": ["…"], "unexplained": ["…"], "keys": ["…"]}
-    }
+步驟的鍵跟 flow.yaml 一樣 (開頭鍵即動作、秒、`on_fail`、`busy_check`、`repeat`/`branch`
+巢狀, 見 docs/flow-format.md), 由 app 的 `flowfile.parse_steps` 驗證與補齊——工具不帶
+自己的鍵表與預設。跟 flow.yaml 只差兩樣:
 
-步驟用流程既有的步驟種類與欄位詞彙; 位置一律寫**影片像素的畫面位置**
-(`at` / `from` / `to`), 不寫偏移、不寫相對座標——那由組裝依`原點`規則推算。
-`frame` 是「這一步在影片裡看的是哪一幀」: 找圖步驟在這一幀上照它的`找圖目標`
-實際挑到範本框 (預設＝範本的取材幀)。偏移欄位 (offsetX/Y、x/y、x1…y2) 由組裝產生,
-計畫寫了就報錯。
+- 位置是**影片像素的畫面位置**: `click` 的值、`drag` 的值與 `to`、找圖的 `at`、
+  `pick: {near: [x, y]}`; 偏移由工具依`原點`規則算, 不寫 `offset`。
+- 影片證據: 步驟的 `frame`、找圖的 `scroll` (捲動軸)、`confirm: {appear, frame}`;
+  `within` 不寫 (`固定矩形`由工具從影格上挑中的框算)。
 
-找圖步驟 (與確認圖 `confirmTarget`) 的`找圖目標`屬性: `colorCheck` (比色)、
-`pick` (挑選規則: {kind: top/left, n} 或 {kind: near, at: [x, y]})。指定點寫影片
-像素的畫面位置, 組裝依該步的`原點`換成相對值 (確認圖用點擊後的原點)。工具不產出
-限定範圍 (`固定矩形`相對`座標基準點`, 影片轉流程階段才會產; 以原點為基準的矩形已退場)。
-`confirmTemplate` 是只有範本的確認圖簡寫。
-
-已退場的寫法 (ADR 0014) 一律報錯: 按鍵步驟、限定範圍 (limit)、出現等候上限
-(appearLimitMs)、非左鍵 (button)、連點 (clicks); 寫預設值 (左鍵、1 下) 的照收。
-
-`calibration` 指名這份流程的`校準對` (兩個計畫裡的範本: 遊戲畫面內相距夠遠的兩張
-固定圖) 與量基準距離的那一幀 (預設＝第一張的取材幀)。影片尺度就是流程尺度
-(ADR 0009): 組裝在那一幀上量兩張的中心距離當`基準距離`。沒寫＝產出的流程沒有
-校準對, 不能執行 (交付報告會寫明)。可選的 `fallback` 指名`備用校準對` (例: 標題列
-圖示＋關閉鈕, 任何畫面都在): 組裝在同一幀上量它的基準距離與「備用第一張中心 →
-座標基準點」的偏移 (ADR 0013); 量不到＝流程不帶備用對, 報告寫明。
-
-`生效確認` (ADR 0008): 座標點擊與拖曳也可寫 confirm (gone＝`原點的圖離開`、
-appear、next) 與 confirmTemplate/confirmTarget、timeout、interval、onNotFound;
-流程層級的`忙碌指示` (busyTarget: 範本＋比色, 不限定範圍)。`補做間隔`是固定行為
-(1 秒), 計畫寫 retryIntervalMs 會報錯。
+`load` 回傳 `Plan`: steps 是記憶體的完整步驟 (平面標記, 位置仍是影片像素), evidence 是
+同一索引的影片證據。任何錯誤丟 `ToolError`, 都在寫檔之前。
 """
 from __future__ import annotations
 
 import json
 import os
+from dataclasses import dataclass, field
 
 import flowfile
-from automation import flowdefaults
-from automation.runner import (POINTER_TYPES, confirm_next_connected,
-                               origin_source, uses_confirm_next)
+from automation import findtarget, flowcheck
 
-from . import keys, origin
 from .errors import ToolError
 
+ASSEMBLE, INSERT = "assemble", "insert"
 
-# 計畫專用的位置詞彙 (影片像素), 由組裝換成存檔的偏移欄位
-_POS_KEYS = {"frame", "at", "from", "to"}
-
-# 每種步驟允許的欄位 (流程既有詞彙 + 位置詞彙); type 另計
-STEP_FIELDS = {
-    "find_click": {"template", "frame", "at", "action",
-                   "timeout", "interval", "onNotFound", "confirm",
-                   "confirmTemplate", "confirmTarget", "updateOrigin",
-                   "colorCheck", "pick"},
-    "click": {"at", "frame", "updateOrigin", "confirm",
-              "confirmTemplate", "confirmTarget", "timeout", "interval",
-              "onNotFound"},
-    "drag": {"from", "to", "frame", "ms", "holdMs", "confirm",
-             "confirmTemplate", "confirmTarget", "timeout", "interval",
-             "onNotFound"},
-    "wait": {"ms"},
-    "loop_start": {"count"},
-    "loop_end": {"onBreak"},
-    "branch_start": set(),
-    "branch_or": set(),
-    "branch_end": {"onBreak"},
-}
-
-ENUMS = {
-    "action": ("click", "none", "wait_gone"),
-    "onNotFound": ("skip", "break", "stop"),
-    "confirm": ("none", "gone", "appear", "next"),
-    "onBreak": ("continue", "break"),
-}
-
-_NUMBERS = {"timeout", "interval", "ms", "holdMs", "count", "frame"}
-
+_TOP = {ASSEMBLE: {"video", "name", "out", "templates", "steps", "calibration",
+                   "busy", "report"},
+        INSERT: {"video", "templates", "steps", "report", "after", "into", "expect",
+                 "scale_image"}}
+_HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "repeat",
+          "branch")
 TEMPLATE_FIELDS = {"frame", "box", "present", "absent", "clean"}
+SCROLL = ("vertical", "horizontal")
+
+_RETIRED_TOP = {
+    "busyTarget": "改寫 busy（{template, color, pick, frame}）",
+    "retryIntervalMs": "補做間隔已退場成固定行為（1 秒），計畫不要寫",
+    "profile": "profile 已退場（ADR 0015）：流程輸出成資料夾，位置寫 out（或命令列 --out）",
+    "reportPath": "交付報告一律寫在流程資料夾的 交付報告/，計畫不要寫 reportPath",
+}
+_NO_TYPED_SCALE = ("scale", "ratio", "video_scale")
+
+_RETIRED_STEP = {
+    "type": "步驟改用開頭鍵即動作（find_click / find / wait_gone / click / drag / wait / "
+            "repeat / branch），不寫 type",
+    "action": "找圖三態改用開頭鍵：find_click（點）、find（不點）、wait_gone（等消失）",
+    "template": "範本名寫在開頭鍵的值（例 {\"find_click\": \"開始\"}）",
+    "colorCheck": "改寫 color: true",
+    "onNotFound": "改寫 on_fail（skip / break；不寫＝stop）",
+    "updateOrigin": "改寫 update_origin",
+    "busyCheck": "改寫 busy_check",
+    "onBreak": "改寫 on_break",
+    "confirmTemplate": "改寫 confirm: {appear: 範本名}",
+    "confirmTarget": "改寫 confirm: {appear: 範本名, color, pick}",
+    "ms": "時間一律秒：等待寫 wait: 秒、拖曳寫 duration: 秒",
+    "holdMs": "改寫 hold: 秒",
+    "count": "重複改寫 {\"repeat\": N, \"steps\": [...]}",
+    "loop_start": "重複改寫 {\"repeat\": N, \"steps\": [...]}",
+    "limit": "限定範圍（以原點為基準的矩形）已退場；固定矩形由工具算",
+    "appearLimitMs": "出現等候上限已退場（ADR 0014）：要等遊戲忙完，改在送出輸入的那一步勾 "
+                     "busy_check",
+    "button": "滑鼠鍵已退場：只剩左鍵",
+    "clicks": "連點已退場：一步點一下",
+    "key": "按鍵步驟已退場：流程不支援按鍵；影片裡看得到的按鍵效果寫進 report.unexplained",
+    "keys": "按鍵步驟已退場：流程不支援按鍵；影片裡看得到的按鍵效果寫進 report.unexplained",
+    "within": "不寫：固定矩形由工具從這一步那一幀上挑中的框算（每邊外推範本寬高的 50%）",
+    "offset": "不寫：位置寫影片像素的畫面位置（找圖寫 at），偏移由工具依原點算",
+}
+for _k in ("x", "y", "x1", "y1", "x2", "y2", "offsetX", "offsetY", "mode"):
+    _RETIRED_STEP[_k] = ("位置一律寫影片像素的畫面位置（click 的值、drag 的值與 to、"
+                         "找圖的 at），偏移由工具算")
+
+
+@dataclass
+class Plan:
+    mode: str
+    video: str
+    templates: dict
+    steps: list                 # 記憶體的完整步驟 (平面), 位置是影片像素
+    evidence: list              # 與 steps 同索引: {frame, at, scroll, confirm_frame} 或 None
+    report: dict
+    name: str = ""
+    out: str | None = None
+    calibration: dict | None = None
+    busy: dict | None = None    # 記憶體的找圖目標 (無 within) ＋ "frame"
+    after: int | None = None
+    into: int | None = None
+    expect: dict | None = None
+    scale_image: str | None = None
+    base: str = field(default_factory=os.getcwd)
 
 
 def _err(where, msg):
@@ -116,107 +111,68 @@ def _frame(where, v):
     return v
 
 
-_TARGET_ATTRS = {"colorCheck", "pick"}
-
-
-def _retired(where, s):
-    """已退場的計畫寫法 (ADR 0014) 一律報錯; 寫預設值的滑鼠鍵與連點數照收 (拿掉)."""
-    if s.get("type") == "key":
-        _err(where, "按鍵步驟已退場（ADR 0014）：流程不支援按鍵，請改用點擊；"
-             "影片裡看不到的按鍵寫進 report.keys")
-    if "appearLimitMs" in s:
-        _err(where, "出現等候上限（appearLimitMs）已退場（ADR 0014）："
-             "要等遊戲忙完，改在送出輸入的那一步勾忙碌檢查")
-    for d, what in ((s, ""), (s.get("confirmTarget"), "確認圖的")):
-        if isinstance(d, dict) and "limit" in d:
-            _err(where, f"{what}以原點為基準的限定範圍（limit）已退場（ADR 0014）；"
-                 "影片轉流程階段改產固定矩形，現在先不寫限定範圍")
-    if s.get("button", "left") != "left":
-        _err(where, f"滑鼠鍵只剩左鍵（button 已退場，ADR 0014），收到 {s['button']!r}")
-    if s.get("clicks", 1) != 1:
-        _err(where, f"連點已退場（clicks，ADR 0014）：一步點一下，收到 {s['clicks']!r}")
-    s.pop("button", None)
-    s.pop("clicks", None)
-
-
-def _target_attrs(where, d):
-    """驗證並正規化找圖目標的屬性 (比色、挑選規則), 就地改寫 d."""
-    if "colorCheck" in d and not isinstance(d["colorCheck"], bool):
-        _err(where, f"colorCheck 要是 true/false，收到 {d['colorCheck']!r}")
-    if "pick" in d:
-        p = d["pick"]
-        kind = p.get("kind") if isinstance(p, dict) else None
-        if kind not in ("top", "left", "near"):
-            _err(where, "pick（挑選規則）的 kind 只能是 top（由上到下第 N 個）、"
-                 f"left（由左到右第 N 個）、near（最接近指定點），收到 {p!r}")
-        if kind in ("top", "left"):
-            if set(p) - {"kind", "n"}:
-                _err(where, f"pick 的 {kind} 只有 n 欄位，收到 {p!r}")
-            n = p.get("n")
-            if not isinstance(n, int) or isinstance(n, bool) or n < 1:
-                _err(where, f"pick 的第 N 個（n）要是從 1 起算的整數，收到 {n!r}")
-            d["pick"] = {"kind": kind, "n": n}
-        else:
-            if set(p) - {"kind", "at"} or "at" not in p:
-                _err(where, "pick 的 near 只寫 at（影片像素的指定點畫面位置，組裝換成"
-                     f"相對原點的偏移；沒有以搜尋範圍為基準這回事），收到 {p!r}")
-            d["pick"] = {"kind": "near", "at": _xy(where + " pick.at", p["at"])}
-
-
-def load(plan):
-    """讀計畫 (dict 或 JSON 檔路徑) 並驗證詞彙; 回傳正規化後的 dict.
-
-    計畫檔裡的相對路徑以計畫檔所在目錄為準。結構檢查 (區段成對、範本存在、
-    `找圖相連`…) 也在這裡做——任何組裝動作之前就擋下。
-    """
-    base = os.getcwd()
-    if not isinstance(plan, dict):
-        path = str(plan)
-        try:
-            with open(path, encoding="utf-8") as f:
-                plan = json.load(f)
-        except OSError as e:
-            raise ToolError(f"讀不到轉換計畫：{path}（{e}）") from None
-        except ValueError as e:
-            raise ToolError(f"轉換計畫不是合法的 JSON：{path}（{e}）") from None
-        base = os.path.dirname(os.path.abspath(path))
-    if not isinstance(plan, dict):
+def read(plan):
+    """計畫 (dict 或 JSON 檔路徑) → (dict, 相對路徑的基準目錄)."""
+    if isinstance(plan, dict):
+        return plan, os.getcwd()
+    path = str(plan)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except OSError as e:
+        raise ToolError(f"讀不到轉換計畫：{path}（{e}）") from None
+    except ValueError as e:
+        raise ToolError(f"轉換計畫不是合法的 JSON：{path}（{e}）") from None
+    if not isinstance(data, dict):
         raise ToolError("轉換計畫的最外層要是 JSON 物件")
+    return data, os.path.dirname(os.path.abspath(path))
 
-    known = {"video", "name", "out", "templates", "steps", "report", "calibration",
-             "busyTarget"}
-    if "retryIntervalMs" in plan:
-        _err("retryIntervalMs", "補做間隔已退場成固定行為（1 秒，不再是設定），計畫不要寫")
-    if "profile" in plan:
-        _err("profile", "profile 已退場（ADR 0015）：流程輸出成資料夾，位置寫 out"
-             "（或命令列 --out），預設 %USERPROFILE%\\AutoClick\\")
-    if "reportPath" in plan:
-        _err("reportPath", "交付報告一律寫在流程資料夾裡（交付報告.md），計畫不要寫 reportPath")
-    extra = sorted(set(plan) - known)
+
+def load(plan, mode=ASSEMBLE):
+    """讀計畫並驗證; 回傳 `Plan`. 相對路徑以計畫檔所在目錄為準."""
+    raw, base = read(plan)
+    for k, why in _RETIRED_TOP.items():
+        if k in raw:
+            _err(k, why)
+    for k in _NO_TYPED_SCALE:
+        if k in raw:
+            _err(k, "不收手打的倍率：影片倍率一律量出來（影片量不到校準對時，給 scale_image："
+                 "跟影片同取景、同視窗大小的一張圖片）")
+    if mode == INSERT:
+        for k in ("calibration", "busy", "name", "out"):
+            if k in raw:
+                _err(k, "補充一律沿用既有流程的校準對、忙碌指示、名稱與位置，計畫不要寫")
+    extra = sorted(set(raw) - _TOP[mode])
     if extra:
         _err("最外層", f"不認得的欄位 {', '.join(extra)}")
-    for key in ("video", "name"):
-        if not isinstance(plan.get(key), str) or not plan[key].strip():
-            _err(key, "必填（字串）")
+    if not isinstance(raw.get("video"), str) or not raw["video"].strip():
+        _err("video", "必填（字串）")
 
     def resolve(p):
         return p if os.path.isabs(p) else os.path.normpath(os.path.join(base, p))
 
-    name = flowfile.clean_name(plan["name"])
-    if not name:
-        _err("name", "清不出可用的檔名")
-    out = {
-        "video": resolve(plan["video"]),
-        "out": resolve(plan["out"]) if plan.get("out") else None,
-        "name": name,
-        "templates": _templates(plan.get("templates")),
-        "report": _report(plan.get("report")),
-    }
-    out["steps"] = _steps(plan.get("steps"), out["templates"])
-    out["calibration"] = _calibration(plan.get("calibration"), out["templates"])
-    out["busy"] = _busy(plan.get("busyTarget"), out["templates"])
-    origin.derive(out["steps"], out["templates"], None)  # 相對座標前要有原點
-    return out
+    templates = _templates(raw.get("templates", {} if mode == INSERT else None))
+    steps, evidence = _steps(raw.get("steps"))
+    p = Plan(mode, resolve(raw["video"]), templates, steps, evidence,
+             _report(raw.get("report")), base=base)
+    if mode == ASSEMBLE:
+        if not isinstance(raw.get("name"), str) or not raw["name"].strip():
+            _err("name", "必填（字串）")
+        p.name = flowfile.clean_name(raw["name"])
+        if not p.name:
+            _err("name", "清不出可用的檔名")
+        p.out = resolve(raw["out"]) if raw.get("out") else None
+        p.calibration = _calibration(raw.get("calibration"), templates)
+        p.busy = _busy(raw.get("busy"), templates)
+        _references(p, set(templates))
+        precheck(p.steps, p.busy)
+    else:
+        _insert_point(p, raw)
+        if raw.get("scale_image") is not None:
+            if not isinstance(raw["scale_image"], str) or not raw["scale_image"].strip():
+                _err("scale_image", "要是圖片路徑（字串）")
+            p.scale_image = resolve(raw["scale_image"])
+    return p
 
 
 def _templates(raw):
@@ -225,8 +181,6 @@ def _templates(raw):
     out = {}
     for name, t in raw.items():
         where = f"範本「{name}」"
-        if flowfile.clean_name(name) != name or not name:
-            _err(where, "範本名要是平面名稱（不能有 / \\ : * ? \" < > | 或前後的 .）")
         problem = flowfile.template_name_problem(name)
         if problem:
             _err(where, problem)
@@ -244,15 +198,15 @@ def _templates(raw):
                 or b[2] <= 0 or b[3] <= 0):
             _err(where, f"box 要寫成 [x, y, w, h] 整數且寬高 > 0，收到 {b!r}")
         present = []
-        for p in t.get("present") or []:
-            if isinstance(p, dict):
-                if set(p) - {"frame", "at"} or "frame" not in p:
-                    _err(where, f"present 的項目要是影格編號或 {{frame, at}}，收到 {p!r}")
-                present.append({"frame": _frame(where + " present", p["frame"]),
-                                "at": _xy(where + " present.at", p["at"])
-                                if "at" in p else None})
+        for pr in t.get("present") or []:
+            if isinstance(pr, dict):
+                if set(pr) - {"frame", "at"} or "frame" not in pr:
+                    _err(where, f"present 的項目要是影格編號或 {{frame, at}}，收到 {pr!r}")
+                present.append({"frame": _frame(where + " present", pr["frame"]),
+                                "at": _xy(where + " present.at", pr["at"])
+                                if "at" in pr else None})
             else:
-                present.append({"frame": _frame(where + " present", p), "at": None})
+                present.append({"frame": _frame(where + " present", pr), "at": None})
         absent = [_frame(where + " absent", a) for a in t.get("absent") or []]
         clean = t.get("clean", True)
         if not isinstance(clean, bool):
@@ -261,6 +215,153 @@ def _templates(raw):
                      "present": present, "absent": absent, "clean": clean}
     return out
 
+
+# ---------- 步驟 ----------
+
+def _retired(no, item):
+    where = f"步驟 {no}"
+    for k in item:
+        if k in _RETIRED_STEP:
+            _err(where, f"{k}：{_RETIRED_STEP[k]}")
+    for k in ("timeout", "wait"):
+        v = item.get(k)
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 100:
+            _err(where, f"{k} 是秒（舊計畫的毫秒已改成秒），收到 {v!r}")
+
+
+def _strip(no, head, item):
+    """拿掉計畫專用的影片證據欄位; 回傳 (證據, 給 flowfile 驗證的一步)."""
+    where = f"步驟 {no}"
+    item = dict(item)
+    ev = {"frame": None, "at": None, "scroll": None, "confirm_frame": None}
+    if "frame" in item:
+        ev["frame"] = _frame(where + " frame", item.pop("frame"))
+    if "at" in item:
+        if head not in findtarget.FIND_TYPES:
+            _err(where, "at 只用在找圖（點擊或原點的位置）；座標點擊的位置寫在 click 的值、"
+                 "拖曳寫在 drag 與 to")
+        ev["at"] = _xy(where + " at", item.pop("at"))
+    if "scroll" in item:
+        if head not in findtarget.FIND_TYPES:
+            _err(where, "scroll（捲動軸）只用在找圖步驟")
+        if item["scroll"] not in SCROLL:
+            _err(where, f"scroll 只能是 vertical（直向）或 horizontal（橫向），"
+                 f"收到 {item['scroll']!r}")
+        ev["scroll"] = item.pop("scroll")
+    c = item.get("confirm")
+    if isinstance(c, dict):
+        c = dict(c)
+        if "within" in c:
+            _err(where, "confirm 的 within 不寫：確認圖的固定矩形由工具算")
+        if "frame" in c:
+            ev["confirm_frame"] = _frame(where + " confirm.frame", c.pop("frame"))
+        item["confirm"] = c
+    for k in ("click", "drag", "to"):
+        if k in item:
+            item[k] = _xy(f"{where} {k}", item[k])
+    pick = item.get("pick")
+    if isinstance(pick, dict) and list(pick) == ["near"]:   # 其他寫法交給 flowfile 報錯
+        item["pick"] = {"near": _xy(where + " pick.near", pick["near"])}
+    if isinstance(c, dict) and isinstance(c.get("pick"), dict) and list(c["pick"]) == ["near"]:
+        c["pick"] = {"near": _xy(where + " confirm.pick.near", c["pick"]["near"])}
+    return ev, item
+
+
+def _walk(items, ev):
+    """計畫的巢狀步驟 → (去掉證據的巢狀步驟, 平面證據清單); 平面順序跟
+    flowfile 的平面標記一致 (repeat: 開頭/內容/結尾; branch: 開頭/各分支以「或」隔開/結尾)."""
+    if not isinstance(items, list):
+        return items
+    out = []
+    for item in items:
+        no = len(ev) + 1
+        if not isinstance(item, dict):
+            out.append(item)
+            continue
+        _retired(no, item)
+        heads = [k for k in item if k in _HEADS]
+        if len(heads) != 1:
+            out.append(item)   # flowfile 會指名報錯
+            continue
+        head = heads[0]
+        if head == "repeat":
+            ev.append(None)
+            body = _walk(item.get("steps"), ev)
+            ev.append(None)
+            out.append(dict(item, steps=body) if "steps" in item else item)
+        elif head == "branch":
+            ev.append(None)
+            arms = item["branch"]
+            if isinstance(arms, list):
+                new = []
+                for k, arm in enumerate(arms):
+                    if k:
+                        ev.append(None)
+                    if not isinstance(arm, dict) or not isinstance(arm.get("if"), dict):
+                        new.append(arm)
+                        continue
+                    cond = _walk([arm["if"]], ev)[0]
+                    then = _walk(arm.get("then") or [], ev)
+                    new.append(dict(arm, **{"if": cond},
+                                    **({"then": then} if "then" in arm else {})))
+                arms = new
+            ev.append(None)
+            out.append(dict(item, branch=arms))
+        else:
+            e, stripped = _strip(no, head, item)
+            ev.append(e)
+            out.append(stripped)
+    return out
+
+
+def _steps(raw):
+    if not isinstance(raw, list) or not raw:
+        _err("steps", "要是非空的步驟清單")
+    ev = []
+    stripped = _walk(raw, ev)
+    try:
+        steps = flowfile.parse_steps(stripped)
+    except flowfile.FlowError as e:
+        raise ToolError(f"轉換計畫有誤：{e}") from None
+    if len(steps) != len(ev):   # 防呆: 兩邊攤平的順序不一致＝工具的 bug
+        raise ToolError(f"工具錯誤：計畫攤平後 {len(ev)} 步，flowfile 讀成 {len(steps)} 步")
+    return steps, ev
+
+
+def _references(p, known):
+    """步驟與確認圖引用的範本都要在 known 裡 (組裝: 計畫的範本; 補充: 加上既有流程的)."""
+    for i, s in enumerate(p.steps):
+        if findtarget.is_find(s) and findtarget.template(s) not in known:
+            _err(f"步驟 {i + 1}", f"引用的範本「{findtarget.template(s)}」不在計畫的範本清單裡")
+        if findtarget.uses_confirm_target(s) and findtarget.confirm_template(s) not in known:
+            _err(f"步驟 {i + 1}", f"確認圖「{findtarget.confirm_template(s)}」不在計畫的範本清單裡")
+
+
+def precheck(steps, busy):
+    """app 執行前一定會擋、而且只看步驟種類的那幾項 (找圖相連、原點的圖離開的原點、忙碌檢查
+    沒有忙碌指示), 在任何量測之前先擋; 相對座標前有沒有原點由原點推算擋 (懂區段)."""
+    errs = []
+    bad = flowcheck.confirm_next_bad(steps)
+    if bad:
+        errs.append(f"步驟 {bad[0] + 1}：「點到下一步的圖出現」（confirm: next）需要下一步緊接著"
+                    "是找圖步驟（不能是最後一步或區段標記）")
+    bad = flowcheck.origin_leaves_bad(steps)
+    if bad:
+        errs.append(f"步驟 {bad[0] + 1}：「原點的圖離開」（confirm: gone）需要原點來自找圖："
+                    "前面最近一個更新原點的步驟要是找圖")
+    bad = flowcheck.busy_check_bad(steps, busy)
+    if bad:
+        errs.append(f"步驟 {bad[0] + 1}：勾了 busy_check，但沒有忙碌指示（busy）")
+    if errs:
+        raise ToolError("轉換計畫有誤：" + "；".join(errs))
+
+
+def check_references(p, existing=()):
+    """補充: 引用的範本要在計畫的範本或既有流程裡."""
+    _references(p, set(p.templates) | set(existing))
+
+
+# ---------- 流程層級 ----------
 
 def _pair(where, pair, templates, what):
     if (not isinstance(pair, list) or len(pair) != 2
@@ -273,10 +374,10 @@ def _pair(where, pair, templates, what):
 
 
 def _calibration(raw, templates):
-    """`校準對`: {"pair": [兩個範本名], "frame": 量測幀, "fallback": {"pair": [...]}};
-    沒寫回傳 None; fallback (備用校準對) 沒寫＝None."""
+    """`校準對`（新流程必填）: {"pair": [兩個範本名], "frame": 量測幀, "fallback": {"pair"}}."""
     if raw is None:
-        return None
+        _err("calibration", "新流程必須有校準對：{\"pair\": [兩張遊戲畫面內相距夠遠的固定圖], "
+             "\"frame\": 兩張都在的那一幀}（標題列圖示＋關閉鈕放 fallback）")
     where = "calibration"
     if not isinstance(raw, dict) or set(raw) - {"pair", "frame", "fallback"}:
         _err(where, f"要是 {{pair, frame, fallback}} 物件，收到 {raw!r}")
@@ -296,34 +397,40 @@ def _calibration(raw, templates):
 
 
 def _busy(raw, templates):
-    """`忙碌指示`: {template, colorCheck}; 沒寫回傳 None.
-
-    忙碌指示在補做前查, 沒有可依靠的原點——工具不產出它的限定範圍 (`固定矩形`相對
-    `座標基準點`, 請在 app 的找圖設定裡框)。
-    """
+    """`忙碌指示`: {template, color, pick, frame}; frame＝它出現的證據影格 (預設＝取材幀)."""
     if raw is None:
         return None
-    where = "busyTarget"
-    if not isinstance(raw, dict) or set(raw) - {"template", "colorCheck", "limit"}:
-        _err(where, f"要是 {{template, colorCheck}} 物件，收到 {raw!r}")
-    if raw.get("template") not in templates:
-        _err(where, f"忙碌指示的範本「{raw.get('template')}」不在計畫的範本清單裡")
+    where = "busy"
+    if not isinstance(raw, dict):
+        _err(where, f"要是 {{template, color, pick, frame}} 物件，收到 {raw!r}")
     d = dict(raw)
-    if "limit" in d:
-        _err(where, "忙碌指示不寫限定範圍（沒有原點可依靠；固定矩形請在 app 的找圖設定裡框）")
-    _target_attrs(where, d)
-    return d
+    if "within" in d:
+        _err(where, "within 不寫：忙碌指示的固定矩形由工具從證據影格上的位置算")
+    frame = _frame(where + " frame", d.pop("frame")) if "frame" in d else None
+    try:
+        tgt = flowfile.parse_target(where, d)
+    except flowfile.FlowError as e:
+        raise ToolError(f"轉換計畫有誤：{e}") from None
+    if findtarget.needs_origin(tgt):
+        _err(where, "忙碌指示沒有原點可依靠，pick 不能用 near")
+    if tgt["template"] not in templates:
+        _err(where, f"忙碌指示的範本「{tgt['template']}」不在計畫的範本清單裡")
+    tgt["frame"] = frame if frame is not None else templates[tgt["template"]]["frame"]
+    return tgt
 
 
 def _report(raw):
     raw = raw or {}
     if not isinstance(raw, dict):
         _err("report", "要是物件")
-    extra = sorted(set(raw) - {"branches", "unexplained", "keys", "notes"})
+    if "keys" in raw:
+        _err("report.keys", "「口頭補充的按鍵」一節已刪：流程不支援按鍵；影片裡按鍵造成的畫面變化"
+             "寫進 report.unexplained（報告會請使用者改用點擊）")
+    extra = sorted(set(raw) - {"branches", "unexplained", "notes"})
     if extra:
         _err("report", f"不認得的欄位 {', '.join(extra)}")
     out = {}
-    for k in ("branches", "unexplained", "keys", "notes"):
+    for k in ("branches", "unexplained", "notes"):
         v = raw.get(k) or []
         if not isinstance(v, list) or not all(isinstance(s, str) for s in v):
             _err(f"report.{k}", "要是字串清單")
@@ -331,151 +438,21 @@ def _report(raw):
     return out
 
 
-def _steps(raw, templates):
-    if not isinstance(raw, list) or not raw:
-        _err("steps", "要是非空的步驟清單")
-    out = []
-    for i, s in enumerate(raw):
-        where = f"步驟 {i + 1}"
-        if not isinstance(s, dict):
-            _err(where, "要是物件")
-        s = dict(s)
-        _retired(where, s)
-        t = s.get("type")
-        if t not in STEP_FIELDS:
-            _err(where, f"不認得的步驟種類 {t!r}"
-                 f"（可用：{', '.join(STEP_FIELDS)}）")
-        extra = sorted(set(s) - STEP_FIELDS[t] - {"type"})
-        if extra:
-            hint = ""
-            if set(extra) & {"x", "y", "x1", "y1", "x2", "y2", "offsetX",
-                             "offsetY", "mode"}:
-                hint = "（位置一律寫影片像素的 at/from/to，偏移由組裝推算）"
-            _err(where, f"「{t}」沒有欄位 {', '.join(extra)}{hint}")
-        for k, choices in ENUMS.items():
-            if k in s and s[k] not in choices:
-                _err(where, f"{k} 只能是 {'/'.join(choices)}，收到 {s[k]!r}")
-        for k in _NUMBERS & set(s):
-            v = s[k]
-            if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
-                _err(where, f"{k} 要是非負數字，收到 {v!r}")
-        if "updateOrigin" in s and not isinstance(s["updateOrigin"], bool):
-            _err(where, "updateOrigin 要是 true/false")
-        if "frame" in s:
-            _frame(where + " frame", s["frame"])
-        if t == "find_click":
-            if s.get("template") not in templates:
-                _err(where, f"引用的範本「{s.get('template')}」不在計畫的範本清單裡")
-            if "at" in s:
-                s["at"] = _xy(where + " at", s["at"])
-            _target_attrs(where, s)
-            if "confirmTarget" in s:
-                if "confirmTemplate" in s:
-                    _err(where, "confirmTemplate 與 confirmTarget 只能擇一"
-                         "（confirmTemplate 是只有範本的確認圖簡寫）")
-                ct = s["confirmTarget"]
-                if not isinstance(ct, dict) or set(ct) - (_TARGET_ATTRS | {"template"}):
-                    _err(where, "confirmTarget 要是 {template, colorCheck, pick}"
-                         f" 物件，收到 {ct!r}")
-                ct = dict(ct)
-                _target_attrs(where + " confirmTarget", ct)
-                s["confirmTarget"] = ct
-            elif s.get("confirmTemplate"):
-                s["confirmTarget"] = {"template": s.pop("confirmTemplate")}
-            else:
-                s.pop("confirmTemplate", None)
-            if s.get("action", "click") != "click" and (
-                    s.get("confirm", "none") != "none" or s.get("confirmTarget")):
-                _err(where, "生效確認 (confirm/confirmTemplate/confirmTarget) 只有"
-                     "動作為點擊的找圖才有意義，不點擊的找圖不要寫")
-            if s.get("confirm") == "appear":
-                cname = (s.get("confirmTarget") or {}).get("template")
-                if cname not in templates:
-                    _err(where, f"確認圖「{cname}」不在計畫的範本清單裡")
-            elif s.get("confirmTarget"):
-                _err(where, "只有 confirm 為 appear 時才能指定確認圖"
-                     "（confirmTemplate/confirmTarget）")
-        if t in POINTER_TYPES:
-            _pointer_confirm(where, s, templates)
-        if t == "click":
-            if "at" not in s:
-                _err(where, "座標點擊要寫 at（影片像素的點擊位置）")
-            s["at"] = _xy(where + " at", s["at"])
-        elif t == "drag":
-            if "from" not in s or "to" not in s:
-                _err(where, "拖曳要寫 from 與 to（影片像素的起訖位置）")
-            s["from"] = _xy(where + " from", s["from"])
-            s["to"] = _xy(where + " to", s["to"])
-        elif t == "loop_start":
-            if not isinstance(s.get("count"), int) or s["count"] < 1:
-                _err(where, "重複開始要寫 count（重複次數，正整數）")
-        out.append(s)
-    _check_sections(out)
-    # 結構檢查用 app 的判斷 (吃流程的完整步驟)
-    flow = [flowdefaults.complete(keys.flow_step(s)) for s in out]
-    for i, s in enumerate(flow):
-        if uses_confirm_next(s) and not confirm_next_connected(flow, i):
-            _err(f"步驟 {i + 1}", "「下一步的圖出現」(confirm: next) 需要「找圖相連」："
-                 "下一步必須緊接著是找圖步驟（不能是最後一步或區段標記）")
-        if (s["type"] in POINTER_TYPES and s.get("confirm") == "gone"
-                and origin_source(flow, i) != "find"):
-            _err(f"步驟 {i + 1}", "「原點的圖離開」(confirm: gone) 需要原點來自找圖："
-                 "前面最近一個更新原點的步驟要是找圖")
-    return out
+# ---------- 補充的插入點 ----------
 
-
-def _pointer_confirm(where, s, templates):
-    """座標點擊/拖曳的`生效確認`欄位 (就地正規化確認圖簡寫)."""
-    if "confirmTarget" in s:
-        if "confirmTemplate" in s:
-            _err(where, "confirmTemplate 與 confirmTarget 只能擇一")
-        ct = s["confirmTarget"]
-        if not isinstance(ct, dict) or set(ct) - (_TARGET_ATTRS | {"template"}):
-            _err(where, "confirmTarget 要是 {template, colorCheck, pick}"
-                 f" 物件，收到 {ct!r}")
-        ct = dict(ct)
-        _target_attrs(where + " confirmTarget", ct)
-        s["confirmTarget"] = ct
-    elif s.get("confirmTemplate"):
-        s["confirmTarget"] = {"template": s.pop("confirmTemplate")}
-    else:
-        s.pop("confirmTemplate", None)
-    mode = s.get("confirm", "none")
-    if mode == "appear":
-        cname = (s.get("confirmTarget") or {}).get("template")
-        if cname not in templates:
-            _err(where, f"確認圖「{cname}」不在計畫的範本清單裡")
-    elif s.get("confirmTarget"):
-        _err(where, "只有 confirm 為 appear 時才能指定確認圖"
-             "（confirmTemplate/confirmTarget）")
-    if mode == "none" and set(s) & {"timeout", "interval", "onNotFound"}:
-        _err(where, "timeout/interval/onNotFound 是生效確認的設定，"
-             "沒寫 confirm 的座標點擊/拖曳不要寫")
-
-
-def _check_sections(steps):
-    """區段標記完整巢狀 (成對、不交錯; 分岔每個分支開頭是找圖)."""
-    stack = []
-    for i, s in enumerate(steps):
-        t = s["type"]
-        where = f"步驟 {i + 1}"
-        if t in ("loop_start", "branch_start"):
-            stack.append((t, i + 1))
-            if t == "branch_start" and (i + 1 >= len(steps)
-                                        or steps[i + 1]["type"] != "find_click"):
-                _err(where, "分岔的每個分支開頭必須是找圖步驟")
-        elif t == "branch_or":
-            if not stack or stack[-1][0] != "branch_start":
-                _err(where, "「分岔（或）」必須直接位於分岔區段內")
-            if i + 1 >= len(steps) or steps[i + 1]["type"] != "find_click":
-                _err(where, "分岔的每個分支開頭必須是找圖步驟")
-        elif t in ("loop_end", "branch_end"):
-            need = "loop_start" if t == "loop_end" else "branch_start"
-            if not stack:
-                _err(where, f"「{t}」缺少對應的開始標記")
-            if stack[-1][0] != need:
-                _err(where, f"區段交錯：要先結束步驟 {stack[-1][1]} 開始的"
-                     f"「{stack[-1][0]}」區段")
-            stack.pop()
-    if stack:
-        _err(f"步驟 {stack[-1][1]}", f"「{stack[-1][0]}」缺少對應的結束標記")
+def _insert_point(p, raw):
+    has_after, has_into = "after" in raw, "into" in raw
+    if has_after == has_into:
+        _err("after/into", "插入點要寫 after: N（插在第 N 步之後、同一層）或 into: N"
+             "（插在重複區段 N 裡最前面），擇一")
+    key = "after" if has_after else "into"
+    n = raw[key]
+    if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+        _err(key, f"要是步驟編號（從 1 起算），收到 {n!r}")
+    setattr(p, key, n)
+    exp = raw.get("expect")
+    if (not isinstance(exp, dict) or len(exp) != 1
+            or next(iter(exp)) not in _HEADS):
+        _err("expect", "要寫第 N 步的開頭鍵＋值（例 {\"find\": \"标题_办公室\"}），工具拿它核對"
+             f"編號沒寫錯，收到 {exp!r}")
+    p.expect = dict(exp)
