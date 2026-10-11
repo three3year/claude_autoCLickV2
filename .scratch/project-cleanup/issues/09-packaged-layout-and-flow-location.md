@@ -62,3 +62,7 @@ dist\AutoClick\                     打包產物，沒有任何使用者資料
   它同時是轉換工具的輸入與過關前的備援（[階段切法與順序](01-phases-and-order.md)）。過關後 memory
   「重新打包前把使用者資料移出 dist」就作廢。
 - 轉換工具的輸出位置與舊 `.md` 的去向由本票定，見[轉換工具規則與驗收](11-converter-rules-and-acceptance.md)。
+
+## Comments
+
+- 2026-10-11（[補充流程規則](13-supplement-flow-rules.md) 解票後）：流程資料夾裡的 `交付報告.md` 改成 `交付報告/` 資料夾（`總覽.md`＋每個頂層區段一份），四份在用流程在影片轉流程＋agent 文件階段內拆好。其餘佈局不變。

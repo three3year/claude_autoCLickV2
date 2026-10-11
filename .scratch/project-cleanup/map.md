@@ -22,7 +22,7 @@ flow.yaml 的具體長相、UI 版面、影片轉流程的新規則、基準集�
 - 四份在用流程的最新實體在打包版 `app/dist/AutoClick/profiles/arknights/flows/`（2026-10-10 14:58），不在 git。
 - torch／DINOv2 不動；引擎只刪 multi_capture 路徑。
 - 解票時機：格式階段之前解 02、04、09、11、12（04 可能回頭要 schema 欄位，所以提前）；
-  10、05、06、07、08 等到各自階段開工前才解——它們建立在格式階段之後的現況上，早解會過期。
+  05、06、07、08、13 等到各自階段開工前才解（影片轉流程＋agent 文件階段等 04、10、13）——它們建立在格式階段之後的現況上，早解會過期。
 
 ## Decisions so far
 
@@ -35,12 +35,14 @@ flow.yaml 的具體長相、UI 版面、影片轉流程的新規則、基準集�
 - [打包版佈局與流程存放位置](issues/09-packaged-layout-and-flow-location.md) — 打包版只剩 exe 兩個＋`_internal\`（部署＝整個換掉）；流程預設 `%USERPROFILE%\AutoClick\<名>\`（避開 OneDrive 的「文件」），`交付報告.md` 住流程資料夾裡；開檔選 `flow.yaml`、不做關聯；本機狀態只記上次流程，與日誌放 `%LOCALAPPDATA%\AutoClick\`（原始碼執行放 repo `.local\`）；引擎參數不另放全域檔；佈局樹與給格式階段的連帶事項在票內
 - [記憶體步驟模型與 yaml 鍵名](issues/12-in-memory-step-model-keys.md) — 鍵名改、形狀留：記憶體欄位跟 flow.yaml 同名同單位，`type`＝開頭鍵（`loop_*`→`repeat_*`、`action` 併入），區段仍平面標記、找圖目標仍子 dict；一張預設表讀檔補齊；tools 經 app 解析與寫檔；格式階段內「刪路徑 → 機械改名 → 預設統一 → 換 yaml」，回歸網在票內（ADR 0014 決策 7）
 - [轉換工具規則與驗收](issues/11-converter-rules-and-acceptance.md) — 一次性腳本放格式階段的 `.scratch`、不進 tools/；自己讀舊 zip、經 app 寫檔與讀回自對；只顧四份實有的欄位（缺值為零，套新預設不改行為）；四份各帶 `engine: {scale_range: [0.6, 1.5]}`（ADR 0015 已修訂）；`.md` 原樣成 `交付報告.md`；輸出已存在就拒絕；舊格式讀寫在格式階段內刪
+- [agent 文件結構：格式規範、寫流程 skill、影片 skill 分工](issues/10-agent-docs-structure.md) — 格式規範唯一一份 `docs/flow-format.md`（欄位、執行語意、常見寫法，pytest 對照防過期）；新 skill `edit-flow` 只改既有流程、不寫猜的座標（找圖 → 錄影補充 → 交給 app；分工後由票 13 修訂）；新增不載引擎的檢查指令；影片 skill 只留影片特有；`app/CLAUDE.md` 的執行語意本階段就搬走；補充流程畢業成新票
+- [補充流程規則](issues/13-supplement-flow-rules.md) — 兩個入口＋共用核心：video-to-flow（新流程）、edit-flow（既有流程，直接改不備份）都呼叫新 skill `video-measure`；在影格量既有校準對得影片倍率、任何支援範圍內的倍率都換算（量不到請使用者給同取景圖片）；插入段自己先定位、`after`/`into: N`＋內容核對、插入後舊步驟原點來源不得改變、範本可引用撞名報錯；交付報告拆成 `交付報告/`（總覽＋每頂層區段一份）；階段 2 驗收改成 add5 補充回早_簡中對照手動版＋另一支獨立重轉
+- [盤點示範影片與驗證產物能給基準集什麼](issues/07-inventory-videos-and-verify-outputs.md) — 四份流程對六支 demo＋add1–5（demo4 變動幀率、demo1 0.5 Mbps 糊）；人工判定的對應只有 quick-place 標註、商店標註、舊計畫（在系統暫存目錄、會被清）、標題取材幀，其餘是自動量的、部分用跳轉讀幀；舊集 52 案例 38 個合成，縮放兩端、色偏、跨集影格裡做不出來，比色／負樣本／忙碌／同款多個做得出來；游標幾乎每格都在，轉場約 2–4/12
 
 ## Not yet specified
 
 - 引擎 API 調整細節：`load_templates` 的 config 由 app 合併內建預設與流程覆蓋後交付；刪 multi_capture 後登錄介面怎麼收斂；
   bench loader 改讀新基準集格式。02（schema）已定，等 08（基準集方法）定了再切票。
-- 補充流程（影片只錄一段、插進既有流程，如 add5）：先確認影片與既有流程同倍率，再沿用既有流程的校準對、決定插入點；工具要不要支援、怎麼支援，影片轉流程階段開工前再看。
 
 ## Out of scope
 

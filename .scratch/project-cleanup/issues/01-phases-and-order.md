@@ -37,3 +37,8 @@ Status: resolved
 
 順序理由：先完成「對 agent 友善」這條線（流程多半由 agent 用影片轉出），再做使用者看得到的 UI；
 引擎內部整理不影響使用者，放後面但可插隊。暖機最先做，因為小、且重新打包後日常版本馬上受惠。
+
+## Comments
+
+- 2026-10-11（[agent 文件結構](10-agent-docs-structure.md) 解票後）：階段 2 另等 [補充流程規則](13-supplement-flow-rules.md)，範圍加上補充模式、`edit-flow` skill、檢查指令、`app/CLAUDE.md` 執行語意搬進格式規範（原屬階段 5）；階段 5 只剩 README 與 `app/CLAUDE.md` 其餘部分。
+- 2026-10-11（[補充流程規則](13-supplement-flow-rules.md) 解票後）：階段 2 驗收改成兩項——① 早_簡中複本刪手動段 124–129、走 edit-flow 用 add5 補充回去，跟手動版比（結構相同、座標差幾像素內、拾取檢查全過、使用者實跑通過）；② 另一支轉過的完整示範影片走 video-to-flow 獨立重轉、拾取檢查全過。範圍再加：新 skill `video-measure`、交付報告拆成 `交付報告/` 並把四份在用流程的報告拆好。
