@@ -6,7 +6,7 @@
     <流程名>/templates/<範本名>.png  被引用的範本圖 (檔名即範本名)
     <流程名>/.cache/                可重建的`快取`: 引擎的登錄產物 (registered/)、
                                    還沒存檔的截圖 (shots/)
-    <流程名>/交付報告.md            影片轉流程附的說明 (app 不讀不寫, 存檔不動它)
+    <流程名>/交付報告/              影片轉流程附的說明 (app 不讀不寫, 存檔不動它)
 
 `存檔`把記憶體裡的流程整份寫回資料夾: flow.yaml 整份重寫, 還沒存檔的截圖搬進
 templates/, templates/ 只留被引用的範本 (步驟的找圖目標與確認圖＋校準對＋備用校準對＋
@@ -14,6 +14,7 @@ templates/, templates/ 只留被引用的範本 (步驟的找圖目標與確認�
 本機狀態資料夾裡固定的「未存檔」快取。
 
 讀檔 (`read_flow`) 是唯一的入口驗證, 格式規則只有這一個模組說得上話; UI 與執行器只呼叫它。
+給寫流程的人看的欄位表在 docs/flow-format.md (app/tests/test_flow_format_doc.py 對照, 改鍵要同步)。
 """
 import os
 import re
@@ -104,9 +105,29 @@ FLOW_FORMAT = 1
 
 _HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "repeat",
           "branch")
-_TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy",
-             "template_pos", "engine", "steps")
-_TARGET_ATTRS = ("within", "pick", "color")
+# 讀檔認得的鍵 (docs/flow-format.md 的欄位表照這些; app/tests/test_flow_format_doc.py 對照)
+TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy",
+            "template_pos", "engine", "steps")
+TARGET_ATTRS = ("within", "pick", "color")            # 找圖目標的屬性 (步驟層、busy、確認圖)
+CALIBRATION_KEYS = ("pair", "baseline", "fallback")
+FALLBACK_KEYS = ("pair", "baseline", "offset")
+SECTION_KEYS = {"repeat": ("repeat", "steps", "on_break"), "branch": ("branch", "on_break")}
+ARM_KEYS = ("if", "then")                             # branch 的一個分支
+
+
+def step_keys(head):
+    """yaml 裡開頭鍵為 head 的一步可以寫的鍵 (含開頭鍵本身).
+
+    步驟由記憶體模型的 `flowdefaults.KEYS` 換算: type/target/confirm_target 換成開頭鍵,
+    找圖三態另有找圖目標的屬性; 區段 (repeat、branch) 見 SECTION_KEYS。
+    """
+    if head in SECTION_KEYS:
+        return set(SECTION_KEYS[head])
+    keys = set(flowdefaults.KEYS[head]) - {"type", "target", "confirm_target"}
+    keys.add(head)
+    if head in findtarget.FIND_TYPES:
+        keys |= set(TARGET_ATTRS)
+    return keys
 _BAD_NAME_CHARS = '\\/:*?"<>|'
 
 
@@ -203,7 +224,7 @@ def parse_flow(text):
                         f"{getattr(e, 'problem', None) or e}") from None
     if not isinstance(doc, dict):
         raise FlowError("flow.yaml 的最外層要是 {鍵: 值}")
-    extra = [k for k in doc if k not in _TOP_KEYS]
+    extra = [k for k in doc if k not in TOP_KEYS]
     if extra:
         raise FlowError(f"flow.yaml 頂層不認得的鍵：{'、'.join(map(str, extra))}")
     if "format" not in doc:
@@ -270,7 +291,7 @@ def _calibration(c):
     where = "calibration"
     if not isinstance(c, dict):
         raise FlowError(f"{where} 要是 {{pair, baseline, fallback}}")
-    extra = [k for k in c if k not in ("pair", "baseline", "fallback")]
+    extra = [k for k in c if k not in CALIBRATION_KEYS]
     if extra:
         raise FlowError(f"{where} 不認得的鍵：{'、'.join(map(str, extra))}")
     out = _pair(where, c)
@@ -279,7 +300,7 @@ def _calibration(c):
         fw = where + ".fallback"
         if not isinstance(fb, dict):
             raise FlowError(f"{fw} 要是 {{pair, baseline, offset}}")
-        extra = [k for k in fb if k not in ("pair", "baseline", "offset")]
+        extra = [k for k in fb if k not in FALLBACK_KEYS]
         if extra:
             raise FlowError(f"{fw} 不認得的鍵：{'、'.join(map(str, extra))}")
         f = _pair(fw, fb)
@@ -340,7 +361,7 @@ def _yaml_target(where, d, head):
         if d["color"] is not True:
             raise FlowError(f"{where} 的 color 只能寫 true（不比色就不寫），收到 {d['color']!r}")
         tgt["color"] = True
-    extra = [k for k in d if k not in (head, *_TARGET_ATTRS)]
+    extra = [k for k in d if k not in (head, *TARGET_ATTRS)]
     if extra and head == "template":
         raise FlowError(f"{where} 不認得的鍵：{'、'.join(map(str, extra))}")
     return tgt
@@ -385,7 +406,7 @@ def _on_break(where, item):
 
 
 def _parse_repeat(where, item, out):
-    extra = [k for k in item if k not in ("repeat", "steps", "on_break")]
+    extra = [k for k in item if k not in SECTION_KEYS["repeat"]]
     if extra:
         raise FlowError(f"{where}（repeat）不認得的鍵：{'、'.join(map(str, extra))}")
     n = item["repeat"]
@@ -401,7 +422,7 @@ def _parse_repeat(where, item, out):
 
 
 def _parse_branch(where, item, out):
-    extra = [k for k in item if k not in ("branch", "on_break")]
+    extra = [k for k in item if k not in SECTION_KEYS["branch"]]
     if extra:
         raise FlowError(f"{where}（branch）不認得的鍵：{'、'.join(map(str, extra))}")
     arms = item["branch"]
@@ -415,7 +436,7 @@ def _parse_branch(where, item, out):
         aw = f"步驟 {len(out) + 1}"
         if not isinstance(arm, dict) or "if" not in arm:
             raise FlowError(f"{aw}：branch 的每個分支要寫 if（分支條件）")
-        extra = [x for x in arm if x not in ("if", "then")]
+        extra = [x for x in arm if x not in ARM_KEYS]
         if extra:
             raise FlowError(f"{aw}：branch 的分支不認得的鍵：{'、'.join(map(str, extra))}")
         cond = arm["if"]
@@ -435,15 +456,12 @@ def _parse_step(where, head, item):
     """一步 (flow-style mapping) → 記憶體的完整步驟."""
     t = head
     s = {"type": t}
-    allowed = set(flowdefaults.KEYS[t]) - {"type", "target", "confirm_target"}
-    allowed |= {head}
-    if t in findtarget.FIND_TYPES:
-        allowed |= set(_TARGET_ATTRS)
+    allowed = step_keys(head)
     extra = [k for k in item if k not in allowed]
     if extra:
         raise FlowError(f"{where}（{t}）不認得的鍵：{'、'.join(map(str, extra))}")
     if t in findtarget.FIND_TYPES:
-        s["target"] = _yaml_target(where, {k: item[k] for k in (head, *_TARGET_ATTRS)
+        s["target"] = _yaml_target(where, {k: item[k] for k in (head, *TARGET_ATTRS)
                                            if k in item}, head)
     elif t == "click":
         s["click"] = _xy(f"{where} 的 click", item["click"])
@@ -461,7 +479,7 @@ def _parse_step(where, head, item):
     if "confirm" in item:
         c = item["confirm"]
         if isinstance(c, dict):
-            extra = [k for k in c if k not in ("appear", *_TARGET_ATTRS)]
+            extra = [k for k in c if k not in ("appear", *TARGET_ATTRS)]
             if extra or "appear" not in c:
                 raise FlowError(f"{where} 的 confirm 要寫成 gone / next / "
                                 "{appear: 範本名, within…, pick…, color…}，"
