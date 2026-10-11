@@ -826,8 +826,9 @@ class App:
         self.run_count = ttk.Spinbox(bar, from_=1, to=99999, width=6)
         self.run_count.set(1)
         self.run_count.pack(side="left", padx=(4, 14))
-        self.run_count.configure(command=self._mark_dirty)
-        self.run_count.bind("<KeyRelease>", lambda e: self._mark_dirty(), add=True)
+        self.run_count.configure(command=self._on_run_setting)
+        self.run_count.bind("<KeyRelease>", lambda e: self._on_run_setting(), add=True)
+        self._run_seen = self._run_value()   # 上次看到的執行輪數 (值變了才算改動)
 
         self.btn_run = ttk.Button(bar, text="▶ 開始執行", style="Run.TButton",
                                   command=self.start_run)
@@ -885,9 +886,16 @@ class App:
         self.run_count.configure(state=state)
 
     def _on_run_setting(self):
-        """執行輪數改了 (模式下拉或次數欄)."""
+        """執行輪數的元件動過 (模式下拉、次數欄的上下鈕/滾輪/打字).
+
+        值真的變了才算改動: 次數欄有焦點時放開任何鍵 (Alt+Tab 的 Alt)、
+        在 1 往下滾也會來到這裡, 值沒變不標成未存檔。
+        """
         self._mode_ui()
-        self._mark_dirty()
+        run = self._run_value()
+        if run != self._run_seen:
+            self._run_seen = run
+            self._mark_dirty()
 
     def pick_scan_region(self):
         r = ui_overlay.pick(self.root, "region", "拖曳框選搜尋範圍（執行時只在此範圍內找圖）")
@@ -1866,8 +1874,7 @@ class App:
 
     def _flow_data(self):
         """目前的流程 (記憶體模型, flowfile 把它寫回資料夾)."""
-        run = "forever" if self.run_mode.get() == "直到停止" else self._run_count()
-        return {"run": run, "scan_region": self.scan_region,
+        return {"run": self._run_value(), "scan_region": self.scan_region,
                 "calibration": self.flow_cal, "busy": self.busy_target,
                 "template_pos": self.store.pos(), "engine": dict(self.flow_engine),
                 "steps": self.steps}
@@ -1891,6 +1898,7 @@ class App:
         forever = flow["run"] == "forever"
         self.run_mode.set("直到停止" if forever else "執行次數")
         self.run_count.set(1 if forever else flow["run"])
+        self._run_seen = self._run_value()
         self.scan_region = flow["scan_region"]
         if self.scan_region:
             self.scan_lbl.configure(text=f"限定 {tuple(self.scan_region)}",
@@ -2057,6 +2065,10 @@ class App:
         return True
 
     # ================= 執行 =================
+
+    def _run_value(self):
+        """執行輪數 (存檔的 run 鍵): "forever" 或次數."""
+        return "forever" if self.run_mode.get() == "直到停止" else self._run_count()
 
     def _run_count(self):
         try:

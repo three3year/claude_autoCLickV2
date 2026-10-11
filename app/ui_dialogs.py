@@ -1061,7 +1061,8 @@ def edit_step(app, step):
 
     def busy_row():
         """`忙碌檢查`勾選列 (ADR 0011; 送出輸入的步驟才有); 回傳整列元件供顯示/隱藏."""
-        v["busy_check"] = tk.BooleanVar(value=step[BUSY_CHECK_KEY])
+        # 不點擊的找圖步驟 (find / wait_gone) 不送輸入, 完整步驟裡就沒有這個鍵
+        v["busy_check"] = tk.BooleanVar(value=step.get(BUSY_CHECK_KEY, False))
         fr = add_row("忙碌檢查")
         _check(fr, BUSY_CHECK_TEXT, v["busy_check"]).pack(side="left")
         lab = body.grid_slaves(row=int(fr.grid_info()["row"]), column=0)

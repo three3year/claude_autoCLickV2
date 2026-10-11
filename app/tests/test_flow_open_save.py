@@ -5,6 +5,7 @@ App 的重量級 __init__ 以子類跳過; 檔案對話框以樁取代 (使用�
 本機狀態資料夾與流程預設位置由 conftest 換到暫存目錄。
 """
 import os
+import tkinter as tk
 from types import SimpleNamespace
 
 import numpy as np
@@ -431,12 +432,44 @@ def test_每種改動都標成未存檔_存檔後清除(tkroot, tmp_path, monkey
                    lambda: a.drop_template("新圖"),
                    lambda: a.record_template_pos("a", [1, 2]),
                    lambda: a.set_scan_region([1, 2, 30, 40]),
-                   lambda: a._on_run_setting()):
+                   lambda: (a.run_count.set(3), a._on_run_setting())):
         a.dirty = False
         change()
         assert a.dirty
     a.save_flow()
     assert a.dirty is False
+
+
+def test_執行設定的元件動過但值沒變_不算改動(tkroot, tmp_path, monkeypatch):
+    """次數欄有焦點時放開任何鍵 (Alt+Tab 的 Alt)、在 1 往下滾, 值都沒變——
+    之前一律標成未存檔, 只按了執行的流程關閉時也問要不要存檔."""
+    win = tk.Toplevel(tkroot)
+    try:
+        a = _FlowApp(win)
+        monkeypatch.setattr(a, "_schedule_reregister", lambda: None)
+        a._build_toolbar()   # 真的模式下拉與次數欄
+        win.deiconify()
+        win.update()         # 事件要發到已映射的視窗上才會派送
+        folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
+        _opened(a, monkeypatch, folder)
+        a.run_count.focus_force()
+        win.update()
+
+        def fire(widget, seq, **kw):
+            a.dirty = False
+            widget.event_generate(seq, **kw)
+            win.update()
+            return a.dirty
+
+        assert not fire(a.run_count, "<KeyRelease>", keysym="Alt_L")
+        assert not fire(a.run_count, "<MouseWheel>", delta=-120)   # 已是 1, 滾不下去
+        assert a.run_count.get() == "1"
+        assert fire(a.run_count, "<MouseWheel>", delta=120)
+        assert a.run_count.get() == "2"
+        assert fire(a.run_mode, "<MouseWheel>", delta=-120)
+        assert a.run_mode.get() == "直到停止"
+    finally:
+        win.destroy()
 
 
 def test_新流程_有改動_回答存檔_存完才開新的(tkroot, tmp_path, monkeypatch):

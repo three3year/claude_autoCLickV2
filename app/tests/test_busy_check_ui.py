@@ -118,6 +118,20 @@ def test_找圖切到不點擊_勾選隱藏並存為沒勾(make_app):
     assert got["type"] == "wait_gone" and "busy_check" not in got
 
 
+def test_編輯不點擊的找圖步驟_開得起來_不改按確定原樣回來(make_app):
+    """完整的 find / wait_gone 步驟沒有 busy_check 鍵 (不送輸入); 對話框仍要開得起來."""
+    a = make_app(1.0)
+    a.store.add("a", b"A")
+    for t in ("find", "wait_gone"):
+        step = find("a", type=t)
+        assert "busy_check" not in step
+        seen = {}
+        got = _edit(a, dict(step, _edit=True), _see(seen), _press("確定"),
+                    title="編輯：找圖點擊")
+        assert not seen["shown"] and seen["text"].startswith("☐")
+        assert got == step, t
+
+
 # ---------- 步驟摘要 ----------
 
 def test_步驟摘要顯示忙碌檢查():
