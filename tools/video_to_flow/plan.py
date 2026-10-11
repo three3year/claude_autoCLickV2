@@ -9,6 +9,8 @@
   `pick: {near: [x, y]}`; 偏移由工具依`原點`規則算, 不寫 `offset`。
 - 影片證據: 步驟的 `frame`、找圖的 `scroll` (捲動軸)、`confirm: {appear, frame}`;
   `within` 不寫 (`固定矩形`由工具從影格上挑中的框算)。
+- `共用矩形`: 最外層 `shared_rects` 宣告, 找圖的 `rect`、`confirm: {appear, rect}`、
+  `busy: {rect}` 引用 (組裝時展開成各成員的 `within`; flow.yaml 不記組別)。
 
 `load` 回傳 `Plan`: steps 是記憶體的完整步驟 (平面標記, 位置仍是影片像素), evidence 是
 同一索引的影片證據。任何錯誤丟 `ToolError`, 都在寫檔之前。
@@ -27,9 +29,9 @@ from .errors import ToolError
 ASSEMBLE, INSERT = "assemble", "insert"
 
 _TOP = {ASSEMBLE: {"video", "name", "out", "templates", "steps", "calibration",
-                   "busy", "report"},
+                   "busy", "report", "shared_rects"},
         INSERT: {"video", "templates", "steps", "report", "after", "into", "expect",
-                 "scale_image", "align"}}
+                 "scale_image", "align", "shared_rects"}}
 TEMPLATE_FIELDS = {"frame", "box", "present", "absent", "clean"}
 SCROLL = ("vertical", "horizontal")
 
@@ -78,18 +80,21 @@ class Plan:
     video: str
     templates: dict
     steps: list                 # 記憶體的完整步驟 (平面), 位置是影片像素
-    evidence: list              # 與 steps 同索引: {frame, at, scroll, confirm_frame} 或 None
+    evidence: list              # 與 steps 同索引: {frame, at, scroll, rect, confirm_frame,
+                                #                   confirm_rect} 或 None
     report: dict
     name: str = ""
     out: str | None = None
     calibration: dict | None = None
-    busy: dict | None = None    # 記憶體的找圖目標 (無 within) ＋ "frame"
+    busy: dict | None = None    # 記憶體的找圖目標 (無 within) ＋ "frame" (＋ "rect")
     after: int | None = None
     into: int | None = None
     expect: dict | None = None
     scale_image: str | None = None
     align: dict | None = None   # `對齊圖` {find, frame, at (影片像素), step}
     align_set: bool = False     # 計畫寫了 align (含 align: null＝刻意不對齊)
+    # `共用矩形` {名: {frame, box (影片像素), scroll, why}} 或 (補充) {same_as, expect, why}
+    shared_rects: dict = field(default_factory=dict)
     base: str = field(default_factory=os.getcwd)
 
 
@@ -103,6 +108,14 @@ def _xy(where, v):
                        for c in v)):
         _err(where, f"位置要寫成 [x, y]（影片像素），收到 {v!r}")
     return [int(round(v[0])), int(round(v[1]))]
+
+
+def _box(where, b):
+    if (not isinstance(b, (list, tuple)) or len(b) != 4
+            or not all(isinstance(c, int) and not isinstance(c, bool) for c in b)
+            or b[2] <= 0 or b[3] <= 0):
+        _err(where, f"box 要寫成 [x, y, w, h] 整數且寬高 > 0，收到 {b!r}")
+    return [int(c) for c in b]
 
 
 def _frame(where, v):
@@ -155,6 +168,7 @@ def load(plan, mode=ASSEMBLE):
     steps, evidence = _steps(raw.get("steps"))
     p = Plan(mode, resolve(raw["video"]), templates, steps, evidence,
              _report(raw.get("report")), base=base)
+    p.shared_rects = _shared_rects(raw.get("shared_rects"), mode)
     if mode == ASSEMBLE:
         if not isinstance(raw.get("name"), str) or not raw["name"].strip():
             _err("name", "必填（字串）")
@@ -164,6 +178,7 @@ def load(plan, mode=ASSEMBLE):
         p.out = resolve(raw["out"]) if raw.get("out") else None
         p.calibration = _calibration(raw.get("calibration"), templates)
         p.busy = _busy(raw.get("busy"), templates)
+        _shared_refs(p)
         _references(p, set(templates))
         precheck(p.steps, p.busy)
     else:
@@ -175,6 +190,7 @@ def load(plan, mode=ASSEMBLE):
         if "align" in raw:
             p.align_set = True
             p.align = _align(raw["align"])
+        _shared_refs(p)
     return p
 
 
@@ -195,11 +211,7 @@ def _templates(raw):
         if "frame" not in t or "box" not in t:
             _err(where, "frame（取材幀）與 box（影片像素裁切框）必填")
         frame = _frame(where + " frame", t["frame"])
-        b = t["box"]
-        if (not isinstance(b, (list, tuple)) or len(b) != 4
-                or not all(isinstance(c, int) and not isinstance(c, bool) for c in b)
-                or b[2] <= 0 or b[3] <= 0):
-            _err(where, f"box 要寫成 [x, y, w, h] 整數且寬高 > 0，收到 {b!r}")
+        b = _box(where, t["box"])
         present = []
         for pr in t.get("present") or []:
             if isinstance(pr, dict):
@@ -214,7 +226,7 @@ def _templates(raw):
         clean = t.get("clean", True)
         if not isinstance(clean, bool):
             _err(where, "clean 要是 true/false")
-        out[name] = {"frame": frame, "box": [int(c) for c in b],
+        out[name] = {"frame": frame, "box": b,
                      "present": present, "absent": absent, "clean": clean}
     return out
 
@@ -236,7 +248,8 @@ def _strip(no, head, item):
     """拿掉計畫專用的影片證據欄位; 回傳 (證據, 給 flowfile 驗證的一步)."""
     where = f"步驟 {no}"
     item = dict(item)
-    ev = {"frame": None, "at": None, "scroll": None, "confirm_frame": None}
+    ev = {"frame": None, "at": None, "scroll": None, "rect": None, "confirm_frame": None,
+          "confirm_rect": None}
     if "frame" in item:
         ev["frame"] = _frame(where + " frame", item.pop("frame"))
     if "at" in item:
@@ -251,6 +264,13 @@ def _strip(no, head, item):
             _err(where, f"scroll 只能是 vertical（直向）或 horizontal（橫向），"
                  f"收到 {item['scroll']!r}")
         ev["scroll"] = item.pop("scroll")
+    if "rect" in item:
+        if head not in findtarget.FIND_TYPES:
+            _err(where, "rect（共用矩形）只用在找圖步驟；確認圖寫在 confirm: {appear, rect}、"
+                 "忙碌指示寫在 busy 裡；gone 與 next 沿用別步的目標，不另寫")
+        if ev["scroll"] is not None:
+            _err(where, "rect 跟 scroll 不能同寫：捲動軸寫在共用矩形的宣告裡")
+        ev["rect"] = _rect_name(where + " rect", item.pop("rect"))
     c = item.get("confirm")
     if isinstance(c, dict):
         c = dict(c)
@@ -258,6 +278,11 @@ def _strip(no, head, item):
             _err(where, "confirm 的 within 不寫：確認圖的固定矩形由工具算")
         if "frame" in c:
             ev["confirm_frame"] = _frame(where + " confirm.frame", c.pop("frame"))
+        if "rect" in c:
+            if "appear" not in c:
+                _err(where, "confirm 的 rect 只用在 appear 確認圖：gone 與 next 沿用別步的目標，"
+                     "不另寫")
+            ev["confirm_rect"] = _rect_name(where + " confirm.rect", c.pop("rect"))
         item["confirm"] = c
     for k in ("click", "drag", "to"):
         if k in item:
@@ -410,6 +435,7 @@ def _busy(raw, templates):
     if "within" in d:
         _err(where, "within 不寫：忙碌指示的固定矩形由工具從證據影格上的位置算")
     frame = _frame(where + " frame", d.pop("frame")) if "frame" in d else None
+    rect = _rect_name(where + " rect", d.pop("rect")) if "rect" in d else None
     try:
         tgt = flowfile.parse_target(where, d)
     except flowfile.FlowError as e:
@@ -419,7 +445,97 @@ def _busy(raw, templates):
     if tgt["template"] not in templates:
         _err(where, f"忙碌指示的範本「{tgt['template']}」不在計畫的範本清單裡")
     tgt["frame"] = frame if frame is not None else templates[tgt["template"]]["frame"]
+    if rect is not None:
+        tgt["rect"] = rect
     return tgt
+
+
+# ---------- 共用矩形 ----------
+
+_SHARED_VIDEO = {"frame", "box", "scroll", "why"}
+_SHARED_SAME = {"same_as", "expect", "why"}
+
+
+def _rect_name(where, v):
+    if not isinstance(v, str) or not v.strip():
+        _err(where, f"要寫共用矩形的名字（shared_rects 裡的鍵），收到 {v!r}")
+    return v
+
+
+def _shared_rects(raw, mode):
+    """`共用矩形`的宣告: 影片像素宣告 {frame, box, scroll, why}; 補充另可
+    {same_as: N, expect, why} (照抄既有流程第 N 步的固定矩形)."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        _err("shared_rects", "要是 {名字: {...}} 物件")
+    out = {}
+    for name, d in raw.items():
+        where = f"shared_rects「{name}」"
+        if not isinstance(d, dict):
+            _err(where, "要是物件")
+        for k in ("within", "offset"):
+            if k in d:
+                _err(where, f"{k} 不寫：共用矩形的框由工具從容器框（box）算，"
+                     "組裝時才寫進各成員的 within")
+        if "same_as" in d and mode != INSERT:
+            _err(where, "same_as 只用在補充（沿用既有流程某一步的固定矩形）；新流程寫 frame 與 box")
+        keys = _SHARED_SAME if "same_as" in d else _SHARED_VIDEO
+        extra = sorted(set(d) - keys)
+        if extra:
+            _err(where, f"不認得的欄位 {', '.join(extra)}"
+                 + ("（same_as 跟 frame／box／scroll 擇一）" if "same_as" in d else ""))
+        why = d.get("why")
+        if not isinstance(why, str) or not why.strip():
+            _err(where, "why 必填：一句話說明為什麼這幾個目標算同一組（進交付報告給使用者確認）")
+        if "same_as" in d:
+            n = d["same_as"]
+            if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+                _err(where + " same_as", f"要是步驟編號（從 1 起算），收到 {n!r}")
+            out[name] = {"same_as": n, "expect": _expect(where + " expect", d.get("expect")),
+                         "why": why}
+            continue
+        if "frame" not in d or "box" not in d:
+            _err(where, "frame（容器完整可見的那一幀）與 box（容器框，影片像素）必填")
+        box = _box(where, d["box"])
+        scroll = d.get("scroll")
+        if scroll is not None and scroll not in SCROLL:
+            _err(where, f"scroll 只能是 vertical（直向）或 horizontal（橫向），收到 {scroll!r}")
+        out[name] = {"frame": _frame(where + " frame", d["frame"]), "box": box,
+                     "scroll": scroll, "why": why}
+    return out
+
+
+def shared_refs(p):
+    """引用共用矩形的成員 → {名: [(步驟索引或 None (忙碌指示), "step"/"confirm"/"busy")]}."""
+    refs = {}
+    for i, ev in enumerate(p.evidence):
+        for key, kind in (("rect", "step"), ("confirm_rect", "confirm")):
+            if ev and ev.get(key):
+                refs.setdefault(ev[key], []).append((i, kind))
+    if p.busy and p.busy.get("rect"):
+        refs.setdefault(p.busy["rect"], []).append((None, "busy"))
+    return refs
+
+
+def _shared_refs(p):
+    refs = shared_refs(p)
+    for name, members in refs.items():
+        if name not in p.shared_rects:
+            i, kind = members[0]
+            where = "busy" if i is None else f"步驟 {i + 1}"
+            _err(where, f"rect 引用的共用矩形「{name}」不在 shared_rects 裡")
+    for name in p.shared_rects:
+        if name not in refs:
+            _err(f"shared_rects「{name}」", "沒有任何找圖步驟、確認圖或忙碌指示引用（rect）："
+                 "沒用到就刪掉")
+
+
+def scroll_of(p, ev):
+    """這一步的找圖實際生效的捲動軸: 自己宣告的, 或它引用的共用矩形宣告的."""
+    if not ev:
+        return None
+    return ev.get("scroll") or (p.shared_rects.get(ev.get("rect")) or {}).get("scroll")
 
 
 def _report(raw):
@@ -453,12 +569,16 @@ def _insert_point(p, raw):
     if not isinstance(n, int) or isinstance(n, bool) or n < 1:
         _err(key, f"要是步驟編號（從 1 起算），收到 {n!r}")
     setattr(p, key, n)
-    exp = raw.get("expect")
+    p.expect = _expect("expect", raw.get("expect"))
+
+
+def _expect(where, exp):
+    """核對步驟編號用的 expect: 第 N 步的開頭鍵＋值 (插入點與 same_as 同一套)."""
     if (not isinstance(exp, dict) or len(exp) != 1
             or next(iter(exp)) not in flowfile.HEADS):
-        _err("expect", "要寫第 N 步的開頭鍵＋值（例 {\"find\": \"标题_办公室\"}），工具拿它核對"
+        _err(where, "要寫第 N 步的開頭鍵＋值（例 {\"find\": \"标题_办公室\"}），工具拿它核對"
              f"編號沒寫錯，收到 {exp!r}")
-    p.expect = dict(exp)
+    return dict(exp)
 
 
 def _align(raw):

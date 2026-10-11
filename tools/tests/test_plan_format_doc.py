@@ -18,14 +18,18 @@ def examples():
 
 
 def test_文件裡的範例計畫讀得進來():
-    new, add = examples()
+    new, add, same = examples()
     p = plan_mod.load(new, plan_mod.ASSEMBLE)
     assert p.calibration["pair"] == ["主画面设置钮", "主画面仓库"]
     assert [s["type"] for s in p.steps] == ["find_click", "repeat_start", "find_click",
-                                           "click", "repeat_end"]
+                                           "click", "repeat_end", "branch_start",
+                                           "find_click", "branch_end"]
+    assert p.evidence[6]["rect"] == "商品區" and p.shared_rects["商品區"]["box"][0] == 10
     q = plan_mod.load(add, plan_mod.INSERT)
     assert (q.after, q.expect) == (120, {"branch": "标题_办公室"})
     assert [s["type"] for s in q.steps][:3] == ["branch_start", "find", "drag"]
     assert q.evidence[1]["scroll"] == "vertical"
     assert q.align_set and q.align == {"find": "标题_办公室", "frame": 180, "at": [1440, 742],
                                        "step": 121}
+    r = plan_mod.load(same, plan_mod.INSERT)
+    assert r.shared_rects["商品區"]["same_as"] == 45 and r.evidence[1]["rect"] == "商品區"

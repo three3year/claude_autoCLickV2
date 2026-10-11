@@ -18,6 +18,7 @@ from automation import findtarget
 
 from .errors import ToolError
 from .geom import center
+from .plan import scroll_of
 
 MAX_RATIO = 6   # 參考步驟的框在捲動軸上最多是範本該軸的幾倍 (中心才代表位置)
 _AXIS = {"vertical": 1, "horizontal": 0}
@@ -40,7 +41,7 @@ def scroll_axis(p):
         s = p.steps[i]
         dx, dy = s["to"][0] - s["drag"][0], s["to"][1] - s["drag"][1]
         return "vertical" if abs(dy) >= abs(dx) else "horizontal"
-    return next((ev["scroll"] for ev in p.evidence if ev and ev.get("scroll")), None)
+    return next(filter(None, (scroll_of(p, ev) for ev in p.evidence)), None)
 
 
 def require(p):
@@ -49,7 +50,7 @@ def require(p):
         return
     if first_drag(p.steps) is not None:
         why = "插入段有拖曳"
-    elif any(ev and ev.get("scroll") for ev in p.evidence):
+    elif any(scroll_of(p, ev) for ev in p.evidence):
         why = "插入段有找圖宣告了捲動軸"
     else:
         return

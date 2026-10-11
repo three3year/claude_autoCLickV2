@@ -2,7 +2,7 @@
 
 輸入的影格已是`流程尺度` (補充時先整張縮放 1/影片倍率), anchor 是`座標基準點`在影格上的
 位置。這裡做的事兩個入口一模一樣: 原點推算、每個找圖目標挑框＋固定矩形＋拾取檢查、
-忙碌指示的固定矩形、忙碌檢查的兩向報告、捲動軸沒宣告的找圖。
+忙碌指示的固定矩形、`共用矩形`、忙碌檢查的兩向報告、捲動軸沒宣告的找圖。
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from automation import findtarget
 
 from . import origin as origin_mod
+from . import plan as plan_mod
 from . import video as video_mod
 from .errors import ToolError
 from .verify import ACTION
@@ -59,6 +60,7 @@ def frames_needed(p, extra=()):
             need.add(confirm_frame(p, i))
     if p.busy:
         need.add(p.busy["frame"])
+    need.update(d["frame"] for d in p.shared_rects.values() if "frame" in d)
     return need
 
 
@@ -81,6 +83,7 @@ class Measured:
     no_scroll: set = field(default_factory=set)     # 沒宣告捲動軸的找圖步驟索引
     busy_unseen: list = field(default_factory=list)     # 勾了、之後沒看到 [(索引, 文字)]
     busy_unchecked: list = field(default_factory=list)  # 沒勾、之後看到了
+    shared: dict = field(default_factory=dict)          # 共用矩形 {名: within}
 
 
 def measure(p, checker, busy=None, shifts=None):
@@ -98,7 +101,7 @@ def measure(p, checker, busy=None, shifts=None):
         fb = p.templates[name]["box"] if name in p.templates else None
         return checker.locate_target(tgt, frame, origin, f"{label(s)}那一步",
                                      at=ev.get("at"), scroll=ev.get("scroll"),
-                                     fallback_box=fb, shift=shift(i))
+                                     fallback_box=fb, shift=shift(i), shared=ev.get("rect"))
 
     def locate_confirm(i, s, ctgt, origin):
         frame = confirm_frame(p, i)
@@ -106,22 +109,44 @@ def measure(p, checker, busy=None, shifts=None):
         fb = p.templates[name]["box"] if name in p.templates else None
         _, within = checker.locate_target(ctgt, frame, origin,
                                           f"{label(s)}的確認圖「{name}」",
-                                          fallback_box=fb, shift=shift(i))
+                                          fallback_box=fb, shift=shift(i),
+                                          shared=(p.evidence[i] or {}).get("confirm_rect"))
         return within
 
     steps = origin_mod.derive(p.steps, p.evidence, p.templates, locate, locate_confirm)
     out = Measured(steps)
+    # 共用矩形的成員算已宣告 (成員不能自己寫捲動軸; 框涵蓋整個容器)
     out.no_scroll = {i for i, s in enumerate(steps)
-                     if findtarget.is_find(s) and not (p.evidence[i] or {}).get("scroll")}
+                     if findtarget.is_find(s) and not (p.evidence[i] or {}).get("scroll")
+                     and not (p.evidence[i] or {}).get("rect")}
     if busy is not None and "frame" in busy:   # 計畫的忙碌指示: 在證據影格上挑框
         frame = busy["frame"]
-        tgt = {k: v for k, v in busy.items() if k != "frame"}
+        tgt = {k: v for k, v in busy.items() if k not in ("frame", "rect")}
         name = tgt["template"]
         _, within = checker.locate_target(tgt, frame, None, f"忙碌指示「{name}」",
-                                          fallback_box=p.templates[name]["box"])
-        out.busy = dict(tgt, within=within)
+                                          fallback_box=p.templates[name]["box"],
+                                          shared=busy.get("rect"))
+        if not busy.get("rect"):               # 共用矩形的成員: resolve_shared 就地寫 within
+            tgt["within"] = within
+        out.busy = tgt
     elif busy is not None:                     # 既有流程的: 原樣用
         out.busy = dict(busy)
+    out.shared = checker.resolve_shared(p.shared_rects)
+    return out
+
+
+def shared_members(p, steps):
+    """`共用矩形`的成員 (報告用內容指稱) → {名: [(步驟索引或 None (忙碌指示), 文字)]}."""
+    out = {}
+    for name, refs in plan_mod.shared_refs(p).items():
+        for i, kind in refs:
+            if kind == "busy":
+                text = f"忙碌指示「{p.busy['template']}」"
+            elif kind == "confirm":
+                text = f"{label(steps[i])}的確認圖「{findtarget.confirm_template(steps[i])}」"
+            else:
+                text = label(steps[i])
+            out.setdefault(name, []).append((i, text))
     return out
 
 

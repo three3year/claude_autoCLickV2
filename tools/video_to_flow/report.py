@@ -203,10 +203,43 @@ def _bullets(items, empty="無。"):
     return [f"- {x}" for x in items] or [empty]
 
 
+SHARED = "## 共用矩形"
+_SCROLL_ZH = {"vertical": "直向", "horizontal": "橫向", None: "沒有"}
+_SHARED_HELP = ("這幾組目標落在同一個容器裡、每次出現在哪一格不一定，各組共用一個固定矩形"
+                "（容器框每邊外推最大成員圖框的一半；宣告捲動軸的那一軸拉到影片兩端）。"
+                "分組是影片轉流程判斷的，請確認；flow.yaml 只記各步驟一模一樣的固定矩形，"
+                "要改框時同組每一步一起改。")
+
+
+def shared_line(name, info):
+    """一個共用矩形的一行說明 (名字、理由、成員、捲動軸、框從哪來)."""
+    why = info["why"].rstrip("。")
+    members = "、".join(text for _, text in info["members"])
+    text = f"「{name}」：{why}。成員：{members}；"
+    if info.get("source"):
+        text += f"沿用{info['source']}那一步的共用矩形"
+    else:
+        text += f"捲動軸：{_SCROLL_ZH[info.get('scroll')]}；容器框 {info['box']}" \
+                f"（第 {info['frame']} 幀）"
+    if info.get("within"):
+        text += _rect_text(info)
+    return text
+
+
+def _shared_homes(res, secs):
+    """{名: 第一個成員所在的區段 (只有忙碌指示＝None)}."""
+    homes = {}
+    for name, info in (res.get("shared_rects") or {}).items():
+        idx = [i for i, _ in info["members"] if i is not None]
+        homes[name] = section_of(secs, min(idx)) if idx else None
+    return homes
+
+
 def render(res, plan, steps):
     """組裝結果 → {檔名: 文字} (總覽＋各區段)."""
     secs = sections(steps)
-    by_sec = {sec.name: {"retake": [], "scroll": [], "unseen": [], "unchecked": []}
+    by_sec = {sec.name: {"retake": [], "scroll": [], "unseen": [], "unchecked": [],
+                         "shared": []}
               for sec in secs}
     used_in = {}
     for i, s in enumerate(steps):
@@ -234,8 +267,20 @@ def render(res, plan, steps):
         for i, text in items:
             by_sec[section_of(secs, i).name][key].append(text)
     sec_map = {sec.name: sec for sec in secs}
+    homes = _shared_homes(res, secs)
+    for name, info in (res.get("shared_rects") or {}).items():
+        home = homes[name]
+        if home is not None:
+            by_sec[home.name]["shared"].append((True, shared_line(name, info)))
+        others = []
+        for i, _ in info["members"]:
+            sec = section_of(secs, i) if i is not None else home
+            if sec is not home and sec not in others:
+                others.append(sec)
+        for sec in others:
+            by_sec[sec.name]["shared"].append((False, f"「{name}」：見 {_link(home)}"))
 
-    files = {OVERVIEW: _overview(res, plan, secs, by_sec, used_in, sec_map)}
+    files = {OVERVIEW: _overview(res, plan, secs, by_sec, used_in, sec_map, homes)}
     for sec in secs:
         files[sec.file] = _section_file(res, sec, steps, by_sec[sec.name], plan)
     return files
@@ -271,7 +316,7 @@ def _confirm_block(scroll, unseen, unchecked):
     return lines
 
 
-def _overview(res, plan, secs, by_sec, used_in, sec_map):
+def _overview(res, plan, secs, by_sec, used_in, sec_map, homes):
     lines = [f"# 交付報告：{os.path.basename(res['flow_path'])}", "",
              "總覽；每個頂層區段另有一份，改哪段只讀那一份。步驟用內容指稱（範本名＋動作），"
              "不寫步驟編號。", "",
@@ -287,12 +332,18 @@ def _overview(res, plan, secs, by_sec, used_in, sec_map):
                      "請在遊戲裡實跑確認每一個找圖步驟")
     else:
         lines.append("- 自我驗證：每張範本都用引擎（粗篩＋深度驗證）對影格重跑過；每個找圖目標都有"
-                     "固定矩形（挑中的框每邊外推 50%）")
+                     "固定矩形（挑中的框每邊外推 50%"
+                     + ("；共用矩形的成員用容器框算，見下面「共用矩形」" if homes else "") + "）")
     if res["unused"]:
         lines.append(f"- 沒有步驟引用、沒放進流程的範本：{'、'.join(res['unused'])}")
     lines += ["", "## 各段報告（依流程順序）", ""]
     for sec in secs:
         lines.append(f"- {_link(sec)}")
+    if homes:
+        lines += ["", SHARED, "", _SHARED_HELP, ""]
+        for name, home in homes.items():
+            lines.append(f"- 「{name}」：{_link(home)}" if home is not None
+                         else f"- {shared_line(name, res['shared_rects'][name])}")
     lines += ["", "## 待重拍", ""]
     if res["retake"]:
         lines += ["這些範本沒通過自我驗證；步驟照寫，在 app 重截同名範本即可。", ""]
@@ -326,6 +377,11 @@ def _section_file(res, sec, steps, mine, plan):
         f = res["frames"].get(i)
         if f is not None:
             lines.append(f"- {describe(steps[i])}：第 {f} 幀")
+    if mine["shared"]:
+        lines += ["", SHARED, ""]
+        if any(full for full, _ in mine["shared"]):   # 只有指過去的那幾行就不重複說明
+            lines += [_SHARED_HELP, ""]
+        lines += _bullets([text for _, text in mine["shared"]])
     lines += ["", "## 已知風險", ""]
     risks = []
     if any(steps[i]["type"] == "drag" for i in range(sec.start, sec.end)):
@@ -395,11 +451,12 @@ def _read(path):
 _MARKERS = ("repeat_end", "branch_or", "branch_end")
 
 
-def supplement(folder, old_steps, steps, seg, note, retake, confirm):
+def supplement(folder, old_steps, steps, seg, note, retake, confirm, shared=()):
     """補充插入後更新 `交付報告/`: 插入處那份與總覽 (沒有就建一份最小的).
 
     old_steps / steps: 插入前後的整份步驟; seg: 插入段在插入後的平面索引 [start, end);
-    note: 這次補充的一行說明; retake: [(範本, 原因)]; confirm: [(標題, 文字)]。
+    note: 這次補充的一行說明; retake: [(範本, 原因)]; confirm: [(標題, 文字)];
+    shared: [(名, 共用矩形說明 (見 `shared_line`))]。
     插入處那份: 插入段併進既有的頂層段落時用那段**插入前**的檔名 (插入不會讓別段的序號位移
     而寫錯檔); 插入段自成一個頂層區段時開一份新的 (名字避開已有的檔)。那份的「這段做什麼」
     照插入後的流程重寫, 說明寫進「補充」。回傳 {檔名: 新文字}——呼叫端負責寫檔。
@@ -432,6 +489,8 @@ def supplement(folder, old_steps, steps, seg, note, retake, confirm):
                           for n_, why in retake])
     if confirm:
         text = add_under(text, "## 待確認", [f"- {k}：{v}" for k, v in confirm])
+    if shared:
+        text = add_under(text, SHARED, [f"- {shared_line(n_, info)}" for n_, info in shared])
     files = {sec.file: text}
     ov = _read(os.path.join(d, OVERVIEW))
     if ov is None:
@@ -446,5 +505,8 @@ def supplement(folder, old_steps, steps, seg, note, retake, confirm):
                                        for n_, why in retake])
     if confirm:
         ov = add_under(ov, "## 待確認", [f"- {k}（{_link(sec)}）：{v}" for k, v in confirm])
+    if shared:
+        ov = add_under(ov, SHARED, [f"- {_link(sec)}：{shared_line(n_, info)}"
+                                    for n_, info in shared])
     files[OVERVIEW] = ov
     return files

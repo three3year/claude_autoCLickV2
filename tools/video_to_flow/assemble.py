@@ -97,6 +97,20 @@ def scroll_confirm(steps, measured):
     return out
 
 
+def shared_info(p, measured, steps, source=None):
+    """`共用矩形`給結果與交付報告: {名: {why, scroll, frame, box, within, members, source}}.
+
+    members: [(步驟索引或 None (忙碌指示), 內容指稱)]; source: same_as 照抄的那一步的指稱."""
+    members = measure_mod.shared_members(p, steps)
+    out = {}
+    for name, d in p.shared_rects.items():
+        out[name] = {"why": d["why"], "scroll": d.get("scroll"), "frame": d.get("frame"),
+                     "box": d.get("box"), "within": measured.shared.get(name),
+                     "members": members.get(name, []),
+                     "source": (source or {}).get(name)}
+    return out
+
+
 def retake_of(checked, used):
     return {n: r["reasons"] for n, r in checked.items() if r["reasons"] and n in used}
 
@@ -153,6 +167,7 @@ def assemble(plan, engine=None, out_dir=None):
         "scroll_confirm": scroll_confirm(steps, measured),
         "busy_unseen": measured.busy_unseen,
         "busy_unchecked": measured.busy_unchecked,
+        "shared_rects": shared_info(p, measured, steps),
         "found": {n: r["boxes"] for n, r in checked.items()},
         "frames": {i: measure_mod.step_frame(p, i) for i in range(len(steps))},
         "step_list": steps,

@@ -47,6 +47,13 @@ def _points(text):
     return out
 
 
+def _shared(res):
+    for name, info in res["shared_rects"].items():
+        members = "、".join(text for _, text in info["members"])
+        print(f"共用矩形「{name}」：固定矩形 {info['within']}，成員 {members}"
+              + (f"（沿用{info['source']}那一步）" if info["source"] else ""))
+
+
 def _lists(res):
     for name, why in res["retake"].items():
         print(f"待重拍：{name}：{'；'.join(why)}")
@@ -115,6 +122,7 @@ def main(argv=None):
                       f"{aligned['runtime']}）" + (
                           "；第一次拖曳 {} → {} px".format(*aligned["drag"])
                           if aligned["drag"] else ""))
+            _shared(res)
             _lists(res)
             for n, e in res["similar"].items():
                 print(f"建議：新範本「{n}」跟既有的「{e}」幾乎一樣，考慮改用既有的")
@@ -128,6 +136,7 @@ def main(argv=None):
                 print(f"警告：備用校準對量不到（{res['fallback_problem']}）——流程不帶備用對")
             if res["verification"] == "coarse":
                 print("警告：驗證不完整——深度驗證模型無法載入，只做了粗篩")
+            _shared(res)
             _lists(res)
             print(f"步驟 {res['steps']}、範本 {res['templates']}")
     except ToolError as e:

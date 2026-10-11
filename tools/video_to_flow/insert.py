@@ -2,7 +2,8 @@
 
 順序 (任何報錯都在寫檔前; 失敗時既有資料夾一個位元都不變)::
 
-    讀計畫與既有流程 → 核對插入點 (after/into＋expect)、`對齊圖`的參考步驟 → 量`影片倍率` →
+    讀計畫與既有流程 → 核對插入點 (after/into＋expect)、`對齊圖`的參考步驟、`共用矩形`的
+    same_as (照抄第 N 步的固定矩形) → 量`影片倍率` →
     影格整張縮放 1/倍率、對齊`座標基準點` → 量`對齊位移`並套到插入段 → 與 assemble 同一段
     量測 (原點推算、固定矩形、拾取檢查、忙碌兩向) → 插入後的原點來源比對 → 結構檢查 →
     寫回 (新範本、flow.yaml、交付報告) → 檢查指令
@@ -22,7 +23,7 @@ from automation import findtarget, flowcheck, flowfmt, imgio, pickcheck
 from automation.runner import origin_step
 from subject_detection.library import load_default_config
 
-from .assemble import crop, png, retake_of, scroll_confirm
+from .assemble import crop, png, retake_of, scroll_confirm, shared_info
 from . import align as align_mod
 from . import measure as measure_mod
 from . import plan as plan_mod
@@ -53,18 +54,15 @@ def _expect_value(steps, i):
     return head, value
 
 
-def insertion_index(steps, p):
-    """插入點 → 平面索引 (插入段放在 steps[idx] 之前); 核對 expect."""
-    key = "after" if p.after is not None else "into"
-    n = p.after if p.after is not None else p.into
+def _in_range(steps, n, key):
     if n > len(steps):
         raise ToolError(f"{key}: {n} 超出流程（共 {len(steps)} 步）")
-    s = steps[n - 1]
-    if s["type"] in _MARKERS:
-        raise ToolError(f"{key}: 第 {n} 步是區段的結尾或「或」標記，插入點要指有開頭鍵的步驟"
-                        "（要插在區段之後：after 寫區段開頭那一步）")
+
+
+def _check_expect(steps, n, expect, key):
+    """第 n 步 (從 1 起算) 跟 expect 核對 (插入點與共用矩形的 same_as 同一套)."""
     head, value = _expect_value(steps, n - 1)
-    (ehead, evalue), = p.expect.items()
+    (ehead, evalue), = expect.items()
     same = ehead == head and (evalue is None and head in ("repeat", "branch", "click",
                                                           "drag", "wait")
                               or evalue == value)
@@ -72,6 +70,38 @@ def insertion_index(steps, p):
         raise ToolError(f"{key}: 第 {n} 步是 {{{head}: {value}}}，跟 expect 寫的 "
                         f"{{{ehead}: {evalue}}} 不符——步驟編號可能寫錯"
                         "（編號是 flow.yaml 行尾的 # N）")
+
+
+def copy_shared(p, steps):
+    """`共用矩形`的 same_as: 核對第 N 步並照抄它的固定矩形 (就地寫進宣告的 within)
+    → {名: 第 N 步的內容指稱}."""
+    source = {}
+    for name, d in p.shared_rects.items():
+        if "same_as" not in d:
+            continue
+        key, n = f"共用矩形「{name}」的 same_as", d["same_as"]
+        _in_range(steps, n, key)
+        _check_expect(steps, n, d["expect"], key)
+        s = steps[n - 1]
+        within = findtarget.target(s).get("within") if findtarget.is_find(s) else None
+        if not findtarget.valid_fixed_rect(within):
+            raise ToolError(f"{key}: 第 {n} 步（{measure_mod.label(s)}）沒有固定矩形，照抄不到框"
+                            "——same_as 要指同組既有成員的找圖步驟（flow.yaml 裡有 within 的那一步）")
+        d["within"] = list(within)
+        source[name] = measure_mod.label(s)
+    return source
+
+
+def insertion_index(steps, p):
+    """插入點 → 平面索引 (插入段放在 steps[idx] 之前); 核對 expect."""
+    key = "after" if p.after is not None else "into"
+    n = p.after if p.after is not None else p.into
+    _in_range(steps, n, key)
+    s = steps[n - 1]
+    if s["type"] in _MARKERS:
+        raise ToolError(f"{key}: 第 {n} 步是區段的結尾或「或」標記，插入點要指有開頭鍵的步驟"
+                        "（要插在區段之後：after 寫區段開頭那一步）")
+    _check_expect(steps, n, p.expect, key)
     if key == "into":
         if s["type"] != "repeat_start":
             raise ToolError(f"into: 第 {n} 步不是重複區段的開頭；into 只用在重複區段"
@@ -123,7 +153,8 @@ def _div(v, r):
 
 
 def scaled_plan(p, r):
-    """影片像素 → 流程尺度 (÷r): 步驟的位置、證據的 at、範本的裁切框與 present.at."""
+    """影片像素 → 流程尺度 (÷r): 步驟的位置、證據的 at、範本的裁切框與 present.at、
+    共用矩形的容器框 (same_as 照抄的框已是流程尺度, 不動)."""
     if r == 1:
         return p
 
@@ -155,7 +186,12 @@ def scaled_plan(p, r):
                             present=[dict(pr, at=xy(pr["at"]) if pr["at"] else None)
                                      for pr in t["present"]])
     align = dict(p.align, at=xy(p.align["at"])) if p.align else p.align
-    return replace(p, steps=steps, evidence=evidence, templates=templates, align=align)
+    shared = {n: (dict(d, box=[_div(d["box"][0], r), _div(d["box"][1], r),
+                               max(1, _div(d["box"][2], r)), max(1, _div(d["box"][3], r))])
+                  if "box" in d else d)
+              for n, d in p.shared_rects.items()}
+    return replace(p, steps=steps, evidence=evidence, templates=templates, align=align,
+                   shared_rects=shared)
 
 
 # ---------- 範本 ----------
@@ -256,6 +292,7 @@ def insert(plan, folder, engine=None):
     # 只看步驟種類的檢查先做 (不必等量測): 找圖相連、原點的圖離開、後面舊步驟的原點來源
     plan_mod.precheck(old[:pos] + p.steps + old[pos:], flow.get("busy"))
     _origin_check(old, old[:pos] + p.steps + old[pos:], pos, len(p.steps))
+    source = copy_shared(p, old)
     align_mod.require(p)
     ref = None
     if p.align:
@@ -350,8 +387,11 @@ def insert(plan, folder, engine=None):
     note = f"來源影片 `{os.path.basename(p.video)}`（影片倍率 ×{r:.3f}，{how}）。"
     if shift is not None:
         note += _align_note(q.align["find"], old[p.align["step"] - 1], shift, drag_change)
+    shared = shared_info(q, measured, seg, source)
+    for n, info in shared.items():   # 報告的容器框照計畫寫的影片像素 (q 已除過倍率)
+        info["box"] = p.shared_rects[n].get("box")
     files = report_mod.supplement(folder, old, new_steps, (pos, pos + len(seg)), note,
-                                  list(retake.items()), confirm)
+                                  list(retake.items()), confirm, list(shared.items()))
     def verify():
         res = check(folder)
         if not res.ok:
@@ -363,6 +403,7 @@ def insert(plan, folder, engine=None):
             "retake": retake, "similar": similar,
             "scroll_confirm": scroll, "busy_unseen": measured.busy_unseen,
             "busy_unchecked": measured.busy_unchecked,
+            "shared_rects": shared,
             "align": None if shift is None else {
                 "shift": list(shift.d), "video": list(shift.video),
                 "runtime": list(shift.runtime), "axis": shift.axis,
