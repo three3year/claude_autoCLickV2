@@ -283,8 +283,8 @@ def test_拖曳距離也換回流程尺度(flow, tmp_path, engine):
     r = 1.1
     steps = [{"find": "新鈕", "frame": 5, "at": S(new_center(), r)},
              {"drag": S([150, 200], r), "to": S([150, 100], r), "frame": 6}]
-    video_to_flow.insert(add_plan(add_video(tmp_path / "add.mp4", r=r), r=r, steps=steps),
-                         flow, engine=engine)
+    video_to_flow.insert(add_plan(add_video(tmp_path / "add.mp4", r=r), r=r, steps=steps,
+                                  align=None), flow, engine=engine)
     d = read(flow)["steps"][2]
     assert abs((d["drag"][1] - d["to"][1]) - 100) <= 2
 
@@ -364,3 +364,202 @@ def test_插入段自成頂層區段時開新的一份_不寫進同名舊檔(flo
     new = (rdir / "分岔-新鈕_2.md").read_text(encoding="utf-8")
     assert "## 補充" in new and "新鈕" in new
     assert "](分岔-新鈕_2.md)" in (rdir / "總覽.md").read_text(encoding="utf-8")
+
+
+# ================= 13–14 補充對齊 =================
+# 既有流程第 3 步「找 確定」的固定矩形在執行時位置 (POS 確定); 補充影片裡清單捲在別處:
+# 確定與新鈕整批往下 DY (模擬開錄時清單停在另一個位置)。插在最後一步之後。
+
+DY = 40
+OK_V = (POS["確定"][0], POS["確定"][1] + DY)       # 影片裡的「確定」左上角
+ALIGN = {"find": "確定", "frame": 5, "at": [OK_V[0] + 24, OK_V[1] + 18], "step": 3}
+
+
+def shifted_video(path, r=1.0, dx=0, dy=DY, drag=100):
+    """0–14 幀: 確定＋新鈕整批偏 (dx, dy); 15–29 幀: 清單往上拖了 drag px 之後的畫面
+    (新鈕停在 NEW_POS＝執行時拖完的位置)."""
+    ok = (POS["確定"][0] + dx, POS["確定"][1] + dy)
+    a = screen([(BUTTONS["確定"], *ok), (NEW, NEW_POS[0] + dx, NEW_POS[1] + dy)], title=True)
+    b = screen([(NEW, *NEW_POS)], title=True)
+    frames = [a] * 15 + [b] * 15
+    if r != 1:
+        size = (round(VIDEO_W * r), round(VIDEO_H * r))
+        frames = [cv2.resize(f, size, interpolation=cv2.INTER_AREA if r < 1
+                             else cv2.INTER_LINEAR) for f in frames]
+    return write_video(path, frames)
+
+
+def align_plan(video, r=1.0, steps=None, align=ALIGN, **extra):
+    plan = {"video": str(video),
+            "templates": {"新鈕": {"frame": 20, "box": S(NEW_BOX, r)}},
+            "steps": steps if steps is not None else drag_steps(r),
+            "after": 7, "expect": {"click": None},
+            "align": dict(align, at=S(align["at"], r)) if align else None}
+    plan.update(extra)
+    return plan
+
+
+def drag_steps(r=1.0, length=100):
+    """定位確定 → 從確定下方往上拖 length px → 找新鈕 → 點新鈕 (影片像素)."""
+    c = [OK_V[0] + 24, OK_V[1] + 18]
+    return [{"find": "確定", "frame": 5, "at": S(c, r)},
+            {"drag": S([300, 220], r), "to": S([300, 220 - length], r), "frame": 6},
+            {"find": "新鈕", "frame": 20, "at": S(new_center(), r)},
+            {"click": S(new_center(), r), "frame": 21}]
+
+
+def edit_within(flow, step, within):
+    """改既有流程第 step 步的固定矩形 (None＝刪掉), 經 app 寫回."""
+    data = read(flow)
+    tgt = data["steps"][step - 1]["target"]
+    if within is None:
+        tgt.pop("within", None)
+    else:
+        tgt["within"] = within
+    (flow / "flow.yaml").write_text(flowfile.dump_flow(data), encoding="utf-8")
+
+
+def close(a, b, tol=2):
+    return all(abs(x - y) <= tol for x, y in zip(a, b))
+
+
+@pytest.mark.parametrize("r", [1.0, 0.9])
+def test_對齊_第一次拖曳吸收位移_拖後照影片(flow, tmp_path, engine, r):
+    res = video_to_flow.insert(align_plan(shifted_video(tmp_path / "add.mp4", r=r), r=r),
+                               flow, engine=engine)
+    steps = read(flow)["steps"][7:]
+    loc, drag, new, c = steps
+    assert close(loc["target"]["within"], expand(box("確定")), 3), loc["target"]["within"]
+    assert close(res["align"]["shift"], [0, -DY])
+    # 拖曳起點照舊相對定位的原點 (確定中心); 距離 100 − 40＝60
+    assert close(drag["drag"], [300 - (OK_V[0] + 24), 220 - (OK_V[1] + 18)])
+    assert abs((drag["drag"][1] - drag["to"][1]) - 60) <= 2 and drag["drag"][0] == drag["to"][0]
+    assert close(new["target"]["within"], expand(NEW_BOX), 3)
+    assert close(c["click"], [0, 0])
+    assert res["align"]["drag"][0] == pytest.approx(100, abs=2)
+
+
+def test_對齊_沒有拖曳時整段平移(flow, tmp_path, engine):
+    steps = [{"find": "確定", "frame": 5}, {"find": "新鈕", "frame": 5},
+             {"click": [150, 200 + DY], "frame": 6}]
+    res = video_to_flow.insert(align_plan(shifted_video(tmp_path / "add.mp4"), steps=steps),
+                               flow, engine=engine)
+    loc, new, c = read(flow)["steps"][7:]
+    assert close(loc["target"]["within"], expand(box("確定")))
+    assert close(new["target"]["within"], expand(NEW_BOX))
+    assert c["click"] == [150 - new_center()[0], 200 - new_center()[1]]
+    assert res["align"]["drag"] is None
+
+
+def test_對齊_交付報告記下對齊圖參考步驟與位移(flow, tmp_path, engine):
+    video_to_flow.insert(align_plan(shifted_video(tmp_path / "add.mp4")), flow, engine=engine)
+    ov = (flow / "交付報告" / "總覽.md").read_text(encoding="utf-8")
+    sec = (flow / "交付報告" / "步驟-下一步.md").read_text(encoding="utf-8")
+    for text in ("對齊圖「確定」", "前找圖「確定」那一步", f"對齊位移 (0, -{DY})",
+                 "第一次拖曳的距離從 100 px 改成 60 px"):
+        assert text in ov and text in sec, text
+
+
+def test_align_null_照舊插入不平移(flow, tmp_path, engine):
+    res = video_to_flow.insert(align_plan(shifted_video(tmp_path / "add.mp4"), align=None),
+                               flow, engine=engine)
+    drag = read(flow)["steps"][8]
+    assert abs((drag["drag"][1] - drag["to"][1]) - 100) <= 2
+    assert res["align"] is None
+
+
+def _refuse(flow, tmp_path, engine, match, video=None, **kw):
+    refused(flow, align_plan(video or shifted_video(tmp_path / "add.mp4"), **kw), match,
+            engine)
+
+
+def test_對齊_有拖曳沒寫align就報錯(flow, tmp_path, engine):
+    plan = align_plan(shifted_video(tmp_path / "add.mp4"))
+    del plan["align"]
+    refused(flow, plan, "插入段有拖曳.*align: null", engine)
+
+
+def test_對齊_有找圖宣告捲動軸沒寫align就報錯(flow, tmp_path, engine):
+    plan = align_plan(shifted_video(tmp_path / "add.mp4"),
+                      steps=[{"find": "新鈕", "frame": 5, "scroll": "vertical"}])
+    del plan["align"]
+    refused(flow, plan, "宣告了捲動軸", engine)
+
+
+def test_對齊_巢狀區段裡有拖曳也要寫align(flow, tmp_path, engine):
+    steps = [{"branch": [{"if": {"find": "確定", "frame": 5, "timeout": 3, "on_fail": "skip"},
+                          "then": drag_steps()[1:]}]}]
+    plan = align_plan(shifted_video(tmp_path / "add.mp4"), steps=steps)
+    del plan["align"]
+    refused(flow, plan, "插入段有拖曳", engine)
+
+
+@pytest.mark.parametrize("align, match", [
+    ({"find": "確定", "frame": 5, "at": [0, 0]}, "要寫"),
+    (dict(ALIGN, step=1), "不是找「確定」"),
+    (dict(ALIGN, step=99), "超出"),
+    (dict(ALIGN, find="新鈕"), "不是既有流程的範本"),
+    (dict(ALIGN, at=[60, 250]), "偏超過範本尺寸"),
+    (dict(ALIGN, frame=20), "第一次拖曳"),
+], ids=["形狀不對", "步驟不符", "步驟超出", "不是既有範本", "at附近找不到", "frame在拖曳之後"])
+def test_對齊的計畫錯誤就報錯_資料夾不變(flow, tmp_path, engine, align, match):
+    _refuse(flow, tmp_path, engine, match, align=align)
+
+
+def test_對齊_參考步驟在插入點之後就報錯(flow, tmp_path, engine):
+    steps = [{"find": "新鈕", "frame": 5}, {"click": [150, 200 + DY], "frame": 6}]
+    _refuse(flow, tmp_path, engine, "不在插入點之前", steps=steps, after=1,
+            expect={"find_click": "開始"})
+
+
+def test_對齊_參考步驟沒有固定矩形就報錯(flow, tmp_path, engine):
+    edit_within(flow, 3, None)
+    _refuse(flow, tmp_path, engine, "沒有固定矩形")
+
+
+def test_對齊_參考步驟的框沿捲動軸太長就報錯(flow, tmp_path, engine):
+    x, y, w, _ = expand(box("確定"))
+    edit_within(flow, 3, [x, -ANCHOR[1], w, 36 * 6 + 1])
+    _refuse(flow, tmp_path, engine, "超過範本的 6 倍")
+
+
+def test_對齊_另一軸位移太大就報錯(flow, tmp_path, engine):
+    video = shifted_video(tmp_path / "add.mp4", dx=30)
+    _refuse(flow, tmp_path, engine, "以外那一軸", video=video,
+            align=dict(ALIGN, at=[ALIGN["at"][0] + 30, ALIGN["at"][1]]))
+
+
+def test_對齊_算出的拖曳距離不是正的就報錯(flow, tmp_path, engine):
+    _refuse(flow, tmp_path, engine, "不是正的", steps=drag_steps(length=30))
+
+
+def test_對齊_那一幀找不到對齊圖就報錯(flow, tmp_path, engine):
+    steps = [{"find": "新鈕", "frame": 20}, {"click": [150, 200], "frame": 21}]
+    _refuse(flow, tmp_path, engine, "找不到「確定」", steps=steps, align=dict(ALIGN, frame=20))
+
+
+def test_對齊_into插進重複區段就報錯(flow, tmp_path, engine):
+    plan = align_plan(shifted_video(tmp_path / "add.mp4"), into=2, expect={"repeat": 2})
+    del plan["after"]
+    refused(flow, plan, "into", engine)
+
+
+def test_對齊_第一次拖曳在重複區段裡就報錯(flow, tmp_path, engine):
+    first, *rest = drag_steps()
+    _refuse(flow, tmp_path, engine, "重複區段裡", steps=[{"repeat": 2, "steps": [first, *rest]}])
+
+
+def test_對齊_第一次拖曳所在分岔還有別的分支就報錯(flow, tmp_path, engine):
+    first, drag, new, c = drag_steps()
+    cond = dict(first, timeout=3, on_fail="skip")
+    other = {"find": "新鈕", "frame": 20, "timeout": 3, "on_fail": "skip"}
+    steps = [{"branch": [{"if": cond, "then": [drag]}, {"if": other, "then": [c]}]}]
+    _refuse(flow, tmp_path, engine, "別的分支", steps=steps)
+
+
+def test_對齊_單分支分岔裡的拖曳照常吸收(flow, tmp_path, engine):
+    first, *rest = drag_steps()
+    steps = [{"branch": [{"if": dict(first, timeout=3, on_fail="skip"), "then": rest}]}]
+    res = video_to_flow.insert(align_plan(shifted_video(tmp_path / "add.mp4"), steps=steps),
+                               flow, engine=engine)
+    assert res["align"]["drag"][1] == pytest.approx(60, abs=2)

@@ -1,15 +1,84 @@
 {
   "video": "C:/Users/three/我的電腦/oCam Video/add5.mp4",
-  "after": 120, "expect": {"branch": null},
-  "templates": {"标题_回收站": {"frame": 168, "box": [770, 413, 102, 40], "absent": [120]}},
+  "after": 120,
+  "expect": {
+    "branch": null
+  },
+  "align": {
+    "find": "标题_办公室",
+    "frame": 150,
+    "at": [
+      821,
+      742
+    ],
+    "step": 121
+  },
+  "templates": {
+    "标题_回收站": {
+      "frame": 168,
+      "box": [
+        770,
+        413,
+        102,
+        40
+      ],
+      "absent": [
+        120
+      ]
+    }
+  },
   "steps": [
-    {"branch": [{"if": {"find": "标题_办公室", "frame": 150, "pick": {"top": 1}, "timeout": 3,
-                         "on_fail": "skip"},
-                 "then": [
-                   {"drag": [1428, 715], "to": [1428, 189], "frame": 150, "confirm": "gone",
-                    "on_fail": "break", "busy_check": true},
-                   {"find": "标题_回收站", "frame": 168, "pick": {"top": 1}, "on_fail": "break"},
-                   {"click": [1567, 543], "frame": 199, "busy_check": true}]}]}
+    {
+      "branch": [
+        {
+          "if": {
+            "find": "标题_办公室",
+            "frame": 150,
+            "pick": {
+              "top": 1
+            },
+            "timeout": 3,
+            "on_fail": "skip"
+          },
+          "then": [
+            {
+              "drag": [
+                1428,
+                715
+              ],
+              "to": [
+                1428,
+                189
+              ],
+              "frame": 150,
+              "confirm": "gone",
+              "on_fail": "break",
+              "busy_check": true
+            },
+            {
+              "find": "标题_回收站",
+              "frame": 168,
+              "pick": {
+                "top": 1
+              },
+              "on_fail": "break"
+            },
+            {
+              "click": [
+                1567,
+                543
+              ],
+              "frame": 199,
+              "busy_check": true
+            }
+          ]
+        }
+      ]
+    }
   ],
-  "report": {"notes": ["v2f-rules-agent-docs 驗收①：照 add5 量的補充，對照組是早_簡中原本手動插入的那段"]}
+  "report": {
+    "notes": [
+      "v2f-rules-agent-docs 驗收①：照 add5 量的補充，對照組是早_簡中原本手動插入的那段"
+    ]
+  }
 }

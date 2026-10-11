@@ -29,7 +29,7 @@ ASSEMBLE, INSERT = "assemble", "insert"
 _TOP = {ASSEMBLE: {"video", "name", "out", "templates", "steps", "calibration",
                    "busy", "report"},
         INSERT: {"video", "templates", "steps", "report", "after", "into", "expect",
-                 "scale_image"}}
+                 "scale_image", "align"}}
 TEMPLATE_FIELDS = {"frame", "box", "present", "absent", "clean"}
 SCROLL = ("vertical", "horizontal")
 
@@ -88,6 +88,8 @@ class Plan:
     into: int | None = None
     expect: dict | None = None
     scale_image: str | None = None
+    align: dict | None = None   # `對齊圖` {find, frame, at (影片像素), step}
+    align_set: bool = False     # 計畫寫了 align (含 align: null＝刻意不對齊)
     base: str = field(default_factory=os.getcwd)
 
 
@@ -170,6 +172,9 @@ def load(plan, mode=ASSEMBLE):
             if not isinstance(raw["scale_image"], str) or not raw["scale_image"].strip():
                 _err("scale_image", "要是圖片路徑（字串）")
             p.scale_image = resolve(raw["scale_image"])
+        if "align" in raw:
+            p.align_set = True
+            p.align = _align(raw["align"])
     return p
 
 
@@ -454,3 +459,21 @@ def _insert_point(p, raw):
         _err("expect", "要寫第 N 步的開頭鍵＋值（例 {\"find\": \"标题_办公室\"}），工具拿它核對"
              f"編號沒寫錯，收到 {exp!r}")
     p.expect = dict(exp)
+
+
+def _align(raw):
+    """`對齊圖`: {"find": 範本名, "frame": 影片幀, "at": [x, y], "step": N} 或 null."""
+    if raw is None:
+        return None
+    where = "align"
+    if not isinstance(raw, dict) or set(raw) != {"find", "frame", "at", "step"}:
+        _err(where, "要寫 {\"find\": 範本名, \"frame\": 影片幀, \"at\": [x, y]（影片裡的大約位置）, "
+             "\"step\": N（插入點前定位這張圖的那一步，flow.yaml 行尾的 # N）}，"
+             f"刻意不對齊寫 align: null，收到 {raw!r}")
+    if not isinstance(raw["find"], str) or not raw["find"].strip():
+        _err(where + ".find", "要是既有範本的名字（字串）")
+    n = raw["step"]
+    if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+        _err(where + ".step", f"要是步驟編號（從 1 起算），收到 {n!r}")
+    return {"find": raw["find"], "frame": _frame(where + ".frame", raw["frame"]),
+            "at": _xy(where + ".at", raw["at"]), "step": n}

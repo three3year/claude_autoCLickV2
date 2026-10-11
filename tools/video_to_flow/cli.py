@@ -108,6 +108,13 @@ def main(argv=None):
             res = insert(args.plan, args.folder)
             print(f"已插入 {res['inserted']} 步（從步驟 {res['position']} 起）→ {res['flow_path']}")
             print(f"影片倍率 ×{res['video_scale']:.3f}（{res['scale_from']}）")
+            aligned = res["align"]
+            if aligned:
+                dx, dy = aligned["shift"]
+                print(f"對齊位移 ({dx}, {dy}) px（影片裡 {aligned['video']}、執行時 "
+                      f"{aligned['runtime']}）" + (
+                          "；第一次拖曳 {} → {} px".format(*aligned["drag"])
+                          if aligned["drag"] else ""))
             _lists(res)
             for n, e in res["similar"].items():
                 print(f"建議：新範本「{n}」跟既有的「{e}」幾乎一樣，考慮改用既有的")

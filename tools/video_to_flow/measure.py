@@ -83,9 +83,13 @@ class Measured:
     busy_unchecked: list = field(default_factory=list)  # 沒勾、之後看到了
 
 
-def measure(p, checker, busy=None):
+def measure(p, checker, busy=None, shifts=None):
     """原點推算＋每個找圖目標挑框與固定矩形; busy: 忙碌指示 (組裝＝計畫的, 帶證據影格 frame;
-    補充＝既有流程的, 原樣用). 回傳 `Measured`."""
+    補充＝既有流程的, 原樣用); shifts: 補充對齊時每步的`對齊位移` (見 align.apply).
+    回傳 `Measured`."""
+
+    def shift(i):
+        return shifts[i] if shifts else (0, 0)
 
     def locate(i, s, tgt, origin):
         ev = p.evidence[i] or {}
@@ -94,7 +98,7 @@ def measure(p, checker, busy=None):
         fb = p.templates[name]["box"] if name in p.templates else None
         return checker.locate_target(tgt, frame, origin, f"{label(s)}那一步",
                                      at=ev.get("at"), scroll=ev.get("scroll"),
-                                     fallback_box=fb)
+                                     fallback_box=fb, shift=shift(i))
 
     def locate_confirm(i, s, ctgt, origin):
         frame = confirm_frame(p, i)
@@ -102,7 +106,7 @@ def measure(p, checker, busy=None):
         fb = p.templates[name]["box"] if name in p.templates else None
         _, within = checker.locate_target(ctgt, frame, origin,
                                           f"{label(s)}的確認圖「{name}」",
-                                          fallback_box=fb)
+                                          fallback_box=fb, shift=shift(i))
         return within
 
     steps = origin_mod.derive(p.steps, p.evidence, p.templates, locate, locate_confirm)

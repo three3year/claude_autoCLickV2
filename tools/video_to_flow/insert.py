@@ -2,10 +2,10 @@
 
 順序 (任何報錯都在寫檔前; 失敗時既有資料夾一個位元都不變)::
 
-    讀計畫與既有流程 → 核對插入點 (after/into＋expect) → 量`影片倍率` →
-    影格整張縮放 1/倍率、對齊`座標基準點` → 與 assemble 同一段量測 (原點推算、固定矩形、
-    拾取檢查、忙碌兩向) → 插入後的原點來源比對 → 結構檢查 → 寫回 (新範本、flow.yaml、
-    交付報告) → 檢查指令
+    讀計畫與既有流程 → 核對插入點 (after/into＋expect)、`對齊圖`的參考步驟 → 量`影片倍率` →
+    影格整張縮放 1/倍率、對齊`座標基準點` → 量`對齊位移`並套到插入段 → 與 assemble 同一段
+    量測 (原點推算、固定矩形、拾取檢查、忙碌兩向) → 插入後的原點來源比對 → 結構檢查 →
+    寫回 (新範本、flow.yaml、交付報告) → 檢查指令
 
 影片倍率在影格上量既有流程的`校準對` (主對量不到改備用對; 都量不到改量計畫的
 scale_image——跟影片同取景的一張圖片), 支援倍率範圍外報錯。量到之後影片的一切像素量
@@ -23,6 +23,7 @@ from automation.runner import origin_step
 from subject_detection.library import load_default_config
 
 from .assemble import crop, png, retake_of, scroll_confirm
+from . import align as align_mod
 from . import measure as measure_mod
 from . import plan as plan_mod
 from . import report as report_mod
@@ -153,7 +154,8 @@ def scaled_plan(p, r):
                                     max(1, _div(h, r))],
                             present=[dict(pr, at=xy(pr["at"]) if pr["at"] else None)
                                      for pr in t["present"]])
-    return replace(p, steps=steps, evidence=evidence, templates=templates)
+    align = dict(p.align, at=xy(p.align["at"])) if p.align else p.align
+    return replace(p, steps=steps, evidence=evidence, templates=templates, align=align)
 
 
 # ---------- 範本 ----------
@@ -254,9 +256,15 @@ def insert(plan, folder, engine=None):
     # 只看步驟種類的檢查先做 (不必等量測): 找圖相連、原點的圖離開、後面舊步驟的原點來源
     plan_mod.precheck(old[:pos] + p.steps + old[pos:], flow.get("busy"))
     _origin_check(old, old[:pos] + p.steps + old[pos:], pos, len(p.steps))
+    align_mod.require(p)
+    ref = None
+    if p.align:
+        align_mod.check_segment(p)
+        ref = align_mod.reference(p, old, pos, existing, measure_mod.label)
 
     info = video_mod.probe(p.video)
-    raw_frames = video_mod.read_frames(p.video, measure_mod.frames_needed(p))
+    raw_frames = video_mod.read_frames(
+        p.video, measure_mod.frames_needed(p, [p.align["frame"]] if p.align else []))
     config = dict(load_default_config(), **(flow.get("engine") or {}))
     engine = engine or verify_mod.make_engine()
     pair_imgs = {}
@@ -284,6 +292,8 @@ def insert(plan, folder, engine=None):
     need = refs - set(q.templates)
     if flow.get("busy"):
         need.add(flow["busy"]["template"])
+    if q.align:
+        need.add(q.align["find"])
     for n in sorted(need):
         img = imgio.imread(os.path.join(folder, flowfile.TEMPLATES_DIR, n + ".png"))
         if img is None:
@@ -292,7 +302,12 @@ def insert(plan, folder, engine=None):
     checker = verify_mod.Checker(engine, {**crops, **old_imgs}, q.templates, q.steps, frames,
                                  config, anchor, size,
                                  extra_targets=[flow["busy"]] if flow.get("busy") else [])
-    measured = measure_mod.measure(q, checker, flow.get("busy"))
+    shifts, shift, drag_change = None, None, None
+    if q.align:
+        h, w = old_imgs[q.align["find"]].shape[:2]
+        shift = align_mod.measure_shift(q, ref, (w, h), frames, checker.detector, anchor)
+        q, shifts, drag_change = align_mod.apply(q, shift.d)
+    measured = measure_mod.measure(q, checker, flow.get("busy"), shifts)
     measure_mod.busy_two_way(q, measured, checker, info, rescale)
     checked = checker.finish()
     seg = measured.steps
@@ -333,6 +348,8 @@ def insert(plan, folder, engine=None):
                + [("範本重複", f"新範本「{n}」跟既有的「{e}」幾乎一樣，建議改用既有的")
                   for n, e in similar.items()])
     note = f"來源影片 `{os.path.basename(p.video)}`（影片倍率 ×{r:.3f}，{how}）。"
+    if shift is not None:
+        note += _align_note(q.align["find"], old[p.align["step"] - 1], shift, drag_change)
     files = report_mod.supplement(folder, old, new_steps, (pos, pos + len(seg)), note,
                                   list(retake.items()), confirm)
     def verify():
@@ -346,8 +363,23 @@ def insert(plan, folder, engine=None):
             "retake": retake, "similar": similar,
             "scroll_confirm": scroll, "busy_unseen": measured.busy_unseen,
             "busy_unchecked": measured.busy_unchecked,
+            "align": None if shift is None else {
+                "shift": list(shift.d), "video": list(shift.video),
+                "runtime": list(shift.runtime), "axis": shift.axis,
+                "drag": list(drag_change) if drag_change else None},
             "report_files": sorted(files), "steps": len(new_steps),
             "step_list": new_steps}
+
+
+def _align_note(name, ref_step, shift, drag_change):
+    """交付報告裡對齊的一句 (參考步驟用內容指稱)."""
+    d = shift.d
+    text = (f"對齊圖「{name}」（參考插入點前{measure_mod.label(ref_step)}那一步的固定矩形）："
+            f"影片裡在 ({shift.video[0]}, {shift.video[1]})、執行時在 "
+            f"({shift.runtime[0]}, {shift.runtime[1]})，對齊位移 ({d[0]}, {d[1]}) px")
+    if drag_change:
+        text += f"；第一次拖曳的距離從 {drag_change[0]} px 改成 {drag_change[1]} px"
+    return text + "。"
 
 
 def _shifted_scroll(measured, pos):

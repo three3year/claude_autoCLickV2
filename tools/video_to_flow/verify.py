@@ -191,12 +191,27 @@ class Checker:
             self.results[name]["reasons"].append(f"縮放餘裕：{w.text}")
 
     def locate_target(self, tgt, frame, origin, label, at=None, scroll=None,
-                      fallback_box=None):
+                      fallback_box=None, shift=(0, 0)):
         """照找圖目標在 frame 上挑一次, 算固定矩形 → (挑中的框, within).
 
         tgt: 找圖目標 (pick near 已是相對 origin 的值, 沒有 within); 挑不到時用
         fallback_box (計畫的取材框) 算框並標待重拍。at: 計畫寫的點擊位置 (要落在挑中的框附近)。
+        shift: 這一步的`對齊位移`——origin、at 是執行時的位置, 減掉它才是影片裡的位置;
+        在影格上挑中的框加回它才算固定矩形, 回傳的框也是執行時的位置。
         """
+        dx, dy = shift
+        if origin is not None:
+            origin = (origin[0] - dx, origin[1] - dy)
+        if at is not None:
+            at = [at[0] - dx, at[1] - dy]
+        box, within = self._locate(tgt, frame, origin, label, at, scroll, fallback_box,
+                                   (dx, dy))
+        if box is not None and (dx, dy) != (0, 0):
+            box = (box[0] + dx, box[1] + dy, box[2], box[3])
+        return box, within
+
+    def _locate(self, tgt, frame, origin, label, at, scroll, fallback_box, shift):
+        """locate_target 在影片位置上的本體 (origin、at、回傳的框都是影片裡的位置)."""
         name = tgt["template"]
         res = self.results[name]
         size = self.sizes[name]
@@ -232,20 +247,23 @@ class Checker:
                             f"不是取材的 {want[0]},{want[1]}）")
         if box is None:   # 引用的既有範本在這一幀找不到 (已標待重拍): 不寫固定矩形 (＝整個搜尋範圍)
             return fallback_box, None
-        within, clipped = fixed_rect(box, self.size, self.anchor, scroll)
+        # 固定矩形照執行時的位置 (框加位移) 算; 在影格上複查時基準點反向挪, 框才落回影片位置
+        moved = (box[0] + shift[0], box[1] + shift[1], box[2], box[3])
+        within, clipped = fixed_rect(moved, self.size, self.anchor, scroll)
+        anchor = (self.anchor[0] - shift[0], self.anchor[1] - shift[1])
         full = dict(tgt, within=within)
         for w in pickcheck.rect_margin(full, size):
             if not clipped:
                 raise ToolError(f"工具錯誤：{label} 的固定矩形沒過矩形餘裕：{w.text}")
         if picked is not None:
             f2 = findtarget.find(full, self.detector, self.frames[frame], (0, 0),
-                                 origin=origin, scale=1.0, anchor=self.anchor)
+                                 origin=origin, scale=1.0, anchor=anchor)
             if (f2.picked is None or math.dist(_center(f2.picked.box), _center(picked))
                     > position_tolerance(picked)):
                 res["reasons"].append(
                     f"加上固定矩形後挑到的不是同一個（{label}，第 {frame} 幀）")
             for w in pickcheck.unique(self.detector, self.frames[frame], (0, 0), full,
-                                      anchor=self.anchor, scale=1.0, origin=origin):
+                                      anchor=anchor, scale=1.0, origin=origin):
                 res["reasons"].append(f"唯一（{label}，第 {frame} 幀）：{w.text}")
         return box, within
 

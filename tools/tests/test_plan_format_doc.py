@@ -27,3 +27,5 @@ def test_文件裡的範例計畫讀得進來():
     assert (q.after, q.expect) == (120, {"branch": "标题_办公室"})
     assert [s["type"] for s in q.steps][:3] == ["branch_start", "find", "drag"]
     assert q.evidence[1]["scroll"] == "vertical"
+    assert q.align_set and q.align == {"find": "标题_办公室", "frame": 180, "at": [1440, 742],
+                                       "step": 121}
