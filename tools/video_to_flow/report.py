@@ -138,7 +138,8 @@ def describe(s):
         return text
     if t == "wait":
         return f"等待 {s['wait']:g} 秒"
-    return t
+    return {"repeat_start": f"重複 {s.get('repeat')} 次：", "branch_start": "分岔：",
+            "branch_or": "或", "repeat_end": "（重複結束）", "branch_end": "（分岔結束）"}.get(t, t)
 
 
 def outline(steps, start=0, end=None):
