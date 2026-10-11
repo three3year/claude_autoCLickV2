@@ -36,26 +36,13 @@ import ui_dialogs
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import (capture, findtarget, flowdefaults, flowfmt, hotkey, imgio,
-                        pickcheck, win)
-from automation.runner import (Runner, branch_layout, has_busy_check,
-                               confirm_next_connected, origin_source,
-                               uses_confirm_next, uses_origin_leaves)
+from automation import (capture, findtarget, flowcheck, flowdefaults, flowfmt, hotkey,
+                        imgio, pickcheck, win)
+from automation.flowcheck import STEP_LABELS
+from automation.runner import (Runner, has_busy_check, confirm_next_connected,
+                               origin_source, uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
 
-STEP_LABELS = {
-    "find_click": "找圖點擊",
-    "find": "找圖點擊",        # 找圖三態共用一個標籤, 摘要寫出找到之後做什麼
-    "wait_gone": "找圖點擊",
-    "click": "座標點擊",
-    "drag": "滑鼠拖曳",
-    "wait": "等待",
-    "repeat_start": "重複開始",
-    "repeat_end": "重複結束",
-    "branch_start": "分岔開始",
-    "branch_or": "分岔（或）",
-    "branch_end": "分岔結束",
-}
 # 新增時直接加入清單的標記步驟 (無需開對話框)
 MARKER_TYPES = {"repeat_end", "branch_start", "branch_or", "branch_end"}
 # 標記步驟中仍可編輯屬性的 (區段結尾: 設定「找不到跳出到此」的後續動作)
@@ -2079,42 +2066,8 @@ class App:
             return 1
 
     def _flow_error(self, steps=None):
-        """執行前檢查流程結構, 回傳錯誤訊息或 None.
-
-        堆疊掃描: 除了成對, 也擋交錯區段 (如 重複開始→分岔開始→
-        重複結束→分岔結束), runner 的跳轉解譯無法正確執行交錯結構.
-        """
-        steps = self.steps if steps is None else steps
-        zh = {"repeat_start": "重複", "branch_start": "分岔"}
-        stack = []  # 進行中區段的 (start type, 步驟序號)
-        for i, s in enumerate(steps):
-            t = s["type"]
-            if t in ("repeat_start", "branch_start"):
-                if t == "branch_start":
-                    lay = branch_layout(steps, i)
-                    if lay is None:
-                        return "分岔標記不成對（缺少「分岔結束」）"
-                    segs, end = lay
-                    for st in segs:
-                        if st >= end or not findtarget.is_find(steps[st]):
-                            return "分岔的每個分支開頭必須是「找圖點擊」步驟"
-                stack.append((t, i + 1))
-            elif t in ("repeat_end", "branch_end"):
-                need = "repeat_start" if t == "repeat_end" else "branch_start"
-                if not stack:
-                    return f"步驟 {i + 1}「{STEP_LABELS[t]}」缺少對應的開始標記"
-                if stack[-1][0] != need:
-                    return (f"區段交錯：步驟 {i + 1}「{STEP_LABELS[t]}」之前，"
-                            f"必須先結束步驟 {stack[-1][1]} 開始的"
-                            f"「{zh[stack[-1][0]]}」區段（區段不可交錯）")
-                stack.pop()
-            elif t == "branch_or":
-                if not stack or stack[-1][0] != "branch_start":
-                    return "「分岔（或）」必須直接位於分岔區段內"
-        if stack:
-            return (f"步驟 {stack[-1][1]}「{STEP_LABELS[stack[-1][0]]}」"
-                    f"缺少對應的結束標記")
-        return None
+        """執行前檢查流程的區段結構, 回傳錯誤訊息或 None (`flowcheck.section_error`)."""
+        return flowcheck.section_error(self.steps if steps is None else steps)
 
     def start_run(self, steps=None, test=False):
         """執行流程; steps 給定時只跑該片段 (測試選取), 一律單次."""
@@ -2210,39 +2163,18 @@ class App:
 
         片段恰結束在該步驟時, 片段清單就在此打住 → 自然判為不相連。
         """
-        return [i for i, s in enumerate(steps)
-                if uses_confirm_next(s) and not confirm_next_connected(steps, i)]
+        return flowcheck.confirm_next_bad(steps)
 
     def _origin_leaves_bad(self, steps):
         """「原點的圖離開」但原點不是來自找圖的座標點擊/拖曳索引 (0-based).
 
         測試選取時傳入的是片段: 原點來源在片段外＝片段內沒有找圖來源, 一樣擋。
         """
-        return [i for i, s in enumerate(steps)
-                if uses_origin_leaves(s) and origin_source(steps, i) != "find"]
+        return flowcheck.origin_leaves_bad(steps)
 
     def _fragment_origin_error(self, steps, base):
-        """片段內「執行到時必然沒有原點」的相對座標步驟編號 (完整清單編號).
-
-        原點來源: 點擊/拖曳 (本身也要先有原點)、找圖步驟; 以原點為基準的步驟
-        (座標點擊、拖曳、指定點相對原點的`找圖目標`) 在原點出現前執行只會被
-        runner 跳過, 測試片段時直接在執行前擋下.
-        """
-        have = False
-        bad = []
-        for k, s in enumerate(steps):
-            t = s.get("type")
-            if t in ("click", "drag"):
-                if not have:
-                    bad.append(base + k + 1)
-                elif t == "drag" or s["update_origin"]:
-                    have = True
-            elif t in findtarget.FIND_TYPES:
-                if not have and findtarget.needs_origin(findtarget.target(s)):
-                    bad.append(base + k + 1)
-                elif s["update_origin"]:
-                    have = True
-        return bad
+        """片段內「執行到時必然沒有原點」的相對座標步驟編號 (完整清單編號)."""
+        return [base + k + 1 for k in flowcheck.no_origin(steps)]
 
     def test_selected_steps(self):
         """測試選取: 只執行清單中選取的連續步驟片段 (單次)."""
