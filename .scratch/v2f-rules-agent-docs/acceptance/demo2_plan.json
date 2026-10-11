@@ -1,0 +1,1325 @@
+{
+ "video": "C:/Users/three/我的電腦/oCam Video/demo2.mp4",
+ "name": "早_繁中",
+ "templates": {
+  "主畫面設定鈕": {
+   "frame": 262,
+   "box": [
+    30,
+    58,
+    60,
+    56
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "主畫面倉庫": {
+   "frame": 256,
+   "box": [
+    1678,
+    834,
+    86,
+    100
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "標題列圖示": {
+   "frame": 256,
+   "box": [
+    7,
+    3,
+    26,
+    31
+   ]
+  },
+  "標題列關閉鈕": {
+   "frame": 292,
+   "box": [
+    1875,
+    6,
+    26,
+    26
+   ]
+  },
+  "圓形叉叉": {
+   "frame": 5,
+   "box": [
+    1647,
+    149,
+    46,
+    46
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "基建BASE": {
+   "frame": 260,
+   "box": [
+    1394,
+    803,
+    85,
+    95
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "鈴鐺": {
+   "frame": 433,
+   "box": [
+    1804,
+    189,
+    40,
+    40
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "待辦事項": {
+   "frame": 500,
+   "box": [
+    10,
+    962,
+    180,
+    42
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "可收穫": {
+   "frame": 495,
+   "box": [
+    204,
+    964,
+    50,
+    40
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "訂單交付": {
+   "frame": 548,
+   "box": [
+    212,
+    966,
+    47,
+    40
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "幹員信賴": {
+   "frame": 578,
+   "box": [
+    350,
+    958,
+    40,
+    46
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "返回": {
+   "frame": 620,
+   "box": [
+    42,
+    63,
+    30,
+    46
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "進駐總覽": {
+   "frame": 679,
+   "box": [
+    206,
+    150,
+    72,
+    64
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "生產面板箭頭": {
+   "frame": 705,
+   "box": [
+    596,
+    811,
+    33,
+    34
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "無人機加速": {
+   "frame": 716,
+   "box": [
+    1824,
+    728,
+    48,
+    48
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "最多": {
+   "frame": 732,
+   "box": [
+    1215,
+    470,
+    190,
+    62
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "確定": {
+   "frame": 753,
+   "box": [
+    1384,
+    787,
+    75,
+    38
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "收取": {
+   "frame": 775,
+   "box": [
+    1642,
+    850,
+    50,
+    58
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "會客室": {
+   "frame": 858,
+   "box": [
+    855,
+    264,
+    145,
+    36
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "線索面板": {
+   "frame": 876,
+   "box": [
+    336,
+    922,
+    66,
+    74
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "線索交流彈窗": {
+   "frame": 915,
+   "box": [
+    40,
+    222,
+    52,
+    112
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "每日線索": {
+   "frame": 955,
+   "box": [
+    1796,
+    232,
+    48,
+    54
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "領取": {
+   "frame": 986,
+   "box": [
+    1133,
+    784,
+    63,
+    31
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "快速置入": {
+   "frame": 1000,
+   "box": [
+    1710,
+    925,
+    40,
+    36
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "傳遞線索": {
+   "frame": 1140,
+   "box": [
+    1790,
+    464,
+    58,
+    58
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "快速傳遞": {
+   "frame": 1156,
+   "box": [
+    100,
+    942,
+    76,
+    78
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "傳遞關閉": {
+   "frame": 1199,
+   "box": [
+    1852,
+    59,
+    48,
+    48
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "標題_製造站": {
+   "frame": 1460,
+   "box": [
+    866,
+    626,
+    112,
+    44
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "標題_貿易站": {
+   "frame": 1526,
+   "box": [
+    866,
+    464,
+    112,
+    44
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "非工作區": {
+   "frame": 1570,
+   "box": [
+    1638,
+    56,
+    60,
+    56
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "幹員休息": {
+   "frame": 1596,
+   "box": [
+    1652,
+    930,
+    84,
+    64
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "導航": {
+   "frame": 1628,
+   "box": [
+    304,
+    60,
+    68,
+    46
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "好友": {
+   "frame": 1660,
+   "box": [
+    1630,
+    58,
+    60,
+    50
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "離開基建確認": {
+   "frame": 1680,
+   "box": [
+    1265,
+    672,
+    60,
+    56
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "好友列表": {
+   "frame": 1792,
+   "box": [
+    46,
+    280,
+    58,
+    64
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "訪問基建": {
+   "frame": 1894,
+   "box": [
+    1310,
+    232,
+    64,
+    38
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "訪問下位": {
+   "frame": 1952,
+   "box": [
+    1712,
+    882,
+    190,
+    64
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "忙碌指示": {
+   "frame": 2000,
+   "box": [
+    1069,
+    944,
+    272,
+    25
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "採購中心": {
+   "frame": 2690,
+   "box": [
+    1612,
+    350,
+    74,
+    66
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "信用交易所": {
+   "frame": 2726,
+   "box": [
+    1530,
+    150,
+    95,
+    42
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "收取信用": {
+   "frame": 2750,
+   "box": [
+    1520,
+    62,
+    155,
+    48
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "獲得物資": {
+   "frame": 2778,
+   "box": [
+    910,
+    90,
+    125,
+    112
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "購買物品": {
+   "frame": 2794,
+   "box": [
+    1200,
+    780,
+    56,
+    46
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "採購_招聘許可": {
+   "frame": 2784,
+   "box": [
+    736,
+    370,
+    98,
+    70
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "採購_裝置": {
+   "frame": 2869,
+   "box": [
+    424,
+    684,
+    98,
+    70
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "採購_初級作戰記錄": {
+   "frame": 2900,
+   "box": [
+    1048,
+    369,
+    98,
+    70
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "採購_破損裝置": {
+   "frame": 2980,
+   "box": [
+    425,
+    371,
+    98,
+    70
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "採購_赤金": {
+   "frame": 3024,
+   "box": [
+    1360,
+    683,
+    98,
+    70
+   ],
+   "absent": [
+    1730
+   ]
+  },
+  "公開招募": {
+   "frame": 3147,
+   "box": [
+    1320,
+    363,
+    62,
+    58
+   ],
+   "absent": [
+    1730
+   ]
+  }
+ },
+ "calibration": {
+  "pair": [
+   "主畫面設定鈕",
+   "主畫面倉庫"
+  ],
+  "frame": 270,
+  "fallback": {
+   "pair": [
+    "標題列圖示",
+    "標題列關閉鈕"
+   ]
+  }
+ },
+ "busy": {
+  "template": "忙碌指示"
+ },
+ "steps": [
+  {
+   "branch": [
+    {
+     "if": {
+      "find_click": "圓形叉叉",
+      "frame": 5,
+      "confirm": "gone",
+      "timeout": 5,
+      "on_fail": "skip",
+      "busy_check": true
+     }
+    }
+   ]
+  },
+  {
+   "branch": [
+    {
+     "if": {
+      "find_click": "圓形叉叉",
+      "frame": 61,
+      "confirm": "gone",
+      "timeout": 5,
+      "on_fail": "skip",
+      "busy_check": true
+     }
+    }
+   ]
+  },
+  {
+   "branch": [
+    {
+     "if": {
+      "find_click": "圓形叉叉",
+      "frame": 227,
+      "confirm": "gone",
+      "timeout": 5,
+      "on_fail": "skip",
+      "busy_check": true
+     }
+    }
+   ]
+  },
+  {
+   "find_click": "基建BASE",
+   "frame": 260,
+   "confirm": "next",
+   "timeout": 30
+  },
+  {
+   "find_click": "鈴鐺",
+   "frame": 433,
+   "confirm": {
+    "appear": "待辦事項"
+   },
+   "timeout": 15,
+   "on_fail": "skip"
+  },
+  {
+   "repeat": 3,
+   "on_break": "break",
+   "steps": [
+    {
+     "branch": [
+      {
+       "if": {
+        "find_click": "可收穫",
+        "frame": 495,
+        "confirm": "gone",
+        "timeout": 3,
+        "on_fail": "skip",
+        "busy_check": true
+       }
+      },
+      {
+       "if": {
+        "find_click": "訂單交付",
+        "frame": 548,
+        "confirm": "gone",
+        "timeout": 3,
+        "on_fail": "skip"
+       }
+      },
+      {
+       "if": {
+        "find_click": "幹員信賴",
+        "frame": 600,
+        "confirm": "gone",
+        "timeout": 3,
+        "on_fail": "skip",
+        "busy_check": true
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "find": "返回",
+   "frame": 620,
+   "timeout": 5
+  },
+  {
+   "click": [
+    557,
+    283
+   ],
+   "frame": 653
+  },
+  {
+   "wait": 0.5
+  },
+  {
+   "find": "進駐總覽",
+   "frame": 679
+  },
+  {
+   "click": [
+    549,
+    734
+   ],
+   "frame": 683,
+   "confirm": "next"
+  },
+  {
+   "find_click": "生產面板箭頭",
+   "frame": 705,
+   "confirm": "next",
+   "timeout": 15
+  },
+  {
+   "find_click": "無人機加速",
+   "frame": 716,
+   "confirm": "next"
+  },
+  {
+   "find_click": "最多",
+   "frame": 732,
+   "at": [
+    1357,
+    501
+   ]
+  },
+  {
+   "wait": 0.3
+  },
+  {
+   "find_click": "確定",
+   "frame": 753,
+   "confirm": "gone",
+   "busy_check": true
+  },
+  {
+   "find_click": "收取",
+   "frame": 775,
+   "timeout": 3,
+   "on_fail": "skip"
+  },
+  {
+   "wait": 0.5
+  },
+  {
+   "find_click": "返回",
+   "frame": 792
+  },
+  {
+   "wait": 1
+  },
+  {
+   "find_click": "返回",
+   "frame": 799,
+   "confirm": "next"
+  },
+  {
+   "find": "進駐總覽",
+   "frame": 819
+  },
+  {
+   "drag": [
+    1500,
+    600
+   ],
+   "to": [
+    660,
+    455
+   ],
+   "frame": 830,
+   "confirm": "next"
+  },
+  {
+   "find_click": "會客室",
+   "frame": 858,
+   "confirm": "next"
+  },
+  {
+   "find_click": "線索面板",
+   "frame": 876,
+   "confirm": "gone",
+   "timeout": 15
+  },
+  {
+   "wait": 1
+  },
+  {
+   "branch": [
+    {
+     "if": {
+      "find": "線索交流彈窗",
+      "frame": 915,
+      "timeout": 1.5,
+      "on_fail": "skip"
+     },
+     "then": [
+      {
+       "find_click": "返回",
+       "frame": 941,
+       "timeout": 5,
+       "on_fail": "break"
+      },
+      {
+       "wait": 0.8
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "find_click": "每日線索",
+   "frame": 955,
+   "confirm": "next",
+   "timeout": 3,
+   "on_fail": "skip"
+  },
+  {
+   "find_click": "領取",
+   "frame": 986,
+   "confirm": "gone",
+   "timeout": 3,
+   "on_fail": "skip",
+   "busy_check": true
+  },
+  {
+   "find_click": "快速置入",
+   "frame": 1060,
+   "color": true,
+   "timeout": 2,
+   "on_fail": "skip",
+   "busy_check": true
+  },
+  {
+   "find_click": "線索面板",
+   "frame": 1100,
+   "confirm": "next",
+   "timeout": 15
+  },
+  {
+   "find_click": "傳遞線索",
+   "frame": 1140,
+   "confirm": "next",
+   "busy_check": true
+  },
+  {
+   "find_click": "快速傳遞",
+   "frame": 1156,
+   "timeout": 15
+  },
+  {
+   "wait": 0.8
+  },
+  {
+   "find_click": "傳遞關閉",
+   "frame": 1199,
+   "confirm": "gone"
+  },
+  {
+   "find_click": "返回",
+   "frame": 1227
+  },
+  {
+   "wait": 1
+  },
+  {
+   "find_click": "返回",
+   "frame": 1248,
+   "confirm": "next"
+  },
+  {
+   "find_click": "進駐總覽",
+   "frame": 1287,
+   "timeout": 15
+  },
+  {
+   "find": "標題_製造站",
+   "frame": 1460,
+   "pick": {
+    "top": 1
+   }
+  },
+  {
+   "drag": [
+    1300,
+    700
+   ],
+   "to": [
+    1300,
+    411
+   ],
+   "frame": 1462,
+   "confirm": "gone",
+   "busy_check": true
+  },
+  {
+   "find": "標題_製造站",
+   "frame": 1480,
+   "pick": {
+    "top": 1
+   }
+  },
+  {
+   "click": [
+    1848,
+    480
+   ],
+   "frame": 1479,
+   "busy_check": true
+  },
+  {
+   "find": "標題_製造站",
+   "frame": 1500,
+   "pick": {
+    "top": 1
+   }
+  },
+  {
+   "drag": [
+    1300,
+    900
+   ],
+   "to": [
+    1300,
+    194
+   ],
+   "frame": 1503,
+   "confirm": "gone",
+   "busy_check": true
+  },
+  {
+   "find": "標題_貿易站",
+   "frame": 1526,
+   "pick": {
+    "top": 1
+   }
+  },
+  {
+   "click": [
+    1857,
+    565
+   ],
+   "frame": 1527,
+   "busy_check": true
+  },
+  {
+   "find_click": "非工作區",
+   "frame": 1570,
+   "confirm": "next"
+  },
+  {
+   "find_click": "幹員休息",
+   "frame": 1596,
+   "timeout": 3,
+   "on_fail": "skip"
+  },
+  {
+   "wait": 0.5
+  },
+  {
+   "find_click": "導航",
+   "frame": 1628,
+   "confirm": "next"
+  },
+  {
+   "find_click": "好友",
+   "frame": 1660
+  },
+  {
+   "branch": [
+    {
+     "if": {
+      "find_click": "離開基建確認",
+      "frame": 1680,
+      "confirm": "gone",
+      "timeout": 3,
+      "on_fail": "skip"
+     }
+    }
+   ]
+  },
+  {
+   "find_click": "好友列表",
+   "frame": 1792,
+   "confirm": "next",
+   "timeout": 30
+  },
+  {
+   "find_click": "訪問基建",
+   "frame": 1894,
+   "pick": {
+    "top": 1
+   },
+   "scroll": "vertical",
+   "timeout": 15
+  },
+  {
+   "repeat": 10,
+   "steps": [
+    {
+     "find_click": "訪問下位",
+     "frame": 1952,
+     "timeout": 30,
+     "on_fail": "break"
+    },
+    {
+     "wait_gone": "訪問下位",
+     "frame": 1952,
+     "timeout": 5,
+     "on_fail": "skip"
+    }
+   ]
+  },
+  {
+   "find_click": "導航",
+   "frame": 2683,
+   "confirm": "next"
+  },
+  {
+   "find_click": "採購中心",
+   "frame": 2690
+  },
+  {
+   "find_click": "信用交易所",
+   "frame": 2726,
+   "timeout": 20
+  },
+  {
+   "branch": [
+    {
+     "if": {
+      "find_click": "收取信用",
+      "frame": 2750,
+      "confirm": {
+       "appear": "獲得物資"
+      },
+      "timeout": 3,
+      "on_fail": "break",
+      "busy_check": true
+     },
+     "then": [
+      {
+       "find": "獲得物資",
+       "frame": 2778,
+       "timeout": 8,
+       "on_fail": "break"
+      },
+      {
+       "click": [
+        960,
+        877
+       ],
+       "frame": 2785,
+       "confirm": "gone"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "repeat": 10,
+   "steps": [
+    {
+     "branch": [
+      {
+       "if": {
+        "find_click": "採購_招聘許可",
+        "frame": 2784,
+        "pick": {
+         "top": 1
+        },
+        "color": true,
+        "scroll": "horizontal",
+        "confirm": {
+         "appear": "購買物品"
+        },
+        "timeout": 1.5,
+        "on_fail": "break"
+       },
+       "then": [
+        {
+         "find_click": "購買物品",
+         "frame": 2794,
+         "confirm": {
+          "appear": "獲得物資",
+          "frame": 2814
+         },
+         "timeout": 4,
+         "on_fail": "break",
+         "busy_check": true
+        },
+        {
+         "find": "獲得物資",
+         "frame": 2814,
+         "timeout": 8,
+         "on_fail": "break"
+        },
+        {
+         "click": [
+          960,
+          877
+         ],
+         "frame": 2862,
+         "confirm": "gone"
+        }
+       ]
+      },
+      {
+       "if": {
+        "find_click": "採購_裝置",
+        "frame": 2869,
+        "pick": {
+         "top": 1
+        },
+        "color": true,
+        "scroll": "horizontal",
+        "confirm": {
+         "appear": "購買物品"
+        },
+        "timeout": 1.5,
+        "on_fail": "break"
+       },
+       "then": [
+        {
+         "find_click": "購買物品",
+         "frame": 2794,
+         "confirm": {
+          "appear": "獲得物資",
+          "frame": 2814
+         },
+         "timeout": 4,
+         "on_fail": "break",
+         "busy_check": true
+        },
+        {
+         "find": "獲得物資",
+         "frame": 2814,
+         "timeout": 8,
+         "on_fail": "break"
+        },
+        {
+         "click": [
+          960,
+          877
+         ],
+         "frame": 2862,
+         "confirm": "gone"
+        }
+       ]
+      },
+      {
+       "if": {
+        "find_click": "採購_初級作戰記錄",
+        "frame": 2900,
+        "pick": {
+         "top": 1
+        },
+        "color": true,
+        "scroll": "horizontal",
+        "confirm": {
+         "appear": "購買物品"
+        },
+        "timeout": 1.5,
+        "on_fail": "break"
+       },
+       "then": [
+        {
+         "find_click": "購買物品",
+         "frame": 2794,
+         "confirm": {
+          "appear": "獲得物資",
+          "frame": 2814
+         },
+         "timeout": 4,
+         "on_fail": "break",
+         "busy_check": true
+        },
+        {
+         "find": "獲得物資",
+         "frame": 2814,
+         "timeout": 8,
+         "on_fail": "break"
+        },
+        {
+         "click": [
+          960,
+          877
+         ],
+         "frame": 2862,
+         "confirm": "gone"
+        }
+       ]
+      },
+      {
+       "if": {
+        "find_click": "採購_破損裝置",
+        "frame": 2980,
+        "pick": {
+         "top": 1
+        },
+        "color": true,
+        "scroll": "horizontal",
+        "confirm": {
+         "appear": "購買物品"
+        },
+        "timeout": 1.5,
+        "on_fail": "break"
+       },
+       "then": [
+        {
+         "find_click": "購買物品",
+         "frame": 2794,
+         "confirm": {
+          "appear": "獲得物資",
+          "frame": 2814
+         },
+         "timeout": 4,
+         "on_fail": "break",
+         "busy_check": true
+        },
+        {
+         "find": "獲得物資",
+         "frame": 2814,
+         "timeout": 8,
+         "on_fail": "break"
+        },
+        {
+         "click": [
+          960,
+          877
+         ],
+         "frame": 2862,
+         "confirm": "gone"
+        }
+       ]
+      },
+      {
+       "if": {
+        "find_click": "採購_赤金",
+        "frame": 3024,
+        "pick": {
+         "top": 1
+        },
+        "color": true,
+        "scroll": "horizontal",
+        "confirm": {
+         "appear": "購買物品"
+        },
+        "timeout": 1.5,
+        "on_fail": "break"
+       },
+       "then": [
+        {
+         "find_click": "購買物品",
+         "frame": 2794,
+         "confirm": {
+          "appear": "獲得物資",
+          "frame": 2814
+         },
+         "timeout": 4,
+         "on_fail": "break",
+         "busy_check": true
+        },
+        {
+         "find": "獲得物資",
+         "frame": 2814,
+         "timeout": 8,
+         "on_fail": "break"
+        },
+        {
+         "click": [
+          960,
+          877
+         ],
+         "frame": 2862,
+         "confirm": "gone"
+        }
+       ]
+      }
+     ],
+     "on_break": "break"
+    }
+   ]
+  },
+  {
+   "find_click": "導航",
+   "frame": 3135,
+   "confirm": "next"
+  },
+  {
+   "find_click": "公開招募",
+   "frame": 3147
+  }
+ ],
+ "report": {
+  "branches": [
+   "開頭彈窗影片裡是簽到、活動、公告各一個；別天可能是其他彈窗或順序不同，實跑卡在基建入口時補分岔。",
+   "商店只寫了影片裡買過的五種商品；要買別的商品，照同一個分支格式加。"
+  ],
+  "unexplained": [],
+  "notes": [
+   "影片裡沒建步驟的操作：進駐總覽第一次打開時的教學彈窗（關閉）、多按一次返回又重開進駐總覽、切到工作區分頁、游標停在製造站 2 的 ⇄ 上沒點（f1497）——都是一次性的探索。",
+   "商品格會每天換位置，固定矩形照捲動軸 horizontal 拉成整列；另一列的同款要靠下一輪找。"
+  ]
+ }
+}
