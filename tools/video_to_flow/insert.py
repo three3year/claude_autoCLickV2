@@ -203,6 +203,22 @@ def origin_changes(old, new, pos, n):
     return bad
 
 
+def _origin_check(old, new, pos, n):
+    bad = origin_changes(old, new, pos, n)
+    if not bad:
+        return
+    parts = []
+    for j, before, got in bad:
+        src = ("沒有原點" if got is None else
+               f"插入段的「{measure_mod.label(new[got])}」" if pos <= got < pos + n
+               else f"步驟 {got + 1}")
+        parts.append(f"舊的步驟 {j + 1}（{measure_mod.label(old[j])}，插入後是步驟 "
+                     f"{j + 1 + n}）原點本來來自步驟 "
+                     f"{before + 1 if before is not None else '（無）'}，插入後變成{src}")
+    raise ToolError("插入會改變後面舊步驟的原點來源：" + "；".join(parts)
+                    + "——請換插入點，或在插入段尾重新定位（例：最後一步不更新原點）")
+
+
 # ---------- 入口 ----------
 
 def insert(plan, folder, engine=None):
@@ -230,6 +246,9 @@ def insert(plan, folder, engine=None):
                         "請先在 app 設定忙碌指示，或取消勾選")
     old = flow["steps"]
     pos = insertion_index(old, p)
+    # 只看步驟種類的檢查先做 (不必等量測): 找圖相連、原點的圖離開、後面舊步驟的原點來源
+    plan_mod.precheck(old[:pos] + p.steps + old[pos:], flow.get("busy"))
+    _origin_check(old, old[:pos] + p.steps + old[pos:], pos, len(p.steps))
 
     info = video_mod.probe(p.video)
     raw_frames = video_mod.read_frames(p.video, measure_mod.frames_needed(p))
@@ -282,25 +301,12 @@ def insert(plan, folder, engine=None):
                                {**others, **old_imgs}, size)
 
     new_steps = old[:pos] + seg + old[pos:]
-    bad = origin_changes(old, new_steps, pos, len(seg))
-    if bad:
-        parts = []
-        for j, before, got in bad:
-            src = ("沒有原點" if got is None else
-                   f"插入段的「{measure_mod.label(new_steps[got])}」" if pos <= got < pos + len(seg)
-                   else f"步驟 {got + 1}")
-            parts.append(f"舊的步驟 {j + 1}（{measure_mod.label(old[j])}，插入後是步驟 "
-                         f"{j + 1 + len(seg)}）原點本來來自步驟 "
-                         f"{before + 1 if before is not None else '（無）'}，插入後變成{src}")
-        raise ToolError("插入會改變後面舊步驟的原點來源：" + "；".join(parts)
-                        + "——請換插入點，或在插入段尾重新定位（例：最後一步不更新原點）")
     new_flow = dict(flow, steps=new_steps)
     errs = flowcheck.flow_errors(new_flow)
     if errs:
         raise ToolError("插入後的流程 app 執行前會擋下：" + "；".join(errs))
     images = {n: png(img) for n, img in crops.items() if n in refs}
-    missing = [n for n in flowfile.template_refs(new_flow)
-               if n not in existing and n not in images]
+    missing = [n for n in refs if n not in existing and n not in images]
     if missing:
         raise ToolError(f"工具錯誤：插入後缺圖 {'、'.join(missing)}")
     pos_map = dict(flow.get("template_pos") or {})
@@ -354,7 +360,10 @@ def _write_back(folder, flow, images, files):
     old_reports = {}
     for name in files:
         path = os.path.join(rdir, name)
-        old_reports[name] = open(path, "rb").read() if os.path.isfile(path) else None
+        old_reports[name] = None
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                old_reports[name] = f.read()
     had_rdir = os.path.isdir(rdir)
     written = []
     try:
