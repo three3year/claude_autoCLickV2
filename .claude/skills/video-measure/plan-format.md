@@ -1,128 +1,111 @@
 # 轉換計畫格式
 
-組裝工具讀的 JSON（`tools/video_to_flow/plan.py` 是唯一權威；欄位寫錯工具會指名報錯）。
-相對路徑以計畫檔所在目錄為準。**所有位置都是影片像素**（影格左上角為 0,0）。
+`assemble`（新流程）與 `insert`（補充）讀的 JSON。**步驟的鍵、值、預設、區段寫法跟 flow.yaml 一模一樣**——
+見 [docs/flow-format.md](../../../docs/flow-format.md)，這裡只寫不一樣的地方。工具用 app 的讀檔規則驗證步驟，
+寫錯會指名報錯；相對路徑以計畫檔所在目錄為準。
+
+## 跟 flow.yaml 不一樣的地方
+
+1. **位置是影片像素的畫面位置**（影格左上角為 0,0），不是相對值：
+
+   | 鍵 | 計畫裡寫 | 工具換成 |
+   |---|---|---|
+   | `click: [x, y]` | 點擊的畫面位置 | 相對原點的偏移 |
+   | `drag: [x, y]`、`to: [x, y]` | 起點、終點的畫面位置 | 相對原點的偏移 |
+   | 找圖的 `at: [x, y]`（計畫專用） | 點擊（或當原點）的畫面位置；沒寫＝挑中的框中心 | `offset` |
+   | `pick: {near: [x, y]}` | 指定點的畫面位置 | 相對原點（確認圖用操作後的原點） |
+
+2. **不寫** `within`、`offset`：固定矩形與偏移由工具算，寫了報錯。
+3. **影片證據**（計畫專用，不進 flow.yaml）：
+
+   | 鍵 | 寫在 | 意思 |
+   |---|---|---|
+   | `frame` | 任一步 | 這一步在影片裡看的那一幀。找圖：照它的設定在這一幀挑框（預設＝範本的取材幀；引用既有範本時必填）。座標點擊／拖曳：送出輸入的那一幀（有忙碌指示時必填，工具看它之後有沒有忙碌） |
+   | `scroll` | 找圖 | `vertical`／`horizontal`：捲動軸。內容每次會變的清單（好友列表、每輪換一列）用；固定矩形該軸拉到影片兩端 |
+   | `confirm: {appear: 名, frame: N}` | 確認圖 | 確認圖出現的那一幀（預設＝確認圖範本的取材幀；用既有範本時必填） |
+
+4. 預設照 app（`on_fail` 停止、`timeout` 10、`interval` 0.3…）；`confirm` 沒寫＝不確認，**工具不替你推**：
+   找圖點擊的下一步是找圖就寫 `confirm: next`，否則 `confirm: gone`；拖曳的原點來自找圖寫 `confirm: gone`。
+   `busy_check` 也一樣，計畫明寫才勾（標準見 flow-format.md「忙碌檢查該勾哪些步驟」）。
+
+已退場、寫了報錯（訊息會指出新鍵）：`type`、`action`、`template`、`colorCheck`、`onNotFound`、`updateOrigin`、
+`busyCheck`、`onBreak`、`confirmTemplate`、`confirmTarget`、`ms`、`holdMs`、`count`、`loop_start`、毫秒的
+`timeout`／`wait`、`key` 步驟、`limit`、`appearLimitMs`、`button`、`clicks`、`busyTarget`、`report.keys`。
 
 ## 最外層
 
-| 欄位 | 必填 | 說明 |
-|---|---|---|
-| `video` | ✓ | 示範影片路徑 |
-| `name` | ✓ | 流程名稱＝流程資料夾名（檔名不允許的字元換成 `_`；輸出位置裡已有同名資料夾時自動加 `_2`、`_3`…，不覆蓋） |
-| `out` |  | 輸出位置：流程資料夾建在它底下（預設 `%USERPROFILE%\AutoClick\`；命令列 `--out` 優先於它） |
-| `templates` | ✓ | `{範本名: 範本}` |
-| `steps` | ✓ | 步驟清單 |
-| `calibration` |  | `{"pair": [範本名, 範本名], "frame": N, "fallback": {"pair": [範本名, 範本名]}}`：`校準對`（兩張都要在 `templates` 裡；挑遊戲畫面內相距夠遠的兩張固定圖）與量`基準距離`的幀（預設＝第一張的取材幀）。`fallback`＝`備用校準對`（可不寫；例：標題列圖示＋關閉鈕），在同一幀上量它的基準距離與對座標基準點的偏移，兩組不能相同。沒寫 `calibration`＝流程不能執行 |
-| `busyTarget` |  | `忙碌指示`：`{"template": 範本名, "colorCheck": bool}`（`colorCheck` 可不寫；不收挑選規則與限定範圍，要框`固定矩形`請使用者在 app 裡設）。補做前畫面上有它就先不送 |
-| `report` |  | `{branches, unexplained, keys, notes}`，各為字串清單，原樣寫進交付報告（`keys` 列在「口頭補充的按鍵（流程不支援，請改用點擊）」一節） |
+| 欄位 | assemble | insert | 說明 |
+|---|---|---|---|
+| `video` | 必填 | 必填 | 示範影片路徑 |
+| `templates` | 必填 | 可空 | `{範本名: 範本}`（見下）；補充時只寫新裁的，既有範本直接在步驟裡引用 |
+| `steps` | 必填 | 必填 | 步驟清單（flow.yaml 的寫法，巢狀區段） |
+| `report` | 選填 | 選填 | `{branches, unexplained, notes}`，各為字串清單，寫進交付報告；`unexplained`＝無法用點擊解釋的畫面變化（報告會註明流程不支援按鍵） |
+| `name` | 必填 | — | 流程名＝資料夾名（撞名加 `_2`…） |
+| `out` | 選填 | — | 輸出位置（預設 `%USERPROFILE%\AutoClick\`；命令列 `--out` 優先） |
+| `calibration` | 必填 | — | `{"pair": [名, 名], "frame": N, "fallback": {"pair": [名, 名]}}`：校準對兩張都要在 `templates`；`frame` 預設＝第一張的取材幀；主對在那一幀量不到＝報錯 |
+| `busy` | 選填 | — | 忙碌指示 `{"template": 名, "color": true, "pick": {...}, "frame": N}`；`frame`＝忙碌字樣清楚可見的那一幀（預設＝取材幀）。有步驟勾 `busy_check` 就必須有 |
+| `after` ／ `into` | — | 擇一必填 | `after: N`＝插在第 N 步之後同一層（N 是區段開頭＝插在整個區段之後）；`into: N`＝插在重複區段 N 裡最前面。N 是 flow.yaml 行尾的 `# N` |
+| `expect` | — | 必填 | 第 N 步的開頭鍵＋值，工具核對：`{"find": "标题_办公室"}`、`{"repeat": 2}`、`{"click": [801, 76]}` |
+| `scale_image` | — | 選填 | 影片裡量不到既有流程的校準對時，使用者給的同取景、同視窗大小的圖片 |
 
-已退場、寫了會報錯：`profile`（改寫 `out`）、`reportPath`（報告一律是流程資料夾裡的
-`交付報告.md`）、`retryIntervalMs`（`補做間隔`固定 1 秒）。
-
-輸出：`<輸出位置>/<流程名>/`，內含 `flow.yaml`、`templates/`、`交付報告.md`。不寫搜尋範圍
-（＝全螢幕）。
+補充一律沿用既有流程的校準對、忙碌指示、名稱與位置：計畫寫 `calibration`／`busy`／`name`／`out` 報錯；
+也不收手打的倍率（`scale` 之類報錯）。
 
 ## 範本
 
 | 欄位 | 必填 | 說明 |
 |---|---|---|
 | `frame` | ✓ | 取材幀（乾淨影格） |
-| `box` | ✓ | `[x, y, w, h]` 裁切框，原尺寸寫成 PNG |
-| `absent` |  | 該**找不到**的幀（按鈕還沒出現） |
+| `box` | ✓ | `[x, y, w, h]` 裁切框（影片像素）；新流程原尺寸存，補充時除以影片倍率 |
+| `absent` |  | 該**找不到**的幀（整張影格沒有任何匹配） |
 | `present` |  | 該**找得到**的其他幀：幀號，或 `{"frame": N, "at": [x, y]}`（位置變了） |
 | `clean` |  | `false`＝找不到乾淨影格 → 一律標待重拍（預設 `true`） |
 
-範本名：平面名稱（範本名＝檔名，不能有 `/ \ : * ? " < > |`、前後空白或結尾的 `.`）。
+範本名照 flow-format.md「範本命名」。補充時新範本跟既有範本撞名＝報錯（改名，或改成引用既有的）。
 
-## 步驟
-
-步驟種類與欄位就是流程既有詞彙；位置寫影片像素，**不寫** `x`/`y`/`offsetX`/`mode` 等
-偏移欄位（由組裝推算）。
-
-| `type` | 位置欄位 | 其他可寫欄位（未寫＝預設） |
-|---|---|---|
-| `find_click` | `template`（必填）、`frame`（照找圖目標在這一幀挑範本；預設＝範本取材幀）、`at`（點擊位置；預設＝挑中的中心） | `colorCheck`、`pick`（見下節）、`action` click/none/wait_gone、`confirm` none/gone/appear/next、`confirmTemplate` 或 `confirmTarget`（appear 才寫；`confirm` 系列只有 `action` click 才能寫）、`onNotFound` skip/break/stop、`timeout`、`interval`、`updateOrigin` |
-| `click` | `at`（必填） | `updateOrigin`、`生效確認`（見下） |
-| `drag` | `from`、`to`（必填） | `ms`、`holdMs`、`生效確認`（見下） |
-| `wait` | — | `ms` |
-| `loop_start` | — | `count`（必填） |
-| `loop_end` / `branch_end` | — | `onBreak` continue/break |
-| `branch_start` / `branch_or` | — | — |
-
-組裝補的預設：找圖 `action` click、`timeout` 10（秒）、`interval` 0.3（秒）、`onNotFound` stop；
-點擊的找圖下一步是找圖 → `confirm: next`，否則 → `gone`；不點擊的找圖 → `none`。
-拖曳 `ms`／`holdMs` 預設各 500。明寫 `confirm: next` 但下一步不是找圖（`找圖相連`不成立）會報錯。
-
-已退場、寫了會報錯（ADR 0014）：`key` 步驟（影片裡看不到的按鍵寫進 `report.keys`）、
-`limit`（限定範圍，含確認圖與 `busyTarget` 上的）、`appearLimitMs`、非左鍵的 `button`、
-`clicks` 不是 1；寫預設值（`"button": "left"`、`"clicks": 1`）的照收、直接拿掉。
-`忙碌檢查`（`busyCheck`）計畫還不能寫——要勾的步驟請使用者在 app 裡勾（見 SKILL.md 第 4 節）。
-
-## 找圖目標屬性
-
-找圖步驟與確認圖都是一個`找圖目標`：範本＋下面兩個屬性（`busyTarget` 只收 `colorCheck`）（都不寫＝整個畫面、
-分數最高、不比色）。工具不產限定範圍；要縮小範圍請使用者事後在 app 的找圖設定裡框`固定矩形`。
-何時用哪個見 SKILL.md 第 5 節。
-
-| 欄位 | 寫法 | 組裝存成 |
-|---|---|---|
-| `colorCheck` | `true` | 比色：顏色不符的不算匹配 |
-| `pick` | `{"kind": "top", "n": 3}`／`{"kind": "left", "n": 2}`（由上到下／由左到右第 N 個，N 從 1 起；不能有其他欄位） | 原樣 |
-| `pick` | `{"kind": "near", "at": [x, y]}`（最接近指定點；只寫 `at`，沒有 `base`） | `at` 換成相對原點 |
-
-- `pick.at` 一律寫**影片像素的畫面位置**，跟 `at` 一樣；相對值由組裝依原點規則推算。
-  找圖步驟用**這一步之前**的原點，確認圖用**點擊後**的原點。這一步之前卻沒有原點 →
-  組裝報錯（同相對座標點擊）。
-- 座標點擊／拖曳的`生效確認`：`confirm` gone（`原點的圖離開`：產生原點的那個找圖目標離開
-  原位＝生效，原點要來自找圖）／appear（`confirmTemplate`/`confirmTarget`）／next（下一步要是
-  找圖），另可寫 `timeout`、`interval`、`onNotFound`（預設停止）；沒寫 `confirm` 就不要寫這三個。
-  拖曳的原點來自找圖、又沒寫 `confirm` 時，組裝補 `gone`。
-- 確認圖要設屬性時寫 `"confirmTarget": {"template": "確定", "colorCheck": true, ...}`；
-  只有範本時 `confirmTemplate` 是它的簡寫，兩者擇一。
-- 驗證照同一套找圖目標邏輯：步驟的 `frame` 上**挑中**的那個要在 `at` 附近（沒寫 `at` 而
-  `frame` 是取材幀時，挑中的要是取材的那一個），不是就標待重拍。範本的取材幀／`present`
-  只要求預期位置有匹配（同款別處也有匹配不算錯）；`absent` 幀要求**整張畫面沒有任何匹配**
-  （照引用它的找圖目標用到的比色設定查），所以同款在別處仍看得到的幀不要列進 `absent`。
-
-## 小範例
-
-點「開始行動」→ 載入約 15 秒 → 點空白處關掉結算 → 連領 3 次獎勵（每次點「領取」再點空白處）。
+## 小範例（新流程）
 
 ```json
 {
   "video": "C:/Users/me/Videos/daily.mp4",
   "name": "日常_影片",
-  "out": "C:/Users/me/AutoClick",
   "templates": {
+    "主画面设置钮": {"frame": 240, "box": [20, 40, 60, 60]},
+    "主画面仓库": {"frame": 240, "box": [1560, 780, 90, 80]},
     "開始行動": {"frame": 240, "box": [1500, 880, 220, 90], "absent": [100]},
-    "行動結束": {"frame": 760, "box": [80, 120, 300, 70], "absent": [500]},
-    "領取":     {"frame": 900, "box": [820, 600, 160, 60], "absent": [780],
-                 "present": [990, 1080]},
-    "標題列圖示": {"frame": 240, "box": [6, 4, 28, 24]},
-    "關閉鈕":     {"frame": 240, "box": [1886, 4, 28, 24]}
+    "領取": {"frame": 900, "box": [820, 600, 160, 60], "absent": [780], "present": [990]},
+    "忙碌指示": {"frame": 905, "box": [900, 900, 240, 24]}
   },
-  "calibration": {"pair": ["開始行動", "行動結束"], "frame": 760,
-                  "fallback": {"pair": ["標題列圖示", "關閉鈕"]}},
+  "calibration": {"pair": ["主画面设置钮", "主画面仓库"], "frame": 240},
+  "busy": {"template": "忙碌指示"},
   "steps": [
-    {"type": "find_click", "template": "開始行動", "frame": 240, "at": [1610, 925]},
-    {"type": "find_click", "template": "行動結束", "frame": 760, "action": "none",
-     "timeout": 30},
-    {"type": "click", "at": [960, 1000]},
-    {"type": "loop_start", "count": 3},
-    {"type": "find_click", "template": "領取", "frame": 900, "at": [900, 630]},
-    {"type": "click", "at": [900, 900]},
-    {"type": "loop_end"}
+    {"find_click": "開始行動", "frame": 240, "at": [1610, 925], "confirm": "gone", "timeout": 30},
+    {"repeat": 3, "steps": [
+      {"find_click": "領取", "frame": 900, "at": [900, 630], "busy_check": true},
+      {"click": [900, 900], "frame": 920}
+    ]}
   ],
-  "report": {
-    "branches": ["步驟 1 前可能跳出「理智不足」彈窗，影片裡沒有出現"],
-    "unexplained": [],
-    "keys": []
-  }
+  "report": {"branches": ["開始行動前可能跳出「理智不足」彈窗，影片裡沒有出現"]}
 }
 ```
 
-`行動結束` 是定位找圖（只等待出現、更新原點），讓後面的座標點擊有原點；
-重複區段內先找「領取」再點空白處，區段內就有自己的原點。
-`calibration` 指名遊戲畫面內的兩張圖當校準對（第 760 幀兩張都在），標題列的圖示與關閉鈕當
-備用對：組裝在同一幀量兩組的中心距離當各自的基準距離、備用第一張中心到座標基準點的偏移；
-執行時每次開頭先用校準對量畫面倍率，找不到才用備用對。
+## 小範例（補充）
+
+插在第 121 步（找 `标题_办公室` 的分岔）之後，`标题_办公室` 是既有範本、`标题_回收站` 新裁：
+
+```json
+{
+  "video": "C:/Users/me/oCam Video/add5.mp4",
+  "after": 120, "expect": {"branch": null},
+  "templates": {"标题_回收站": {"frame": 230, "box": [770, 690, 120, 40]}},
+  "steps": [
+    {"branch": [{"if": {"find": "标题_办公室", "frame": 180, "pick": {"top": 1}, "timeout": 3,
+                         "on_fail": "skip", "scroll": "vertical"},
+                 "then": [
+                   {"drag": [1400, 760], "to": [1400, 430], "frame": 200, "confirm": "gone",
+                    "on_fail": "break", "busy_check": true},
+                   {"find": "标题_回收站", "frame": 230, "pick": {"top": 1}, "on_fail": "break"},
+                   {"click": [1620, 790], "frame": 240, "busy_check": true}]}]}
+  ]
+}
+```

@@ -22,7 +22,7 @@
 3. **學**：
 
    ```
-   .venv/Scripts/python tools/video_to_flow learn-cursor <影片> --at "幀:x,y;幀:x,y;..." --out .claude/skills/video-to-flow/effect-sample.json
+   .venv/Scripts/python tools/video_to_flow learn-cursor <影片> --at "幀:x,y;幀:x,y;..." --out .claude/skills/video-measure/effect-sample.json
    ```
 
    寫出樣本 JSON 與旁邊同名的 `.png`（游標圖）。輸出各幀相似度；某幾幀被指名「不是
@@ -50,7 +50,7 @@
    需要看清楚時用 `--frames <候選幀>,<候選幀+1>` 輸出原尺寸影格。
 3. **取顏色**：這幾個候選在 `candidates.json` 的 `color`（BGR）取中位數。顏色
    被背景沖淡、各候選差很多時，改從原尺寸影格上特效本體的像素讀 BGR。
-4. **寫樣本** `.claude/skills/video-to-flow/effect-sample.json`：
+4. **寫樣本** `.claude/skills/video-measure/effect-sample.json`：
 
    ```json
    {"bgr": [0, 220, 255], "tolerance": 60, "recorder": "錄影程式名稱與特效設定"}
