@@ -714,6 +714,22 @@ def _emit(nodes, ind):
     return lines
 
 
+def replace_flow_yaml(folder, text):
+    """flow.yaml 整份換成 text: 先寫暫存檔再取代, 寫到一半失敗不留半份 (暫存檔也清掉)."""
+    path = os.path.join(folder, FLOW_YAML)
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def write_flow(folder, flow, images=None):
     """把記憶體的流程寫成流程資料夾; 回傳被引用卻沒有圖的範本名.
 
@@ -739,10 +755,7 @@ def write_flow(folder, flow, images=None):
                 os.remove(os.path.join(tdir, fn))
         with open(os.path.join(tdir, n + ".png"), "wb") as f:
             f.write(data)
-    tmp = os.path.join(folder, FLOW_YAML + ".tmp")
-    with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-        f.write(text)
-    os.replace(tmp, os.path.join(folder, FLOW_YAML))
+    replace_flow_yaml(folder, text)
     keep = {n.casefold() for n in refs}
     for fn in _pngs(tdir):
         if fn[:-4].casefold() not in keep:

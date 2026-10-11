@@ -29,6 +29,7 @@ from . import report as report_mod
 from . import verify as verify_mod
 from . import video as video_mod
 from .errors import ToolError
+from .labels import label
 
 
 def measure_one(pair, frame, checker, frames):
@@ -93,7 +94,7 @@ def scroll_confirm(steps, measured):
             continue
         for i in range(sec.start, sec.end):
             if i in measured.no_scroll:
-                out.append((i, measure_mod.label(steps[i])))
+                out.append((i, label(steps[i])))
     return out
 
 

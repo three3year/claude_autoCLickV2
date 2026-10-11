@@ -31,6 +31,7 @@ from . import report as report_mod
 from . import verify as verify_mod
 from . import video as video_mod
 from .errors import ToolError
+from .labels import label
 
 _HEAD = {"repeat_start": "repeat", "branch_start": "branch"}
 _MARKERS = ("repeat_end", "branch_or", "branch_end")
@@ -85,10 +86,10 @@ def copy_shared(p, steps):
         s = steps[n - 1]
         within = findtarget.target(s).get("within") if findtarget.is_find(s) else None
         if not findtarget.valid_fixed_rect(within):
-            raise ToolError(f"{key}: 第 {n} 步（{measure_mod.label(s)}）沒有固定矩形，照抄不到框"
+            raise ToolError(f"{key}: 第 {n} 步（{label(s)}）沒有固定矩形，照抄不到框"
                             "——same_as 要指同組既有成員的找圖步驟（flow.yaml 裡有 within 的那一步）")
         d["within"] = list(within)
-        source[name] = measure_mod.label(s)
+        source[name] = label(s)
     return source
 
 
@@ -256,9 +257,9 @@ def _origin_check(old, new, pos, n):
     parts = []
     for j, before, got in bad:
         src = ("沒有原點" if got is None else
-               f"插入段的「{measure_mod.label(new[got])}」" if pos <= got < pos + n
+               f"插入段的「{label(new[got])}」" if pos <= got < pos + n
                else f"步驟 {got + 1}")
-        parts.append(f"舊的步驟 {j + 1}（{measure_mod.label(old[j])}，插入後是步驟 "
+        parts.append(f"舊的步驟 {j + 1}（{label(old[j])}，插入後是步驟 "
                      f"{j + 1 + n}）原點本來來自步驟 "
                      f"{before + 1 if before is not None else '（無）'}，插入後變成{src}")
     raise ToolError("插入會改變後面舊步驟的原點來源：" + "；".join(parts)
@@ -415,7 +416,7 @@ def insert(plan, folder, engine=None):
 def _align_note(name, ref_step, shift, drag_change):
     """交付報告裡對齊的一句 (參考步驟用內容指稱)."""
     d = shift.d
-    text = (f"對齊圖「{name}」（參考插入點前{measure_mod.label(ref_step)}那一步的固定矩形）："
+    text = (f"對齊圖「{name}」（參考插入點前{label(ref_step)}那一步的固定矩形）："
             f"影片裡在 ({shift.video[0]}, {shift.video[1]})、執行時在 "
             f"({shift.runtime[0]}, {shift.runtime[1]})，對齊位移 ({d[0]}, {d[1]}) px")
     if drag_change:
@@ -446,7 +447,6 @@ def _write_back(folder, flow, images, files, verify):
                 old_reports[name] = f.read()
     had_rdir = os.path.isdir(rdir)
     written = []
-    tmp = ypath + ".tmp"
     try:
         os.makedirs(tdir, exist_ok=True)
         for n, data in images.items():
@@ -454,13 +454,11 @@ def _write_back(folder, flow, images, files, verify):
             with open(path, "xb") as f:
                 written.append(path)
                 f.write(data)
-        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-            f.write(text)
-        os.replace(tmp, ypath)
+        flowfile.replace_flow_yaml(folder, text)
         report_mod.write(folder, files)
         verify()
     except BaseException:
-        for path in written + [tmp]:
+        for path in written:
             try:
                 os.remove(path)
             except OSError:

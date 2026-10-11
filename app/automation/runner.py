@@ -129,18 +129,21 @@ def flow_templates(steps, extra=()):
     return findtarget.referenced_templates(steps, extra)
 
 
-def _matching_branch_end(steps, i):
-    """從 branch_or 位置往後找所屬的 branch_end 索引 (深度感知)."""
+def enclosing_end(steps, pos):
+    """pos 之後第一個未配對的結束標記索引 (= pos 所屬最內層區段的結尾); 無則 None.
+
+    pos 是區段開頭時就是它自己的結尾; 是「或」時是所屬分岔的結束。
+    """
     depth = 0
-    for j in range(i + 1, len(steps)):
+    for j in range(pos + 1, len(steps)):
         t = steps[j].get("type")
-        if t == "branch_start":
+        if t in ("repeat_start", "branch_start"):
             depth += 1
-        elif t == "branch_end":
+        elif t in ("repeat_end", "branch_end"):
             if depth == 0:
                 return j
             depth -= 1
-    return len(steps)
+    return None
 
 
 BUSY_GONE_CAP = 60.0    # `忙碌檢查`: 從送出輸入起等忙碌指示消失的上限 (秒), 超過＝停止流程
@@ -400,7 +403,8 @@ class Runner:
                         continue
                     if t == "branch_or":
                         # 走完一個分支 → 跳到分岔結束
-                        idx = _matching_branch_end(steps, idx)
+                        end = enclosing_end(steps, idx)
+                        idx = len(steps) if end is None else end
                         continue
                     if t == "branch_end":
                         idx += 1
@@ -849,20 +853,6 @@ class Runner:
         self._settle_busy(gate, time.monotonic())
         return ok, last, polls, inputs, gate["delay"]
 
-    def _enclosing_end(self, steps, pos):
-        """pos 之後第一個未配對的結束標記索引 (= 所屬最內層區段結尾); 無則 None."""
-        depth = 0
-        for j in range(pos + 1, len(steps)):
-            t = steps[j].get("type")
-            if t in ("repeat_start", "branch_start"):
-                depth += 1
-            elif t in ("repeat_end", "branch_end"):
-                if depth > 0:
-                    depth -= 1
-                    continue
-                return j
-        return None
-
     def _break_out(self, pos, steps):
         """從 pos 往外跳出區段, 回傳落腳的步驟索引.
 
@@ -872,7 +862,7 @@ class Runner:
         跳出整個 FOR)。往外跳到不在任何區段時 → 停止流程。
         """
         while True:
-            end = self._enclosing_end(steps, pos)
+            end = enclosing_end(steps, pos)
             if end is None:
                 raise RuntimeError(f"[{pos + 1}] 跳出後已不在任何區段內 → 停止執行")
             if steps[end].get("type") == "repeat_end":

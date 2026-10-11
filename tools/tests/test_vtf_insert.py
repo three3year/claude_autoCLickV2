@@ -455,7 +455,7 @@ def test_對齊_交付報告記下對齊圖參考步驟與位移(flow, tmp_path,
     video_to_flow.insert(align_plan(shifted_video(tmp_path / "add.mp4")), flow, engine=engine)
     ov = (flow / "交付報告" / "總覽.md").read_text(encoding="utf-8")
     sec = (flow / "交付報告" / "步驟-下一步.md").read_text(encoding="utf-8")
-    for text in ("對齊圖「確定」", "前找圖「確定」那一步", f"對齊位移 (0, -{DY})",
+    for text in ("對齊圖「確定」", "前找圖（不點）「確定」那一步", f"對齊位移 (0, -{DY})",
                  "第一次拖曳的距離從 100 px 改成 60 px"):
         assert text in ov and text in sec, text
 

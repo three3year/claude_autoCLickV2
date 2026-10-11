@@ -288,7 +288,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 （`app/tests/test_flow_format_doc.py` 會擋）。
 
 - 區段在記憶體是平面標記（repeat_start/end、branch_start/or/end），flow.yaml 是巢狀，`flowfile` 讀寫時轉換；
-  runner 用堆疊與跳轉解譯（`_exec_branch`、`_break_out`、`_enclosing_end`）。
+  runner 用堆疊與跳轉解譯（`_exec_branch`、`_break_out`、`enclosing_end`）。
 - **執行前的結構檢查只有 `automation/flowcheck.py` 一份**：`section_error`（成對、不交錯、分支開頭是找圖、
   「或」在分岔內）、`no_origin`、`origin_leaves_bad`、`confirm_next_bad`、`busy_check_bad`；`flow_errors` 一次跑完
   整份。App（`_flow_error`、`_fragment_origin_error`…）與檢查指令 `tools/flow_check` 都只呼叫它——新增執行前

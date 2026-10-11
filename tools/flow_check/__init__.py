@@ -71,10 +71,7 @@ def normalize(folder):
     with open(path, encoding="utf-8-sig") as f:
         old = f.read()
     if old != text:
-        tmp = path + ".tmp"
-        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
-            f.write(text)
-        os.replace(tmp, path)
+        flowfile.replace_flow_yaml(res.folder, text)
         res.normalized = True
     return res
 

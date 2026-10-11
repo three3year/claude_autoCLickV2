@@ -38,9 +38,6 @@ from automation import findtarget, flowfmt, pickcheck
 from .errors import ToolError
 from .geom import center as _center
 
-ACTION = {"find_click": "找圖點擊", "find": "找圖", "wait_gone": "等待消失"}
-
-
 def position_tolerance(box):
     """中心容許偏離的距離 (px): 壓縮失真讓框抖個 1-2px 是常態."""
     return max(6.0, 0.25 * min(box[2], box[3]))

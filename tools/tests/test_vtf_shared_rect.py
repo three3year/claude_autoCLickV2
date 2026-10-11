@@ -233,7 +233,7 @@ def test_成員跨段_第一段完整列出_其他段一行指過去(tmp_path, e
     steps = [g("甲"), {"repeat": 2, "steps": [g("乙", head="find")]}]
     res = run(tmp_path, engine, steps, rects=shared(scroll="horizontal"))
     first = report(res, "步驟-甲.md").split("## 共用矩形")[1]
-    assert "找圖（不點）「乙」" in first or "找圖「乙」" in first
+    assert "找圖（不點）「乙」" in first
     assert "捲動軸：橫向" in first
     other = report(res, "重複-乙.md").split("## 共用矩形")[1].split("\n## ")[0]
     assert "「區」" in other and "](步驟-甲.md)" in other and WHY not in other

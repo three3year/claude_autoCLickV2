@@ -115,7 +115,7 @@ def test_同段有拖曳但沒宣告捲動軸的找圖列進待確認(demo, engi
              find("確定", scroll="vertical"), find("下一步")]
     res = run(demo, engine, steps)
     texts = [t for _, t in res["scroll_confirm"]]
-    assert texts == ["找圖「開始」", "找圖點擊「下一步」"]
+    assert texts == ["找圖（不點）「開始」", "找圖點擊「下一步」"]
     assert "找圖點擊「下一步」" in report_files(res)["總覽.md"]
 
 

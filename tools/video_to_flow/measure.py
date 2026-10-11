@@ -14,7 +14,7 @@ from . import origin as origin_mod
 from . import plan as plan_mod
 from . import video as video_mod
 from .errors import ToolError
-from .verify import ACTION
+from .labels import label
 
 INPUT_TYPES = ("find_click", "click", "drag")   # 送出輸入的步驟 (可勾忙碌檢查)
 
@@ -62,18 +62,6 @@ def frames_needed(p, extra=()):
         need.add(p.busy["frame"])
     need.update(d["frame"] for d in p.shared_rects.values() if "frame" in d)
     return need
-
-
-def label(s):
-    """步驟的內容指稱 (報告與待重拍原因用, 不寫步驟編號)."""
-    t = s["type"]
-    if t in findtarget.FIND_TYPES:
-        return f"{ACTION[t]}「{findtarget.template(s)}」"
-    if t == "click":
-        return "座標點擊"
-    if t == "drag":
-        return "拖曳"
-    return t
 
 
 @dataclass

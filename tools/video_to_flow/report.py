@@ -15,8 +15,9 @@ from dataclasses import dataclass
 
 import flowfile
 from automation import findtarget
-from automation.runner import branch_layout
+from automation.runner import branch_layout, enclosing_end
 
+from . import labels
 from . import verify as verify_mod
 
 DIR = "交付報告"
@@ -41,20 +42,12 @@ class Section:
 
 _PREFIX = {"repeat": "重複", "branch": "分岔", "steps": "步驟"}
 _KIND_OF = {"repeat_start": "repeat", "branch_start": "branch"}
-_LABEL = {"click": "座標點擊", "drag": "拖曳", "wait": "等待"}
 
 
 def section_end(steps, i):
-    depth = 0
-    for j in range(i, len(steps)):
-        t = steps[j]["type"]
-        if t in ("repeat_start", "branch_start"):
-            depth += 1
-        elif t in ("repeat_end", "branch_end"):
-            depth -= 1
-            if depth == 0:
-                return j + 1
-    return len(steps)
+    """steps[i] (區段開頭) 這個區段結束之後的索引; 標記不成對＝清單結尾."""
+    end = enclosing_end(steps, i)
+    return len(steps) if end is None else end + 1
 
 
 def sections(steps):
@@ -72,7 +65,7 @@ def sections(steps):
         first = next((findtarget.template(s) for s in steps[i:end]
                       if findtarget.is_find(s)), None)
         stem = f"{_PREFIX[kind]}-{first}" if first else \
-            f"{_PREFIX[kind]}-{_LABEL.get(steps[i]['type'], _PREFIX[kind])}"
+            f"{_PREFIX[kind]}-{labels.STEP.get(steps[i]['type'], _PREFIX[kind])}"
         name = flowfile.free_name(flowfile.clean_name(stem), taken)
         taken.append(name)
         out.append(Section(name, kind, i, end))
@@ -86,7 +79,6 @@ def section_of(secs, i):
 
 # ================= 步驟的內容描述 =================
 
-_ACTION = {"find_click": "找圖點擊", "find": "找圖（不點）", "wait_gone": "等待消失"}
 _CONFIRM = {"gone": "，點到目標圖消失", "next": "，點到下一步的圖出現",
             "appear": "，點到確認圖出現"}
 _POINTER_CONFIRM = {"gone": "，做到原點的圖離開", "next": "，做到下一步的圖出現",
@@ -104,7 +96,7 @@ def describe(s):
     t = s["type"]
     if t in findtarget.FIND_TYPES:
         tgt = findtarget.target(s)
-        text = f"{_ACTION[t]}「{tgt['template']}」"
+        text = labels.label(s)
         tags = [x for x in findtarget.tags(tgt) if x != "限定"]
         if tags:
             text += f"〔{'、'.join(tags)}〕"
