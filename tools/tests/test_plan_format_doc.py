@@ -24,6 +24,6 @@ def test_文件裡的範例計畫讀得進來():
     assert [s["type"] for s in p.steps] == ["find_click", "repeat_start", "find_click",
                                            "click", "repeat_end"]
     q = plan_mod.load(add, plan_mod.INSERT)
-    assert (q.after, q.expect) == (120, {"branch": None})
+    assert (q.after, q.expect) == (120, {"branch": "标题_办公室"})
     assert [s["type"] for s in q.steps][:3] == ["branch_start", "find", "drag"]
     assert q.evidence[1]["scroll"] == "vertical"

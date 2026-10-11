@@ -329,3 +329,38 @@ def test_影片量不到校準對又沒有圖片就報錯(flow, tmp_path, engine
 def test_計畫直接寫倍率數值也報錯(flow, tmp_path, engine):
     refused(flow, add_plan(add_video(tmp_path / "add.mp4"), scale=0.9), "不收手打的倍率",
             engine)
+
+
+def test_寫回後檢查指令沒過就還原_資料夾不變(flow, tmp_path, engine, monkeypatch):
+    import flow_check
+    real = flow_check.check
+
+    def broken(folder):
+        res = real(folder)
+        res.errors.append("假的錯誤")
+        return res
+    monkeypatch.setattr(flow_check, "check", broken)
+    refused(flow, add_plan(add_video(tmp_path / "add.mp4")), "工具錯誤.*假的錯誤", engine)
+
+
+def test_補充改寫插入處那份的這段做什麼(flow, tmp_path, engine):
+    video_to_flow.insert(add_plan(add_video(tmp_path / "add.mp4")), flow, engine=engine)
+    sec = (flow / "交付報告" / "步驟-開始.md").read_text(encoding="utf-8")
+    body = sec.split("## 這段做什麼")[1].split("## ")[0]
+    assert "找圖點擊「開始」" in body and "找圖（不點）「新鈕」" in body
+    names = sorted(p.name for p in (flow / "交付報告").iterdir())
+    assert "步驟-開始_2.md" not in names, "插進既有段落時不另開一份"
+
+
+def test_插入段自成頂層區段時開新的一份_不寫進同名舊檔(flow, tmp_path, engine):
+    steps = [{"branch": [{"if": {"find": "新鈕", "frame": 5, "timeout": 3, "on_fail": "skip"},
+                          "then": [{"click": [150, 200], "frame": 6}]}]}]
+    plan = add_plan(add_video(tmp_path / "add.mp4"), steps=steps, after=2,
+                    expect={"repeat": 2})
+    rdir = flow / "交付報告"
+    (rdir / "分岔-新鈕.md").write_text("# 舊的同名檔\n", encoding="utf-8")
+    video_to_flow.insert(plan, flow, engine=engine)
+    assert (rdir / "分岔-新鈕.md").read_text(encoding="utf-8") == "# 舊的同名檔\n"
+    new = (rdir / "分岔-新鈕_2.md").read_text(encoding="utf-8")
+    assert "## 補充" in new and "新鈕" in new
+    assert "](分岔-新鈕_2.md)" in (rdir / "總覽.md").read_text(encoding="utf-8")

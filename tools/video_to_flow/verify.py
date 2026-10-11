@@ -78,6 +78,11 @@ class _Detector:
                                  expected_scale=expected_scale)
 
 
+def detector(engine, images, config):
+    """只要偵測接縫時 (量校準對、比對既有範本): 登錄 images ({名: 影像}) 後回傳 detector."""
+    return Checker(engine, images, {}, [], {}, config, None, (1, 1)).detector
+
+
 def color_modes(name, steps, extra=()):
     """引用這張範本的找圖目標用到的`比色`設定 (沒人引用＝只查不比色)."""
     tgts = list(extra)
@@ -225,8 +230,8 @@ class Checker:
                         res["reasons"].append(
                             f"位置不符（{label}，第 {frame} 幀：挑中的是 {gx},{gy}，"
                             f"不是取材的 {want[0]},{want[1]}）")
-        if box is None:
-            box = (0, 0, size[0], size[1])
+        if box is None:   # 引用的既有範本在這一幀找不到 (已標待重拍): 不寫固定矩形 (＝整個搜尋範圍)
+            return fallback_box, None
         within, clipped = fixed_rect(box, self.size, self.anchor, scroll)
         full = dict(tgt, within=within)
         for w in pickcheck.rect_margin(full, size):

@@ -45,7 +45,7 @@
 | `calibration` | 必填 | — | `{"pair": [名, 名], "frame": N, "fallback": {"pair": [名, 名]}}`：校準對兩張都要在 `templates`；`frame` 預設＝第一張的取材幀；主對在那一幀量不到＝報錯 |
 | `busy` | 選填 | — | 忙碌指示 `{"template": 名, "color": true, "pick": {...}, "frame": N}`；`frame`＝忙碌字樣清楚可見的那一幀（預設＝取材幀）。有步驟勾 `busy_check` 就必須有 |
 | `after` ／ `into` | — | 擇一必填 | `after: N`＝插在第 N 步之後同一層（N 是區段開頭＝插在整個區段之後）；`into: N`＝插在重複區段 N 裡最前面。N 是 flow.yaml 行尾的 `# N` |
-| `expect` | — | 必填 | 第 N 步的開頭鍵＋值，工具核對：`{"find": "标题_办公室"}`、`{"repeat": 2}`、`{"click": [801, 76]}` |
+| `expect` | — | 必填 | 第 N 步的開頭鍵＋值，工具核對：`{"find": "标题_办公室"}`、`{"repeat": 2}`、`{"click": [801, 76]}`；分岔寫第一個分支條件的範本 `{"branch": "标题_办公室"}` |
 | `scale_image` | — | 選填 | 影片裡量不到既有流程的校準對時，使用者給的同取景、同視窗大小的圖片 |
 
 補充一律沿用既有流程的校準對、忙碌指示、名稱與位置：計畫寫 `calibration`／`busy`／`name`／`out` 報錯；
@@ -96,7 +96,7 @@
 ```json
 {
   "video": "C:/Users/me/oCam Video/add5.mp4",
-  "after": 120, "expect": {"branch": null},
+  "after": 120, "expect": {"branch": "标题_办公室"},
   "templates": {"标题_回收站": {"frame": 230, "box": [770, 690, 120, 40]}},
   "steps": [
     {"branch": [{"if": {"find": "标题_办公室", "frame": 180, "pick": {"top": 1}, "timeout": 3,

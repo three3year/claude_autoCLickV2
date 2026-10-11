@@ -44,6 +44,14 @@ def _yaml_head(s):
     return head, value
 
 
+def _expect_value(steps, i):
+    """第 i 步 (平面) 在 expect 裡的值: 找圖是範本名, 分岔是第一個分支條件的範本名."""
+    head, value = _yaml_head(steps[i])
+    if head == "branch":
+        value = findtarget.template(steps[i + 1])
+    return head, value
+
+
 def insertion_index(steps, p):
     """插入點 → 平面索引 (插入段放在 steps[idx] 之前); 核對 expect."""
     key = "after" if p.after is not None else "into"
@@ -54,10 +62,11 @@ def insertion_index(steps, p):
     if s["type"] in _MARKERS:
         raise ToolError(f"{key}: 第 {n} 步是區段的結尾或「或」標記，插入點要指有開頭鍵的步驟"
                         "（要插在區段之後：after 寫區段開頭那一步）")
-    head, value = _yaml_head(s)
+    head, value = _expect_value(steps, n - 1)
     (ehead, evalue), = p.expect.items()
-    same = ehead == head and (evalue is None and not findtarget.is_find(s)
-                              or head == "branch" or evalue == value)
+    same = ehead == head and (evalue is None and head in ("repeat", "branch", "click",
+                                                          "drag", "wait")
+                              or evalue == value)
     if not same:
         raise ToolError(f"{key}: 第 {n} 步是 {{{head}: {value}}}，跟 expect 寫的 "
                         f"{{{ehead}: {evalue}}} 不符——步驟編號可能寫錯"
@@ -68,7 +77,7 @@ def insertion_index(steps, p):
                             "（插進分岔的某個分支：after 寫那個分支的條件步驟）")
         return n
     if s["type"] in ("repeat_start", "branch_start"):
-        return report_mod._section_end(steps, n - 1)
+        return report_mod.section_end(steps, n - 1)
     return n
 
 
@@ -76,7 +85,7 @@ def insertion_index(steps, p):
 
 def _detector(engine, images, config):
     """只為量校準對建的小偵測接縫 (images: {名: 影像})."""
-    return verify_mod.Checker(engine, images, {}, [], {}, config, None, (1, 1)).detector
+    return verify_mod.detector(engine, images, config)
 
 
 def video_scale(p, cal, frames, detector):
@@ -163,8 +172,7 @@ def similar_existing(engine, config, crops, frames, templates, existing, size):
     if not cands:
         return {}
     names = {e for es in cands.values() for e in es}
-    det = verify_mod.Checker(engine, {e: existing[e] for e in names}, {}, [], {}, config,
-                             None, (1, 1)).detector
+    det = verify_mod.detector(engine, {e: existing[e] for e in names}, config)
     out = {}
     for n, es in cands.items():
         t = templates[n]
@@ -241,9 +249,6 @@ def insert(plan, folder, engine=None):
     cal = flow.get("calibration")
     if not cal:
         raise ToolError("既有流程沒有校準對：量不了影片倍率，請先在 app 設定校準對")
-    if any(s.get("busy_check") for s in p.steps) and not flow.get("busy"):
-        raise ToolError("計畫有步驟勾了 busy_check，但既有流程沒有設忙碌指示（busy）："
-                        "請先在 app 設定忙碌指示，或取消勾選")
     old = flow["steps"]
     pos = insertion_index(old, p)
     # 只看步驟種類的檢查先做 (不必等量測): 找圖相連、原點的圖離開、後面舊步驟的原點來源
@@ -328,12 +333,14 @@ def insert(plan, folder, engine=None):
                + [("範本重複", f"新範本「{n}」跟既有的「{e}」幾乎一樣，建議改用既有的")
                   for n, e in similar.items()])
     note = f"來源影片 `{os.path.basename(p.video)}`（影片倍率 ×{r:.3f}，{how}）。"
-    files = report_mod.supplement(folder, new_steps, (pos, pos + len(seg)), note,
+    files = report_mod.supplement(folder, old, new_steps, (pos, pos + len(seg)), note,
                                   list(retake.items()), confirm)
-    _write_back(folder, new_flow, images, files)
-    res = check(folder)
-    if not res.ok:
-        raise ToolError("工具錯誤：寫回後的流程沒通過檢查指令：" + "；".join(res.errors))
+    def verify():
+        res = check(folder)
+        if not res.ok:
+            raise ToolError("工具錯誤：寫回後的流程沒通過檢查指令：" + "；".join(res.errors))
+
+    _write_back(folder, new_flow, images, files, verify)
     return {"flow_path": folder, "position": pos + 1, "inserted": len(seg),
             "video": p.video, "video_scale": r, "scale_from": how,
             "retake": retake, "similar": similar,
@@ -345,12 +352,12 @@ def insert(plan, folder, engine=None):
 
 def _shifted_scroll(measured, pos):
     """measured.no_scroll 是插入段內的索引; 換成插入後整份流程的索引."""
-    return replace(measured, no_scroll={i + pos for i in measured.no_scroll}) \
-        if hasattr(measured, "__dataclass_fields__") else measured
+    return replace(measured, no_scroll={i + pos for i in measured.no_scroll})
 
 
-def _write_back(folder, flow, images, files):
-    """寫回既有資料夾: 新範本 → flow.yaml → 交付報告; 中途失敗就把寫過的還原."""
+def _write_back(folder, flow, images, files, verify):
+    """寫回既有資料夾: 新範本 → flow.yaml → 交付報告 → verify() (檢查指令);
+    任何一步失敗 (含檢查沒過) 就把寫過的還原."""
     tdir = os.path.join(folder, flowfile.TEMPLATES_DIR)
     ypath = os.path.join(folder, flowfile.FLOW_YAML)
     rdir = os.path.join(folder, report_mod.DIR)
@@ -366,6 +373,7 @@ def _write_back(folder, flow, images, files):
                 old_reports[name] = f.read()
     had_rdir = os.path.isdir(rdir)
     written = []
+    tmp = ypath + ".tmp"
     try:
         os.makedirs(tdir, exist_ok=True)
         for n, data in images.items():
@@ -373,13 +381,13 @@ def _write_back(folder, flow, images, files):
             with open(path, "xb") as f:
                 written.append(path)
                 f.write(data)
-        tmp = ypath + ".tmp"
         with open(tmp, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
         os.replace(tmp, ypath)
         report_mod.write(folder, files)
+        verify()
     except BaseException:
-        for path in written:
+        for path in written + [tmp]:
             try:
                 os.remove(path)
             except OSError:

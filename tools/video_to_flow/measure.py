@@ -136,7 +136,7 @@ def busy_two_way(p, measured, checker, info, rescale=None):
         if s["type"] in ("click", "drag") and frames[i] is None:
             raise ToolError(f"轉換計畫有誤：步驟 {i + 1}：有忙碌指示時，座標點擊與拖曳要寫 "
                             "frame（送出輸入的那一幀），工具要看它之後有沒有忙碌")
-    end = max(int(info.get("frames") or 0), max(f for f in frames if f is not None) + 1)
+    end = max([int(info.get("frames") or 0)] + [f + 1 for f in frames if f is not None])
     step = max(1, round(info.get("fps", 30) / SAMPLES_PER_SECOND))
     intervals = {}
     for i, s in enumerate(p.steps):

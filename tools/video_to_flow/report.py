@@ -44,7 +44,7 @@ _KIND_OF = {"repeat_start": "repeat", "branch_start": "branch"}
 _LABEL = {"click": "座標點擊", "drag": "拖曳", "wait": "等待"}
 
 
-def _section_end(steps, i):
+def section_end(steps, i):
     depth = 0
     for j in range(i, len(steps)):
         t = steps[j]["type"]
@@ -64,7 +64,7 @@ def sections(steps):
     while i < len(steps):
         t = steps[i]["type"]
         if t in _KIND_OF:
-            kind, end = _KIND_OF[t], _section_end(steps, i)
+            kind, end = _KIND_OF[t], section_end(steps, i)
         else:
             kind, end = "steps", i
             while end < len(steps) and steps[end]["type"] not in _KIND_OF:
@@ -372,6 +372,18 @@ def add_under(text, heading, lines):
     return "\n".join(rows[:h + 1] + block + rows[end:])
 
 
+def replace_under(text, heading, lines):
+    """把 `heading` 這一節的內容整個換成 lines; 沒有這節就加在檔尾."""
+    rows = text.split("\n")
+    try:
+        h = rows.index(heading)
+    except ValueError:
+        return add_under(text, heading, lines)
+    end = next((j for j in range(h + 1, len(rows)) if re.match(r"#{1,2} ", rows[j])),
+               len(rows))
+    return "\n".join(rows[:h + 1] + [""] + lines + [""] + rows[end:])
+
+
 def _read(path):
     try:
         with open(path, encoding="utf-8") as f:
@@ -380,43 +392,58 @@ def _read(path):
         return None
 
 
-def supplement(folder, steps, seg, note, retake, confirm):
+_MARKERS = ("repeat_end", "branch_or", "branch_end")
+
+
+def supplement(folder, old_steps, steps, seg, note, retake, confirm):
     """補充插入後更新 `交付報告/`: 插入處那份與總覽 (沒有就建一份最小的).
 
-    steps: 插入後的整份步驟; seg: 插入段的平面索引 [start, end); note: 這次補充的一行說明;
-    retake: [(範本, 原因)]; confirm: [(標題, 文字)]。回傳 {檔名: 新文字}——呼叫端負責寫檔。
+    old_steps / steps: 插入前後的整份步驟; seg: 插入段在插入後的平面索引 [start, end);
+    note: 這次補充的一行說明; retake: [(範本, 原因)]; confirm: [(標題, 文字)]。
+    插入處那份: 插入段併進既有的頂層段落時用那段**插入前**的檔名 (插入不會讓別段的序號位移
+    而寫錯檔); 插入段自成一個頂層區段時開一份新的 (名字避開已有的檔)。那份的「這段做什麼」
+    照插入後的流程重寫, 說明寫進「補充」。回傳 {檔名: 新文字}——呼叫端負責寫檔。
     """
     d = os.path.join(folder, DIR)
     secs = sections(steps)
-    sec = section_of(secs, seg[0])
-    files = {}
-    old = _read(os.path.join(d, sec.file))
+    new_sec = section_of(secs, seg[0])
+    if new_sec.start == seg[0] and new_sec.end == seg[1]:
+        taken = [fn[:-3] for fn in (os.listdir(d) if os.path.isdir(d) else [])
+                 if fn.endswith(".md")] + [x.name for x in sections(old_steps)]
+        sec = Section(flowfile.free_name(new_sec.name, taken), new_sec.kind,
+                      new_sec.start, new_sec.end)
+        old = None
+    else:
+        old_secs = sections(old_steps)
+        # 插入點前一步 (插入前後索引相同); 插在最前面就用原本的第一步
+        old_sec = section_of(old_secs, max(seg[0] - 1, 0))
+        sec = Section(old_sec.name, new_sec.kind, new_sec.start, new_sec.end)
+        old = _read(os.path.join(d, sec.file))
     if old is None:
-        old = (f"# {sec.name}\n\n[← 總覽]({OVERVIEW})\n\n## 這段做什麼\n\n"
-               + "\n".join(outline(steps, sec.start, sec.end)) + "\n")
-    seg_text = "；".join(describe(s) for s in steps[seg[0]:seg[1]]
-                        if s["type"] not in ("repeat_end", "branch_or", "branch_end"))
+        old = f"# {sec.name}\n\n[← 總覽]({OVERVIEW})\n\n## 這段做什麼\n"
+    text = replace_under(old, "## 這段做什麼", outline(steps, sec.start, sec.end))
+    seg_text = "；".join(describe(s) for s in steps[seg[0]:seg[1]] if s["type"] not in _MARKERS)
     before = next((describe(steps[j]) for j in range(seg[0] - 1, -1, -1)
-                   if steps[j]["type"] not in ("repeat_end", "branch_or", "branch_end")),
-                  "流程開頭")
-    text = add_under(old, "## 補充", [f"- 在「{before}」之後插入：{seg_text}。{note}"])
+                   if steps[j]["type"] not in _MARKERS), "流程開頭")
+    text = add_under(text, "## 補充", [f"- 在「{before}」之後插入：{seg_text}。{note}"])
     if retake:
         text = add_under(text, "## 待重拍",
-                         [f"- {n}：{'；'.join(why)}（{'；'.join(verify_mod.advice(why))}）"
-                          for n, why in retake])
+                         [f"- {n_}：{'；'.join(why)}（{'；'.join(verify_mod.advice(why))}）"
+                          for n_, why in retake])
     if confirm:
         text = add_under(text, "## 待確認", [f"- {k}：{v}" for k, v in confirm])
-    files[sec.file] = text
+    files = {sec.file: text}
     ov = _read(os.path.join(d, OVERVIEW))
     if ov is None:
         ov = (f"# 交付報告：{os.path.basename(folder)}\n\n總覽；每個頂層區段另有一份。\n\n"
-              "## 各段報告（依流程順序）\n\n" + "\n".join(f"- {_link(s)}" for s in secs) + "\n")
-    elif f"]({sec.file})" not in ov:
+              "## 各段報告（依流程順序）\n\n"
+              + "\n".join(f"- {_link(s)}" for s in secs if s is not new_sec) + "\n")
+    if f"]({sec.file})" not in ov:
         ov = add_under(ov, "## 各段報告（依流程順序）", [f"- {_link(sec)}"])
     ov = add_under(ov, "## 補充", [f"- {_link(sec)}：插入 {seg_text}。{note}"])
     if retake:
-        ov = add_under(ov, "## 待重拍", [f"- {n}（{_link(sec)}）：{'；'.join(why)}"
-                                       for n, why in retake])
+        ov = add_under(ov, "## 待重拍", [f"- {n_}（{_link(sec)}）：{'；'.join(why)}"
+                                       for n_, why in retake])
     if confirm:
         ov = add_under(ov, "## 待確認", [f"- {k}（{_link(sec)}）：{v}" for k, v in confirm])
     files[OVERVIEW] = ov

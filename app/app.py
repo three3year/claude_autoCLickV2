@@ -2104,8 +2104,8 @@ class App:
             messagebox.showwarning("執行", "範本不存在：\n" + "\n".join(missing),
                                    parent=self.root)
             return
-        checked = [i + 1 for i, s in enumerate(steps) if has_busy_check(s)]
-        if checked and not self.busy_target:
+        checked = [i + 1 for i in flowcheck.busy_check_bad(steps, self.busy_target)]
+        if checked:
             # 勾了忙碌檢查卻沒有忙碌指示可查: 擋下, 不讓人以為有在等
             messagebox.showwarning(
                 "執行",

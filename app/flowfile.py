@@ -103,8 +103,8 @@ TEMPLATES_DIR = "templates"
 CACHE_DIR = ".cache"
 FLOW_FORMAT = 1
 
-_HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "repeat",
-          "branch")
+HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "repeat",
+         "branch")   # 一步的開頭鍵 (yaml)
 # 讀檔認得的鍵 (docs/flow-format.md 的欄位表照這些; app/tests/test_flow_format_doc.py 對照)
 TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy",
             "template_pos", "engine", "steps")
@@ -128,6 +128,8 @@ def step_keys(head):
     if head in findtarget.FIND_TYPES:
         keys |= set(TARGET_ATTRS)
     return keys
+
+
 _BAD_NAME_CHARS = '\\/:*?"<>|'
 
 
@@ -402,9 +404,9 @@ def _parse_steps(items, out):
         where = f"步驟 {no}"
         if not isinstance(item, dict):
             raise FlowError(f"{where} 要是 {{鍵: 值}}，收到 {item!r}")
-        heads = [k for k in item if k in _HEADS]
+        heads = [k for k in item if k in HEADS]
         if len(heads) != 1:
-            raise FlowError(f"{where} 要剛好一個開頭的鍵（{'/'.join(_HEADS)}），"
+            raise FlowError(f"{where} 要剛好一個開頭的鍵（{'/'.join(HEADS)}），"
                             f"收到 {'、'.join(map(str, item)) or '空的'}")
         head = heads[0]
         if head == "repeat":
@@ -458,7 +460,7 @@ def _parse_branch(where, item, out):
             raise FlowError(f"{aw}：branch 的分支不認得的鍵：{'、'.join(map(str, extra))}")
         cond = arm["if"]
         heads = [h for h in (cond if isinstance(cond, dict) else {})
-                 if h in _HEADS]
+                 if h in HEADS]
         if len(heads) != 1 or heads[0] not in findtarget.FIND_TYPES:
             raise FlowError(f"{aw}：branch 的 if 必須是找圖步驟"
                             "（find_click / find / wait_gone）")

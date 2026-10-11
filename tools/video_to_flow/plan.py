@@ -30,8 +30,6 @@ _TOP = {ASSEMBLE: {"video", "name", "out", "templates", "steps", "calibration",
                    "busy", "report"},
         INSERT: {"video", "templates", "steps", "report", "after", "into", "expect",
                  "scale_image"}}
-_HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "repeat",
-          "branch")
 TEMPLATE_FIELDS = {"frame", "box", "present", "absent", "clean"}
 SCROLL = ("vertical", "horizontal")
 
@@ -279,7 +277,7 @@ def _walk(items, ev):
             out.append(item)
             continue
         _retired(no, item)
-        heads = [k for k in item if k in _HEADS]
+        heads = [k for k in item if k in flowfile.HEADS]
         if len(heads) != 1:
             out.append(item)   # flowfile 會指名報錯
             continue
@@ -452,7 +450,7 @@ def _insert_point(p, raw):
     setattr(p, key, n)
     exp = raw.get("expect")
     if (not isinstance(exp, dict) or len(exp) != 1
-            or next(iter(exp)) not in _HEADS):
+            or next(iter(exp)) not in flowfile.HEADS):
         _err("expect", "要寫第 N 步的開頭鍵＋值（例 {\"find\": \"标题_办公室\"}），工具拿它核對"
              f"編號沒寫錯，收到 {exp!r}")
     p.expect = dict(exp)

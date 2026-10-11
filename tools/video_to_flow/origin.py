@@ -83,6 +83,9 @@ def derive(steps, evidence, templates, locate=None, locate_confirm=None):
                 box, within = locate(i, s, tgt, origin)
             else:
                 box, within = templates[tgt["template"]]["box"], None
+            if box is None:
+                raise ToolError(f"轉換計畫有誤：步驟 {no}：引用的既有範本「{tgt['template']}」在它寫的那一幀"
+                                "找不到——frame 寫錯，或影片裡的圖跟既有範本對不上（改裁新範本）")
             if within is not None:
                 tgt["within"] = within
             cx, cy = _center(box)
