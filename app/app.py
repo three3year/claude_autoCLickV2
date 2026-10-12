@@ -918,7 +918,7 @@ class App:
         ttk.Button(bar, text="清除", style="Small.TButton", takefocus=False,
                    command=self.clear_scan_region).pack(side="left")
         # 流程層級的設定 (校準對、備用校準對、忙碌指示) 收在對話框, 這裡只放摘要
-        ttk.Button(bar, text="流程設定…", takefocus=False,
+        ttk.Button(bar, text="流程設定…", style="Small.TButton", takefocus=False,
                    command=self.open_flow_settings).pack(side="right")
         self.settings_lbl = ttk.Label(bar, text=self._settings_summary(),
                                       foreground=C["muted"])

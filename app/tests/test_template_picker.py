@@ -544,17 +544,20 @@ def test_引擎未就緒時對話框照樣開得起來也挑得動(tkroot, tmp_p
         tkroot.withdraw()
 
 
-def test_沒選任何一列就按確定會提示(picker, no_real_dialogs):
+def test_沒選任何一列就按確定_底列提示_不彈窗(picker, no_real_dialogs):
     app = picker
-    warns = no_real_dialogs["warning"]
     d = _Driver(app.root, TITLE)
+    seen = {}
 
     def ok_then_cancel(dr):
         dr.press("確定")
+        seen["labels"] = [str(w.cget("text")) for w in _all(dr.dlg)
+                          if w.winfo_class() == "TLabel"]
         dr.press("取消")
 
     assert _open(app, d, ok_then_cancel) is None
-    assert warns and "選一張" in warns[0]
+    assert "請先選一張範本" in seen["labels"]
+    assert not any(no_real_dialogs.values())
 
 
 # ---------- 取消找圖對話框＝這次加的圖也丟棄 (US 14) ----------

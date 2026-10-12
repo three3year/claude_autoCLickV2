@@ -70,7 +70,7 @@ def test_選固定矩形_框選_確定_存成相對基準點的偏移(make_app, 
     app = make_app(1.0)
     calls = _overlay(monkeypatch)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
-                         _press("在畫面上框選"), _press("確定"))
+                         _press("框選"), _press("確定"))
     assert got["within"] == RECT
     assert calls == [("region", True)], "region 模式, 在清場裡框選"
     assert app.vision.lookups == list(CAL_PAIR), "框選當下量了校準對"
@@ -80,7 +80,7 @@ def test_倍率不是1時換回流程尺度(make_app, monkeypatch):
     app = make_app(2.0)
     _overlay(monkeypatch)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
-                         _press("在畫面上框選"), _press("確定"))
+                         _press("框選"), _press("確定"))
     assert got["within"] == [75, 60, 200, 75]
 
 
@@ -88,7 +88,7 @@ def test_視窗挪位置後框同一塊_存下的值不變(make_app, monkeypatch
     app = make_app(1.0, anchor=(550, 330))   # 基準點挪了 (+400,+100)
     _overlay(monkeypatch)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
-                         _press("在畫面上框選"), _press("確定"))
+                         _press("框選"), _press("確定"))
     assert got["within"] == [-250, 20, 400, 150]
 
 
@@ -113,7 +113,7 @@ def test_可以重拖(make_app, monkeypatch):
     _overlay(monkeypatch)
     old = [0, 0, 10, 10]
     got = _target_dialog(app, {"template": "a", "within": old},
-                         _press("在畫面上框選"), _press("確定"))
+                         _press("框選"), _press("確定"))
     assert got["within"] == RECT
 
 
@@ -123,7 +123,7 @@ def test_沒有校準對時按鈕不可用_並說明原因(make_app, monkeypatch
     seen = {}
 
     def look(dr):
-        btn = _btn(dr.dlg, "在畫面上框選")
+        btn = _btn(dr.dlg, "框選")
         seen["disabled"] = btn.instate(["disabled"])
         seen["labels"] = _labels(dr.dlg)
         btn.invoke()      # 停用的按鈕按了也沒事
@@ -144,13 +144,13 @@ def test_框選當下找不到校準對_不存並提示重框(make_app, monkeypa
         seen["labels"] = _labels(dr.dlg)
         dr.close()
     _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
-                   _press("在畫面上框選"), look)
+                   _press("框選"), look)
     assert calls == [], "量不到就不進拾取"
     assert "（還沒框選）" in seen["labels"]
     assert any("搜尋範圍" in m for m in no_real_dialogs["warning"])
 
 
-def test_選了固定矩形卻沒框過_確定時提示_不存空的限定範圍(
+def test_選了固定矩形卻沒框過_確定時底列提示_不彈窗_不存空的限定範圍(
         make_app, monkeypatch, no_real_dialogs):
     app = make_app(1.0)
     _overlay(monkeypatch)
@@ -158,30 +158,23 @@ def test_選了固定矩形卻沒框過_確定時提示_不存空的限定範圍
 
     def still_open(dr):
         seen["open"] = dr.dlg.winfo_exists()
+        seen["labels"] = _labels(dr.dlg)
         dr.close()
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
                          _press("確定"), still_open)
     assert got is None and seen["open"]
-    assert any("固定矩形還沒框選" in m for m in no_real_dialogs["warning"])
+    assert any(t.startswith("固定矩形還沒框選") for t in seen["labels"])
+    assert "⚠ 還沒框選固定矩形" in seen["labels"]
+    assert not any(no_real_dialogs.values())
 
 
-def test_找圖步驟對話框_設定固定矩形後存進步驟(make_app, monkeypatch):
-    """步驟對話框 →「設定…」開子對話框 → 選固定矩形、框選、確定 → 步驟確定."""
+def test_找圖步驟對話框_主對話框直接選固定矩形框選_存進步驟(make_app, monkeypatch):
+    """找圖步驟自己的限定範圍在主對話框的左卡設 (沒有找圖設定子對話框)."""
     app = make_app(1.0)
     app.store.add("a", b"A")
     _overlay(monkeypatch)
-    sub = _Driver(app.root, "找圖設定")
-
-    def open_sub(dr):
-        # 子對話框是 modal: 它的動作排在打開之後, 由巢狀事件迴圈執行;
-        # 「設定…」要等子對話框關掉、摘要更新完才返回, 之後才按步驟的確定
-        sub.run(_choose(FIXED_ZH), _press("在畫面上框選"), _press("確定"))
-        _btn(dr.dlg, "設定…").invoke()
-        _btn(dr.dlg, "確定").invoke()
     step = {"type": "find_click", "target": {"template": "a"}, "timeout": 5,
-            "interval": 0.5, "type": "find_click", "on_fail": "skip",
-            "_edit": True}
-    got = _edit(app, step, open_sub, title="編輯：找圖點擊")
-    if sub.error is not None:
-        raise sub.error
+            "interval": 0.5, "on_fail": "skip", "_edit": True}
+    got = _edit(app, step, _choose(FIXED_ZH), _press("框選"), _press("確定"),
+                title="編輯：找圖點擊")
     assert got["target"]["within"] == RECT

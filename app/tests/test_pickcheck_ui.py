@@ -47,7 +47,7 @@ def test_框出不足的矩形_對話框出現矩形餘裕警告_確定照存(ma
     def look(dr):
         seen["warn"] = _warn_labels(dr.dlg)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
-                         _press("在畫面上框選"), look, _press("確定"))
+                         _press("框選"), look, _press("確定"))
     assert len(seen["warn"]) == 1
     assert "至少要框 70×70" in seen["warn"][0] and "58×58" in seen["warn"][0]
     assert got["within"] == [150, 120, 58, 58], \
@@ -63,7 +63,7 @@ def test_餘裕足夠_沒有警告(make_app, monkeypatch):
     def look(dr):
         seen["warn"] = _warn_labels(dr.dlg)
     _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
-                   _press("在畫面上框選"), look, _press("確定"))
+                   _press("框選"), look, _press("確定"))
     assert seen["warn"] == []
 
 
@@ -77,7 +77,7 @@ def test_餘裕以流程尺度算_倍率不是1時框選值先換回(make_app, m
     def look(dr):
         seen["warn"] = _warn_labels(dr.dlg)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
-                         _press("在畫面上框選"), look, _press("確定"))
+                         _press("框選"), look, _press("確定"))
     assert got["within"][2] == 60
     assert any("60×60" in t and "70×70" in t for t in seen["warn"])
 
@@ -90,7 +90,7 @@ def test_還沒選範本就框矩形_不誤報(make_app, monkeypatch):
     def look(dr):
         seen["warn"] = _warn_labels(dr.dlg)
     _target_dialog(app, {"template": ""}, _choose(FIXED_ZH),
-                   _press("在畫面上框選"), look, _press("確定"))
+                   _press("框選"), look, _press("確定"))
     assert seen["warn"] == []
 
 
@@ -107,7 +107,7 @@ def test_重新打開既有的不足矩形_也看得到警告_重拖夠大就清
         seen["after"] = _warn_labels(dr.dlg)
     old = [0, 0, 58, 58]
     _target_dialog(app, {"template": "a", "within": old}, before,
-                   _press("在畫面上框選"), after, _press("確定"))
+                   _press("框選"), after, _press("確定"))
     assert len(seen["before"]) == 1 and "70×70" in seen["before"][0]
     assert seen["after"] == []
 

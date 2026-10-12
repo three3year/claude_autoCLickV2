@@ -66,20 +66,23 @@ def test_改回不確認時不留任何確認欄位(make_app):
         assert k not in got, k
 
 
-def test_確認圖出現卻沒選確認圖_擋下(make_app, no_real_dialogs):
+def test_確認圖出現卻沒選確認圖_擋下_錯誤在底列不彈窗(make_app, no_real_dialogs):
+    from test_fixed_rect_ui import _labels
     a = make_app(1.0)
     seen = {}
 
     def ok_then_cancel(dr):
         dr.press("確定")
         seen["open"] = dr.dlg.winfo_exists()
+        seen["labels"] = _labels(dr.dlg)
         dr.press("取消")
 
     got = _edit(a, click(10, 10, _edit=True),
                 _pick("做到確認圖", "確認圖"), ok_then_cancel,
                 title="編輯：座標點擊")
     assert got is None and seen["open"]
-    assert any("確認圖" in m for m in no_real_dialogs["warning"])
+    assert "「做到確認圖出現為止」需選擇確認圖" in seen["labels"]
+    assert not any(no_real_dialogs.values())
 
 
 # ---------- 摘要、警告標記、被引用的範本 ----------

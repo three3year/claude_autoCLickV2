@@ -207,7 +207,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   它是本程序的前景視窗，先銷毀會把前景讓給剛被自動點擊的遊戲，`focus_force` 被 Windows 拒絕、
   還原視窗被壓住看似消失。還原全程在覆蓋層後面完成（不做 topmost 脈衝、最大化直接
   `state("zoomed")` 映射），最後才銷毀＝一次揭示，靠 focus_force 帶起整個擁有鏈蓋過遊戲
-- 對話框元件必須以 `add_row()` 回傳的 frame 為 parent，建在 body 上再 pack 進去會被 frame 蓋住
+- 對話框元件必須以 `_Rows.add()` 回傳那列的 `.frame` 為 parent，建在 body 上再 pack 進去會被 frame 蓋住
 - `__init__` 期間 root 可能已 `winfo_viewable`，置頂子視窗（預覽框等）必須等 root 首次 `<Map>`
   後才能建立，否則主視窗首次顯示會被干擾
 - ttk clam 的 `TButton` 有預設 `width -11`（最小 11 字元寬），做緊湊小按鈕時樣式要設 `width=0`
@@ -250,6 +250,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - 驗 modal 對話框的互動：對話框會卡住呼叫端，所以把操作排進 `root.after()`，
   用視窗標題找到那個 Toplevel、再按類別/文字找元件（見 `test_template_picker.py`
   的 `_Driver`）；不要在生產程式碼裡留測試用的後門屬性
+- 測試裡會被 `after` 排程的東西不要換成 lambda：Tkinter 以「id＋函式名」當 Tcl 命令名，視窗關掉後名字
+  釋出、被下一個視窗的 lambda 重用，留著的 after 一到就呼叫錯的函式（2026-10-13 真 App 測試偶發多一步、
+  卡在步驟對話框）。conftest 的 `main_app` 用具名空函式，收尾時取消所有未到期的 after
 - `event_generate` 合成事件**繞過 grab 路由**，驗證 grab/modal 相關行為必須用真實輸入
   （`win.click`/`win.drag` SendInput 注入）；合成事件測不出「點擊被 grab 導走」的卡死
 
@@ -278,7 +281,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   語意已經改掉，別再加回去
 - 找圖搜尋範圍只有主視窗的全域設定，步驟不各自設範圍
 - 拾取相對座標用拖線：起點=基準、終點=目標
-- 找圖選「不點擊」「等待消失」時，生效確認與忙碌檢查的勾選列隨 `sync_click_opts` 隱藏、存為沒勾
+- 步驟編輯器是版面 B（`ui_dialogs._StepEditor`）：依選項出現的列登記在 `_optional`、由 `sync` 顯示/收起；找圖選「不點擊」「等待消失」時，點擊偏移、生效確認與忙碌檢查整列收起、存為沒勾。兩欄寬 `CARD_W` 是量出來的（`.scratch/ui-slim/measure_editor.py`），加欄位或改字後要重量
 
 ## 執行語意（正本在 `docs/flow-format.md`）
 

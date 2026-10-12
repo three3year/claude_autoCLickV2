@@ -17,8 +17,8 @@ import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowdefaults, flowfmt, pickcheck, win
-from automation.runner import BUSY_CHECK_KEY, sends_input
-from ui_theme import C, FONT
+from automation.runner import BUSY_CHECK_KEY, origin_source, sends_input
+from ui_theme import C, FONT, FONT_BOLD
 
 STEP_TITLES = {
     "click": "座標點擊",
@@ -239,54 +239,46 @@ def pick_cal_pair(app, fallback=False):
     dlg.resizable(False, False)
     dlg.transient(root)
 
+    if fallback:
+        tip = ("校準對被彈窗擋住時改用的兩張「任何畫面都看得到」的圖（例：標題列圖示與關閉鈕）。"
+               "按確定時校準對與備用對都要在畫面上，才量得出備用對對座標基準點的偏移")
+    elif app.flow_cal:
+        tip = ("執行開頭一定同時出現、在遊戲畫面內相距夠遠的兩張固定圖。已有校準對：先用原本"
+               "那一對量目前的倍率，再換算新那一對的基準距離（流程尺度不變）")
+    else:
+        tip = ("執行開頭一定同時出現、在遊戲畫面內相距夠遠的兩張固定圖（標題列圖示＋關閉鈕"
+               "量到的倍率偏小，留給備用校準對）。目前的畫面大小就是這份流程的尺度")
     body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
     body.pack(fill="both", expand=True)
-    cur = app.flow_cal
-    if fallback:
-        intro = ("從本流程選兩個「任何畫面都看得到」的範本當備用校準對\n"
-                 "（例：遊戲視窗標題列的圖示與關閉鈕）；主校準對被彈窗蓋住、不在主畫面時"
-                 "執行會改用它。\n按確定時主對與備用對都要在畫面上，才量得出備用對對"
-                 "座標基準點的偏移。")
-    else:
-        how = ("已有校準對：會先用原本那一對量出目前的倍率，再換算新那一對的基準距離"
-               "（流程尺度不變）。" if cur else
-               "這份流程還沒有校準對：目前的畫面大小就是這份流程的尺度，"
-               "量到的距離就是基準距離。")
-        intro = ("從本流程選兩個「執行開頭一定同時出現在畫面上」、在遊戲畫面內相距夠遠的"
-                 "固定圖當比例尺\n（標題列圖示＋關閉鈕量到的倍率會偏小，留給備用校準對）；"
-                 "按確定後立刻量一次。\n" + how)
-    ttk.Label(body, text=intro, style="Muted.TLabel", justify="left",
-              wraplength=460).pack(anchor="w", pady=(0, 10))
+    rows = _Rows(body)
     vars_ = []
-    for label in ("範本一", "範本二"):
-        fr = ttk.Frame(body, style="Panel.TFrame")
-        fr.pack(anchor="w", pady=3)
-        ttk.Label(fr, text=label, style="Muted.TLabel").pack(
-            side="left", padx=(0, 10))
+    for label, tip_ in (("範本一", tip), ("範本二", None)):
         var = tk.StringVar()
-        ttk.Combobox(fr, textvariable=var, values=names, width=28,
-                     state="readonly").pack(side="left")
+        ttk.Combobox(rows.add(label, tip_).frame, textvariable=var, values=names,
+                     width=28, state="readonly").pack(side="left")
         vars_.append(var)
 
     result = [None]
+    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
+    foot.pack(fill="x")
+    err = ttk.Label(foot, style="Panel.TLabel", foreground=C["danger"])
 
     def on_ok():
         a, b = vars_[0].get(), vars_[1].get()
         if not a or not b:
-            messagebox.showwarning(title, "請選滿兩個範本", parent=dlg)
+            err.configure(text="請選滿兩個範本")
             return
         if a == b:
-            messagebox.showwarning(title, "兩個範本不能相同", parent=dlg)
+            err.configure(text="兩個範本不能相同")
             return
         result[0] = (a, b)
         dlg.destroy()
 
-    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
-    foot.pack(fill="x")
     ttk.Button(foot, text="取消", command=dlg.destroy).pack(side="right",
                                                            padx=(8, 0))
     ttk.Button(foot, text="確定並量測", style="Run.TButton",
                command=on_ok).pack(side="right")
+    err.pack(side="left")
     dlg.bind("<Return>", lambda e: on_ok())
     dlg.bind("<Escape>", lambda e: dlg.destroy())
 
@@ -428,11 +420,6 @@ def pick_template(app, title="選擇範本", initial=None):
 
     body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
     body.pack(fill="both", expand=True)
-    ttk.Label(body, text="從本流程或其他流程存檔挑一張範本；也可以從磁碟挑 PNG "
-                        "或現場截圖。\n按「確定」才會把選中的圖複製進本流程。",
-              style="Muted.TLabel", justify="left").grid(
-        row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
-
     tree = ttk.Treeview(body, style="Flat.Treeview", show="tree",
                         selectmode="browse", height=9)
     tree.grid(row=1, column=0, sticky="nsew")
@@ -566,11 +553,17 @@ def pick_template(app, title="選擇範本", initial=None):
                command=shoot).pack(side="left")
     ttk.Button(tools, text="從磁碟挑圖…", style="Small.TButton",
                command=from_disk).pack(side="left", padx=(6, 0))
+    info_tip(tools, "從本流程或流程預設位置底下的其他流程挑一張；也可以從磁碟挑圖或"
+                    "現場截圖。按「確定」才把選中的圖複製進本流程，取消什麼都不留").pack(
+        side="left", padx=(8, 0))
+    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
+    err = ttk.Label(foot, style="Panel.TLabel", foreground=C["danger"])
+    tree.bind("<<TreeviewSelect>>", lambda e: err.configure(text=""), add=True)
 
     def on_ok():
         sel = selected()
         if sel is None:
-            messagebox.showwarning(title, "請先選一張範本", parent=dlg)
+            err.configure(text="請先選一張範本")
             return
         src, name = sel
         if not src.copies:
@@ -579,7 +572,7 @@ def pick_template(app, title="選擇範本", initial=None):
             return
         blob = src.blob(name)
         if blob is None:
-            messagebox.showwarning(title, f"讀不到「{name}」的圖", parent=dlg)
+            err.configure(text=f"讀不到「{name}」的圖")
             return
         # 確定的這一刻才複製進本流程 (獨立副本, 來源日後改圖不影響本流程)
         final = app.add_template_image(name, blob, pos=src.pos(name))
@@ -595,12 +588,12 @@ def pick_template(app, title="選擇範本", initial=None):
         if chk is not None:   # 現場截圖: 登錄完成後跑縮放餘裕 (拾取當下的整張截圖)
             app.check_template_scale(final, *chk)
 
-    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
     foot.pack(fill="x")
     ttk.Button(foot, text="取消", command=dlg.destroy).pack(side="right",
                                                            padx=(8, 0))
     ttk.Button(foot, text="確定", style="Run.TButton",
                command=on_ok).pack(side="right")
+    err.pack(side="left")
     dlg.bind("<Escape>", lambda e: dlg.destroy())
 
     render(select=(CUR_FLOW_LABEL, initial) if initial else None)
@@ -779,19 +772,9 @@ def _resolve_prev_origin(app, step, dlg, k=1.0, anchor=None):
 
 # ================= `找圖目標`的設定 (限定範圍/挑選規則/比色) =================
 
-LIMIT_ZH = {"none": "不限定（整個搜尋範圍）", "rect": "固定矩形"}
+LIMIT_ZH = {"none": "不限定", "rect": "固定矩形"}
 PICK_ZH = {"score": "分數最高", "top": "由上到下第 N 個",
            "left": "由左到右第 N 個", "near": "最接近指定點"}
-
-
-def _key_of(table, text):
-    return {v: k for k, v in table.items()}[text]
-
-
-def _target_opts(tgt):
-    """找圖目標 → 表單值 (findtarget.make_target 的參數)."""
-    return {"within": tgt.get("within"), "pick": tgt.get("pick"),
-            "color": bool(tgt.get("color"))}
 
 
 def pick_check_now(app, tgt, hide=(), origin_fn=None,
@@ -841,17 +824,262 @@ def _origin_or_click(root, origin_fn, anchor, k, hide):
     return base
 
 
+# ================= 對話框的版面零件 (說明文字規則, ui-slim) =================
+
+# 欄位說明 (ⓘ): 只寫使用時才需要的資料。依目前設定才出現、要使用者動手處理的提示不放這裡,
+# 改成兩欄下方的 ⚠ 一行; 按確定沒通過的驗證錯誤顯示在底列一行 (不彈窗)
+TIP = {
+    "tmpl": "要找的圖。「選擇…」可從其他流程、磁碟挑圖或現場截圖",
+    "within": "固定矩形＝只在這一塊找（相對座標基準點，視窗挪位置不用重框）。"
+              "框要比範本每邊多 20%；會捲動的清單沿捲動方向拉長",
+    "pick": "畫面上有好幾個時挑哪一個（中心高度差不到半個框高算同一列）。數不到第 N 個＝"
+            "還沒找到，繼續等到逾時。指定點＝原點加偏移，沒有原點的步驟無法執行",
+    "color": "形狀相同、只差顏色時用（可按的橘色 vs 停用的灰色）。範本要框乾淨，"
+             "不能含會變的數字或透出的背景",
+    "act": "找到之後點它、只等它出現，或等它消失",
+    "offset": "點在找到的圖片中心加這個偏移",
+    "cfm": "送出後沒生效（輸入被吃掉）就再送，直到成立或逾時。下一步的圖＝緊接的找圖步驟"
+           "要找的圖；原點的圖離開＝產生原點的找圖挑中的位置不再有匹配",
+    "cfm_tmpl": "送出成功後才會出現的圖（例：結算畫面、下一關按鈕）。"
+                "「設定…」＝它的限定範圍、挑選規則、比色",
+    "busy": "送出後等忙碌指示消失再往下；會讓遊戲忙的操作才勾",
+    "origin": "後面的相對座標步驟以這一步的位置為原點",
+    "timeout": "最多等幾秒、每隔幾秒看一次；到了照「找不到時」處置",
+    "nf": "跳出目前區段＝跳到所在重複／分岔的結尾之後（重複放棄剩下的次數）；"
+          "不在區段內＝停止",
+    "pos": "相對原點（前一個點擊、拖曳終點或找圖的位置）。勾「預設原點」時拾取會標出原點，"
+           "點一下目標即可；不勾則拖一條線：起點＝原點、終點＝目標",
+    "drag_pos": "起點、終點都相對原點。勾「預設原點」時拾取會標出原點，直接拖出路徑；"
+                "不勾則先點一下原點再拖",
+    "duration": "從起點拖到終點花的時間",
+    "hold": "到終點後按住多久才放開；捲動類介面直接放開會慣性滾過頭，0.5 秒左右；0＝直接放開",
+    "wait": "什麼都不做，等這麼久",
+    "repeat": "「重複開始」到「重複結束」之間的步驟跑幾次；區段可以巢狀",
+    "brk": "內層「找不到 → 跳出目前區段」跳到這裡時，要不要再往外跳一層"
+           "（例：重複裡的分岔找不到，直接跳出整個重複）",
+}
+
+
+class _Row:
+    """表單的一列 (標題＋欄位); show() 整列顯示或收起."""
+
+    def __init__(self, widgets, frame):
+        self.widgets = widgets
+        self.frame = frame     # 欄位元件以它為 parent
+
+    def show(self, on):
+        for w in self.widgets:
+            w.grid() if on else w.grid_remove()
+
+
+class _Rows:
+    """標題 (＋ⓘ) 在第 0 欄、欄位在第 1 欄, 一列一列往下排."""
+
+    def __init__(self, parent, start=0):
+        self.parent = parent
+        self.i = start
+
+    def add(self, label, tip=None):
+        head = ttk.Frame(self.parent, style="Panel.TFrame")
+        ttk.Label(head, text=label, style="Muted.TLabel").pack(side="left")
+        if tip:
+            info_tip(head, tip).pack(side="left", padx=(2, 0))
+        head.grid(row=self.i, column=0, sticky="nw", pady=3, padx=(0, 10))
+        fr = ttk.Frame(self.parent, style="Panel.TFrame")
+        fr.grid(row=self.i, column=1, sticky="w", pady=3)
+        self.i += 1
+        return _Row((head, fr), fr)
+
+
+def _combo(parent, var, table, width):
+    """下拉選單: var 存鍵, 畫面上是 table 的中文 (選了就寫回 var)."""
+    shown = tk.StringVar(value=table[var.get()])
+    cb = ttk.Combobox(parent, textvariable=shown, values=list(table.values()),
+                      width=width, state="readonly")
+    key_of = {v: k for k, v in table.items()}
+    cb.bind("<<ComboboxSelected>>", lambda e: var.set(key_of[shown.get()]), add=True)
+    return cb
+
+
+def _text(parent, text):
+    w = ttk.Label(parent, text=text, style="Muted.TLabel")
+    w.pack(side="left", padx=(0, 4))
+    return w
+
+
+def _num(parent, var, lo, hi, inc, width=5):
+    w = ttk.Spinbox(parent, textvariable=var, from_=lo, to=hi, increment=inc, width=width)
+    w.pack(side="left", padx=(0, 4))
+    return w
+
+
+def _entry(parent, var, width=5):
+    w = ttk.Entry(parent, textvariable=var, width=width)
+    w.pack(side="left", padx=(0, 6))
+    return w
+
+
+def _xy(parent, x, y, prefix):
+    _text(parent, prefix + "X")
+    _entry(parent, x)
+    _text(parent, "Y")
+    _entry(parent, y)
+
+
+def _template_size(app, name):
+    """範本大小 (流程尺度 w, h); 還沒選範本或讀不到＝None (矩形餘裕跳過)."""
+    img = app.template_image(name) if name else None
+    return (img.shape[1], img.shape[0]) if img is not None else None
+
+
+class _TargetFields:
+    """`找圖目標`的限定範圍、挑選規則、比色: 步驟編輯器的左卡與找圖設定子對話框 (確認圖、
+    忙碌指示) 共用同一份.
+
+    限定範圍＝下拉 (固定矩形／不限定)＋框選, 座標另起一行 (不限定時收起、框選停用);
+    挑選規則四種 (第 N 個接在同一行, 最接近指定點的「原點＋X Y 點選」另起一行); 比色。
+    拾取都在拾取當下量`座標基準點`與`畫面倍率` (measured_pick): `固定矩形`相對基準點、
+    指定點相對原點, 一律反除倍率換回流程尺度。
+    template_fn(): 目前的範本名 (矩形餘裕對照它的大小); origin_fn(anchor, k): 判定時的
+    預設原點 (點選指定點時標出 ◎); on_change(): 任何值變了 (含框完矩形) 時呼叫。
+    """
+
+    def __init__(self, app, dlg, rows, tgt, template_fn, origin_fn, on_change):
+        self.app, self.dlg = app, dlg
+        self.template_fn, self.origin_fn, self.on_change = template_fn, origin_fn, on_change
+        lim = tgt.get("within")
+        self.rect = list(lim) if lim is not None else None   # None＝還沒框過
+        self.limit = tk.StringVar(value="rect" if lim is not None else "none")
+        kind, value = findtarget.pick_rule(tgt)
+        self.pick = tk.StringVar(value=kind)
+        self.n = tk.IntVar(value=int(value) if kind in ("top", "left") else 1)
+        near = value if kind == "near" else (0, 0)
+        self.nx, self.ny = tk.IntVar(value=int(near[0])), tk.IntVar(value=int(near[1]))
+        self.color = tk.BooleanVar(value=bool(tgt.get("color")))
+        self.has_pair = app.flow_cal is not None
+
+        fr = rows.add("限定範圍", TIP["within"]).frame
+        top = ttk.Frame(fr, style="Panel.TFrame")
+        top.pack(side="top", anchor="w")
+        _combo(top, self.limit, LIMIT_ZH, 8).pack(side="left", padx=(0, 6))
+        self.rect_btn = ttk.Button(top, text="框選", style="Small.TButton",
+                                   command=self.pick_rect)
+        self.rect_btn.pack(side="left")
+        self.rect_lbl = ttk.Label(fr, style="Muted.TLabel")
+
+        fr = rows.add("挑選規則", TIP["pick"]).frame
+        line = ttk.Frame(fr, style="Panel.TFrame")
+        line.pack(side="top", anchor="w")
+        _combo(line, self.pick, PICK_ZH, 15).pack(side="left", padx=(0, 6))
+        self.n_fr = ttk.Frame(line, style="Panel.TFrame")
+        _text(self.n_fr, "第")
+        _num(self.n_fr, self.n, 1, 99, 1, width=3)
+        _text(self.n_fr, "個")
+        self.near_fr = ttk.Frame(fr, style="Panel.TFrame")
+        _xy(self.near_fr, self.nx, self.ny, "原點＋")
+        ttk.Button(self.near_fr, text="點選", style="Small.TButton",
+                   command=self.pick_point).pack(side="left")
+
+        fr = rows.add("比色", TIP["color"]).frame
+        _check(fr, "顏色不符就不算找到", self.color).pack(side="left")
+        for var in (self.limit, self.pick):
+            var.trace_add("write", lambda *_: self.on_change())
+        self.sync()
+
+    def sync(self, show_all=False):
+        """依目前選項顯示/收起座標行、第 N 個、指定點 (show_all＝全部攤開, 量寬度用)."""
+        fixed = self.limit.get() == "rect"
+        self.rect_btn.state(["!disabled"] if fixed and self.has_pair else ["disabled"])
+        self.rect_lbl.configure(text=findtarget.limit_text(self.rect) if self.rect
+                                else "（還沒框選）")
+        pk = self.pick.get()
+        for w, on, how in ((self.rect_lbl, fixed, dict(side="top", anchor="w", pady=(2, 0))),
+                           (self.n_fr, pk in ("top", "left"), dict(side="left")),
+                           (self.near_fr, pk == "near",
+                            dict(side="top", anchor="w", pady=(2, 0)))):
+            if on or show_all:
+                if not w.winfo_manager():
+                    w.pack(**how)
+            elif w.winfo_manager():
+                w.pack_forget()
+
+    def warnings(self):
+        """要使用者動手處理的提示 (⚠ 一行): 固定矩形還沒框、沒有校準對、矩形餘裕不足."""
+        if self.limit.get() != "rect":
+            return []
+        if not self.has_pair:
+            return ["要先在「流程設定…」設定校準對才能框選固定矩形"]
+        if self.rect is None:
+            return ["還沒框選固定矩形"]
+        name = self.template_fn()
+        return [w.text for w in pickcheck.rect_margin(
+            findtarget.make_target(name, within=self.rect), _template_size(self.app, name))]
+
+    def pick_rect(self):
+        app, dlg = self.app, self.dlg
+
+        def body(anchor, k, _frame):
+            return ui_overlay.pick(app.root, "region",
+                                   "框出只在這一塊找圖的範圍（存成相對座標基準點的位置）",
+                                   hide=(dlg,))
+
+        got = measured_pick(app, dlg, body, need_anchor=True, hide=(dlg,), title="固定矩形")
+        if got and got[0]:
+            r, anchor, k = got
+            self.rect = findtarget.fixed_rect_from_screen(
+                (r["screenX"], r["screenY"], r["w"], r["h"]), anchor, k)
+            self.on_change()
+
+    def pick_point(self):
+        app, dlg = self.app, self.dlg
+
+        def body(anchor, k, _frame):
+            base = _origin_or_click(app.root, self.origin_fn, anchor, k, (dlg,))
+            if base is None:
+                return None
+            r = ui_overlay.pick(app.root, "point",
+                                "點一下指定點（畫面上有好幾個時挑最接近它的）",
+                                hide=(dlg,), mark=base)
+            return (r, base) if r else None
+
+        got = measured_pick(app, dlg, body, hide=(dlg,), title="指定點")
+        if got and got[0]:
+            (r, base), _anchor, k = got
+            x, y = findtarget.offset_from_screen((r["screenX"], r["screenY"]), base, k)
+            self.nx.set(x)
+            self.ny.set(y)
+
+    def current(self):
+        """表單 → {"within", "pick", "color"} (findtarget.make_target 的參數);
+        不合法丟 ValueError (訊息給底列顯示)."""
+        limit = None
+        if self.limit.get() == "rect":
+            if self.rect is None:
+                raise ValueError("固定矩形還沒框選：按「框選」拖一個框，或改選不限定")
+            limit = list(self.rect)
+        pk = self.pick.get()
+        pick_ = None
+        try:
+            if pk in ("top", "left"):
+                n = int(self.n.get())
+                if n < 1:
+                    raise ValueError("第 N 個的 N 要從 1 起算")
+                pick_ = {pk: n}
+            elif pk == "near":
+                pick_ = {"near": [int(self.nx.get()), int(self.ny.get())]}
+        except tk.TclError:
+            raise ValueError("挑選規則的數值要填整數") from None
+        return {"within": limit, "pick": pick_, "color": bool(self.color.get())}
+
+
 def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
-    """`找圖目標`的設定子對話框: 限定範圍、挑選規則、比色.
+    """`找圖目標`的設定子對話框 (確認圖、忙碌指示): 限定範圍、挑選規則、比色.
 
-    找圖步驟與`確認圖`共用。回傳表單值 {"within", "pick", "color"} (交給
-    `findtarget.make_target` 組回找圖目標), 取消回 None。
-
-    origin_fn(anchor, k): 這個找圖目標判定時的預設原點 (螢幕座標) 或 None——點選
-    指定點時預先標出 (◎); test_fn(表單值, 子對話框): 以這組設定比對測試 (提示以
-    子對話框為 parent, 才不會被壓在它後面)。
-    所有拾取都在拾取當下量`座標基準點`與`畫面倍率` (measured_pick): 指定點相對原點、
-    `固定矩形`相對基準點, 一律反除倍率換回流程尺度。
+    欄位與步驟編輯器的左卡同一份 (`_TargetFields`)。回傳表單值 {"within", "pick", "color"}
+    (交給 `findtarget.make_target` 組回找圖目標), 取消回 None。
+    origin_fn(anchor, k): 這個找圖目標判定時的預設原點 (螢幕座標) 或 None; test_fn(表單值,
+    子對話框): 以這組設定比對測試 (提示以子對話框為 parent, 才不會被壓在它後面)。
+    按確定照目標的限定範圍跑一次`拾取檢查` (唯一、縮放餘裕; 只警告不擋)。
     """
     root = app.root
     sub = tk.Toplevel(root)
@@ -859,188 +1087,32 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     sub.configure(bg=C["panel"])
     sub.resizable(False, False)
     sub.transient(parent)
+    foot = ttk.Frame(sub, style="Panel.TFrame", padding=(16, 0, 16, 14))
+    foot.pack(side="bottom", fill="x")
+    err = ttk.Label(foot, style="Panel.TLabel", foreground=C["danger"])
     body = ttk.Frame(sub, style="Panel.TFrame", padding=16)
-    body.pack(fill="both", expand=True)
-    row_i = [0]
+    body.pack(side="top", fill="both", expand=True)
+    rows = _Rows(body)
+    warn = ttk.Label(body, style="Panel.TLabel", foreground=C["warn"])
 
-    def add_row(label):
-        ttk.Label(body, text=label, style="Muted.TLabel").grid(
-            row=row_i[0], column=0, sticky="nw", pady=4, padx=(0, 12))
-        fr = ttk.Frame(body, style="Panel.TFrame")
-        fr.grid(row=row_i[0], column=1, sticky="w", pady=4)
-        row_i[0] += 1
-        return fr
+    def changed():
+        fields.sync()
+        ws = fields.warnings()
+        warn.configure(text="　".join(f"⚠ {w}" for w in ws))
+        warn.grid() if ws else warn.grid_remove()
+        err.configure(text="")
 
-    def add_note(text):
-        w = ttk.Label(body, text=text, style="Muted.TLabel", wraplength=430,
-                      font=("Microsoft JhengHei UI", 9), justify="left")
-        w.grid(row=row_i[0], column=1, sticky="w", pady=(0, 6))
-        row_i[0] += 1
-        return w
-
-    def entry(parent_, var, label):
-        ttk.Label(parent_, text=label, style="Muted.TLabel").pack(
-            side="left", padx=(0, 4))
-        ttk.Entry(parent_, textvariable=var, width=6).pack(side="left",
-                                                          padx=(0, 8))
-
-    lim = tgt.get("within")
-    pick_kind, pick_value = findtarget.pick_rule(tgt)
-    v_lim = tk.StringVar(value=LIMIT_ZH["rect" if lim is not None else "none"])
-    # `固定矩形`: 框選結果 [x, y, w, h] (相對座標基準點); None＝還沒框過
-    fixed = [list(lim) if lim is not None else None]
-    v_pick = tk.StringVar(value=PICK_ZH[pick_kind])
-    v_n = tk.IntVar(value=int(pick_value) if pick_kind in ("top", "left") else 1)
-    near = pick_value if pick_kind == "near" else (0, 0)
-    v_px = tk.IntVar(value=int(near[0]))
-    v_py = tk.IntVar(value=int(near[1]))
-    v_color = tk.BooleanVar(value=bool(tgt.get("color")))
-
-    # ---- 限定範圍 ----
-    fr = add_row("限定範圍")
-    lim_cb = ttk.Combobox(fr, textvariable=v_lim, width=22, state="readonly",
-                          values=list(LIMIT_ZH.values()))
-    lim_cb.pack(side="left")
-    fixed_fr = add_row("")
-    has_pair = app.flow_cal is not None
-
-    def template_size():
-        """這個找圖目標的範本大小 (流程尺度 w, h); 還沒選範本＝None (矩形餘裕跳過)."""
-        name = tgt.get("template", "")
-        img = app.template_image(name) if name else None
-        return (img.shape[1], img.shape[0]) if img is not None else None
-
-    def show_fixed():
-        fixed_lbl.configure(text=findtarget.limit_text(fixed[0]) if fixed[0]
-                            else "（還沒框選）")
-        # `拾取檢查`的矩形餘裕: 框完立刻對照範本大小 (只警告, 確定照存; ADR 0013)
-        warns = (pickcheck.rect_margin(
-            findtarget.make_target(tgt.get("template", ""), within=fixed[0]),
-            template_size()) if fixed[0] else [])
-        fixed_warn.configure(text="\n".join(f"⚠ {w.text}" for w in warns))
-        fixed_warn.grid() if warns else fixed_warn.grid_remove()
-
-    def pick_fixed():
-        def body(anchor, k, _frame):
-            return ui_overlay.pick(root, "region",
-                                   "框出只在這一塊找圖的範圍（存成相對座標基準點的位置）",
-                                   hide=(sub,))
-
-        got = measured_pick(app, sub, body, need_anchor=True, hide=(sub,),
-                            title="固定矩形")
-        if got and got[0]:
-            r, anchor, k = got
-            fixed[0] = findtarget.fixed_rect_from_screen(
-                (r["screenX"], r["screenY"], r["w"], r["h"]), anchor, k)
-            show_fixed()
-
-    fixed_btn = ttk.Button(fixed_fr, text="在畫面上框選", style="Accent.TButton",
-                           command=pick_fixed)
-    fixed_btn.pack(side="left")
-    fixed_lbl = ttk.Label(fixed_fr, style="Muted.TLabel")
-    fixed_lbl.pack(side="left", padx=(8, 0))
-    fixed_warn = add_note("")
-    fixed_warn.configure(foreground=C["warn"])
-    show_fixed()
-    if not has_pair:
-        fixed_btn.state(["disabled"])
-    fixed_note = add_note(
-        "在畫面上拖一個框，存成相對座標基準點（校準對第一張圖的中心）的位置，"
-        "視窗挪位置、搜尋範圍重框都不用重設；用在位置固定的圖，會捲動的清單把框"
-        "沿捲動方向拉長；框要比範本每邊多 20%（餘裕不足會在上面警告，但照樣可存）"
-        if has_pair else
-        "要先在主視窗設定校準對才能框選（固定矩形相對座標基準點）")
-
-    # ---- 挑選規則 ----
-    fr = add_row("挑選規則")
-    pick_cb = ttk.Combobox(fr, textvariable=v_pick, width=22, state="readonly",
-                           values=list(PICK_ZH.values()))
-    pick_cb.pack(side="left")
-    n_fr = add_row("")
-    ttk.Label(n_fr, text="第", style="Muted.TLabel").pack(side="left")
-    ttk.Spinbox(n_fr, textvariable=v_n, from_=1, to=99, width=5).pack(
-        side="left", padx=4)
-    ttk.Label(n_fr, text="個（中心高度差不到半個框高視為同一列）",
-              style="Muted.TLabel").pack(side="left")
-    near_fr = add_row("")
-    ttk.Label(near_fr, text="相對原點", style="Muted.TLabel").pack(side="left",
-                                                                 padx=(0, 4))
-    entry(near_fr, v_px, "X")
-    entry(near_fr, v_py, "Y")
-
-    def pick_point():
-        def body(anchor, k, _frame):
-            base = _origin_or_click(root, origin_fn, anchor, k, (sub,))
-            if base is None:
-                return None
-            r = ui_overlay.pick(root, "point",
-                                "點一下指定點（畫面上有好幾個時挑最接近它的）",
-                                hide=(sub,), mark=base)
-            return (r, base) if r else None
-
-        got = measured_pick(app, sub, body, hide=(sub,), title="指定點")
-        if got and got[0]:
-            (r, base), _anchor, k = got
-            x, y = findtarget.offset_from_screen((r["screenX"], r["screenY"]),
-                                                 base, k)
-            v_px.set(x)
-            v_py.set(y)
-
-    ttk.Button(near_fr, text="點選", style="Accent.TButton",
-               command=pick_point).pack(side="left")
-    pick_note = add_note("畫面上有好幾個符合時點哪一個；指定點＝原點加偏移"
-                         "（偏移 0,0＝最接近原點），沒有原點的步驟無法執行。"
-                         "數不到第 N 個＝還沒找到，繼續等到逾時（絕不退而點別個）")
-
-    # ---- 比色 ----
-    fr = add_row("比色")
-    _check(fr, "找到後再以顏色確認，顏色不符就不算找到", v_color).pack(side="left")
-    add_note("用來分開形狀相同、只差顏色的圖（可按的橘色按鈕 vs 停用的灰色按鈕）。"
-             "範本要框乾淨，不能含會變的數字或透出的背景")
-
-    def sync(*_):
-        lk = _key_of(LIMIT_ZH, v_lim.get())
-        for w in (fixed_fr, fixed_note):
-            w.grid() if lk == "rect" else w.grid_remove()
-        if lk == "rect" and fixed_warn.cget("text"):
-            fixed_warn.grid()
-        else:
-            fixed_warn.grid_remove()
-        pk = _key_of(PICK_ZH, v_pick.get())
-        n_fr.grid() if pk in ("top", "left") else n_fr.grid_remove()
-        near_fr.grid() if pk == "near" else near_fr.grid_remove()
-
-    sync()
-    lim_cb.bind("<<ComboboxSelected>>", sync, add=True)
-    pick_cb.bind("<<ComboboxSelected>>", sync, add=True)
-
+    fields = _TargetFields(app, sub, rows, tgt, lambda: tgt.get("template", ""),
+                           origin_fn, changed)
+    warn.grid(row=rows.i, column=0, columnspan=2, sticky="w", pady=(6, 0))
+    changed()
     result = [None]
-
-    def current():
-        """表單 → {"within", "pick", "color"}; 數值不合法丟 ValueError/TclError."""
-        lk = _key_of(LIMIT_ZH, v_lim.get())
-        limit = None
-        if lk == "rect":
-            if fixed[0] is None:
-                raise ValueError("固定矩形還沒框選：請按「在畫面上框選」拖一個框")
-            limit = list(fixed[0])
-        pk = _key_of(PICK_ZH, v_pick.get())
-        pick_ = None
-        if pk in ("top", "left"):
-            n = int(v_n.get())
-            if n < 1:
-                raise ValueError("第 N 個的 N 要從 1 起算")
-            pick_ = {pk: n}
-        elif pk == "near":
-            pick_ = {"near": [int(v_px.get()), int(v_py.get())]}
-        return {"within": limit, "pick": pick_, "color": bool(v_color.get())}
 
     def checked():
         try:
-            return current()
-        except (tk.TclError, ValueError) as e:
-            msg = str(e) if isinstance(e, ValueError) else "請確認數值欄位皆已正確填寫"
-            messagebox.showwarning("找圖設定", msg, parent=sub)
+            return fields.current()
+        except ValueError as e:
+            err.configure(text=str(e))
             return None
 
     def on_test():
@@ -1053,20 +1125,16 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
         if opts is not None:
             result[0] = opts
             # 找圖目標設好了: 照它的限定範圍查唯一 (與縮放餘裕), 只警告不擋
-            pick_check_now(app, findtarget.make_target(tgt.get("template", ""),
-                                                       **opts),
+            pick_check_now(app, findtarget.make_target(tgt.get("template", ""), **opts),
                            hide=(sub,), origin_fn=origin_fn)
             sub.destroy()
 
-    foot = ttk.Frame(sub, style="Panel.TFrame", padding=(16, 0, 16, 14))
-    foot.pack(fill="x")
     if test_fn is not None:
         ttk.Button(foot, text="以這組設定比對測試", style="Accent.TButton",
-                   command=on_test).pack(side="left")
-    ttk.Button(foot, text="取消", command=sub.destroy).pack(side="right",
-                                                          padx=(8, 0))
-    ttk.Button(foot, text="確定", style="Run.TButton",
-               command=on_ok).pack(side="right")
+                   command=on_test).pack(side="left", padx=(0, 8))
+    err.pack(side="left")
+    ttk.Button(foot, text="取消", command=sub.destroy).pack(side="right", padx=(8, 0))
+    ttk.Button(foot, text="確定", style="Run.TButton", command=on_ok).pack(side="right")
     sub.bind("<Return>", lambda e: on_ok())
     sub.bind("<Escape>", lambda e: sub.destroy())
 
@@ -1078,540 +1146,567 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
     return result[0]
 
 
-def edit_step(app, step):
-    """開啟步驟編輯對話框. 回傳修改後的 step dict, 取消回傳 None."""
-    root = app.root
-    dlg = tk.Toplevel(root)
-    dlg.title(("編輯：" if step.get("_edit") else "新增：") + STEP_TITLES[step["type"]])
-    dlg.configure(bg=C["panel"])
-    dlg.resizable(False, False)
-    dlg.transient(root)
+# ================= 步驟編輯器 (版面 B, ui-slim 07/08) =================
 
-    body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
-    body.pack(fill="both", expand=True)
-    row_i = [0]
+# 兩欄固定寬 (px; 左欄含欄距): 找圖、座標點擊、拖曳在所有選項組合下兩欄需求寬度的最大值
+# 再留一點餘裕 (量法見 .scratch/ui-slim/measure_editor.py)。比它寬時以實際需求為準 (不裁掉)
+CARD_W = (436, 460)       # 2026-10-13 量到 左 425、右 450 (最高 472px, 工作區 1020)
+CARD_GAP = 12
+PV_W, PV_H = 230, 100      # 找圖左卡的預覽
+CFM_W = 18                 # 確認圖下拉的寬度 (字元; 四份流程最長的範本名約 16 字元寬)
+ACT_ZH = {"find_click": "點擊該圖片", "find": "不點擊（僅等待出現）",
+          "wait_gone": "不點擊（等待消失）"}
+CFM_ZH = {"none": "不確認（點一次）", "gone": "點到目標圖消失為止",
+          "appear": "點到確認圖出現為止", "next": "點到下一步的圖出現"}
+BRK_ZH = {"continue": "繼續往下執行", "break": "再往外跳出一層區段"}
 
-    def add_row(label):
-        """建立一列, 回傳可放置元件的 frame (元件須以此 frame 為父)."""
-        ttk.Label(body, text=label, style="Muted.TLabel").grid(
-            row=row_i[0], column=0, sticky="w", pady=3, padx=(0, 12))
-        fr = ttk.Frame(body, style="Panel.TFrame")
-        fr.grid(row=row_i[0], column=1, sticky="w", pady=3)
-        row_i[0] += 1
-        return fr
 
-    def add_note(text):
-        # wraplength 放寬讓說明少換行——找圖對話框列數多, 高度要壓在工作區內
-        w = ttk.Label(body, text=text, style="Muted.TLabel",
-                      font=("Microsoft JhengHei UI", 9), wraplength=470,
-                      justify="left")
-        w.grid(row=row_i[0], column=1, sticky="w", pady=(0, 4))
-        row_i[0] += 1
-        return w
+class _StepEditor:
+    """步驟編輯對話框 (版面 B).
 
-    def lbl(parent, text):
-        w = ttk.Label(parent, text=text, style="Muted.TLabel")
-        w.pack(side="left", padx=(0, 4))
-        return w
+    找圖: 左卡「找什麼」(預覽、範本、限定範圍、挑選規則、比色、立即比對測試), 右卡「找到之後」
+    (動作、點擊偏移*、生效確認*、確認圖**、忙碌檢查*、原點、等待逾時＋間隔、找不到時;
+    *＝動作是點擊時, **＝生效確認是確認圖出現時)。座標點擊/拖曳: 左卡「位置」, 右卡「送出之後」
+    (逾時與找不到時只在有生效確認時)。等待、重複開始、重複結束、分岔結束: 單欄一列。
+    兩欄寬度固定 (切任何選項不跳), 底列 (驗證錯誤一行＋確定/取消) 先 pack, 高度超過工作區
+    時夾在工作區內——確定永遠在畫面上。表單到步驟的轉換規則照舊。
+    """
 
-    result = [None]
-    t = step["type"]
-    v = {}
+    def __init__(self, app, step):
+        self.app, self.step = app, step
+        self.t = step["type"]
+        self.v = {}
+        self.syncs = []          # 選項變了要重跑的顯示/收起
+        self.optional = []       # 依選項出現的列 (量寬度時全部攤開)
+        self.fields = None       # 找圖步驟自己的找圖目標欄位
+        self.cols = None
+        self.result = None
+        # 這次開對話框期間新加進本流程的範本: 關閉時把「最後沒被這一步引用到的」收回去
+        self.added = []
+        root = app.root
+        d = self.dlg = tk.Toplevel(root)
+        d.title(("編輯：" if step.get("_edit") else "新增：") + STEP_TITLES[self.t])
+        d.configure(bg=C["panel"])
+        d.resizable(False, False)
+        d.transient(root)
+        foot = ttk.Frame(d, style="Panel.TFrame", padding=(16, 0, 16, 14))
+        foot.pack(side="bottom", fill="x")    # 先 pack: 內容再長也擠不掉確定鈕
+        ttk.Button(foot, text="取消", command=d.destroy).pack(side="right", padx=(8, 0))
+        ttk.Button(foot, text="確定", style="Run.TButton",
+                   command=self.ok).pack(side="right")
+        self.err = ttk.Label(foot, style="Panel.TLabel", foreground=C["danger"])
+        self.err.pack(side="left")
+        body = ttk.Frame(d, style="Panel.TFrame", padding=(16, 14, 16, 6))
+        body.pack(side="top", fill="both", expand=True)
+        if self.t in findtarget.FIND_TYPES:
+            self._build_find(body)
+        elif self.t in findtarget.POINTER_TYPES:
+            self._build_pointer(body)
+        else:
+            self._build_simple(body)
+        self.warn = ttk.Label(body, style="Panel.TLabel", foreground=C["warn"])
+        for var in self.v.values():
+            if isinstance(var, tk.Variable):
+                var.trace_add("write", lambda *_: self.sync())
+        d.bind("<Return>", lambda e: self.ok())
+        d.bind("<Escape>", lambda e: d.destroy())
 
-    def busy_row():
-        """`忙碌檢查`勾選列 (ADR 0011; 送出輸入的步驟才有); 回傳整列元件供顯示/隱藏."""
-        # 不點擊的找圖步驟 (find / wait_gone) 不送輸入, 完整步驟裡就沒有這個鍵
-        v["busy_check"] = tk.BooleanVar(value=step.get(BUSY_CHECK_KEY, False))
-        fr = add_row("忙碌檢查")
-        _check(fr, BUSY_CHECK_TEXT, v["busy_check"]).pack(side="left")
-        lab = body.grid_slaves(row=int(fr.grid_info()["row"]), column=0)
-        return (*lab, fr)
+    # ---------- 共用的列 ----------
 
-    # 這次開對話框期間新加進本流程的範本: 關閉時把「最後沒被這一步引用到的」
-    # 收回去——「在找圖對話框現場截圖後按取消＝丟棄該圖」(舊的`確認圖`
-    # 「截圖即時存檔、取消對話框圖仍留下」語意已經改掉)
-    added = []
+    def _cards(self, body, left_title, right_title):
+        cols = self.cols = ttk.Frame(body, style="Panel.TFrame")
+        cols.pack(side="top", fill="x")
+        cards = []
+        for col, title in enumerate((left_title, right_title)):
+            card = tk.Frame(cols, bg=C["panel"], highlightthickness=1,
+                            highlightbackground=C["border"], padx=12, pady=8)
+            card.grid(row=0, column=col, sticky="nsew",
+                      padx=(0, CARD_GAP) if col == 0 else 0)
+            ttk.Label(card, text=title, style="Panel.TLabel", font=FONT_BOLD).grid(
+                row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+            cards.append(card)
+        return cards
 
-    if t == "click":
-        cx, cy = step["click"]
-        v["x"] = tk.IntVar(value=cx)
-        v["y"] = tk.IntVar(value=cy)
-        add_note(PREV_NOTE)
+    def _optional(self, row, pred):
+        self.optional.append(row)
+        self.syncs.append(lambda: row.show(pred()))
 
-        fr = add_row("座標")
-        lbl(fr, "X")
-        ttk.Entry(fr, textvariable=v["x"], width=7).pack(side="left", padx=(0, 8))
-        lbl(fr, "Y")
-        ttk.Entry(fr, textvariable=v["y"], width=7).pack(side="left", padx=(0, 8))
-
-        v["use_base"] = tk.BooleanVar(value=True)
-
-        def pick_pos():
-            # 整段 (量校準、找圖預查、拾取) 包進同一個 screen_clear: 視窗保持隱藏,
-            # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
-            def body(anchor, k, _frame):
-                base = (_resolve_prev_origin(app, step, dlg, k, anchor)
-                        if v["use_base"].get() else None)
-                if base is not None:
-                    return ui_overlay.pick(root, "line", "點一下要點擊的位置（原點＝上一步位置）",
-                                           hide=(dlg,), base=base)
-                return ui_overlay.pick(
-                    root, "line",
-                    "拖曳一條線：起點＝上一步點擊位置（基準），終點＝要點擊的位置",
-                    hide=(dlg,))
-
-            # 相對座標只要倍率 (不需要座標基準點)
-            got = measured_pick(app, dlg, body, hide=(dlg,), title="拾取座標")
-            if not got or not got[0]:
-                return
-            r, _anchor, k = got
-            v["x"].set(_unscale(r["dx"], k))
-            v["y"].set(_unscale(r["dy"], k))
-
-        ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
-                   command=pick_pos).pack(side="left")
-        _check(fr, "預設原點", v["use_base"]).pack(side="left", padx=(8, 0))
-        v["update_origin"] = tk.BooleanVar(value=step["update_origin"])
-        fr = add_row("相對座標")
-        _check(fr, "把點擊位置更新為相對座標原點", v["update_origin"]).pack(
-            side="left")
-        busy_row()
-
-    elif t == "drag":
-        (x1, y1), (x2, y2) = step["drag"], step["to"]
-        v["x1"] = tk.IntVar(value=x1)
-        v["y1"] = tk.IntVar(value=y1)
-        v["x2"] = tk.IntVar(value=x2)
-        v["y2"] = tk.IntVar(value=y2)
-        v["duration"] = tk.DoubleVar(value=step["duration"])
-        v["hold"] = tk.DoubleVar(value=step["hold"])
-        add_note(DRAG_NOTE)
-
-        fr = add_row("起點")
-        lbl(fr, "X")
-        ttk.Entry(fr, textvariable=v["x1"], width=7).pack(side="left", padx=(0, 8))
-        lbl(fr, "Y")
-        ttk.Entry(fr, textvariable=v["y1"], width=7).pack(side="left", padx=(0, 8))
-
-        v["use_base"] = tk.BooleanVar(value=True)
-
-        def pick_drag():
-            # 整段 (量校準、預查、兩段拾取) 包進同一個 screen_clear: 視窗保持隱藏,
-            # 沒有「還原→再隱藏」的空窗 (歷來卡死競態的根源)
-            def body(anchor, k, _frame):
-                base = (_resolve_prev_origin(app, step, dlg, k, anchor)
-                        if v["use_base"].get() else None)
-                if base is None:
-                    p = ui_overlay.pick(
-                        root, "point",
-                        "先點一下原點（上一步點擊位置），接著再拖出拖曳路徑",
-                        hide=(dlg,))
-                    if not p:
-                        return None
-                    base = (p["screenX"], p["screenY"])
-                r = ui_overlay.pick(root, "line",
-                                    "拖曳一條線：起點＝按下位置，終點＝放開位置",
-                                    hide=(dlg,), mark=base)
-                return (r, base) if r else None
-
-            got = measured_pick(app, dlg, body, hide=(dlg,), title="拾取座標")
-            if not got or not got[0]:
-                return
-            (r, base), _anchor, k = got
-            # 兩端點都相對同一個原點
-            x1, y1 = flowfmt.from_screen((r["startX"], r["startY"]), base, k)
-            x2, y2 = flowfmt.from_screen((r["endX"], r["endY"]), base, k)
-            v["x1"].set(x1)
-            v["y1"].set(y1)
-            v["x2"].set(x2)
-            v["y2"].set(y2)
-
-        ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
-                   command=pick_drag).pack(side="left")
-        _check(fr, "預設原點", v["use_base"]).pack(side="left", padx=(8, 0))
-
-        fr = add_row("終點")
-        lbl(fr, "X")
-        ttk.Entry(fr, textvariable=v["x2"], width=7).pack(side="left", padx=(0, 8))
-        lbl(fr, "Y")
-        ttk.Entry(fr, textvariable=v["y2"], width=7).pack(side="left", padx=(0, 8))
-
-        fr = add_row("拖曳時間")
-        ttk.Spinbox(fr, textvariable=v["duration"], from_=0.05, to=10,
-                    increment=0.05, width=7).pack(side="left", padx=(0, 4))
-        lbl(fr, "秒")
-
-        fr = add_row("放開前停頓")
-        ttk.Spinbox(fr, textvariable=v["hold"], from_=0, to=5,
-                    increment=0.1, width=7).pack(side="left", padx=(0, 4))
-        lbl(fr, "秒")
-        add_note("到達終點後按住停頓再放開；捲動類介面直接放開會慣性滾過頭，"
-                 "建議 0.5 秒左右；0＝直接放開")
-        busy_row()
-
-    elif t == "wait":
-        v["wait"] = tk.DoubleVar(value=step["wait"])
-        fr = add_row("等待時間")
-        ttk.Spinbox(fr, textvariable=v["wait"], from_=0.01, to=3600,
-                    increment=0.1, width=10).pack(side="left", padx=(0, 4))
-        lbl(fr, "秒")
-
-    elif t == "repeat_start":
-        v["repeat"] = tk.IntVar(value=step["repeat"])
-        fr = add_row("重複次數")
-        ttk.Spinbox(fr, textvariable=v["repeat"], from_=1, to=99999,
-                    width=7).pack(side="left", padx=(0, 4))
-        lbl(fr, "次")
-        add_note("把要重複的步驟放在「重複開始」與「重複結束」之間"
-                 "（可用 ≡ 把手拖曳排列）；區段可以巢狀")
-
-    elif t in ("repeat_end", "branch_end"):
-        BRK_ZH = {"continue": "繼續往下執行", "break": "再往外跳出一層區段"}
-        seg = "重複" if t == "repeat_end" else "分岔"
-        v["on_break"] = tk.StringVar(
-            value=BRK_ZH[step["on_break"]])
-        fr = add_row("找不到跳出到此時")
-        ttk.Combobox(fr, textvariable=v["on_break"], width=20, state="readonly",
-                     values=list(BRK_ZH.values())).pack(side="left")
-        add_note(f"當內層步驟因「找不到 → 跳出目前區段」跳到這個{seg}結尾時的動作。"
-                 "選「再往外跳出一層區段」可讓外層區段也一起跳出——"
-                 "例如重複(FOR)內的分岔(IF)找不到時，直接跳出整個重複區段。"
-                 "（正常執行流程到達此處不受影響）")
-
-    elif t in findtarget.FIND_TYPES:
-        v["template"] = tk.StringVar(value=findtarget.template(step))
-        v["timeout"] = tk.DoubleVar(value=step["timeout"])
-        v["interval"] = tk.DoubleVar(value=step["interval"])
-        # `找圖三態`就是步驟的 type
-        ACT_ZH = {"find_click": "點擊該圖片",
-                  "find": "不點擊（僅等待出現）",
-                  "wait_gone": "不點擊（等待消失）"}
-        ACT_KEY = {n: k for k, n in ACT_ZH.items()}
-        v["type"] = tk.StringVar(value=ACT_ZH[t])
-        ox, oy = step["offset"]
-        v["offset_x"] = tk.IntVar(value=ox)
-        v["offset_y"] = tk.IntVar(value=oy)
-        v["on_fail"] = tk.StringVar(
-            value=NF_ZH[step["on_fail"]])
-
-        fr = add_row("範本圖片")
-        tmpl_cb = ttk.Combobox(fr, textvariable=v["template"],
-                               values=app.list_template_names(), width=24,
-                               state="readonly")
-        tmpl_cb.pack(side="left", padx=(0, 6))
-
-        fr = add_row("預覽")
-        pv_lbl = tk.Label(fr, bg=C["bg"], bd=0, highlightthickness=1,
-                          highlightbackground=C["border"])
-        pv_lbl.pack(side="left")
-        PV_W, PV_H = 150, 84  # 比主視窗縮圖小: 這個對話框列數多, 高度優先
-
-        def update_preview(*_):
-            nm = v["template"].get()
-            ph = _thumb_photo(dlg, app.template_image(nm) if nm else None,
-                              bw=PV_W, bh=PV_H)
-            pv_lbl.configure(image=ph)
-            pv_lbl._photo = ph
-
-        tmpl_cb.bind("<<ComboboxSelected>>", update_preview, add=True)
-        update_preview()
-
-        # `找圖目標`的其餘屬性 (限定範圍/挑選規則/比色): 找圖步驟與確認圖
-        # 共用同一個設定子對話框, 這裡只顯示摘要
-        opts = {"main": _target_opts(findtarget.target(step)),
-                "cfm": _target_opts(findtarget.confirm_target(step))}
-        tmpl_var = {"main": v["template"]}
-
-        def target_of(key):
-            return findtarget.make_target(tmpl_var[key].get(), **opts[key])
-
-        def main_origin(anchor, k):
-            """本步驟判定時的原點＝本步驟之前的原點 (與執行器同一套推算)."""
-            return _resolve_prev_origin(app, step, dlg, k, anchor)
-
-        def cfm_origin(anchor, k):
-            """確認圖判定時的原點＝點擊後的原點: 本步驟更新原點時是點擊落點
-            (即時找本步驟的找圖目標 + 偏移), 否則沿用本步驟之前的原點."""
-            if not v["update_origin"].get():
-                return main_origin(anchor, k)
-            tgt = target_of("main")
-            before = main_origin(anchor, k) if findtarget.needs_origin(tgt) else None
-            pos = (_find_target_now(app, dlg, tgt, before, k, anchor)
-                   or _template_screen_pos(app, tgt["template"], anchor, k))
-            if pos is None:
-                return None
-            try:
-                ox, oy = int(v["offset_x"].get()), int(v["offset_y"].get())
-            except (tk.TclError, ValueError):
-                ox = oy = 0
-            return (pos[0] + flowfmt.scale_px(ox, k),
-                    pos[1] + flowfmt.scale_px(oy, k))
-
-        origin_of = {"main": main_origin, "cfm": cfm_origin}
-        summary_lbl = {}
-
-        def refresh_summary():
-            for key, lbl_ in summary_lbl.items():
-                lbl_.configure(text="　" + findtarget.summary(target_of(key)))
-
-        def set_opts(key, title):
-            def test(o, parent):
-                if not tmpl_var[key].get():
-                    messagebox.showwarning("測試", "請先選擇範本圖片",
-                                           parent=parent)
-                    return
-                show_match_test(app, findtarget.make_target(
-                    tmpl_var[key].get(), **o), hide=(dlg,),
-                    origin_fn=origin_of[key])
-            got = edit_target_opts(app, dlg, target_of(key), title,
-                                   origin_of[key], test)
-            if got is not None:
-                opts[key] = got
-                refresh_summary()
-
-        fr = add_row("找圖設定")
-        ttk.Button(fr, text="設定…", style="Small.TButton",
-                   command=lambda: set_opts("main", "找圖設定")).pack(side="left")
-        summary_lbl["main"] = ttk.Label(fr, style="Muted.TLabel")
-        summary_lbl["main"].pack(side="left")
-        add_note("限定範圍＝只在這一塊找；挑選規則＝畫面上有好幾個時點哪一個；"
-                 "比色＝顏色不符就不算找到")
-
-        def choose_tmpl():
-            """選範本對話框: 跨存檔瀏覽、從磁碟挑圖、現場截圖 (確定才複製)."""
-            before = set(app.list_template_names())
-            name = pick_template(app, "選擇範本圖片",
-                                 initial=v["template"].get() or None)
-            added.extend(n for n in app.list_template_names()
-                         if n not in before)
-            if name:
-                v["template"].set(name)
-                tmpl_cb.configure(values=app.list_template_names())
-                update_preview()
-
-        # 回到範本圖片列補上按鈕 (排版在 combobox 之後)
-        ttk.Button(tmpl_cb.master, text="選擇範本…", style="Accent.TButton",
-                   command=choose_tmpl).pack(side="left")
-
-        fr = add_row("等待逾時")
-        ttk.Spinbox(fr, textvariable=v["timeout"], from_=0, to=3600,
-                    increment=1, width=7).pack(side="left", padx=(0, 4))
-        lbl(fr, "秒，每")
-        ttk.Spinbox(fr, textvariable=v["interval"], from_=0.1, to=60,
-                    increment=0.1, width=6).pack(side="left", padx=(0, 4))
-        lbl(fr, "秒重試")
-
-        fr = add_row("找到之後")
-        act_cb = ttk.Combobox(fr, textvariable=v["type"], width=20,
-                              state="readonly", values=list(ACT_ZH.values()))
-        act_cb.pack(side="left")
-
-        fr = add_row("點擊偏移")
-        lbl(fr, "X")
-        ttk.Entry(fr, textvariable=v["offset_x"], width=6).pack(side="left", padx=(0, 8))
-        lbl(fr, "Y")
-        ttk.Entry(fr, textvariable=v["offset_y"], width=6).pack(side="left")
-        add_note("預設點在找到圖片的中心；偏移可點在圖片周圍的相對位置")
-
-        # `生效確認`: 對付「圖找到也點了, 但遊戲還不接受輸入」(只有點擊時才有意義)
-        CFM_ZH = {"none": "不確認（點一次）",
-                  "gone": "點到目標圖消失為止",
-                  "appear": "點到確認圖出現為止",
-                  "next": "點到下一步的圖出現"}
-        CFM_KEY = {n: k for k, n in CFM_ZH.items()}
-        v["confirm"] = tk.StringVar(
-            value=CFM_ZH[step.get("confirm", "none")])   # 不點擊的找圖沒有確認
-        v["confirm_template"] = tk.StringVar(value=findtarget.confirm_template(step))
-
-        # 「生效確認」整列自建 label 方便隨「不點擊」整列隱藏
-        cfm_mode_lbl = ttk.Label(body, text="生效確認", style="Muted.TLabel")
-        cfm_mode_lbl.grid(row=row_i[0], column=0, sticky="w", pady=5, padx=(0, 12))
-        cfm_mode_fr = ttk.Frame(body, style="Panel.TFrame")
-        cfm_mode_fr.grid(row=row_i[0], column=1, sticky="w", pady=5)
-        row_i[0] += 1
-        cfm_cb = ttk.Combobox(cfm_mode_fr, textvariable=v["confirm"], width=20,
-                              state="readonly", values=list(CFM_ZH.values()))
-        cfm_cb.pack(side="left")
-        cfm_main_note = add_note(
-            "沒生效（目標圖還在）就自動再點，直到生效或逾時（用上面的逾時/重試秒數）；"
-            "仍未生效則依「找不到時」處置。「點到下一步的圖出現」以緊接的下一個"
-            "找圖步驟要找的圖為生效條件（依清單位置跟隨，不必另選確認圖；"
-            "下一步還不是找圖時可先存檔，該列會顯示 ⚠，執行前需排相連）")
-
-        # 確認圖 (僅「點到確認圖出現」需要): 自建 label 方便整列顯示/隱藏
-        cfm_lbl = ttk.Label(body, text="確認圖", style="Muted.TLabel")
-        cfm_lbl.grid(row=row_i[0], column=0, sticky="w", pady=5, padx=(0, 12))
-        cfm_row = ttk.Frame(body, style="Panel.TFrame")
-        cfm_row.grid(row=row_i[0], column=1, sticky="w", pady=5)
-        row_i[0] += 1
-        cfm_tmpl_cb = ttk.Combobox(cfm_row, textvariable=v["confirm_template"],
-                                   values=app.list_template_names(), width=24,
+    def _confirm_image_row(self, rows, origin_fn=None, test=False):
+        """確認圖: 下拉 (夠寬, 看得到完整範本名)＋選擇…＋設定… (找圖設定子對話框)."""
+        app, v = self.app, self.v
+        v["confirm_template"] = tk.StringVar(value=findtarget.confirm_template(self.step))
+        self.cfm_opts = {"within": None, "pick": None, "color": False}
+        ct = findtarget.confirm_target(self.step)
+        self.cfm_opts.update(within=ct.get("within"), pick=ct.get("pick"),
+                             color=bool(ct.get("color")))
+        row = rows.add("確認圖", TIP["cfm_tmpl"])
+        line = ttk.Frame(row.frame, style="Panel.TFrame")
+        line.pack(side="top", anchor="w")
+        self.cfm_cb = ttk.Combobox(line, textvariable=v["confirm_template"],
+                                   values=app.list_template_names(), width=CFM_W,
                                    state="readonly")
-        cfm_tmpl_cb.pack(side="left", padx=(0, 6))
+        self.cfm_cb.pack(side="left", padx=(0, 4))
+        ttk.Button(line, text="選擇…", style="Small.TButton",
+                   command=self.choose_cfm).pack(side="left", padx=(0, 4))
 
-        def choose_cfm_tmpl():
-            # 確認圖走與主範本**同一個**選範本對話框: 現場截圖後按取消
-            # 一律丟棄 (舊的「截圖即時存檔」語意已改掉)
-            before = set(app.list_template_names())
-            nm = pick_template(app, "選擇確認圖",
-                               initial=v["confirm_template"].get() or None)
-            added.extend(n for n in app.list_template_names()
-                         if n not in before)
-            if nm:
-                cfm_tmpl_cb.configure(values=app.list_template_names())
-                v["confirm_template"].set(nm)
-
-        ttk.Button(cfm_row, text="選擇範本…", style="Accent.TButton",
-                   command=choose_cfm_tmpl).pack(side="left")
-        tmpl_var["cfm"] = v["confirm_template"]
-        ttk.Button(cfm_row, text="設定…", style="Small.TButton",
-                   command=lambda: set_opts("cfm", "確認圖的找圖設定")).pack(
-            side="left", padx=(6, 0))
-        cfm_tmpl_note = add_note("截「點成功後才會出現」的下一畫面圖案（如結算畫面、下一關按鈕）")
-        summary_lbl["cfm"] = add_note("")
-        refresh_summary()
-        busy_widgets = busy_row()   # 只有點擊時才有 (隨「不點擊」整列隱藏)
-
-        # 是否把找到 (點擊) 的位置更新為相對座標原點
-        v["update_origin"] = tk.BooleanVar(value=step["update_origin"])
-        fr = add_row("相對座標")
-        _check(fr, "把此步驟的位置更新為相對座標原點", v["update_origin"]).pack(
-            side="left")
-        add_note("取消勾選＝此步驟不影響「相對上一步」的原點，"
-                 "後面的相對座標步驟沿用更早的位置")
-
-        def sync_click_opts(*_):
-            # 「不點擊」時整個「生效確認」都無意義 → 隱藏; 確認圖再依 appear 決定
-            is_click = ACT_KEY[v["type"].get()] == "find_click"
-            for w in (cfm_mode_lbl, cfm_mode_fr, cfm_main_note, *busy_widgets):
-                w.grid() if is_click else w.grid_remove()
-            appear = is_click and CFM_KEY[v["confirm"].get()] == "appear"
-            for w in (cfm_lbl, cfm_row, cfm_tmpl_note, summary_lbl["cfm"]):
-                w.grid() if appear else w.grid_remove()
-
-        sync_click_opts()
-        act_cb.bind("<<ComboboxSelected>>", sync_click_opts, add=True)
-        cfm_cb.bind("<<ComboboxSelected>>", sync_click_opts, add=True)
-
-        fr = add_row("找不到時")
-        ttk.Combobox(fr, textvariable=v["on_fail"], width=18, state="readonly",
-                     values=list(NF_ZH.values())).pack(side="left")
-        add_note("找不到圖、或點了確認不生效時的處置。跳出目前區段＝跳到此步驟所在的"
-                 "重複/分岔區段結尾之後（重複區段放棄剩餘次數）；不在任何區段內時等同停止")
-
-        fr = add_row("測試")
-
-        def test_now():
-            name = v["template"].get()
+        def set_opts():
+            name = v["confirm_template"].get()
             if not name:
-                messagebox.showwarning("測試", "請先選擇範本圖片", parent=dlg)
+                self.err.configure(text="請先選確認圖")
                 return
-            # 範本一定已經在本流程裡了 (選範本對話框按確定的那一刻就複製進來),
-            # 所以這裡直接照找圖目標完整測一次 (限定範圍/挑選規則/比色)
-            show_match_test(app, target_of("main"), hide=(dlg,),
-                            origin_fn=main_origin)
 
-        ttk.Button(fr, text="立即比對測試", style="Accent.TButton",
-                   command=test_now).pack(side="left")
+            def test_fn(o, parent):
+                show_match_test(app, findtarget.make_target(name, **o), hide=(self.dlg,),
+                                origin_fn=origin_fn)
 
-    # ---- 座標點擊 / 拖曳的`生效確認` (ADR 0008) ----
-    pointer_confirm = None
-    if t in findtarget.POINTER_TYPES:
-        pointer_confirm = _pointer_confirm_block(
-            app, dlg, body, step, v, added, add_row, add_note, lbl)
+            got = edit_target_opts(app, self.dlg,
+                                   findtarget.make_target(name, **self.cfm_opts),
+                                   "確認圖的找圖設定", origin_fn,
+                                   test_fn if test else None)
+            if got is not None:
+                self.cfm_opts = got
+                self.sync()
 
-    # ---- 確定 / 取消 ----
-    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
-    foot.pack(fill="x")
+        ttk.Button(line, text="設定…", style="Small.TButton",
+                   command=set_opts).pack(side="left")
+        self.cfm_tags = ttk.Label(row.frame, style="Muted.TLabel")
+        self.syncs.append(self._sync_cfm_tags)
+        return row
 
-    def on_ok():
-        s = dict(step)
+    def _sync_cfm_tags(self):
+        tags = findtarget.tag_text(findtarget.make_target("", **self.cfm_opts))
+        self.cfm_tags.configure(text=tags)
+        if tags and not self.cfm_tags.winfo_manager():
+            self.cfm_tags.pack(side="top", anchor="w", pady=(2, 0))
+        elif not tags and self.cfm_tags.winfo_manager():
+            self.cfm_tags.pack_forget()
+
+    def _busy_row(self, rows):
+        self.v["busy_check"] = tk.BooleanVar(value=self.step.get(BUSY_CHECK_KEY, False))
+        row = rows.add("忙碌檢查", TIP["busy"])
+        _check(row.frame, BUSY_CHECK_TEXT, self.v["busy_check"]).pack(side="left")
+        return row
+
+    def _wait_rows(self, rows):
+        """等待逾時＋「每 N 秒看一次」同一行、找不到時 (沒設確認的座標步驟顯示預設表的值)."""
+        v, step = self.v, self.step
+        wait = dict(flowdefaults.WAIT, **{k: step[k] for k in flowdefaults.WAIT if k in step})
+        v["timeout"] = tk.DoubleVar(value=wait["timeout"])
+        v["interval"] = tk.DoubleVar(value=wait["interval"])
+        v["on_fail"] = tk.StringVar(value=wait["on_fail"] if wait["on_fail"] in NF_ZH
+                                    else "stop")
+        r1 = rows.add("等待逾時", TIP["timeout"])
+        _num(r1.frame, v["timeout"], 0, 3600, 1)
+        _text(r1.frame, "秒，每")
+        _num(r1.frame, v["interval"], 0.1, 60, 0.1, width=4)
+        _text(r1.frame, "秒看一次")
+        r2 = rows.add("找不到時", TIP["nf"])
+        _combo(r2.frame, v["on_fail"], NF_ZH, 14).pack(side="left")
+        return r1, r2
+
+    # ---------- 找圖 ----------
+
+    def _build_find(self, body):
+        app, v, step = self.app, self.v, self.step
+        left, right = self._cards(body, "找什麼", "找到之後")
+        v["template"] = tk.StringVar(value=findtarget.template(step))
+        self.pv = tk.Label(left, bg=C["bg"], bd=0, highlightthickness=1,
+                           highlightbackground=C["border"])
+        self.pv.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 6))
+        self.syncs.append(self._sync_preview)
+        lrows = _Rows(left, 2)
+        row = lrows.add("範本", TIP["tmpl"])
+        self.tmpl_cb = ttk.Combobox(row.frame, textvariable=v["template"],
+                                    values=app.list_template_names(), width=18,
+                                    state="readonly")
+        self.tmpl_cb.pack(side="left", padx=(0, 4))
+        ttk.Button(row.frame, text="選擇…", style="Small.TButton",
+                   command=self.choose_tmpl).pack(side="left")
+        self.fields = _TargetFields(app, self.dlg, lrows, findtarget.target(step),
+                                    v["template"].get, self.main_origin, self.sync)
+        ttk.Button(left, text="立即比對測試", style="Accent.TButton",
+                   command=self.test_now).grid(row=99, column=0, columnspan=2,
+                                               sticky="w", pady=(8, 0))
+
+        rrows = _Rows(right, 1)
+        v["type"] = tk.StringVar(value=self.t)   # `找圖三態`就是步驟的 type
+        _combo(rrows.add("動作", TIP["act"]).frame, v["type"], ACT_ZH, 18).pack(side="left")
+        ox, oy = step["offset"]
+        v["offset_x"], v["offset_y"] = tk.IntVar(value=ox), tk.IntVar(value=oy)
+        row = rrows.add("點擊偏移", TIP["offset"])
+        _xy(row.frame, v["offset_x"], v["offset_y"], "中心＋")
+        clicks = lambda: v["type"].get() == "find_click"   # noqa: E731
+        self._optional(row, clicks)
+        v["confirm"] = tk.StringVar(value=step.get("confirm", "none"))  # 不點擊的沒有確認
+        row = rrows.add("生效確認", TIP["cfm"])
+        _combo(row.frame, v["confirm"], CFM_ZH, 18).pack(side="left")
+        self._optional(row, clicks)
+        self._optional(self._confirm_image_row(rrows, self.cfm_origin, test=True),
+                       lambda: clicks() and v["confirm"].get() == "appear")
+        self._optional(self._busy_row(rrows), clicks)
+        v["update_origin"] = tk.BooleanVar(value=step["update_origin"])
+        _check(rrows.add("原點", TIP["origin"]).frame, "更新為這一步的位置",
+               v["update_origin"]).pack(side="left")
+        self._wait_rows(rrows)
+
+    def _sync_preview(self):
+        name = self.v["template"].get()
+        ph = _thumb_photo(self.dlg, self.app.template_image(name) if name else None,
+                          bw=PV_W, bh=PV_H)
+        self.pv.configure(image=ph)
+        self.pv._photo = ph
+
+    def main_origin(self, anchor, k):
+        """本步驟判定時的原點＝本步驟之前的原點 (與執行器同一套推算)."""
+        return _resolve_prev_origin(self.app, self.step, self.dlg, k, anchor)
+
+    def cfm_origin(self, anchor, k):
+        """確認圖判定時的原點＝點擊後的原點: 本步驟更新原點時是點擊落點 (即時找本步驟的
+        找圖目標 + 偏移), 否則沿用本步驟之前的原點."""
+        v = self.v
+        if not v["update_origin"].get():
+            return self.main_origin(anchor, k)
+        try:
+            tgt = findtarget.make_target(v["template"].get(), **self.fields.current())
+        except ValueError:
+            tgt = {"template": v["template"].get()}
+        before = self.main_origin(anchor, k) if findtarget.needs_origin(tgt) else None
+        pos = (_find_target_now(self.app, self.dlg, tgt, before, k, anchor)
+               or _template_screen_pos(self.app, tgt["template"], anchor, k))
+        if pos is None:
+            return None
+        try:
+            ox, oy = int(v["offset_x"].get()), int(v["offset_y"].get())
+        except (tk.TclError, ValueError):
+            ox = oy = 0
+        return pos[0] + flowfmt.scale_px(ox, k), pos[1] + flowfmt.scale_px(oy, k)
+
+    def _choose(self, var, title):
+        """選範本對話框 (跨存檔瀏覽、從磁碟挑圖、現場截圖; 確定才複製進本流程)."""
+        app = self.app
+        before = set(app.list_template_names())
+        name = pick_template(app, title, initial=var.get() or None)
+        self.added.extend(n for n in app.list_template_names() if n not in before)
+        names = app.list_template_names()
+        for cb in (getattr(self, "tmpl_cb", None), getattr(self, "cfm_cb", None)):
+            if cb is not None:
+                cb.configure(values=names)
+        if name:
+            var.set(name)
+
+    def choose_tmpl(self):
+        self._choose(self.v["template"], "選擇範本圖片")
+
+    def choose_cfm(self):
+        # 確認圖走與主範本**同一個**選範本對話框: 現場截圖後按取消一律丟棄
+        self._choose(self.v["confirm_template"], "選擇確認圖")
+
+    def test_now(self):
+        """立即比對測試: 照目前表單的找圖目標完整測一次 (限定範圍/挑選規則/比色)."""
+        name = self.v["template"].get()
+        if not name:
+            self.err.configure(text="請先選擇範本圖片")
+            return
+        try:
+            opts = self.fields.current()
+        except ValueError as e:
+            self.err.configure(text=str(e))
+            return
+        show_match_test(self.app, findtarget.make_target(name, **opts), hide=(self.dlg,),
+                        origin_fn=self.main_origin)
+
+    def _apply_find(self, s):
+        v = self.v
+        name = v["template"].get()
+        if not name:
+            raise ValueError("請選擇範本圖片")
+        kind = v["type"].get()
+        confirm = v["confirm"].get() if kind == "find_click" else "none"
+        if confirm == "appear" and not v["confirm_template"].get():
+            raise ValueError("「點到確認圖出現」需選擇確認圖")
+        # confirm == "next" 而下一步不是找圖時不擋 (拍板 2026-08-16 修訂): 允許先存,
+        # 由 ⚠ 與步驟清單的標記提示、執行前檢查攔下——作者常先建這步再補下一步
+        s[findtarget.TARGET] = findtarget.make_target(name, **self.fields.current())
+        if confirm == "appear":
+            s[findtarget.CONFIRM_TARGET] = findtarget.make_target(
+                v["confirm_template"].get(), **self.cfm_opts)
+        else:
+            s.pop(findtarget.CONFIRM_TARGET, None)
+        s.update(type=kind, timeout=v["timeout"].get(),
+                 interval=max(0.1, v["interval"].get()),
+                 offset=[v["offset_x"].get(), v["offset_y"].get()],
+                 on_fail=v["on_fail"].get(), confirm=confirm,
+                 update_origin=v["update_origin"].get())
+        s.pop("region", None)  # 舊版步驟範圍 (已廢除; 限定範圍在找圖目標裡)
+        s.pop("rotate", None)  # 舊版執行期旋轉比對已移除
+
+    # ---------- 座標點擊 / 拖曳 ----------
+
+    def _build_pointer(self, body):
+        v, step = self.v, self.step
+        left, right = self._cards(body, "位置", "送出之後")
+        lrows = _Rows(left, 1)
+        v["use_base"] = tk.BooleanVar(value=True)
+        if self.t == "click":
+            v["x"], v["y"] = (tk.IntVar(value=c) for c in step["click"])
+            _xy(lrows.add("偏移", TIP["pos"]).frame, v["x"], v["y"], "原點＋")
+        else:
+            (x1, y1), (x2, y2) = step["drag"], step["to"]
+            v["x1"], v["y1"] = tk.IntVar(value=x1), tk.IntVar(value=y1)
+            v["x2"], v["y2"] = tk.IntVar(value=x2), tk.IntVar(value=y2)
+            _xy(lrows.add("起點", TIP["drag_pos"]).frame, v["x1"], v["y1"], "原點＋")
+            _xy(lrows.add("終點").frame, v["x2"], v["y2"], "原點＋")
+        fr = lrows.add("").frame
+        ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
+                   command=self.pick_pos if self.t == "click" else self.pick_drag).pack(
+            side="left", padx=(0, 8))
+        _check(fr, "預設原點", v["use_base"]).pack(side="left")
+        if self.t == "drag":
+            v["duration"] = tk.DoubleVar(value=step["duration"])
+            v["hold"] = tk.DoubleVar(value=step["hold"])
+            fr = lrows.add("拖曳時間", TIP["duration"]).frame
+            _num(fr, v["duration"], 0.05, 10, 0.05)
+            _text(fr, "秒")
+            fr = lrows.add("放開前停頓", TIP["hold"]).frame
+            _num(fr, v["hold"], 0, 5, 0.1)
+            _text(fr, "秒")
+        else:
+            v["update_origin"] = tk.BooleanVar(value=step["update_origin"])
+            _check(lrows.add("原點", TIP["origin"]).frame, "更新為這一步的位置",
+                   v["update_origin"]).pack(side="left")
+
+        rrows = _Rows(right, 1)
+        v["confirm"] = tk.StringVar(value=step["confirm"] if step["confirm"] in POINTER_CFM_ZH
+                                    else "none")
+        _combo(rrows.add("生效確認", TIP["cfm"]).frame, v["confirm"], POINTER_CFM_ZH,
+               18).pack(side="left")
+        self._optional(self._confirm_image_row(rrows),
+                       lambda: v["confirm"].get() == "appear")
+        self._busy_row(rrows)
+        for row in self._wait_rows(rrows):
+            self._optional(row, lambda: v["confirm"].get() != "none")
+
+    def pick_pos(self):
+        """座標點擊的截圖拾取: 整段 (量校準、找圖預查、拾取) 包進同一個 screen_clear."""
+        app, v, dlg = self.app, self.v, self.dlg
+
+        def body(anchor, k, _frame):
+            base = (_resolve_prev_origin(app, self.step, dlg, k, anchor)
+                    if v["use_base"].get() else None)
+            if base is not None:
+                return ui_overlay.pick(app.root, "line",
+                                       "點一下要點擊的位置（原點＝上一步位置）",
+                                       hide=(dlg,), base=base)
+            return ui_overlay.pick(
+                app.root, "line",
+                "拖曳一條線：起點＝上一步點擊位置（基準），終點＝要點擊的位置",
+                hide=(dlg,))
+
+        # 相對座標只要倍率 (不需要座標基準點)
+        got = measured_pick(app, dlg, body, hide=(dlg,), title="拾取座標")
+        if not got or not got[0]:
+            return
+        r, _anchor, k = got
+        v["x"].set(_unscale(r["dx"], k))
+        v["y"].set(_unscale(r["dy"], k))
+
+    def pick_drag(self):
+        """拖曳的截圖拾取: 推算不出原點時先點一下原點, 再拖出路徑 (同一個 screen_clear)."""
+        app, v, dlg = self.app, self.v, self.dlg
+
+        def body(anchor, k, _frame):
+            base = (_resolve_prev_origin(app, self.step, dlg, k, anchor)
+                    if v["use_base"].get() else None)
+            if base is None:
+                p = ui_overlay.pick(app.root, "point",
+                                    "先點一下原點（上一步點擊位置），接著再拖出拖曳路徑",
+                                    hide=(dlg,))
+                if not p:
+                    return None
+                base = (p["screenX"], p["screenY"])
+            r = ui_overlay.pick(app.root, "line", "拖曳一條線：起點＝按下位置，終點＝放開位置",
+                                hide=(dlg,), mark=base)
+            return (r, base) if r else None
+
+        got = measured_pick(app, dlg, body, hide=(dlg,), title="拾取座標")
+        if not got or not got[0]:
+            return
+        (r, base), _anchor, k = got
+        # 兩端點都相對同一個原點
+        x1, y1 = flowfmt.from_screen((r["startX"], r["startY"]), base, k)
+        x2, y2 = flowfmt.from_screen((r["endX"], r["endY"]), base, k)
+        for key, val in (("x1", x1), ("y1", y1), ("x2", x2), ("y2", y2)):
+            v[key].set(val)
+
+    def _apply_pointer(self, s):
+        v = self.v
+        if self.t == "click":
+            s.update(click=[v["x"].get(), v["y"].get()],
+                     update_origin=v["update_origin"].get())
+        else:
+            s.update(drag=[v["x1"].get(), v["y1"].get()], to=[v["x2"].get(), v["y2"].get()],
+                     duration=max(0.05, v["duration"].get()),
+                     hold=max(0.0, v["hold"].get()))
+        mode = v["confirm"].get()
+        for k in ("confirm", findtarget.CONFIRM_TARGET, "timeout", "interval", "on_fail"):
+            s.pop(k, None)
+        if mode == "none":
+            return
+        if mode == "appear":
+            if not v["confirm_template"].get():
+                raise ValueError("「做到確認圖出現為止」需選擇確認圖")
+            s[findtarget.CONFIRM_TARGET] = findtarget.make_target(
+                v["confirm_template"].get(), **self.cfm_opts)
+        s.update(confirm=mode, timeout=v["timeout"].get(),
+                 interval=max(0.1, v["interval"].get()), on_fail=v["on_fail"].get())
+
+    # ---------- 簡單步驟 ----------
+
+    def _build_simple(self, body):
+        v, step, t = self.v, self.step, self.t
+        grid = ttk.Frame(body, style="Panel.TFrame")
+        grid.pack(side="top", anchor="w")
+        rows = _Rows(grid)
+        if t == "wait":
+            v["wait"] = tk.DoubleVar(value=step["wait"])
+            fr = rows.add("等待時間", TIP["wait"]).frame
+            _num(fr, v["wait"], 0.01, 3600, 0.1, width=8)
+            _text(fr, "秒")
+        elif t == "repeat_start":
+            v["repeat"] = tk.IntVar(value=step["repeat"])
+            fr = rows.add("重複次數", TIP["repeat"]).frame
+            _num(fr, v["repeat"], 1, 99999, 1, width=8)
+            _text(fr, "次")
+        else:   # repeat_end / branch_end
+            v["on_break"] = tk.StringVar(value=step["on_break"])
+            _combo(rows.add("跳出到此時", TIP["brk"]).frame, v["on_break"], BRK_ZH,
+                   18).pack(side="left")
+
+    def _apply_simple(self, s):
+        v, t = self.v, self.t
+        if t == "wait":
+            s.update(wait=max(0.01, v["wait"].get()))
+        elif t == "repeat_start":
+            s.update(repeat=max(1, v["repeat"].get()))
+        else:
+            s.update(on_break=v["on_break"].get())
+
+    # ---------- 顯示、檢查、確定 ----------
+
+    def _index(self):
+        """本步驟在清單裡的位置 (新增＝插入位置) 與它是不是已在清單裡."""
+        return self.step.get("_index", len(self.app.steps)), bool(self.step.get("_edit"))
+
+    def warnings(self):
+        """要使用者動手處理的提示 (⚠ 一行常駐; 不擋存檔)."""
+        out = list(self.fields.warnings()) if self.fields else []
+        v = self.v
+        sends = (self.t in findtarget.POINTER_TYPES
+                 or (self.t in findtarget.FIND_TYPES and v["type"].get() == "find_click"))
+        mode = v["confirm"].get() if sends else "none"
+        i, editing = self._index()
+        steps = self.app.steps
+        if mode == "next":
+            j = i + (1 if editing else 0)
+            if not (j < len(steps) and findtarget.is_find(steps[j])):
+                out.append("下一步要是找圖步驟")
+        if self.t in findtarget.POINTER_TYPES and mode == "gone" \
+                and origin_source(steps, i) != "find":
+            out.append("原點要來自找圖步驟（前面放一個找圖）")
+        return out
+
+    def sync(self, show_all=False):
+        if not self.dlg.winfo_exists():
+            return
+        if self.fields is not None:
+            self.fields.sync(show_all)
+        for fn in self.syncs:
+            fn()
+        if show_all:
+            for row in self.optional:
+                row.show(True)
+        ws = self.warnings() if self.cols is not None else []
+        self.warn.configure(text="　".join(f"⚠ {w}" for w in ws))
+        if ws and not self.warn.winfo_manager():
+            self.warn.pack(side="top", anchor="w", pady=(6, 0))
+        elif not ws and self.warn.winfo_manager():
+            self.warn.pack_forget()
+        self.err.configure(text="")
+
+    def _fix_width(self):
+        """兩欄固定寬: 取 CARD_W 與這種步驟所有選項全攤開時的需求寬度較大者."""
+        if self.cols is None:
+            return
+        self.sync(show_all=True)
+        self.dlg.update_idletasks()
+        for card in self.cols.grid_slaves(row=0):
+            col = int(card.grid_info()["column"])
+            need = card.winfo_reqwidth() + (CARD_GAP if col == 0 else 0)
+            self.cols.grid_columnconfigure(col, minsize=max(CARD_W[col], need))
+        self.sync()
+
+    def _clamp_height(self):
+        """保險: 對話框比工作區高時把高度夾在工作區內 (底列先 pack, 確定照樣看得到)."""
+        d = self.dlg
+        d.update_idletasks()
+        x1, y1, x2, y2 = win.monitor_work_area(self.app.root.winfo_id())
+        limit = (y2 - y1) - 40
+        if d.winfo_reqheight() > limit:
+            d.geometry(f"{d.winfo_reqwidth()}x{limit}+{d.winfo_x()}+{y1}")
+
+    def ok(self):
+        s = dict(self.step)
         s.pop("_edit", None)
         s.pop("_index", None)
         try:
             for k in RETIRED_KEYS:
                 s.pop(k, None)
-            if t == "click":
-                s.update(click=[v["x"].get(), v["y"].get()],
-                         update_origin=v["update_origin"].get())
-                pointer_confirm(s)
-            elif t == "drag":
-                s.update(drag=[v["x1"].get(), v["y1"].get()],
-                         to=[v["x2"].get(), v["y2"].get()],
-                         duration=max(0.05, v["duration"].get()),
-                         hold=max(0.0, v["hold"].get()))
-                pointer_confirm(s)
-            elif t == "repeat_start":
-                s.update(repeat=max(1, v["repeat"].get()))
-            elif t in ("repeat_end", "branch_end"):
-                s.update(on_break={"繼續往下執行": "continue",
-                                   "再往外跳出一層區段": "break"}[v["on_break"].get()])
-            elif t == "wait":
-                s.update(wait=max(0.01, v["wait"].get()))
-            elif t in findtarget.FIND_TYPES:
-                if not v["template"].get():
-                    raise ValueError("請選擇範本圖片")
-                kind = ACT_KEY[v["type"].get()]
-                confirm = (CFM_KEY[v["confirm"].get()] if kind == "find_click"
-                           else "none")
-                if confirm == "appear" and not v["confirm_template"].get():
-                    raise ValueError("「點到確認圖出現」需選擇確認圖")
-                # confirm == "next" 而下一步不是找圖時不在此擋下 (拍板
-                # 2026-08-16 修訂): 允許先存, 由步驟清單的 ⚠ 標記提示、
-                # 執行前檢查攔下——作者常先建這步再補下一步
-                s[findtarget.TARGET] = target_of("main")
-                if confirm == "appear":
-                    s[findtarget.CONFIRM_TARGET] = target_of("cfm")
-                else:
-                    s.pop(findtarget.CONFIRM_TARGET, None)
-                s.update(
-                    type=kind,
-                    timeout=v["timeout"].get(),
-                    interval=max(0.1, v["interval"].get()),
-                    offset=[v["offset_x"].get(), v["offset_y"].get()],
-                    on_fail={n: k for k, n in NF_ZH.items()}[v["on_fail"].get()],
-                    confirm=confirm,
-                    update_origin=v["update_origin"].get(),
-                )
-                s.pop("region", None)  # 舊版步驟範圍 (已廢除; 限定範圍在找圖目標裡)
-                s.pop("rotate", None)  # 舊版執行期旋轉比對已移除
-            # `忙碌檢查`: 只在勾了 (且是送出輸入的步驟) 時寫鍵; 找圖選「不點擊」
-            # 「等待消失」時整列已隱藏, 存為沒勾
-            if sends_input(s) and v["busy_check"].get():
+            if self.t in findtarget.FIND_TYPES:
+                self._apply_find(s)
+            elif self.t in findtarget.POINTER_TYPES:
+                self._apply_pointer(s)
+            else:
+                self._apply_simple(s)
+            # `忙碌檢查`: 只在勾了 (且是送出輸入的步驟) 時寫鍵; 找圖選「不點擊」時整列已收起,
+            # 存為沒勾
+            if sends_input(s) and self.v["busy_check"].get():
                 s[BUSY_CHECK_KEY] = True
             else:
                 s.pop(BUSY_CHECK_KEY, None)
         except (tk.TclError, ValueError) as e:
-            msg = str(e) if isinstance(e, ValueError) else "請確認數值欄位皆已正確填寫"
-            messagebox.showwarning("輸入錯誤", msg, parent=dlg)
+            self.err.configure(text=str(e) if isinstance(e, ValueError)
+                               else "請確認數值欄位都填了數字")
             return
         # 換了找圖三態時只留新種類用得到的欄位, 缺的照「沒寫＝」表補齊
         keys = flowdefaults.KEYS[s["type"]]
-        result[0] = flowdefaults.complete({k: v_ for k, v_ in s.items() if k in keys})
-        dlg.destroy()
+        self.result = flowdefaults.complete({k: v_ for k, v_ in s.items() if k in keys})
+        changed = findtarget.target(self.result) != findtarget.target(self.step)
+        if findtarget.is_find(self.result) and (changed or not self.step.get("_edit")):
+            # 找圖目標設好了 (新增或改過): 照它的限定範圍查唯一 (與縮放餘裕), 只警告不擋
+            pick_check_now(self.app, findtarget.target(self.result), hide=(self.dlg,),
+                           origin_fn=self.main_origin)
+        self.dlg.destroy()
 
-    ttk.Button(foot, text="取消", command=dlg.destroy).pack(side="right", padx=(8, 0))
-    ttk.Button(foot, text="確定", style="Run.TButton", command=on_ok).pack(side="right")
-    dlg.bind("<Return>", lambda e: on_ok())
-    dlg.bind("<Escape>", lambda e: dlg.destroy())
+    def run(self):
+        app, d = self.app, self.dlg
+        self.sync()
+        self._fix_width()
+        _center(d, app.root)
+        self._clamp_height()
+        ui_theme.disable_transitions(d)   # 截圖前隱藏對話框需立即生效
+        make_modal(d)
+        d.focus_force()
+        app.root.wait_window(d)
+        discard_unused(app, self.added, self.result)
+        return self.result
 
-    _center(dlg, root)
-    ui_theme.disable_transitions(dlg)  # 截圖前隱藏對話框需立即生效
-    make_modal(dlg)
-    dlg.focus_force()
-    root.wait_window(dlg)
-    discard_unused(app, added, result[0])
-    return result[0]
+
+def edit_step(app, step):
+    """開啟步驟編輯對話框 (版面 B). 回傳修改後的 step dict, 取消回傳 None."""
+    return _StepEditor(app, step).run()
 
 
-BUSY_CHECK_TEXT = "送出後等忙碌指示消失再往下（會讓遊戲忙的操作才勾）"
-# 座標點擊/拖曳一律相對`原點` (絕對座標已退場, ADR 0014)
-PREV_NOTE = ("以前一個點擊位置為原點的偏移量（找圖步驟選「不點擊」時，"
-             "找到的位置也算）；勾選「預設原點」時截圖拾取會自動標出原點，"
-             "點一下目標即完成；取消勾選則拖線：起點＝基準、終點＝目標")
-DRAG_NOTE = ("起點與終點都是以前一個點擊位置為原點的偏移量（找圖步驟不點擊時"
-             "找到的位置、拖曳終點也算）；勾選「預設原點」時截圖拾取會標出原點◎，"
-             "直接拖出拖曳路徑即可；取消勾選則先點一下原點，再拖出拖曳路徑")
+BUSY_CHECK_TEXT = "送出後等忙碌指示消失"
 # 已退場的步驟欄位 (ADR 0014): 舊存檔帶著也照常開, 編輯後存回時拿掉
 RETIRED_KEYS = ("mode", "button", "clicks", "appearLimitMs")
 POINTER_CFM_ZH = {"none": "不確認（送一次就走）",
@@ -1620,114 +1715,6 @@ POINTER_CFM_ZH = {"none": "不確認（送一次就走）",
                   "next": "做到下一步的圖出現"}
 NF_ZH = {"skip": "跳過此步驟繼續", "break": "跳出目前區段",
          "stop": "停止整個流程"}
-
-
-def _pointer_confirm_block(app, dlg, body, step, v, added, add_row, add_note,
-                           lbl):
-    """座標點擊／拖曳對話框的`生效確認`區塊; 回傳 apply(s): 把表單寫回步驟.
-
-    方式、確認圖 (同一個選範本對話框＋找圖設定)、逾時/輪詢、`找不到時` (預設停止:
-    拖曳沒生效還往下走, 後面的相對點擊會點錯列)。沒有確認時不寫任何確認欄位。
-    """
-    key_of = {n: k for k, n in POINTER_CFM_ZH.items()}
-    v["confirm"] = tk.StringVar(value=POINTER_CFM_ZH.get(
-        step["confirm"], POINTER_CFM_ZH["none"]))
-    v["cfm_tmpl"] = tk.StringVar(value=findtarget.confirm_template(step))
-    # 沒設確認的步驟沒有等待欄位: 顯示預設表的值 (選了確認才寫進步驟)
-    wait = dict(flowdefaults.WAIT, **{k: step[k] for k in flowdefaults.WAIT if k in step})
-    v["cfm_timeout"] = tk.DoubleVar(value=wait["timeout"])
-    v["cfm_interval"] = tk.DoubleVar(value=wait["interval"])
-    v["cfm_nf"] = tk.StringVar(value=NF_ZH.get(wait["on_fail"],
-                                               NF_ZH["stop"]))
-    opts = _target_opts(findtarget.confirm_target(step))
-
-    fr = add_row("生效確認")
-    cfm_cb = ttk.Combobox(fr, textvariable=v["confirm"], width=20,
-                          state="readonly", values=list(POINTER_CFM_ZH.values()))
-    cfm_cb.pack(side="left")
-    add_note("網路慢時遊戲畫好了卻還不接受輸入, 輸入會被吃掉: 設了就檢查有沒有生效, "
-             "沒生效在補做間隔後重送同一個輸入（畫面上有忙碌指示時先不送）。"
-             "「原點的圖離開」看產生原點的那個找圖：它挑中的位置不再有匹配＝生效"
-             "（例：找 1 列 → 拖曳捲動），原點要來自找圖；"
-             "「下一步的圖出現」看緊接的找圖步驟。不成立時該列顯示 ⚠")
-
-    rows = []
-
-    def row(label):
-        fr_ = add_row(label)
-        lab = body.grid_slaves(row=int(fr_.grid_info()["row"]), column=0)
-        rows.append((lab, fr_))
-        return fr_
-
-    fr = row("確認圖")
-    tmpl_cb = ttk.Combobox(fr, textvariable=v["cfm_tmpl"],
-                           values=app.list_template_names(), width=22,
-                           state="readonly")
-    tmpl_cb.pack(side="left", padx=(0, 6))
-
-    def choose():
-        before = set(app.list_template_names())
-        nm = pick_template(app, "選擇確認圖",
-                           initial=v["cfm_tmpl"].get() or None)
-        added.extend(n for n in app.list_template_names() if n not in before)
-        if nm:
-            tmpl_cb.configure(values=app.list_template_names())
-            v["cfm_tmpl"].set(nm)
-
-    def set_opts():
-        got = edit_target_opts(app, dlg, findtarget.make_target(
-            v["cfm_tmpl"].get(), **opts), "確認圖的找圖設定")
-        if got is not None:
-            opts.update(got)
-            summary.configure(text="　" + findtarget.summary(
-                findtarget.make_target(v["cfm_tmpl"].get(), **opts)))
-
-    ttk.Button(fr, text="選擇範本…", style="Accent.TButton",
-               command=choose).pack(side="left")
-    ttk.Button(fr, text="設定…", style="Small.TButton",
-               command=set_opts).pack(side="left", padx=(6, 0))
-    summary = ttk.Label(fr, style="Muted.TLabel", text="　" + findtarget.summary(
-        findtarget.make_target(v["cfm_tmpl"].get(), **opts)))
-    summary.pack(side="left")
-
-    fr = row("確認逾時")
-    ttk.Spinbox(fr, textvariable=v["cfm_timeout"], from_=0, to=3600,
-                increment=1, width=7).pack(side="left", padx=(0, 4))
-    lbl(fr, "秒，每")
-    ttk.Spinbox(fr, textvariable=v["cfm_interval"], from_=0.1, to=60,
-                increment=0.1, width=6).pack(side="left", padx=(0, 4))
-    lbl(fr, "秒檢查")
-    fr = row("找不到時")
-    ttk.Combobox(fr, textvariable=v["cfm_nf"], width=18, state="readonly",
-                 values=list(NF_ZH.values())).pack(side="left")
-
-    def sync(*_):
-        mode = key_of[v["confirm"].get()]
-        for i, (lab, fr_) in enumerate(rows):
-            show = mode != "none" and (i != 0 or mode == "appear")
-            for w in (*lab, fr_):
-                w.grid() if show else w.grid_remove()
-
-    sync()
-    cfm_cb.bind("<<ComboboxSelected>>", sync, add=True)
-
-    def apply(s):
-        mode = key_of[v["confirm"].get()]
-        for k in ("confirm", findtarget.CONFIRM_TARGET, "timeout", "interval",
-                  "on_fail"):
-            s.pop(k, None)
-        if mode == "none":
-            return
-        if mode == "appear":
-            if not v["cfm_tmpl"].get():
-                raise ValueError("「做到確認圖出現為止」需選擇確認圖")
-            s[findtarget.CONFIRM_TARGET] = findtarget.make_target(
-                v["cfm_tmpl"].get(), **opts)
-        s.update(confirm=mode, timeout=v["cfm_timeout"].get(),
-                 interval=max(0.1, v["cfm_interval"].get()),
-                 on_fail={n: k for k, n in NF_ZH.items()}[v["cfm_nf"].get()])
-
-    return apply
 
 
 def discard_unused(app, added, step):
@@ -1901,18 +1888,18 @@ def show_match_test(app, target, hide=(), origin_fn=None):
     scope = f"　搜尋範圍：{tuple(scan)}" if scan else "　搜尋範圍：全螢幕"
     if anchor is not None:
         scope += f"　基準點 {tuple(anchor)}　倍率 ×{k:.3f}"
-    tk.Label(win_, text=info + stages, bg=C["panel"], fg=fg,
-             font=FONT).pack(padx=12, pady=(12, 2))
+    head = tk.Frame(win_, bg=C["panel"])
+    head.pack(padx=12, pady=(12, 2))
+    tk.Label(head, text=info + stages, bg=C["panel"], fg=fg, font=FONT).pack(side="left")
+    info_tip(head, "藍框＝限定範圍　綠框＝匹配（分數 c比色）　黃粗框＝挑中、執行時會點的"
+                   "　紅框＝比色不符／最接近的候選　◎＝原點　⊕＝座標基準點").pack(
+        side="left", padx=(6, 0))
     tk.Label(win_, text=f"找圖設定：{findtarget.summary(target)}{scope}",
              bg=C["panel"], fg=C["muted"], font=FONT).pack(padx=12, pady=(0, 2))
     tk.Label(win_, text=("拾取檢查：" + ("通過（縮放餘裕、唯一）" if not warns else
                                      "\n".join(f"⚠ {w}" for w in warns))),
              bg=C["panel"], fg=C["accent"] if not warns else C["warn"],
-             font=FONT, justify="left", wraplength=1200).pack(padx=12, pady=(0, 2))
-    tk.Label(win_, text="藍框＝限定範圍　綠框＝匹配（分數 c比色）　黃粗框＝挑中、"
-                        "執行時會點的　紅框＝比色不符／最接近的候選　◎＝原點　⊕＝座標基準點",
-             bg=C["panel"], fg=C["muted"],
-             font=("Microsoft JhengHei UI", 9)).pack(padx=12, pady=(0, 6))
+             font=FONT, justify="left", wraplength=1200).pack(padx=12, pady=(0, 6))
 
     h, w = annotated.shape[:2]
     scale = min(1.0, 1240.0 / w, 700.0 / h)

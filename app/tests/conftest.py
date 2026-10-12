@@ -79,11 +79,17 @@ def main_app(tkroot, monkeypatch):
     import enginehub
 
     poll = app_mod.App._poll
+
+    def _no_loop(self):
+        """取代輪詢與保險絲. 不能用 lambda: App 會用 after 排它, Tkinter 以「id＋函式名」
+        當 Tcl 命令名, 視窗關掉後名字釋出, 下一個 App 的選單 lambda 可能拿到同一個名字,
+        留著的 after 一到就誤觸那個選單項目 (2026-10-13 測試偶發多一步、卡在步驟對話框)."""
+
     monkeypatch.setattr(enginehub.EngineHub, "load", lambda self: None)
     monkeypatch.setattr(app_mod.hotkey, "start_stop_hotkey", lambda cb: None)
     monkeypatch.setattr(app_mod.win, "watch_window_changes", lambda cb: None)
-    monkeypatch.setattr(app_mod.App, "_poll", lambda self: None)
-    monkeypatch.setattr(app_mod.App, "_fuse_check", lambda self: None)
+    monkeypatch.setattr(app_mod.App, "_poll", _no_loop)
+    monkeypatch.setattr(app_mod.App, "_fuse_check", _no_loop)
     top = tk.Toplevel(tkroot)
     a = app_mod.App(top)
     a.run_poll = lambda: poll(a)
@@ -91,6 +97,9 @@ def main_app(tkroot, monkeypatch):
     top.update()
     yield a
     a.hub.state = enginehub.FAILED   # 等引擎就緒的背景預載執行緒就此結束
+    # 還沒到期的 after 一起取消: 它們的命令名跟著視窗釋出後可能被下一個測試重用 (見上)
+    for pending in tkroot.tk.splitlist(tkroot.tk.call("after", "info")):
+        tkroot.after_cancel(pending)
     try:
         top.destroy()
     except tk.TclError:
