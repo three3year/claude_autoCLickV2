@@ -404,8 +404,9 @@ def _pair(where, pair, templates, what):
 def _calibration(raw, templates):
     """`校準對`（新流程必填）: {"pair": [兩個範本名], "frame": 量測幀, "fallback": {"pair"}}."""
     if raw is None:
-        _err("calibration", "新流程必須有校準對：{\"pair\": [兩張遊戲畫面內相距夠遠的固定圖], "
-             "\"frame\": 兩張都在的那一幀}（標題列圖示＋關閉鈕放 fallback）")
+        _err("calibration", "新流程必須有校準對：{\"pair\": [兩張相距夠遠的固定圖], "
+             "\"frame\": 兩張都在的那一幀, \"fallback\": {\"pair\": [另一組]}}"
+             "（遊戲內那組要不跟著滑鼠移動；開頭有彈窗→標題列圖示＋關閉鈕當主對，否則當 fallback；見 video-to-flow skill）")
     where = "calibration"
     if not isinstance(raw, dict) or set(raw) - {"pair", "frame", "fallback"}:
         _err(where, f"要是 {{pair, frame, fallback}} 物件，收到 {raw!r}")
