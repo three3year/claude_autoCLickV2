@@ -39,7 +39,9 @@ def parse_error(text):
 
 # ---------- 往返 ----------
 
-def test_定案樣本讀進來再寫回_文字完全相同():
+def test_定案樣本讀進來再寫回_文字完全相同(monkeypatch):
+    # 樣本是逾時預設還是 10 秒時寫的 (等於預設的不寫): 照它寫成時的預設往返
+    monkeypatch.setitem(flowdefaults.WAIT, "timeout", 10)
     text = sample_text()
     assert flowfile.dump_flow(flowfile.parse_flow(text)) == text
 
@@ -73,7 +75,7 @@ def test_讀進來補齊預設_寫出去等於預設的不寫(tmp_path):
             "  - {click: [1, 2]}    # 2\n  - {drag: [0, 0], to: [0, 9]}    # 3\n")
     f = flowfile.parse_flow(text)
     a, c, d = f["steps"]
-    assert (a["on_fail"], a["timeout"], a["interval"], a["offset"]) == ("stop", 10, 0.3,
+    assert (a["on_fail"], a["timeout"], a["interval"], a["offset"]) == ("stop", 5, 0.3,
                                                                         [0, 0])
     assert c["update_origin"] is True and "timeout" not in c
     assert (d["duration"], d["hold"]) == (0.5, 0.5)
@@ -212,3 +214,22 @@ def test_完整步驟與預設表一致():
     """讀進來的每一步都是「沒寫＝」表補齊後的完整步驟."""
     f = flowfile.parse_flow(sample_text())
     assert all(s == flowdefaults.complete(s) for s in f["steps"])
+
+
+# ---------- 逾時預設 5 秒 (ui-slim 票 02) ----------
+
+def test_沒寫逾時讀成5秒():
+    flow_ = flowfile.parse_flow("format: 1\nsteps:\n  - {find: 甲}\n"
+                                "  - {click: [1, 2], confirm: next}\n")
+    assert [s["timeout"] for s in flow_["steps"]] == [5, 5]
+
+
+def test_逾時10秒存檔照樣寫出_等於5秒的不寫(tmp_path):
+    steps = [find("甲", timeout=10), find("乙", timeout=5), click(1, 2, confirm="next",
+                                                                 timeout=10)]
+    flowfile.write_flow(tmp_path, flow(steps))
+    text = (tmp_path / flowfile.FLOW_YAML).read_text(encoding="utf-8")
+    assert "{find_click: 甲, timeout: 10}" in text
+    assert "{find_click: 乙}" in text
+    assert "{click: [1, 2], confirm: next, timeout: 10}" in text
+    assert [s["timeout"] for s in flowfile.read_flow(tmp_path)["steps"]] == [10, 5, 10]

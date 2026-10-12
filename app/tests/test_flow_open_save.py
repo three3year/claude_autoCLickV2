@@ -67,12 +67,6 @@ class _FlowApp(app_mod.App):
     def _update_region_preview(self):
         pass
 
-    def _update_cal_ui(self):
-        pass
-
-    def _update_busy_ui(self):
-        pass
-
     def ensure_registered(self):
         pass
 
@@ -390,7 +384,7 @@ def test_新流程清空步驟與範本_未存檔快取清空(tkroot, tmp_path, 
 
     assert a.steps == [] and a.list_template_names() == []
     assert a.current_flow_path() is None
-    assert a.flow_name() == "新流程"
+    assert a.flow_name() == "未命名"
 
 
 def test_沒有改動時三個入口都不問(tkroot, tmp_path, monkeypatch):
@@ -433,11 +427,37 @@ def test_每種改動都標成未存檔_存檔後清除(tkroot, tmp_path, monkey
                    lambda: a.record_template_pos("a", [1, 2]),
                    lambda: a.set_scan_region([1, 2, 30, 40]),
                    lambda: (a.run_count.set(3), a._on_run_setting())):
-        a.dirty = False
+        a._set_dirty(False)
+        assert a.root.title() == "f — AutoClick"
         change()
         assert a.dirty
+        assert a.root.title() == "*f — AutoClick", "未存檔時標題前加 *"
     a.save_flow()
     assert a.dirty is False
+    assert a.root.title() == "f — AutoClick", "存檔後 * 消失"
+
+
+def test_標題_開檔與新流程後沒有星號_新流程是未命名(tkroot, tmp_path, monkeypatch):
+    a, folder, asked = _dirty_app(tkroot, tmp_path, monkeypatch, False)
+    assert a.root.title() == "*f — AutoClick"
+    other = _write(tmp_path / "別的", [], {})
+    _stub_open(monkeypatch, os.path.join(other, "flow.yaml"))
+    a.open_flow()
+    assert a.root.title() == "別的 — AutoClick"
+    a.steps.append({"type": "wait", "wait": 1.0})
+    a._mark_dirty()
+    a.new_flow()     # 回答「不存」
+    assert a.root.title() == "未命名 — AutoClick"
+
+
+def test_標題_新流程第一次存檔後換成流程名(tkroot, tmp_path, monkeypatch):
+    a = _app(tkroot, monkeypatch)
+    a.steps = [_find("x")]
+    a._mark_dirty()
+    assert a.root.title() == "*未命名 — AutoClick"
+    _stub_save(monkeypatch, os.path.join(apppaths.flows_root(), "早班"))
+    assert a.save_flow()
+    assert a.root.title() == "早班 — AutoClick"
 
 
 def test_執行設定的元件動過但值沒變_不算改動(tkroot, tmp_path, monkeypatch):
@@ -685,12 +705,3 @@ def test_新增範本後只有那張要重新登錄_其他留在記憶體(tkroot
     assert arts["a"] is before["a"] and arts["b"] is before["b"]
     assert arts[name] is None, "新的那張用到時才登錄"
 
-
-def test_重新整理會重掃templates_外力放進來的圖出現(tkroot, tmp_path, monkeypatch):
-    a = _app(tkroot, monkeypatch)
-    folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
-    _opened(a, monkeypatch, folder)
-    (tmp_path / "f" / "templates" / "外力放的.png").write_bytes(b"N")
-    a.refresh_templates_ui()
-    assert a.list_template_names() == ["a", "外力放的"]
-    assert "外力放的" in a.library.templates

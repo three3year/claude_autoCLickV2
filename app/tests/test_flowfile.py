@@ -356,3 +356,26 @@ def test_重掃templates_外力放進來的加入_不見的拿掉_截圖不動(t
     (folder / "templates" / "b.png").unlink()
     assert store.rescan() == {"新放的", "b"}
     assert store.names() == sorted(["a", "新放的", "截圖"])
+
+
+def test_同名換圖_新圖進快取_存檔前templates不動_存檔後換掉(tmp_path):
+    folder = saved_folder(tmp_path, [find_step("a")], {"a": b"OLD"})
+    store = flowfile.FlowTemplates.open(folder, tmp_path / "unsaved", {"a": [1, 2]})
+    os.makedirs(os.path.join(store.registered_dir, "a"))
+    assert store.replace("a", b"NEW", pos=[7, 8])
+    assert store.names() == ["a"] and store.is_unsaved("a")
+    assert (folder / "templates" / "a.png").read_bytes() == b"OLD", "存檔前舊圖不動"
+    assert not os.path.exists(os.path.join(store.registered_dir, "a")), "登錄產物丟掉"
+    assert store.pos_of("a") == [7, 8], "拍攝位置換成這次的"
+    store.save(flow([find_step("a")]))
+    assert (folder / "templates" / "a.png").read_bytes() == b"NEW"
+    assert ls(store.shots_dir) == [] and not store.is_unsaved("a")
+    assert flowfile.read_flow(folder)["template_pos"] == {"a": [7, 8]}
+
+
+def test_同名換圖_沒有位置就拿掉舊位置_不在本流程的名字什麼都不動(tmp_path):
+    folder = saved_folder(tmp_path, [find_step("a")], {"a": b"OLD"})
+    store = flowfile.FlowTemplates.open(folder, tmp_path / "unsaved", {"a": [1, 2]})
+    assert store.replace("a", b"NEW") and store.pos_of("a") is None
+    assert not store.replace("沒有", b"X")
+    assert store.names() == ["a"]

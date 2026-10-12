@@ -153,10 +153,10 @@ def test_改壞的副本_少一個鍵():
 def test_改壞的副本_預設值不同():
     text = doc_text()
     line = _row(text, "`find_click`、`find`、`wait_gone`、`click`、`drag`", "timeout")
-    bad = text.replace(line, line.replace("| `10` |", "| `11` |"))
+    bad = text.replace(line, line.replace("| `5` |", "| `11` |"))
     got = problems(bad)
     assert len(got) == 5, got
-    assert all("鍵 timeout" in p and "`11` ≠ app 預設 10" in p for p in got)
+    assert all("鍵 timeout" in p and "`11` ≠ app 預設 5" in p for p in got)
 
 
 def test_改壞的副本_沒寫預設但app有():

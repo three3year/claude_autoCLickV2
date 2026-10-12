@@ -175,7 +175,7 @@ class _EditorApp(app_mod.App):
         self.autosaved = 0
         self.rendered = 0
         self.flow_cal = cal
-        self.cal_btn, self.cal_info = _Btn(), _Btn()
+        self.settings_lbl = _Btn()     # 主視窗第一列的流程設定摘要
         for n in (cal["pair"] if cal else ()):
             self.store.add(n, b"P")
 
@@ -222,11 +222,11 @@ def _editor(tkroot, monkeypatch, tmp_path, cal=None, pick=None):
 OLD = {"pair": ["舊圖示", "舊關閉"], "baseline": 1000.0}
 
 
-def test_介面顯示校準對_校準鈕只有名字(tkroot, monkeypatch, tmp_path):
+def test_流程設定顯示校準對_主視窗摘要打勾(tkroot, monkeypatch, tmp_path):
     a, _ = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
-    a._update_cal_ui()
-    assert a.cal_btn.text == "校準"
-    assert "舊圖示" in a.cal_info.text and "1000" in a.cal_info.text
+    a._settings_changed()
+    assert a._cal_text() == "舊圖示 × 舊關閉（基準 1000 px）"
+    assert a.settings_lbl.text.startswith("校準對 ✓")
     assert not hasattr(a, "editor_scale"), "沒有跨操作保存的編輯器倍率"
 
 
@@ -323,8 +323,7 @@ def test_按校準只顯示倍率與基準點_步驟資料不變(tkroot, monkeyp
     _flow_with_coords(a)
     vision.plan("舊圖示", [(100, 50)])
     vision.plan("舊關閉", [(1300, 50)])
-    a.calibrate_now()
-    assert "×1.20" in a.cal_btn.text
+    a.test_calibration()
     assert any("×1.200" in m and "(100, 50)" in m for m in a.logged)
     assert a.flow_cal == OLD, "校準只量, 不動校準資料"
     assert a.steps[0]["click"] == [10, 20]
@@ -332,13 +331,14 @@ def test_按校準只顯示倍率與基準點_步驟資料不變(tkroot, monkeyp
     assert a.autosaved == 0
 
 
-def test_按校準失敗只提示(tkroot, monkeypatch, tmp_path):
+def test_按校準失敗只寫紀錄(tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
     vision.plan("舊關閉", [None])
-    a.calibrate_now()
-    assert a.cal_btn.text == ""
-    assert any("舊關閉" in m for m in rec)
+    a.test_calibration()
+    assert any("舊關閉" in m for m in a.logged)
+    assert rec == [], "結果寫紀錄, 不彈窗"
+    assert a.flow_cal == OLD
 
 
 def test_按校準主對找不到退備用對_備用對的範本也先載入(tkroot, monkeypatch, tmp_path):
@@ -354,9 +354,9 @@ def test_按校準主對找不到退備用對_備用對的範本也先載入(tkr
     vision.plan("舊關閉", [(1300, 50)])
     vision.plan("標題左", [(100, 10)])
     vision.plan("標題右", [(700, 10)])
-    a.calibrate_now()
+    a.test_calibration()
     assert set(vision.ensured) >= {"舊圖示", "舊關閉", "標題左", "標題右"}
-    assert "×1.20" in a.cal_btn.text and "備用" in a.cal_btn.text
+    assert any("×1.200" in m and "備用" in m for m in a.logged)
 
 
 def test_拾取檢查的安靜量測_備用對的範本也先確認載得起來(tkroot, monkeypatch):
@@ -386,7 +386,7 @@ def test_校準量測查詢不帶預期尺度(tkroot, monkeypatch, tmp_path):
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
     vision.plan("舊圖示", [(100, 50)])
     vision.plan("舊關閉", [(1000, 50)])
-    a.calibrate_now()
+    a.test_calibration()
     assert vision.expected_scales == [("舊圖示", None), ("舊關閉", None)]
 
 
@@ -402,34 +402,32 @@ def test_校準只在搜尋範圍內截圖(tkroot, monkeypatch, tmp_path):
                                               (region[0], region[1])))[1])
     vision.plan("舊圖示", [(100, 100)])
     vision.plan("舊關閉", [(700, 100)])    # 都在範圍 (50,60) 700×500 內
-    a.calibrate_now()
+    a.test_calibration()
     assert grabs == [[50, 60, 700, 500]]
     assert any("(100, 100)" in m for m in a.logged), "中心是螢幕座標"
 
 
-def test_沒有校準對時按校準_提示先設定(tkroot, monkeypatch, tmp_path):
-    rec = []
-    monkeypatch.setattr(app_mod.messagebox, "showinfo",
-                        lambda title, msg, **kw: rec.append(msg))
+def test_沒有校準對時按測試_紀錄寫還沒設定_不彈窗(tkroot, monkeypatch, tmp_path,
+                                      no_real_dialogs):
     a, vision = _editor(tkroot, monkeypatch, tmp_path)
-    a.calibrate_now()
-    assert any("設定校準對" in m for m in rec)
+    a.test_calibration()
+    assert any("還沒設定" in m for m in a.logged)
+    assert not any(no_real_dialogs.values())
     assert vision.lookups == []
 
 
-def test_開流程或切換流程時校準鈕回到只有名字(tkroot, monkeypatch, tmp_path):
-    a, _ = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
-    a.cal_btn.text = "校準　×0.90"
+def test_開流程或切換流程時流程設定摘要跟著換(tkroot, monkeypatch, tmp_path):
+    a, _ = _editor(tkroot, monkeypatch, tmp_path)
+    assert a._settings_summary().startswith("校準對 ✗")
     for attr in ("run_mode", "run_count"):
         setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))
     a.scan_lbl = _Btn()
     a._mode_ui = lambda: None
     a._update_region_preview = lambda: None
-    a._update_busy_ui = lambda: None
     a._apply_flow(dict(flowfile.new_flow(),
                        calibration={"pair": ["x", "y"], "baseline": 50.0}))
     assert a.flow_cal == {"pair": ["x", "y"], "baseline": 50.0}
-    assert a.cal_btn.text == "校準" and "x × y" in a.cal_info.text
+    assert a.settings_lbl.text == "校準對 ✓　忙碌指示 —"
 
 
 # ---------- `支援倍率範圍`外只警告 (scale-out-of-range 票 02, ADR 0013 決策 1) ----------
@@ -440,8 +438,7 @@ def test_按校準量到支援倍率範圍外_照常顯示倍率_另印一行警
     _flow_with_coords(a)
     vision.plan("舊圖示", [(100, 50)])
     vision.plan("舊關閉", [(800, 50)])            # 700 ÷ 1000 = ×0.70
-    a.calibrate_now()
-    assert "×0.70" in a.cal_btn.text
+    a.test_calibration()
     assert any("×0.700" in m and "(100, 50)" in m for m in a.logged)
     assert any("×0.700" in m and "×0.85–1.15" in m and "調大" in m
                for m in a.logged)
@@ -454,5 +451,5 @@ def test_按校準量到範圍內_沒有範圍外警告(tkroot, monkeypatch, tmp
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
     vision.plan("舊圖示", [(100, 50)])
     vision.plan("舊關閉", [(1100, 50)])
-    a.calibrate_now()
+    a.test_calibration()
     assert not any("支援倍率範圍" in m for m in a.logged)

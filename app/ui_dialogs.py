@@ -131,6 +131,56 @@ def _check(parent, text, var, bg=None):
     return lbl
 
 
+TIP_WRAP = 320   # ⓘ 提示框的文字寬度 (px), 超過自動換行
+
+
+def info_tip(parent, text, bg=None):
+    """ⓘ 說明提示: 欄位標題旁的小圖示, 滑鼠移上去才顯示說明 (說明文字規則, ui-slim).
+
+    一般說明不常駐 (只寫使用時才需要的資料); 要使用者動手處理的提示改用 ⚠ 一行常駐。
+    提示框是 ⓘ 的子視窗 (無邊框、置頂、自動換行、夾在所在螢幕的工作區內): 移開、按下、
+    所在視窗隱藏或關閉時一起消失, 不留孤兒視窗; 不進 modal 堆疊, 不動 grab 也不搶焦點。
+    bg: 所在面板的底色 (預設對話框面板色)。
+    """
+    lbl = tk.Label(parent, text="ⓘ", bg=bg or C["panel"], fg=C["muted"],
+                   cursor="question_arrow", font=(FONT[0], 10))
+    tip = []
+
+    def show(e):
+        hide()
+        t = tk.Toplevel(lbl)
+        t.withdraw()
+        t.overrideredirect(True)
+        t.attributes("-topmost", True)
+        tk.Label(t, text=text, bg=C["tip"], fg=C["text"], font=FONT, justify="left",
+                 wraplength=TIP_WRAP, padx=8, pady=6, highlightthickness=1,
+                 highlightbackground=C["border"]).pack()
+        t.update_idletasks()
+        x1, y1, x2, y2 = win.monitor_work_area(lbl.winfo_id())
+        w, h = t.winfo_reqwidth(), t.winfo_reqheight()
+        x = e.x_root + 12 if e.x_root else lbl.winfo_rootx() + lbl.winfo_width()
+        y = e.y_root + 12 if e.y_root else lbl.winfo_rooty() + lbl.winfo_height()
+        x = max(x1, min(x, x2 - w))
+        y = max(y1, min(y, y2 - h))
+        t.geometry(f"+{x}+{y}")
+        t.deiconify()
+        tip.append(t)
+
+    def hide(_e=None):
+        while tip:
+            t = tip.pop()
+            try:
+                t.destroy()
+            except tk.TclError:
+                pass
+
+    lbl.bind("<Enter>", show)
+    lbl.bind("<Leave>", hide)
+    lbl.bind("<ButtonPress>", hide)
+    lbl.winfo_toplevel().bind("<Unmap>", hide, add=True)   # 清場隱藏時別留在截圖裡
+    return lbl
+
+
 def ask_string(root, title, prompt, initialvalue=""):
     """深色主題版 askstring (modal + 點外閃爍). 取消回傳 None."""
     dlg = tk.Toplevel(root)
@@ -180,7 +230,7 @@ def pick_cal_pair(app, fallback=False):
     if len(names) < 2:
         messagebox.showinfo(title,
                             "至少需要兩個範本才能作為比例尺，"
-                            "請先用「截圖框選」建立範本", parent=root)
+                            "請先在範本面板「截圖新增」建立範本", parent=root)
         return None
 
     dlg = tk.Toplevel(root)
@@ -538,7 +588,7 @@ def pick_template(app, title="選擇範本", initial=None):
                        f"已自動改名為「{final}」", "warn")
         app.refresh_templates()
         app.log_ui(f"已把範本「{final}」加入本流程"
-                   "；建議跑一次「比對測試」確認畫面上找得到", "ok")
+                   "；建議按「立即比對測試」確認畫面上找得到", "ok")
         result[0] = final
         dlg.destroy()
         chk = src.check(name)
@@ -576,7 +626,7 @@ def template_pos_from_shot(r, anchor, k):
 
 
 NO_PAIR_MSG = ("這份流程還沒有校準對，就沒有座標基準點可以當基準。\n"
-               "請先在主視窗「設定校準對」（例：遊戲視窗標題列的圖示與關閉鈕）")
+               "請先在主視窗「流程設定…」設定校準對")
 
 
 def out_of_range_warning(scale):

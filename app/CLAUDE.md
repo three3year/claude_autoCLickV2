@@ -79,7 +79,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     校準對＝零輸入結束，寫 `calibrate` 日誌。抖動內貼齊 1（`snap_identity`）——倍率 1 時座標
     原樣、網格對準 1.0。執行中不重量。量到`支援倍率範圍`外（`Calibrated.in_range`，兩端常數只在
     `calibration.SCALE_LOW/HIGH`）也零輸入結束（`calibrate` 日誌 `result=out_of_range`）；編輯器
-    （「校準」鈕、`measured_pick`）量到區間外只在紀錄區警告、照常拾取（ADR 0013 決策 1）。
+    （流程設定裡校準對的「測試」、`measured_pick`）量到區間外只在紀錄區警告、照常拾取（ADR 0013 決策 1）。
     改倍率相關測試時倍率要取區間內的值，否則執行器不跑
   - **存下的座標一律相對座標基準點、流程尺度**：`固定矩形`（`within`，
     `findtarget.limit_rect(anchor=…)`）、範本拍攝位置 `template_pos`。換算只有 `flowfmt.to_screen`／
@@ -90,7 +90,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     （`flowfmt.from_screen`／`_unscale`）、截下的範本（`imgio.to_flow_scale`）、拍攝位置
     （`ui_dialogs.template_pos_from_shot`）都用當下的值換回；量不到＝不存並提示重框搜尋範圍；
     沒有校準對＝需要基準點的拾取（固定矩形）擋下，只依原點的照常（倍率 1）。
-    **新增拾取、截圖或比對測試入口一律走 `measured_pick`**。「校準」鈕只量測顯示，不存任何值
+    **新增拾取、截圖或比對測試入口一律走 `measured_pick`**。流程設定的「測試」只量測並寫紀錄，不存任何值
   - 換校準對（`App.designate_pair`）：同一張截圖先用舊對量倍率與舊基準點（量不到就拒絕），
     新基準距離＝新距離 ÷ 倍率，再依新舊基準點的差把所有存下的座標平移
     （`flowfmt.shift_flow`＋`FlowTemplates.shift_pos`），落點不變；有備用對時偏移跟著重算
@@ -310,8 +310,9 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 
 ## UI 慣例（續）
 
-- 窄視窗塞不下的按鈕列用 `HScrollStrip`（橫向捲動容器，滾輪橫向捲動）：步驟鈕列釘選
-  「新增步驟」保證可見、其餘捲動；次要小按鈕用 `Small.TButton`（`width=0` 原因見 clam 坑）
+- 步驟標題列的新增鈕（版面 D）：找圖／點擊／拖曳／等待一排＋「區段 ▾」，標題列寬度不夠時整排換成
+  一顆「＋ 新增 ▾」列出全部九項（`_build_steps` 的 `fit` 比較標題列寬度與那排鈕的需求寬度）；
+  次要小按鈕用 `Small.TButton`（`width=0` 原因見 clam 坑）
 - 步驟清單是 `SegListbox`（tk.Text 實作、相容 Listbox 介面，不是 Listbox）——拍板：
   選取只加背景不變文字色、│ 連線依隸屬區塊顏色（重複=warn、分岔=info）、
   號碼欄用 tab 定位點對齊（比例字型下位數不同會讓縮排右偏）

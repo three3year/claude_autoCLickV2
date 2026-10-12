@@ -82,18 +82,33 @@ def test_設定忙碌指示_限定範圍由作者在找圖設定裡框(tkroot, m
         seen["tgt"] = tgt
         return {"within": list(BUSY["within"]), "pick": None, "color": False}
     monkeypatch.setattr(ui_dialogs, "edit_target_opts", opts)
-    a.edit_busy_indicator()
+    a.set_busy_indicator()
     assert "within" not in seen["tgt"], "沒有九宮格預設 (九宮格已退場)"
     assert a.busy_target == BUSY
     assert a.autosaved == 1
 
 
-def test_清除忙碌指示(tkroot, monkeypatch, tmp_path):
+def test_清除忙碌指示_是獨立的一顆_不問(tkroot, monkeypatch, tmp_path, no_real_dialogs):
     a = _SetApp(tkroot, tmp_path)
     a.busy_target = dict(BUSY)
-    monkeypatch.setattr(app_mod.messagebox, "askyesno", lambda *a_, **k: True)
-    a.edit_busy_indicator()
-    assert a.busy_target is None
+    a.clear_busy_indicator()
+    assert a.busy_target is None and a.autosaved == 1
+    assert any("清除忙碌指示" in m for m in a.logged)
+    assert not any(no_real_dialogs.values())
+
+
+def test_已設定時再按設定_直接重新設定_不問要不要清除(tkroot, monkeypatch, tmp_path):
+    a = _SetApp(tkroot, tmp_path)
+    a.busy_target = {"template": "a"}
+    asked = []
+    monkeypatch.setattr(app_mod.messagebox, "askyesno",
+                        lambda *a_, **k: asked.append(1) or True)
+    monkeypatch.setattr(ui_dialogs, "pick_template",
+                        lambda app, title, initial=None: "提交中")
+    monkeypatch.setattr(ui_dialogs, "edit_target_opts", lambda *a_, **k: {
+        "within": list(BUSY["within"]), "pick": None, "color": False})
+    a.set_busy_indicator()
+    assert asked == [] and a.busy_target == BUSY
 
 
 def test_流程資料帶忙碌指示_不帶固定行為_開流程時讀回(tkroot, tmp_path):
@@ -112,7 +127,6 @@ def test_流程資料帶忙碌指示_不帶固定行為_開流程時讀回(tkroo
     a._mode_ui = lambda: None
     a.render_steps = lambda keep=None: None
     a._update_region_preview = lambda: None
-    a._update_busy_ui = lambda: None
     a._apply_flow(flowfile.new_flow())
     assert a.busy_target is None
 
@@ -151,6 +165,6 @@ def test_忙碌指示不能以原點為基準(tkroot, monkeypatch, tmp_path):
                         lambda app, title, initial=None: "提交中")
     monkeypatch.setattr(ui_dialogs, "edit_target_opts", lambda *a_, **k: {
         "within": None, "pick": {"near": [0, 0]}, "color": False})
-    a.edit_busy_indicator()
+    a.set_busy_indicator()
     assert a.busy_target is None
     assert any("原點" in m for m in rec)

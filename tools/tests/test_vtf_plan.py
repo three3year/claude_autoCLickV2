@@ -62,12 +62,12 @@ def test_計畫的鍵與區段寫法跟flow_yaml相同(demo, engine):
 
 
 def test_等於預設的值不寫出_工具不帶自己的預設(demo, engine):
-    steps = [find("開始", timeout=10, interval=0.3, on_fail="stop", busy_check=False,
+    steps = [find("開始", timeout=5, interval=0.3, on_fail="stop", busy_check=False,
                   update_origin=True), find("確定")]
     res = run(demo, engine, steps)
     s = saved(res)
     for x in s:
-        assert (x["on_fail"], x["timeout"], x["interval"]) == ("stop", 10, 0.3)
+        assert (x["on_fail"], x["timeout"], x["interval"]) == ("stop", 5, 0.3)
         assert x["confirm"] == "none", "計畫沒寫 confirm＝不確認 (工具不自己推)"
     text = yaml_text(res)
     for k in ("timeout", "interval", "on_fail", "busy_check", "update_origin", "offset",

@@ -43,6 +43,7 @@ C = {
     "warn": "#F59E0B",
     "info": "#38BDF8",
     "sel": "#2E4057",
+    "tip": "#0B1220",   # ⓘ 說明提示框的底色 (比背景再深一點, 浮在面板上看得出邊界)
 }
 
 FONT = ("Microsoft JhengHei UI", 10)

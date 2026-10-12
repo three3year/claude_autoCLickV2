@@ -85,7 +85,7 @@ steps:
 | `drag` | `hold` | 按下後、移動前停留 | `0.5` | 秒 |
 | `wait` | `wait` | 停留秒數 | 開頭鍵（必填） | 秒 |
 | `find_click`、`click`、`drag` | `confirm` | `gone`、`next`、`{appear: 範本名, within, pick, color}`（見「生效確認」） | `none`（不確認；不能寫出來） | — |
-| `find_click`、`find`、`wait_gone`、`click`、`drag` | `timeout` | 逾時（找圖等待；生效確認的等待另算一次） | `10` | 秒 |
+| `find_click`、`find`、`wait_gone`、`click`、`drag` | `timeout` | 逾時（找圖等待；生效確認的等待另算一次） | `5` | 秒 |
 | `find_click`、`find`、`wait_gone`、`click`、`drag` | `interval` | 輪詢間隔（大於 0） | `0.3` | 秒 |
 | `find_click`、`find`、`wait_gone`、`click`、`drag` | `on_fail` | `skip`（跳過）、`break`（跳出區段）、`stop`（停止） | `stop` | — |
 | `find_click`、`click`、`drag` | `busy_check` | `true`：`忙碌檢查` | `false` | — |

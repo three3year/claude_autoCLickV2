@@ -10,7 +10,7 @@
 from .findtarget import FIND_TYPES, POINTER_TYPES
 
 # 有等待的步驟: 逾時 (秒)、輪詢間隔 (秒)、`找不到時`
-WAIT = {"timeout": 10, "interval": 0.3, "on_fail": "stop"}
+WAIT = {"timeout": 5, "interval": 0.3, "on_fail": "stop"}
 
 # 各種步驟的其餘欄位 (不含 WAIT); 沒列的種類 (wait、repeat_start、分岔開頭與或) 沒有預設
 STEP = {

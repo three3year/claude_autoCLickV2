@@ -43,7 +43,7 @@ def test_座標點擊對話框保留確認圖設定_找不到時預設停止(mak
     assert got["confirm"] == "appear"
     assert got["confirm_target"] == {"template": "ok", "color": True}
     assert got["on_fail"] == "stop"
-    assert (got["timeout"], got["interval"]) == (10, 0.3), "「沒寫＝」表的預設"
+    assert (got["timeout"], got["interval"]) == (5, 0.3), "「沒寫＝」表的預設"
 
 
 def test_拖曳對話框改成下一步的圖出現(make_app):
@@ -86,9 +86,9 @@ def test_確認圖出現卻沒選確認圖_擋下(make_app, no_real_dialogs):
 
 def test_步驟摘要顯示座標點擊與拖曳的確認方式():
     s = app_mod.step_desc(click(1, 2, confirm="appear", confirm_target=tgt("ok")))
-    assert "做到確認圖「ok」出現（逾時10s→停止）" in s
+    assert "做到確認圖「ok」出現（逾時5s→停止）" in s
     s = app_mod.step_desc(drag(1, 2, 3, 4, confirm="next", on_fail="skip"))
-    assert "做到下一步的圖出現（逾時10s→跳過）" in s
+    assert "做到下一步的圖出現（逾時5s→跳過）" in s
     assert "做到" not in app_mod.step_desc(click(1, 2))
 
 
@@ -133,7 +133,7 @@ def test_拖曳對話框可選原點的圖離開_摘要顯示(make_app):
                 _pick("原點的圖離開", "原點的圖離開"), _press("確定"),
                 title="編輯：滑鼠拖曳")
     assert got["confirm"] == "gone" and got["on_fail"] == "stop"
-    assert "做到原點的圖離開（逾時10s→停止）" in app_mod.step_desc(got)
+    assert "做到原點的圖離開（逾時5s→停止）" in app_mod.step_desc(got)
 
 
 def test_原點不是來自找圖時有警告標記且執行前擋下(tkroot):

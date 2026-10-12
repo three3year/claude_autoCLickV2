@@ -245,16 +245,15 @@ def test_選範本對話框現場截圖_也換回流程尺度與相對基準點(
     assert app.store.pos_of(got) == [80, 40], "((190-150)/0.5, (250-230)/0.5)"
 
 
-def test_上傳的範本不縮放(make_app, monkeypatch, tmp_path):
+def test_從磁碟挑的範本不縮放(make_app, monkeypatch, tmp_path):
     app = make_app(2.0)
     src = str(tmp_path / "up.png")
     imgio.imwrite(src, _shot(40, 20)["img"])
-    monkeypatch.setattr(app_mod.filedialog, "askopenfilenames",
+    monkeypatch.setattr(ui_dialogs.filedialog, "askopenfilenames",
                         lambda **kw: [src])
-    app._select_tmpl_row = lambda name: None   # 面板不在這個最小 App 裡
-    app.upload_template()
-    [name] = [n for n in app.store.names() if n not in CAL_PAIR]
-    assert imgio.imread(app.store.path_of(name)).shape[:2] == (20, 40)
+    d = _Driver(app.root, TITLE)
+    got = _open(app, d, lambda dr: (dr.press("從磁碟挑圖…"), dr.press("確定")))
+    assert imgio.imread(app.store.path_of(got)).shape[:2] == (20, 40)
 
 
 # ---------- 預設原點: ◎ 退用拍攝位置 ----------

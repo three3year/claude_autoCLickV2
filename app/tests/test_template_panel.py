@@ -100,6 +100,11 @@ def _select(app, name):
     app.root.update()
 
 
+def _using(*names):
+    """引用這些範本的找圖步驟 (被引用的範本才不會標「未引用」)."""
+    return [{"type": "find_click", "target": {"template": n}} for n in names]
+
+
 def _panel(tkroot, tmp_path, names=("a", "b"), steps=None):
     app = _PanelApp(tkroot, tmp_path, steps=steps)
     for n in names:
@@ -110,7 +115,7 @@ def _panel(tkroot, tmp_path, names=("a", "b"), steps=None):
 
 
 def test_面板只列出本流程的範本(tkroot, tmp_path):
-    app = _panel(tkroot, tmp_path, names=("btn", "icon"))
+    app = _panel(tkroot, tmp_path, names=("btn", "icon"), steps=_using("btn", "icon"))
     try:
         rows = app.tmpl_list.get(0, "end")
         assert [r.strip() for r in rows] == ["🖼 btn", "🖼 icon"]
@@ -247,52 +252,12 @@ def test_刪除沒有步驟在用的範本不打擾(tkroot, tmp_path, monkeypatc
         app.destroy()
 
 
-def test_複製範本撞名加序號並帶走pos(tkroot, tmp_path):
-    app = _panel(tkroot, tmp_path, names=("a",))
-    try:
-        app.store.set_pos("a", [11, 22])
-        _select(app, "a")
-        app.copy_template()
-        app.root.update()
-        assert app._tmpl_names == ["a", "a_2"]
-        assert app.store.pos_of("a_2") == [11, 22]
-    finally:
-        app.destroy()
 
-
-def test_比對測試走既有的就緒gating與清場(tkroot, tmp_path, monkeypatch):
-    """單一範本可直接跑`比對測試`——這條路徑沒有消失, 也沒有繞過 gating."""
-    app = _panel(tkroot, tmp_path, names=("a",))
-    try:
-        calls = []
-        monkeypatch.setattr(ui_dialogs, "show_match_test",
-                            lambda a, name, **kw: calls.append(name))
-        _select(app, "a")
-        app.test_template()
-        assert calls == ["a"], "走的是既有的 show_match_test (內含 engine_gate)"
-    finally:
-        app.destroy()
-
-
-def test_沒選範本時比對測試提示先選一個(tkroot, tmp_path, monkeypatch):
-    app = _panel(tkroot, tmp_path, names=("a",))
-    try:
-        infos = []
-        monkeypatch.setattr(app_mod.messagebox, "showinfo",
-                            lambda title, msg, **kw: infos.append(msg))
-        monkeypatch.setattr(ui_dialogs, "show_match_test",
-                            lambda *a, **kw: (_ for _ in ()).throw(
-                                AssertionError("不該走到")))
-        app.tmpl_list.selection_clear(0, "end")
-        app.test_template()
-        assert infos and "選擇一個範本" in infos[0]
-    finally:
-        app.destroy()
 
 
 def test_有拾取檢查警告的範本標示_通過後消失(tkroot, tmp_path):
     from automation import pickcheck
-    app = _panel(tkroot, tmp_path, names=("a", "b"))
+    app = _panel(tkroot, tmp_path, names=("a", "b"), steps=_using("a", "b"))
     try:
         app.note_pick_warnings("a", [pickcheck.PickWarning(pickcheck.UNIQUE, "a",
                                                        "有 2 個匹配", matches=[])])

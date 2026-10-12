@@ -25,7 +25,7 @@
    | `rect` | 找圖、`confirm: {appear, rect}`、`busy` | 引用 `shared_rects` 的名字：這個目標用那個`共用矩形`（見下面「共用矩形」）。不跟 `scroll` 同寫 |
    | `confirm: {appear: 名, frame: N}` | 確認圖 | 確認圖出現的那一幀（預設＝確認圖範本的取材幀；用既有範本時必填） |
 
-4. 預設照 app（`on_fail` 停止、`timeout` 10、`interval` 0.3…）；`confirm` 沒寫＝不確認，**工具不替你推**：
+4. 沒寫的鍵照 app 的預設（值見 `docs/flow-format.md` 的欄位表）；`confirm` 沒寫＝不確認，**工具不替你推**：
    找圖點擊的下一步是找圖就寫 `confirm: next`，否則 `confirm: gone`；拖曳的原點來自找圖寫 `confirm: gone`。
    `busy_check` 也一樣，計畫明寫才勾（標準見 flow-format.md「忙碌檢查該勾哪些步驟」）。
 

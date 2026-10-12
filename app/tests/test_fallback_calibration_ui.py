@@ -1,4 +1,4 @@
-"""`備用校準對`的編輯器接線 (scale-range 票 08): 設定備用對、校準鈕顯示用的是哪一組、
+"""`備用校準對`的編輯器接線 (scale-range 票 08): 設定備用對、流程設定的測試顯示用的是哪一組、
 換主對時偏移重算、拾取當下主對找不到改用備用對、讀檔不成形的警告.
 
 量測純邏輯在 test_fallback_calibration.py; 這裡沿用 test_calibration_ui 的最小 App。
@@ -93,26 +93,42 @@ def _with_fb(offset=(100, 50)):
     return c
 
 
-def test_介面顯示備用對(tkroot, monkeypatch, tmp_path):
+def test_流程設定顯示備用對(tkroot, monkeypatch, tmp_path):
     a, _ = _fb_editor(tkroot, monkeypatch, tmp_path, cal=_with_fb())
-    a._update_cal_ui()
-    assert "備用" in a.cal_info.text and "標題列圖示" in a.cal_info.text
+    assert a._fb_text() == "標題列圖示 × 關閉鈕（基準 1868 px）"
 
 
-def test_校準鈕_主對找不到時顯示用的是備用對(tkroot, monkeypatch, tmp_path):
+def test_測試校準對_主對找不到時寫明用的是備用對(tkroot, monkeypatch, tmp_path):
     a, vision = _fb_editor(tkroot, monkeypatch, tmp_path, cal=_with_fb())
     _place(vision, MAIN["pair"], None, (1200, 200))
     _place(vision, FB, (20, 20), (1514, 20))     # ×0.8 → 基準點 (100,60)
-    a.calibrate_now()
-    assert "備用" in a.cal_btn.text and "×0.80" in a.cal_btn.text
-    assert any("備用校準對" in m and "(100, 60)" in m for m in a.logged)
+    a.test_calibration()
+    assert any("備用校準對" in m and "×0.800" in m and "(100, 60)" in m
+               for m in a.logged)
 
 
-def test_校準鈕_主對找得到時不提備用(tkroot, monkeypatch, tmp_path):
+def test_測試校準對_主對找得到時不提備用(tkroot, monkeypatch, tmp_path):
     a, vision = _fb_editor(tkroot, monkeypatch, tmp_path, cal=_with_fb())
     _place(vision, MAIN["pair"], (100, 50), (1300, 50))
-    a.calibrate_now()
-    assert "備用" not in a.cal_btn.text and "×1.20" in a.cal_btn.text
+    a.test_calibration()
+    assert any("×1.200" in m for m in a.logged)
+    assert not any("備用" in m for m in a.logged)
+
+
+def test_測試備用校準對_主對看得到也只用備用對量(tkroot, monkeypatch, tmp_path):
+    a, vision = _fb_editor(tkroot, monkeypatch, tmp_path, cal=_with_fb())
+    _place(vision, MAIN["pair"], (100, 50), (1300, 50))
+    _place(vision, FB, (20, 20), (1514, 20))     # ×0.8 → 基準點 (20,20)+(100,50)×0.8
+    a.test_fallback_calibration()
+    assert any("×0.800" in m and "(100, 60)" in m for m in a.logged)
+    assert set(vision.lookups) == set(FB), "主對不量"
+
+
+def test_測試備用校準對_沒設_紀錄寫還沒設定(tkroot, monkeypatch, tmp_path, no_real_dialogs):
+    a, vision = _fb_editor(tkroot, monkeypatch, tmp_path, cal=dict(MAIN))
+    a.test_fallback_calibration()
+    assert any("還沒設定" in m for m in a.logged)
+    assert vision.lookups == [] and not any(no_real_dialogs.values())
 
 
 def test_換主校準對_備用對的偏移跟著重算(tkroot, monkeypatch, tmp_path):

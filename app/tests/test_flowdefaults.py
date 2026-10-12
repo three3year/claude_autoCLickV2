@@ -10,7 +10,7 @@ from automation import flowdefaults
 
 def test_找圖補齊_找不到時預設停止_輪詢預設0點3秒():
     s = flowdefaults.complete({"type": "find_click", "target": {"template": "a"}})
-    assert (s["on_fail"], s["timeout"], s["interval"]) == ("stop", 10, 0.3)
+    assert (s["on_fail"], s["timeout"], s["interval"]) == ("stop", 5, 0.3)
     assert (s["confirm"], s["offset"], s["busy_check"], s["update_origin"]) == (
         "none", [0, 0], False, True)
 
@@ -26,7 +26,7 @@ def test_沒設生效確認的點擊不補等待欄位_設了才補():
     s = flowdefaults.complete({"type": "click", "click": [1, 2]})
     assert not set(flowdefaults.WAIT) & set(s)
     s = flowdefaults.complete({"type": "click", "click": [1, 2], "confirm": "next"})
-    assert (s["timeout"], s["interval"], s["on_fail"]) == (10, 0.3, "stop")
+    assert (s["timeout"], s["interval"], s["on_fail"]) == (5, 0.3, "stop")
 
 
 def test_拖曳缺時間用0點5秒():

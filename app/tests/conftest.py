@@ -65,3 +65,33 @@ def tkroot():
         r.destroy()
     except tk.TclError:
         pass
+
+
+@pytest.fixture
+def main_app(tkroot, monkeypatch):
+    """真的主視窗 (App) 建在 tkroot 底下的一個 Toplevel 上, 測完關掉.
+
+    只換掉碰作業系統或背景的邊界: 引擎不載入 (維持載入中)、不掛 F12 與視窗事件鉤子、
+    不跑 300ms 輪詢與保險絲 (要看輪詢結果的測試自己呼叫一次 `run_poll`)。
+    視窗真的映射出來: 虛擬事件與 <Enter>/<Leave> 要映射後才派送。
+    """
+    import app as app_mod
+    import enginehub
+
+    poll = app_mod.App._poll
+    monkeypatch.setattr(enginehub.EngineHub, "load", lambda self: None)
+    monkeypatch.setattr(app_mod.hotkey, "start_stop_hotkey", lambda cb: None)
+    monkeypatch.setattr(app_mod.win, "watch_window_changes", lambda cb: None)
+    monkeypatch.setattr(app_mod.App, "_poll", lambda self: None)
+    monkeypatch.setattr(app_mod.App, "_fuse_check", lambda self: None)
+    top = tk.Toplevel(tkroot)
+    a = app_mod.App(top)
+    a.run_poll = lambda: poll(a)
+    top.geometry("+40+40")
+    top.update()
+    yield a
+    a.hub.state = enginehub.FAILED   # 等引擎就緒的背景預載執行緒就此結束
+    try:
+        top.destroy()
+    except tk.TclError:
+        pass

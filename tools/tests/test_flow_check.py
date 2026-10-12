@@ -109,7 +109,7 @@ def test_normalize_把手改過編號過期的檔寫回標準排版(tmp_path, ca
     import flowfile
     steps = ("  - {find_click: 開始}    # 7\n"
              "  - {click: [10, 20], update_origin: true}\n"
-             "  - repeat: 2    # 1\n    steps:\n      - {find: 確定, timeout: 10}\n")
+             "  - repeat: 2    # 1\n    steps:\n      - {find: 確定, timeout: 5}\n")
     folder = make_flow(tmp_path, steps)
     code, out = run(folder, "--normalize", capsys=capsys)
     assert code == 0, out

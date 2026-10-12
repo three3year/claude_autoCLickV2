@@ -890,6 +890,25 @@ class FlowTemplates:
             self.set_pos(final, pos)
         return final
 
+    def replace(self, name, blob, pos=None):
+        """以同名換圖 (重截): 新圖進快取 shots/、丟掉該名的登錄產物、拍攝位置換成這次的
+        (pos=None＝這次沒有位置, 舊的也拿掉——它指的是舊圖)。templates/ 的舊圖不動, 存檔
+        時才被覆蓋; 不存檔＝舊圖照舊。名字不在本流程回 False (什麼都不動)."""
+        if name not in self._src:
+            return False
+        data = _blob(blob)
+        os.makedirs(self.shots_dir, exist_ok=True)
+        path = os.path.join(self.shots_dir, name + ".png")
+        with open(path, "wb") as f:
+            f.write(data)
+        self._src[name] = path
+        self.drop_registered(name)
+        if pos is None:
+            self._pos.pop(name, None)
+        else:
+            self.set_pos(name, pos)
+        return True
+
     def remove(self, name):
         """從本流程拿掉一個範本: 快取裡的截圖直接刪, templates/ 的等存檔時才離開;
         登錄產物與拍攝位置一起丟."""

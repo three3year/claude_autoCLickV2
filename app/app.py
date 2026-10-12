@@ -43,6 +43,10 @@ from automation.runner import (Runner, has_busy_check, confirm_next_connected,
                                origin_source, uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
 
+# 步驟標題列的新增鈕 (版面 D): 常用四種一排, 區段收在「區段 ▾」(None＝分隔線)
+ADD_CHIPS = (("find_click", "找圖"), ("click", "點擊"), ("drag", "拖曳"), ("wait", "等待"))
+SECTION_TYPES = ("repeat_start", "repeat_end", None,
+                 "branch_start", "branch_or", "branch_end")
 # 新增時直接加入清單的標記步驟 (無需開對話框)
 MARKER_TYPES = {"repeat_end", "branch_start", "branch_or", "branch_end"}
 # 標記步驟中仍可編輯屬性的 (區段結尾: 設定「找不到跳出到此」的後續動作)
@@ -61,6 +65,18 @@ LABEL_COLORS = {
 # 執行紀錄各等級的文字色 (執行紀錄面板與迷你狀態視窗共用)
 LOG_COLORS = {"info": "#CBD5E1", "ok": C["accent"],
               "warn": C["warn"], "error": C["danger"]}
+
+# 主視窗 ⓘ 的說明 (說明文字規則: 只寫使用時才需要的資料)
+SCAN_TIP = ("找圖步驟、比對測試、校準都只在這個範圍裡找；沒框＝全螢幕。"
+            "框住遊戲視窗（含標題列），找圖較快也不會找到別的視窗")
+CAL_TIP = ("執行開頭量畫面倍率與座標基準點的兩張圖：遊戲畫面內、相距夠遠、執行開頭一定"
+           "看得到。沒有就不能執行。測試＝用目前畫面量一次，結果寫在執行紀錄")
+FALLBACK_TIP = ("校準對被彈窗擋住時改用的兩張圖（例：標題列圖示與關閉鈕）。"
+                "設定時校準對也要在畫面上；清除校準對時一起清除")
+BUSY_TIP = ("畫面上有它＝遊戲忙碌中：先不補做；勾了忙碌檢查的步驟送出後等它消失。"
+            "測試＝照它的找圖設定比對一次")
+# 範本面板: 沒被任何步驟或流程設定引用的範本 (存檔時會離開 templates/)
+UNREF_MARK = "（未引用）"
 
 # 全域保險絲: 每 FUSE_INTERVAL_MS 檢查一次, 連續 FUSE_TRIP 次
 # 「grab 持有者不可見」(且不在清場中) 即自動救回
@@ -164,47 +180,6 @@ class RowIcons:
         sel = self.lb.curselection()
         if sel:
             cb(sel[0])
-
-
-class HScrollStrip(ttk.Frame):
-    """單列橫向捲動容器: 內容超出寬度時可用滑鼠滾輪橫向捲動.
-
-    子元件加到 `.inner`. 用於工具列在窄視窗時容納次要按鈕: 該列會縮小,
-    捲動即可找到被擠出去的按鈕, 不必放大視窗.
-    """
-
-    def __init__(self, master, height=26, **kw):
-        super().__init__(master, **kw)
-        self._wheel_bound = set()  # 已綁滾輪的 widget, 避免重複累加
-        self.canvas = tk.Canvas(self, height=height, bg=C["panel"],
-                                highlightthickness=0, bd=0)
-        self.canvas.pack(fill="both", expand=True)
-        self.inner = ttk.Frame(self.canvas, style="Panel.TFrame")
-        self._win = self.canvas.create_window(0, 0, anchor="nw", window=self.inner)
-        self.inner.bind("<Configure>", lambda e: (
-            self.canvas.configure(scrollregion=self.canvas.bbox("all")),
-            self._bind_wheel(self.inner)))  # 新加的子元件也要能觸發滾輪
-        self.canvas.bind("<Configure>",
-                         lambda e: self.canvas.itemconfigure(self._win, height=e.height))
-        self._bind_wheel(self.canvas)
-
-    def _bind_wheel(self, widget):
-        """把橫向滾輪綁到 widget 及其所有子孫 (直接綁, 不動全域 bind_all).
-
-        直接綁在按鈕上, 游標停在按鈕上滾動也有效; 也不會影響步驟清單的垂直捲動.
-        """
-        if str(widget) not in self._wheel_bound:
-            widget.bind("<MouseWheel>", self._on_wheel, add=True)
-            self._wheel_bound.add(str(widget))
-        for c in widget.winfo_children():
-            self._bind_wheel(c)
-
-    def _on_wheel(self, e):
-        # 內容比視窗窄就不必捲動 (bbox 寬度 <= 視窗寬度)
-        bbox = self.canvas.bbox("all")
-        if bbox and bbox[2] > self.canvas.winfo_width():
-            self.canvas.xview_scroll(-1 if e.delta > 0 else 1, "units")
-        return "break"
 
 
 class SegListbox(tk.Text):
@@ -392,7 +367,7 @@ class App:
         self._engine_state_seen = enginehub.LOADING
         threading.Thread(target=self.hub.load, daemon=True).start()
 
-        root.title("AutoClick — 按鍵精靈")
+        self._update_title()
         root.geometry("1120x700")
         root.minsize(900, 560)
         ui_theme.apply(root)
@@ -405,7 +380,6 @@ class App:
 
         self.refresh_templates()
         self.render_steps()
-        self._update_cal_ui()
         self._open_last_flow()
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         # windowed exe 沒有 stderr, callback 例外預設完全無聲 →
@@ -485,17 +459,6 @@ class App:
         self.library = self.hub.bind(self.store.images(), self.engine_config(),
                                      self.store.registered_dir, changed)
 
-    def refresh_templates_ui(self):
-        """「重新整理」: 重掃 templates/ 後範本清單整份重新交給引擎 (templates/ 被外力
-        動過之後按, 不必重開流程; 還沒存檔的截圖留著)."""
-        with self.hub.files_locked():
-            self.store.rescan()
-            self.rebind_templates()
-        self.refresh_templates()
-        self.render_steps()
-        self.log_ui(f"已重新整理本流程的範本（{len(self.store.names())} 個；"
-                    "登錄產物將於使用時載入）", "ok")
-
     def start_preload(self):
         """讀取流程後在背景做`範本預載` (被引用、有圖的範本; 引擎沒就緒就等就緒).
 
@@ -526,29 +489,115 @@ class App:
 
     def _mark_dirty(self):
         """有改動還沒存檔 (步驟、範本、校準對、忙碌指示、搜尋範圍、執行輪數)."""
-        self.dirty = True
+        self._set_dirty(True)
+
+    def _set_dirty(self, dirty):
+        """未存檔標記的唯一入口: 改它同時改視窗標題 (`*` 跟著未存檔走)."""
+        self.dirty = dirty
+        self._update_title()
+
+    def _update_title(self):
+        """視窗標題 `[*]<流程名> — AutoClick` (流程名＝資料夾名, 新流程沒存過＝未命名)."""
+        self.root.title(f"{'*' if self.dirty else ''}{self.flow_name()} — AutoClick")
+
+    # ================= 流程設定 (校準對、備用校準對、忙碌指示; ui-slim 04) =================
+    # 流程層級的設定收在「流程設定…」對話框: 每列＝名稱 ⓘ＋現狀＋設定…／清除／測試;
+    # 主視窗第一列只留摘要。設定或清除之後, 對話框的現狀、主視窗摘要、範本面板的未引用
+    # 標記一起重畫 (_settings_changed)。
+
+    def _parent(self):
+        """提示的 parent: modal 堆疊的堆頂 (例: 從流程設定對話框按的), 沒有就主視窗."""
+        return ui_grab.top_window() or self.root
+
+    def _cal_text(self):
+        cal = self.flow_cal
+        if not cal:
+            return "沒有（不能執行）"
+        return f"{cal['pair'][0]} × {cal['pair'][1]}（基準 {float(cal['baseline']):.0f} px）"
+
+    def _fb_text(self):
+        fb = calibration.fallback_pair(self.flow_cal)
+        if not fb:
+            return "沒有"
+        return f"{fb['pair'][0]} × {fb['pair'][1]}（基準 {float(fb['baseline']):.0f} px）"
+
+    def _busy_text(self):
+        return self.busy_target["template"] if self.busy_target else "不設"
+
+    def _settings_summary(self):
+        """主視窗第一列的摘要: 這份流程能不能跑 (校準對) 與有沒有忙碌指示."""
+        return (f"校準對 {'✓' if self.flow_cal else '✗'}　"
+                f"忙碌指示 {'✓' if self.busy_target else '—'}")
+
+    def _settings_changed(self):
+        """流程設定改了: 主視窗摘要、開著的流程設定對話框、範本面板的未引用標記都重畫."""
+        lbl = getattr(self, "settings_lbl", None)
+        if lbl is not None:
+            lbl.configure(text=self._settings_summary())
+        refresh = getattr(self, "_settings_refresh", None)
+        if refresh is not None:
+            refresh()
+        if getattr(self, "tmpl_list", None) is not None:
+            self.refresh_templates()
+
+    def open_flow_settings(self):
+        """「流程設定…」: 校準對、備用校準對、忙碌指示三列 (modal); 底部只有「關閉」."""
+        dlg = tk.Toplevel(self.root)
+        dlg.title("流程設定")
+        dlg.configure(bg=C["panel"])
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
+        body.pack(fill="both", expand=True)
+        rows = (("校準對", CAL_TIP, self._cal_text,
+                 self.designate_pair, self.clear_calibration, self.test_calibration),
+                ("備用校準對", FALLBACK_TIP, self._fb_text,
+                 self.designate_fallback_pair, self.clear_fallback,
+                 self.test_fallback_calibration),
+                ("忙碌指示", BUSY_TIP, self._busy_text,
+                 self.set_busy_indicator, self.clear_busy_indicator,
+                 self.test_busy_indicator))
+        shown = []
+        for r, (title, tip, text_of, set_fn, clear_fn, test_fn) in enumerate(rows):
+            pad = (8 if r else 0, 0)
+            cell = ttk.Frame(body, style="Panel.TFrame")
+            cell.grid(row=r, column=0, sticky="w", pady=pad)
+            ttk.Label(cell, text=title, style="Panel.TLabel").pack(side="left")
+            ui_dialogs.info_tip(cell, tip).pack(side="left", padx=(2, 12))
+            lbl = ttk.Label(body, style="Muted.TLabel")
+            lbl.grid(row=r, column=1, sticky="w", padx=(8, 16), pady=pad)
+            shown.append((lbl, text_of))
+            for c, (text, fn) in enumerate((("設定…", set_fn), ("清除", clear_fn),
+                                            ("測試", test_fn))):
+                ttk.Button(body, text=text, style="Small.TButton", takefocus=False,
+                           command=fn).grid(row=r, column=2 + c, padx=(0, 4), pady=pad)
+        body.columnconfigure(1, minsize=260)
+
+        def refresh():
+            for lbl_, text_of_ in shown:
+                lbl_.configure(text=text_of_())
+
+        def on_destroy(e):
+            if e.widget is dlg:
+                self._settings_refresh = None
+
+        refresh()
+        self._settings_refresh = refresh
+        dlg.bind("<Destroy>", on_destroy, add=True)
+        foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
+        foot.pack(fill="x")
+        ttk.Button(foot, text="關閉", command=dlg.destroy).pack(side="right")
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+        ui_dialogs._center(dlg, self.root)
+        ui_theme.disable_transitions(dlg)   # 測試與設定要清場: 隱藏需立即生效
+        ui_dialogs.make_modal(dlg)
+        dlg.focus_force()
+        self.root.wait_window(dlg)
 
     # ================= 校準 (`校準對` / `畫面倍率` / `座標基準點`, ADR 0009、0012) =================
     # 校準對與基準距離住在流程存檔裡 (self.flow_cal)。編輯器沒有跨操作保存的倍率或
     # 基準點: 每次拾取都在那張截圖上量 (ui_dialogs.measured_pick → calibrate_frame),
     # 拾取到的座標與截下的範本當場換回`流程尺度`、相對基準點。量測純邏輯在 calibration。
-
-    def _update_cal_ui(self):
-        """「校準」鈕回到只有名字 (量到的倍率只在按下後顯示); 旁邊寫出這份流程的校準對."""
-        if getattr(self, "cal_btn", None) is None:
-            return
-        self.cal_btn.configure(text="校準")
-        cal = self.flow_cal
-        if cal:
-            text = (f"校準對：{cal['pair'][0]} × {cal['pair'][1]}"
-                    f"（{float(cal['baseline']):.0f}px）")
-            fb = calibration.fallback_pair(cal)
-            if fb:
-                text += (f"；備用：{fb['pair'][0]} × {fb['pair'][1]}"
-                         f"（{float(fb['baseline']):.0f}px）")
-        else:
-            text = "這份流程還沒有校準對（不能執行）"
-        self.cal_info.configure(text=text)
 
     def calibration_ready(self, title, names=None, parent=None):
         """校準量測前的檢查 (清場「之前」做, 清場中彈窗會隱形卡死): `引擎就緒`、
@@ -557,7 +606,7 @@ class App:
         names: 要查的範本名 (預設＝這份流程的校準對, 含備用校準對——主對找不到時
         calibrate() 會改量備用對, 備用對的範本沒先載入, 查詢會踩到空的登錄產物)。
         """
-        parent = parent or self.root
+        parent = parent or self._parent()
         if not self.engine_gate(parent):
             return False
         self.ensure_registered()
@@ -599,7 +648,7 @@ class App:
         """量不到 (Measurement / Calibrated) 時的提示."""
         messagebox.showwarning(
             title, m.describe() + "\n請切換到兩張圖同時出現的畫面、搜尋範圍要框住"
-            "它們，再重試（原本的設定維持不動）", parent=self.root)
+            "它們，再重試（原本的設定維持不動）", parent=self._parent())
 
     def designate_pair(self):
         """設定 (或更換) 這份流程的`校準對` (ADR 0009、0012).
@@ -612,7 +661,7 @@ class App:
         拒絕 (不知道差多少就換基準, 整份流程會點偏)。兩對在同一張截圖上量。
         任何一步失敗都不改動原本的校準資料與座標。
         """
-        if not self.engine_gate():
+        if not self.engine_gate(self._parent()):
             return
         pair = ui_dialogs.pick_cal_pair(self)
         if not pair:
@@ -622,7 +671,7 @@ class App:
         fb = calibration.fallback_pair(old)
         if fb and set(pair) == set(fb["pair"]):
             messagebox.showwarning(title, "新的校準對與備用校準對相同；"
-                                   "請挑別的兩張，或先改備用對", parent=self.root)
+                                   "請挑別的兩張，或先改備用對", parent=self._parent())
             return
         if not self.calibration_ready(title, [*pair, *(old["pair"] if old else ())]):
             return
@@ -654,7 +703,7 @@ class App:
                     fb["pair"], fb["baseline"],
                     calibration.fallback_offset(m.anchor, fb_first, k))
         self._mark_dirty()
-        self._update_cal_ui()
+        self._settings_changed()
         self.render_steps()
         self.log_ui(f"已設定校準對「{pair[0]}」×「{pair[1]}」，"
                     f"基準距離 {m.distance / k:.1f}px（目前畫面倍率 ×{k:.3f}）；"
@@ -672,20 +721,21 @@ class App:
         主對找不到就拒絕 (沒有基準點可對齊); 量到的備用距離 ÷ 當下倍率＝它的基準距離,
         (主基準點 − 備用第一張中心) ÷ 倍率＝偏移 (流程尺度)。存進流程 (存檔時寫進 flow.yaml)。
         """
-        if not self.engine_gate():
+        if not self.engine_gate(self._parent()):
             return
         title = "設定備用校準對"
         main = self.flow_cal
         if main is None:
-            messagebox.showinfo(title, "請先按「設定校準對」設定主校準對，"
-                                "備用對才有可對齊的座標基準點", parent=self.root)
+            messagebox.showinfo(title, "請先設定校準對，"
+                                "備用對才有可對齊的座標基準點", parent=self._parent())
             return
         pair = ui_dialogs.pick_cal_pair(self, fallback=True)
         if not pair:
             return
         if set(pair) == set(main["pair"]):
             messagebox.showwarning(title, "備用校準對不能與校準對相同；"
-                                   "備用對是主對被擋住時用的另外兩張圖", parent=self.root)
+                                   "備用對是主對被擋住時用的另外兩張圖",
+                                   parent=self._parent())
             return
         if not self.calibration_ready(title, [*pair, *main["pair"]]):
             return
@@ -705,65 +755,98 @@ class App:
                                        calibration.fallback_offset(c.anchor, m.anchor, k))
         self.flow_cal = dict(main, **{calibration.FALLBACK_KEY: fb})
         self._mark_dirty()
-        self._update_cal_ui()
+        self._settings_changed()
         self.log_ui(f"已設定備用校準對「{pair[0]}」×「{pair[1]}」，基準距離 "
                     f"{fb['baseline']:.1f}px，對座標基準點的偏移 "
                     f"({fb['offset'][0]:+d},{fb['offset'][1]:+d})（目前畫面倍率 ×{k:.3f}）；"
                     "主校準對找不到時執行會改用它", "ok")
 
-    def calibrate_now(self):
-        """「校準」鈕: 用這份流程的校準對量一次, 只顯示目前的倍率與基準點 (ADR 0012).
-
-        不影響任何存下的值——拾取時會各自重量; 這顆只是讓作者確認畫面大小與位置。
-        """
+    def clear_calibration(self):
+        """清除校準對＝整份校準資料清空 (備用對依附主對的基準點, 一起清; 有備用時先確認)."""
         cal = self.flow_cal
         if cal is None:
-            messagebox.showinfo("校準", "這份流程還沒有校準對，"
-                                "請先按「設定校準對」", parent=self.root)
+            self.log_ui("校準對還沒設定，沒有可清除的", "info")
             return
-        if not self.calibration_ready("校準"):
+        fb = calibration.fallback_pair(cal)
+        if fb and not messagebox.askyesno(
+                "清除校準對", "備用校準對依附校準對的座標基準點，會一起清除。\n"
+                "要清除嗎？", parent=self._parent()):
+            return
+        self.flow_cal = None
+        self._mark_dirty()
+        self._settings_changed()
+        self.log_ui("已清除校準對" + ("與備用校準對" if fb else "")
+                    + "（沒有校準對不能執行）", "warn")
+
+    def clear_fallback(self):
+        """清除備用校準對 (主校準對不動)."""
+        cal = self.flow_cal
+        if calibration.fallback_pair(cal) is None:
+            self.log_ui("備用校準對還沒設定，沒有可清除的", "info")
+            return
+        self.flow_cal = {k: v for k, v in cal.items() if k != calibration.FALLBACK_KEY}
+        self._mark_dirty()
+        self._settings_changed()
+        self.log_ui("已清除備用校準對（主校準對找不到時不再改量備用對）", "ok")
+
+    def test_calibration(self):
+        """校準對的「測試」: 用這份流程的校準對在目前畫面量一次, 結果寫進執行紀錄.
+
+        只是顯示, 不影響任何存下的值——拾取與執行時各自重量 (ADR 0012); 量到`支援倍率
+        範圍`外只警告 (ADR 0013 決策 1)。
+        """
+        title = "測試校準對"
+        if self.flow_cal is None:
+            self.log_ui(f"{title}：校準對還沒設定", "warn")
+            return
+        if not self.calibration_ready(title):
             return
         with ui_overlay.screen_clear(self.root):
             c, _frame = self.calibrate_frame()
         if not c.ok:
-            self._warn_measure("校準", c)
+            self.log_ui(f"{title}：{c.describe()}（搜尋範圍要框住校準對兩張圖）", "warn")
             return
         m = c.measurement
-        used = "（備用）" if c.used == "fallback" else ""
-        self.cal_btn.configure(text=f"校準　×{c.scale:.2f}{used}")
         which = ("用備用校準對量（主對缺「" + "」「".join(c.main.missing) + "」）"
                  if c.used == "fallback" else "用校準對量")
-        self.log_ui(f"目前畫面倍率 ×{c.scale:.3f}"
+        self.log_ui(f"{title}：目前畫面倍率 ×{c.scale:.3f}"
                     f"（距離 {m.distance:.1f}px ÷ 基準 {c.baseline:.1f}px，{which}）、"
                     f"座標基準點 {tuple(c.anchor)}；只是顯示，拾取時會各自重量", "ok")
         if not c.in_range:   # 只警告不擋 (ADR 0013 決策 1)
-            self.log_ui(f"校準：{ui_dialogs.out_of_range_warning(c.scale)}", "warn")
+            self.log_ui(f"{title}：{ui_dialogs.out_of_range_warning(c.scale)}", "warn")
+
+    def test_fallback_calibration(self):
+        """備用校準對的「測試」: 只用備用對量 (主對看得到時也一樣), 結果寫進執行紀錄."""
+        title = "測試備用校準對"
+        fb = calibration.fallback_pair(self.flow_cal)
+        if fb is None:
+            self.log_ui(f"{title}：備用校準對還沒設定", "warn")
+            return
+        if not self.calibration_ready(title, fb["pair"]):
+            return
+        with ui_overlay.screen_clear(self.root):
+            screen, org = self.grab_frame()
+        m = calibration.measure(self.detector.query, screen, list(fb["pair"]), org)
+        if not m.ok:
+            self.log_ui(f"{title}：{m.describe()}", "warn")
+            return
+        k = m.scale(fb["baseline"])
+        anchor = calibration.fallback_anchor(m.anchor, fb["offset"], k)
+        self.log_ui(f"{title}：畫面倍率 ×{k:.3f}（距離 {m.distance:.1f}px ÷ 基準 "
+                    f"{float(fb['baseline']):.1f}px）、座標基準點 {tuple(anchor)}；"
+                    "只是顯示", "ok")
+        if not calibration.in_supported_range(k):
+            self.log_ui(f"{title}：{ui_dialogs.out_of_range_warning(k)}", "warn")
 
     # ================= `忙碌指示` (ADR 0008、0011) =================
 
-    def _update_busy_ui(self):
-        """流程設定區顯示目前的忙碌指示."""
-        if getattr(self, "busy_lbl", None) is None:
-            return
-        tgt = self.busy_target
-        # 第三列空間有限: 只寫範本名 (細節在「忙碌指示…」裡看)
-        self.busy_lbl.configure(text=tgt["template"] if tgt else "（不設）")
+    def set_busy_indicator(self):
+        """設定 (或重新設定)`忙碌指示`: 選範本 (同一個選範本對話框) → 找圖設定.
 
-    def edit_busy_indicator(self):
-        """設定/清除`忙碌指示`: 選範本 (同一個選範本對話框) → 找圖設定.
-
-        已設定時先問要不要清除 (否＝重新設定); 限定範圍由作者在找圖設定裡框
-        `固定矩形` (指示字樣在畫面底部中央)。這次加進來最後沒用到的圖收回。
+        限定範圍由作者在找圖設定裡框`固定矩形` (指示字樣在畫面底部中央)。清除是流程設定
+        對話框裡另一顆鈕。這次加進來最後沒用到的圖收回。
         """
         cur = self.busy_target
-        if cur and messagebox.askyesno(
-                "忙碌指示", f"目前的忙碌指示是「{cur['template']}」。\n"
-                "要清除嗎？（否＝重新設定）", parent=self.root):
-            self.busy_target = None
-            self._update_busy_ui()
-            self._mark_dirty()
-            self.log_ui("已清除忙碌指示（補做只看補做間隔）", "ok")
-            return
         before = set(self.list_template_names())
         name = ui_dialogs.pick_template(
             self, "選擇忙碌指示", initial=(cur or {}).get("template"))
@@ -777,20 +860,37 @@ class App:
                     self, findtarget.make_target(name, **o), hide=(parent,))
 
             opts = ui_dialogs.edit_target_opts(
-                self, self.root, base, "忙碌指示的找圖設定", test_fn=test)
+                self, self._parent(), base, "忙碌指示的找圖設定", test_fn=test)
             tgt = findtarget.make_target(name, **opts) if opts else None
             if tgt is not None and findtarget.needs_origin(tgt):
                 # 補做前才查、那時的原點不固定: 不能挑「最接近指定點」
                 messagebox.showwarning(
                     "忙碌指示", "忙碌指示的指定點不能以原點為基準（補做前才查，"
-                    "那時的原點不固定），請改用其他挑選規則", parent=self.root)
+                    "那時的原點不固定），請改用其他挑選規則", parent=self._parent())
             elif tgt is not None:
                 self.busy_target = tgt
                 self._mark_dirty()
                 self.log_ui(f"已設定忙碌指示「{name}」：畫面上有它時先不補做，"
                             "勾了忙碌檢查的步驟送出後會等它消失", "ok")
         ui_dialogs.discard_unused(self, added, None)
-        self._update_busy_ui()
+        self._settings_changed()
+
+    def clear_busy_indicator(self):
+        """清除忙碌指示＝不設 (補做只看補做間隔)."""
+        if self.busy_target is None:
+            self.log_ui("忙碌指示還沒設定，沒有可清除的", "info")
+            return
+        self.busy_target = None
+        self._mark_dirty()
+        self._settings_changed()
+        self.log_ui("已清除忙碌指示（補做只看補做間隔）", "ok")
+
+    def test_busy_indicator(self):
+        """忙碌指示的「測試」: 照它的找圖目標比對測試 (標註預覽＋拾取檢查)."""
+        if self.busy_target is None:
+            self.log_ui("測試忙碌指示：忙碌指示還沒設定", "warn")
+            return
+        ui_dialogs.show_match_test(self, self.busy_target)
 
     # ================= UI 建構 =================
 
@@ -800,75 +900,57 @@ class App:
         self.root.bind("<Control-o>", lambda e: self.open_flow())
 
     def _build_toolbar(self):
-        bar = ttk.Frame(self.root, padding=(12, 8))
+        """兩列工具列 (版面 D, ui-slim): 第一列流程檔＋搜尋範圍 …… 流程設定摘要;
+        第二列執行設定＋大字狀態＋開始/停止 …… F12. 沒有另外的狀態列."""
+        bar = ttk.Frame(self.root, padding=(12, 8, 12, 4))
         bar.pack(fill="x")
+        for text, cmd in (("新流程", self.new_flow), ("開檔", self.open_flow),
+                          ("存檔", self.save_flow)):
+            ttk.Button(bar, text=text, style="Small.TButton", takefocus=False,
+                       command=cmd).pack(side="left", padx=(0, 4))
+        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=10)
+        ttk.Label(bar, text="搜尋範圍").pack(side="left")
+        ui_dialogs.info_tip(bar, SCAN_TIP, bg=C["bg"]).pack(side="left", padx=(2, 0))
+        self.scan_lbl = ttk.Label(bar, text="全螢幕", foreground=C["muted"])
+        self.scan_lbl.pack(side="left", padx=(6, 8))
+        ttk.Button(bar, text="框選", style="Small.TButton", takefocus=False,
+                   command=self.pick_scan_region).pack(side="left", padx=(0, 4))
+        ttk.Button(bar, text="清除", style="Small.TButton", takefocus=False,
+                   command=self.clear_scan_region).pack(side="left")
+        # 流程層級的設定 (校準對、備用校準對、忙碌指示) 收在對話框, 這裡只放摘要
+        ttk.Button(bar, text="流程設定…", takefocus=False,
+                   command=self.open_flow_settings).pack(side="right")
+        self.settings_lbl = ttk.Label(bar, text=self._settings_summary(),
+                                      foreground=C["muted"])
+        self.settings_lbl.pack(side="right", padx=(0, 8))
 
-        ttk.Label(bar, text="模式").pack(side="left")
-        self.run_mode = ttk.Combobox(bar, width=8, state="readonly",
+        bar2 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
+        bar2.pack(fill="x")
+        ttk.Label(bar2, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
+        ttk.Label(bar2, text="模式").pack(side="left")
+        self.run_mode = ttk.Combobox(bar2, width=8, state="readonly",
                                      values=["執行次數", "直到停止"])
         self.run_mode.set("執行次數")
         self.run_mode.pack(side="left", padx=(4, 10))
         self.run_mode.bind("<<ComboboxSelected>>", lambda e: self._on_run_setting())
-
-        self.count_lbl = ttk.Label(bar, text="次數")
+        self.count_lbl = ttk.Label(bar2, text="次數")
         self.count_lbl.pack(side="left")
-        self.run_count = ttk.Spinbox(bar, from_=1, to=99999, width=6)
+        self.run_count = ttk.Spinbox(bar2, from_=1, to=99999, width=6)
         self.run_count.set(1)
         self.run_count.pack(side="left", padx=(4, 14))
         self.run_count.configure(command=self._on_run_setting)
         self.run_count.bind("<KeyRelease>", lambda e: self._on_run_setting(), add=True)
         self._run_seen = self._run_value()   # 上次看到的執行輪數 (值變了才算改動)
-
-        self.btn_run = ttk.Button(bar, text="▶ 開始執行", style="Run.TButton",
+        # 大字狀態: 遠遠瞄一眼就知道在做什麼 (文字由 _poll 更新)
+        self.status_lbl = ttk.Label(bar2, text="待機", style="Status.TLabel",
+                                    font=(FONT[0], 13, "bold"))
+        self.status_lbl.pack(side="left", padx=(0, 14))
+        self.btn_run = ttk.Button(bar2, text="▶ 開始執行", style="Run.TButton",
                                   command=self.start_run)
         self.btn_run.pack(side="left", padx=(0, 6))
-        self.btn_stop = ttk.Button(bar, text="■ 停止", style="Stop.TButton",
+        self.btn_stop = ttk.Button(bar2, text="■ 停止", style="Stop.TButton",
                                    command=self.stop_all, state="disabled")
-        self.btn_stop.pack(side="left", padx=(0, 14))
-
-        self.status_lbl = ttk.Label(bar, text="待機", style="Status.TLabel")
-        self.status_lbl.pack(side="left")
-
-        ttk.Label(bar, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
-
-        # 第二列: 全域搜尋範圍
-        bar2 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
-        bar2.pack(fill="x")
-        ttk.Label(bar2, text="搜尋範圍").pack(side="left")
-        self.scan_lbl = ttk.Label(bar2, text="全螢幕", foreground=C["muted"])
-        self.scan_lbl.pack(side="left", padx=(6, 8))
-        ttk.Button(bar2, text="框選範圍", style="Accent.TButton",
-                   command=self.pick_scan_region).pack(side="left", padx=(0, 6))
-        ttk.Button(bar2, text="清除", command=self.clear_scan_region).pack(side="left")
-        ttk.Label(bar2, text="（所有找圖步驟與比對測試都只在此範圍內找圖）",
-                  foreground=C["muted"]).pack(side="left", padx=(12, 0))
-
-        # 第三列: `校準`常駐按鈕區。前兩列在預設視窗寬度下已無剩餘空間
-        # (塞進去會被裁掉), 校準自成一列才保得住「常駐顯示」
-        bar3 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
-        bar3.pack(fill="x")
-        # 右側的流程設定先 pack (pack 先到先分到空間): 預設視窗寬度下塞不下時,
-        # 被裁掉的是左側的校準對說明文字, 不是設定欄位
-        # 流程層級的`忙碌指示` (ADR 0008; 步驟面板太窄放不下)
-        self.busy_lbl = ttk.Label(bar3, text="", foreground=C["muted"])
-        self.busy_lbl.pack(side="right", padx=(6, 0))
-        ttk.Button(bar3, text="忙碌指示…", style="Small.TButton",
-                   takefocus=False,
-                   command=self.edit_busy_indicator).pack(side="right")
-        ttk.Label(bar3, text="畫面校準").pack(side="left")
-        ttk.Button(bar3, text="設定校準對", style="Small.TButton",
-                   takefocus=False,
-                   command=self.designate_pair).pack(side="left", padx=(8, 6))
-        ttk.Button(bar3, text="設定備用校準對", style="Small.TButton",
-                   takefocus=False,
-                   command=self.designate_fallback_pair).pack(side="left", padx=(0, 6))
-        # 「校準」鈕只量測並顯示目前倍率與基準點 (拾取與執行各自重量, ADR 0012)
-        self.cal_btn = ttk.Button(bar3, text="校準", style="Small.TButton",
-                                  takefocus=False, command=self.calibrate_now)
-        self.cal_btn.pack(side="left")
-        self.cal_info = ttk.Label(bar3, text="", foreground=C["muted"])
-        self.cal_info.pack(side="left", padx=(12, 0))
-
+        self.btn_stop.pack(side="left")
 
     def _mode_ui(self):
         state = "normal" if self.run_mode.get() == "執行次數" else "disabled"
@@ -974,51 +1056,68 @@ class App:
             self._region_prev = None
 
     def _build_main(self):
+        """主區兩欄 (版面 D): 左＝執行步驟; 右上＝本流程的範本, 右下＝執行紀錄."""
         main = ttk.Frame(self.root, padding=(12, 0, 12, 12))
         main.pack(fill="both", expand=True)
         main.columnconfigure(0, weight=5)
         main.columnconfigure(1, weight=2)
-        main.rowconfigure(0, weight=1)
+        main.rowconfigure(0, weight=3)
+        main.rowconfigure(1, weight=2)
+        self._build_steps(main)
+        self._build_templates(main)
+        self._build_log(main)
 
-        # ---- 左: 步驟 ----
+    def _popup_button(self, master, text, types):
+        """按下彈出選單的小鈕 (選單是它的子元件); types 依序加入, None＝分隔線."""
+        btn = ttk.Button(master, text=text, style="Small.TButton", takefocus=False)
+        menu = tk.Menu(btn, tearoff=0, bg=C["panel"], fg=C["text"],
+                       activebackground=C["sel"], activeforeground=C["text"],
+                       bd=0, font=FONT)
+        for t in types:
+            if t is None:
+                menu.add_separator()
+            else:
+                menu.add_command(label=STEP_LABELS[t],
+                                 command=lambda t=t: self.add_step(t))
+        btn.configure(command=lambda: menu.tk_popup(
+            btn.winfo_rootx(), btn.winfo_rooty() + btn.winfo_height()))
+        return btn
+
+    def _build_steps(self, main):
         left = ttk.Frame(main, style="Panel.TFrame", padding=10)
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-        left.rowconfigure(2, weight=1)
+        left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=(0, 10))
+        left.rowconfigure(1, weight=1)
         left.columnconfigure(0, weight=1)
 
         head = ttk.Frame(left, style="Panel.TFrame")
         head.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 8))
         ttk.Label(head, text="執行步驟", style="Title.TLabel").pack(side="left")
+        ttk.Button(head, text="測試選取", style="Small.TButton", takefocus=False,
+                   command=self.test_selected_steps).pack(side="left", padx=(10, 0))
+        # 新增步驟: 寬度夠＝常用四種一排鈕＋「區段 ▾」; 不夠＝整排收成「＋ 新增 ▾」列出全部九項
+        chips = ttk.Frame(head, style="Panel.TFrame")
+        for t, text in ADD_CHIPS:
+            ttk.Button(chips, text=text, style="Small.TButton", takefocus=False,
+                       command=lambda t=t: self.add_step(t)).pack(side="left", padx=(0, 4))
+        self._popup_button(chips, "區段 ▾", SECTION_TYPES).pack(side="left")
+        compact = self._popup_button(head, "＋ 新增 ▾",
+                                     [t for t, _ in ADD_CHIPS] + [None, *SECTION_TYPES])
 
-        # 「新增步驟」最高優先: 先 pack 到最右, 窄視窗時保留可見
-        add_btn = ttk.Menubutton(head, text="＋ 新增步驟")
-        add_menu = tk.Menu(add_btn, tearoff=0, bg=C["panel"], fg=C["text"],
-                           activebackground=C["sel"], activeforeground=C["text"],
-                           bd=0, font=FONT)
-        for t in ("find_click", "click", "drag", "wait"):
-            add_menu.add_command(label=STEP_LABELS[t],
-                                 command=lambda t=t: self.add_step(t))
-        add_menu.add_separator()
-        for t in ("repeat_start", "repeat_end"):
-            add_menu.add_command(label=STEP_LABELS[t],
-                                 command=lambda t=t: self.add_step(t))
-        add_menu.add_separator()
-        for t in ("branch_start", "branch_or", "branch_end"):
-            add_menu.add_command(label=STEP_LABELS[t],
-                                 command=lambda t=t: self.add_step(t))
-        add_btn.configure(menu=add_menu)
-        add_btn.pack(side="right")
+        def pad(w):
+            px = w.pack_info().get("padx", 0)
+            return sum(map(int, px)) if isinstance(px, (tuple, list)) else 2 * int(px)
 
-        # 新流程/存檔/讀檔/清除: 小按鈕放進橫向捲動列, 窄視窗時縮小、滾輪捲動找到
-        # (「匯出」已移除: 存檔本身就是可搬移的檔, 要給別人直接複製檔案)
-        strip = HScrollStrip(head)
-        strip.pack(side="left", fill="x", expand=True, padx=(8, 6))
-        for text, cmd in (("新流程", self.new_flow),
-                          ("存檔", self.save_flow), ("讀檔", self.open_flow),
-                          ("清除", self.clear_steps),
-                          ("測試選取", self.test_selected_steps)):
-            ttk.Button(strip.inner, text=text, style="Small.TButton",
-                       command=cmd, takefocus=False).pack(side="left", padx=(0, 4))
+        def fit(_e=None):
+            used = sum(w.winfo_reqwidth() + pad(w) for w in head.pack_slaves()
+                       if w not in (chips, compact)) + 20
+            want = (chips if head.winfo_width() - used >= chips.winfo_reqwidth()
+                    else compact)
+            other = compact if want is chips else chips
+            if other.winfo_manager():
+                other.pack_forget()
+            if not want.winfo_manager():
+                want.pack(side="right")
+        head.bind("<Configure>", fit, add=True)
 
         self.step_list = SegListbox(
             left, bg=C["bg"], fg=C["text"], selectbackground=C["sel"],
@@ -1028,21 +1127,18 @@ class App:
         self.step_list.drag_guard = (
             lambda: getattr(self, "_drag_idxs", None) is not None)
         self.step_list.press_keep = self._on_handle
-        self.step_list.grid(row=2, column=0, sticky="nsew")
+        self.step_list.grid(row=1, column=0, sticky="nsew")
         sb = ttk.Scrollbar(left, orient="vertical", command=self.step_list.yview)
-        sb.grid(row=2, column=1, sticky="ns")
+        sb.grid(row=1, column=1, sticky="ns")
         self.step_list.configure(yscrollcommand=sb.set)
         self.step_list.bind("<Double-Button-1>", self._on_step_double)
         self.step_list.bind("<Delete>", lambda e: self.del_step())
         self.step_list.bind("<Control-c>", lambda e: (self.copy_steps(), "break")[1])
         self.step_list.bind("<Control-v>", lambda e: (self.paste_steps(), "break")[1])
 
-        # 選取列顯示列內圖示操作; 左側 ≡ 把手可拖曳調整順序
+        # 選取列只有 ✎ ✕ (排序靠 ☰ 把手拖曳、複製靠 Ctrl+C/V)
         self._step_icons = RowIcons(self.step_list, [
             ("✎", "編輯", lambda i: self.edit_step()),
-            ("⧉", "複製", lambda i: self.dup_step()),
-            ("▲", "上移", lambda i: self.move_step(-1)),
-            ("▼", "下移", lambda i: self.move_step(1)),
             ("✕", "刪除", lambda i: self.del_step()),
         ])
         self._handle_w = tkfont.Font(font=FONT).measure(" ☰ ") + 6  # 把手區寬度
@@ -1059,17 +1155,11 @@ class App:
         self.step_list.bind("<B1-Motion>", self._drag_motion, add=True)
         self.step_list.bind("<ButtonRelease-1>", self._drag_end, add=True)
 
-        # ---- 右 ----
-        right = ttk.Frame(main)
-        right.grid(row=0, column=1, sticky="nsew")
-        right.rowconfigure(0, weight=3)
-        right.rowconfigure(1, weight=1)
-        right.columnconfigure(0, weight=1)
-
-        # 範本
-        tp = ttk.Frame(right, style="Panel.TFrame", padding=10)
-        tp.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
-        tp.rowconfigure(2, weight=1)
+    def _build_templates(self, main):
+        """本流程的範本: 截圖新增; 清單 (沒被引用的灰字) ＋縮圖; 重截／重新命名／刪除."""
+        tp = ttk.Frame(main, style="Panel.TFrame", padding=10)
+        tp.grid(row=0, column=1, sticky="nsew", pady=(0, 10))
+        tp.rowconfigure(1, weight=1)
         tp.columnconfigure(0, weight=1)
         tp.columnconfigure(2, weight=1)
 
@@ -1077,10 +1167,8 @@ class App:
         thead.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         # 面板列的是「本流程的範本」——一眼看得出這份流程帶了哪些圖 (ADR 0006)
         ttk.Label(thead, text="本流程的範本", style="Title.TLabel").pack(side="left")
-        ttk.Button(thead, text="截圖框選", style="Accent.TButton",
+        ttk.Button(thead, text="截圖新增", style="Accent.TButton",
                    command=lambda: self.capture_template()).pack(side="right")
-        ttk.Button(thead, text="上傳圖片",
-                   command=self.upload_template).pack(side="right", padx=(0, 6))
 
         self._tmpl_names = []     # 清單目前列出的範本名 (平面, 無資料夾層級)
         self.tmpl_list = tk.Listbox(
@@ -1090,8 +1178,8 @@ class App:
             highlightcolor=C["accent"], activestyle="none", width=24)
         tsb = ttk.Scrollbar(tp, orient="vertical", command=self.tmpl_list.yview)
         self.tmpl_list.configure(yscrollcommand=tsb.set)
-        self.tmpl_list.grid(row=2, column=0, sticky="nsew")
-        tsb.grid(row=2, column=1, sticky="ns", padx=(0, 8))
+        self.tmpl_list.grid(row=1, column=0, sticky="nsew")
+        tsb.grid(row=1, column=1, sticky="ns", padx=(0, 8))
         self.tmpl_list.bind("<<ListboxSelect>>", self._on_tmpl_select)
         self.tmpl_list.bind("<Double-Button-1>", lambda e: self.rename_template())
         self._tmpl_icons = RowIcons(self.tmpl_list, [
@@ -1100,7 +1188,7 @@ class App:
         ])
 
         pv = ttk.Frame(tp, style="Panel.TFrame")
-        pv.grid(row=2, column=2, sticky="nsew")
+        pv.grid(row=1, column=2, sticky="nsew")
         self.thumb_lbl = tk.Label(pv, bg=C["bg"], bd=0,
                                   highlightthickness=1,
                                   highlightbackground=C["border"])
@@ -1108,26 +1196,24 @@ class App:
         self.thumb_info = ttk.Label(pv, text="", style="Muted.TLabel")
         self.thumb_info.pack(anchor="w", pady=(4, 0))
 
-        # 按鈕重要性一致: 全放進橫向捲動列, 窄視窗時縮小、滾輪捲動找到
-        tops = HScrollStrip(tp)
-        tops.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(8, 0))
-        # (「＋資料夾」已移除: 一份流程的範本是平面清單, 不需要命名空間)
-        for text, cmd in (("比對測試", self.test_template),
-                          ("複製", self.copy_template),
-                          ("重新整理", self.refresh_templates_ui)):
-            ttk.Button(tops.inner, text=text, style="Small.TButton",
-                       command=cmd, takefocus=False).pack(side="left", padx=(0, 4))
+        ops = ttk.Frame(tp, style="Panel.TFrame")
+        ops.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+        for text, cmd in (("重截", self.recapture_template),
+                          ("重新命名", self.rename_template),
+                          ("刪除", self.del_template)):
+            ttk.Button(ops, text=text, style="Small.TButton", takefocus=False,
+                       command=cmd).pack(side="left", padx=(0, 4))
 
-        # 紀錄
-        lg = ttk.Frame(right, style="Panel.TFrame", padding=10)
-        lg.grid(row=1, column=0, sticky="nsew")
+    def _build_log(self, main):
+        lg = ttk.Frame(main, style="Panel.TFrame", padding=10)
+        lg.grid(row=1, column=1, sticky="nsew")
         lg.rowconfigure(1, weight=1)
         lg.columnconfigure(0, weight=1)
         lhead = ttk.Frame(lg, style="Panel.TFrame")
-        lhead.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        lhead.grid(row=0, column=0, sticky="ew", pady=(0, 6))
         ttk.Label(lhead, text="執行紀錄", style="Title.TLabel").pack(side="left")
-        ttk.Button(lhead, text="清除",
-                   command=lambda: self._clear_log()).pack(side="right")
+        ttk.Button(lhead, text="清除", style="Small.TButton", takefocus=False,
+                   command=self._clear_log).pack(side="right")
 
         self.log_text = tk.Text(
             lg, bg=C["bg"], fg="#CBD5E1", font=FONT_MONO, bd=0,
@@ -1206,6 +1292,10 @@ class App:
             lb.see(vi)  # 還原後才確保 keep 可見, 只在超出視窗時才微調
         if self._drag_idxs is None:  # 拖曳中跳過 (版面同步太重), 拖曳結束時補一次
             self._step_icons.refresh()
+        # 步驟改了引用 (換範本、刪掉最後一個引用的步驟): 範本面板的未引用標記即時跟著變
+        if (getattr(self, "tmpl_list", None) is not None
+                and set(self.referenced_templates()) != getattr(self, "_refs_shown", None)):
+            self.refresh_templates()
 
     def _region_end(self, i):
         """start 標記 i 的對應結束索引 (通用巢狀); 不成對回傳 None."""
@@ -1316,16 +1406,6 @@ class App:
         self._mark_dirty()
         self.render_steps(keep=at + len(items) - 1)
         self.log_ui(f"已貼上 {len(items)} 個步驟", "ok")
-
-    def dup_step(self):
-        idxs = self._expand_collapsed(self._sel_all())
-        if not idxs:
-            return
-        block = [json.loads(json.dumps(self.steps[i])) for i in idxs]
-        at = idxs[-1] + 1
-        self.steps[at:at] = block
-        self._mark_dirty()
-        self.render_steps(keep=at + len(block) - 1)
 
     def del_step(self):
         idxs = self._expand_collapsed(self._sel_all())
@@ -1438,28 +1518,6 @@ class App:
             self._step_icons.refresh()
             self._mark_dirty()
 
-    def clear_steps(self):
-        if not self.steps:
-            return
-        if not messagebox.askyesno("清除步驟", f"清除全部 {len(self.steps)} 個步驟？",
-                                   parent=self.root):
-            return
-        self.steps = []
-        self._mark_dirty()
-        self.render_steps()
-        self.log_ui("已清除全部步驟", "warn")
-
-    def move_step(self, d):
-        i = self._sel()
-        if i is None:
-            return
-        j = i + d
-        if not (0 <= j < len(self.steps)):
-            return
-        self.steps[i], self.steps[j] = self.steps[j], self.steps[i]
-        self._mark_dirty()
-        self.render_steps(keep=j)
-
     # ================= 範本操作 (本流程的範本) =================
     # 範本名是**平面名稱** (＝templates/ 裡的檔名), 在一份流程內唯一。**一範本一張圖**。
     # 新增、重截、改名、刪除只動記憶體與快取 (self.store), 存檔才寫回 templates/。
@@ -1541,14 +1599,21 @@ class App:
             self._show_thumb()
 
     def refresh_templates(self):
-        """本流程的範本清單 (平面, 沒有資料夾層級); 有`拾取檢查`警告的範本標 ⚠."""
+        """本流程的範本清單 (平面, 沒有資料夾層級); 有`拾取檢查`警告的範本標 ⚠;
+        沒被任何步驟或流程設定引用的灰字加「（未引用）」(存檔時會離開 templates/)."""
         names = self.list_template_names()
         sel = self._sel_template()
         self._tmpl_names = names
         flagged = self.pick_warnings()
+        used = self._refs_shown = set(self.referenced_templates())
         self.tmpl_list.delete(0, "end")
         for n in names:
-            self.tmpl_list.insert("end", f" {'⚠' if n in flagged else '🖼'} {n}")
+            if n in used:
+                self.tmpl_list.insert("end", f" {'⚠' if n in flagged else '🖼'} {n}")
+            else:
+                self.tmpl_list.insert("end", f" {'⚠' if n in flagged else '○'} {n}"
+                                             f"　{UNREF_MARK}")
+                self.tmpl_list.itemconfig("end", fg=C["muted"])
         if sel in names:
             i = names.index(sel)
             self.tmpl_list.selection_set(i)
@@ -1685,8 +1750,7 @@ class App:
         self._pending_templates.add(name)
         self._schedule_reregister()
         self.refresh_templates()
-        self.log_ui(f"已新增範本「{name}」({img.shape[1]}×{img.shape[0]})"
-                    "；建議跑一次「比對測試」確認畫面上找得到", "ok")
+        self.log_ui(f"已新增範本「{name}」({img.shape[1]}×{img.shape[0]})", "ok")
         return name
 
     def _schedule_reregister(self):
@@ -1732,34 +1796,32 @@ class App:
         self.check_template_scale(name, r.get("frame"), anchor, k)
         return name
 
-    def upload_template(self):
-        """從硬碟上傳圖片存為本流程的範本 (可多選).
+    def recapture_template(self):
+        """「重截」: 選中的範本框一張新圖取代它、名字不變 (引用它的步驟都不用改).
 
-        一律重新編碼成 PNG; 上傳的範本沒有螢幕座標, 不記 `pos`
-        (相對座標原點只能靠即時找圖或往前推)。引擎登錄時以遮罩決定
-        有效區域, 不看 alpha (透明區照存, 只影響預覽)。
+        走跟截圖新增同一條拾取路徑 (量倍率與基準點、圖換回流程尺度、記拍攝位置), 換完跑
+        縮放餘裕的拾取檢查。新圖只住在快取, 存檔時才換掉 templates/ 裡的那張 (不存檔＝沒
+        重截); 取消＝什麼都不變。
         """
-        paths = filedialog.askopenfilenames(
-            parent=self.root, title="上傳圖片範本",
-            filetypes=[("圖片檔", "*.png *.webp *.jpg *.jpeg *.bmp *.gif *.tif *.tiff"),
-                       ("所有檔案", "*.*")])
-        added = []
-        for p in paths:
-            img = imgio.imread(p)  # IMREAD_UNCHANGED → 有 alpha 即 BGRA (imgio 已正規化)
-            if img is None:
-                self.log_ui(f"讀不到圖片：{os.path.basename(p)}", "warn")
-                continue
-            name = self.store.reserve(self.next_template_name(taken=added))
-            imgio.imwrite(self.store.path_of(name), img)
-            added.append(name)
-        if not added:
+        name = self._sel_template()
+        if not name:
+            self.log_ui("重截：先在範本清單選一個範本", "warn")
             return
+        got = self.pick_region_measured()
+        if not got or got[0] is None:
+            return
+        r, anchor, k = got
+        img = imgio.to_flow_scale(r["img"], k)
+        with self.hub.files_locked():
+            self.store.replace(name, imgio.encode_png(img),
+                               pos=ui_dialogs.template_pos_from_shot(r, anchor, k))
+            self.rebind_templates(changed={name})
+        self.pick_warnings().pop(name, None)
         self._mark_dirty()
-        self.rebind_templates(changed=set(added))
         self.refresh_templates()
-        self._select_tmpl_row(added[-1])  # 選取最後上傳的一張
-        self.log_ui(f"已上傳 {len(added)} 張範本：{', '.join(added)}"
-                    "；建議跑一次「比對測試」確認畫面上找得到", "ok")
+        self.log_ui(f"已重截範本「{name}」({img.shape[1]}×{img.shape[0]})；"
+                    "存檔時才換掉原本的圖", "ok")
+        self.check_template_scale(name, r.get("frame"), anchor, k)
 
     # ---- 管理 ----
 
@@ -1827,30 +1889,6 @@ class App:
         self.refresh_templates()
         self.render_steps()
 
-    def test_template(self):
-        name = self._sel_template()
-        if not name:
-            messagebox.showinfo("比對測試", "請先在清單選擇一個範本", parent=self.root)
-            return
-        ui_dialogs.show_match_test(self, name)
-
-    def copy_template(self):
-        """複製選取的範本為新範本 (連同截圖位置記錄), 撞名自動加序號."""
-        name = self._sel_template()
-        if not name:
-            messagebox.showinfo("複製", "請先在清單選擇一個範本", parent=self.root)
-            return
-        src = self.store.path_of(name)
-        if not os.path.exists(src):
-            messagebox.showwarning("複製", f"找不到範本「{name}」的圖",
-                                   parent=self.root)
-            return
-        new = self.add_template_image(name, src, pos=self.store.pos_of(name))
-        self.ensure_registered()
-        self.refresh_templates()
-        self._select_tmpl_row(new)  # 選取新複製的範本
-        self.log_ui(f"已複製「{name}」→「{new}」", "ok")
-
     # ================= 流程 (資料夾) =================
 
     def _ref_data(self):
@@ -1873,16 +1911,15 @@ class App:
         return flowfile.template_refs(self._ref_data())
 
     def flow_name(self):
-        """流程名 (＝資料夾名); 還沒存檔的新流程回「新流程」."""
-        return os.path.basename(self.store.folder) if self.store.folder else "新流程"
+        """流程名 (＝資料夾名); 還沒存檔的新流程回「未命名」."""
+        return os.path.basename(self.store.folder) if self.store.folder else "未命名"
 
     def _apply_flow(self, flow):
         """套用一份流程 (flowfile 讀進來、已驗證過的記憶體模型)."""
         self.steps = flow["steps"]
         self.flow_cal = flow["calibration"]
-        self._update_cal_ui()
         self.busy_target = flow["busy"]
-        self._update_busy_ui()
+        self._settings_changed()
         self.flow_engine = dict(flow["engine"])
         forever = flow["run"] == "forever"
         self.run_mode.set("直到停止" if forever else "執行次數")
@@ -1911,7 +1948,7 @@ class App:
         self._apply_flow(flow)
         self.rebind_templates()
         self.refresh_templates()
-        self.dirty = False
+        self._set_dirty(False)
         if folder:
             apppaths.remember_last_flow(folder)
         self.start_preload()
@@ -2043,7 +2080,7 @@ class App:
         except (OSError, flowfile.FlowError, ValueError) as e:
             messagebox.showerror("存檔", f"存檔失敗：{e}", parent=self.root)
             return False
-        self.dirty = False
+        self._set_dirty(False)
         apppaths.remember_last_flow(self.store.folder)
         names = self.referenced_templates()
         self.log_ui(f"已存檔「{self.flow_name()}」（{len(self.steps)} 步、"
@@ -2093,7 +2130,7 @@ class App:
             # 執行器開頭也會擋 (沒有校準對＝量不了倍率); 這裡先講清楚下一步
             messagebox.showwarning(
                 "執行", "這份流程沒有校準對（尚未設定），不能執行。\n"
-                "請先在「畫面校準」設定校準對（例：遊戲視窗標題列的圖示與關閉鈕）",
+                "請先在「流程設定…」設定校準對（遊戲畫面內兩張相距夠遠的固定圖）",
                 parent=self.root)
             return
         missing += [f"{n}（校準對）" for n in self.flow_cal["pair"]
@@ -2111,7 +2148,7 @@ class App:
                 "執行",
                 "有步驟勾了「忙碌檢查」，但這份流程沒有設定忙碌指示：\n"
                 f"步驟 {', '.join(map(str, checked))}\n"
-                "請先在「忙碌指示…」設定忙碌指示，或取消這些步驟的勾選",
+                "請先在「流程設定…」設定忙碌指示，或取消這些步驟的勾選",
                 parent=self.root)
             return
         err = self._flow_error(steps)
