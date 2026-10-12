@@ -17,7 +17,8 @@ import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowdefaults, flowfmt, pickcheck, win
-from automation.runner import BUSY_CHECK_KEY, origin_source, sends_input
+from automation.runner import (BUSY_CHECK_KEY, confirm_next_connected, origin_source,
+                               sends_input, uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_BOLD
 
 STEP_TITLES = {
@@ -158,8 +159,11 @@ def info_tip(parent, text, bg=None):
         t.update_idletasks()
         x1, y1, x2, y2 = win.monitor_work_area(lbl.winfo_id())
         w, h = t.winfo_reqwidth(), t.winfo_reqheight()
-        x = e.x_root + 12 if e.x_root else lbl.winfo_rootx() + lbl.winfo_width()
-        y = e.y_root + 12 if e.y_root else lbl.winfo_rooty() + lbl.winfo_height()
+        if e.x_root or e.y_root:   # 合成事件 (測試) 沒有游標位置: 貼在 ⓘ 右下
+            x, y = e.x_root + 12, e.y_root + 12
+        else:
+            x = lbl.winfo_rootx() + lbl.winfo_width()
+            y = lbl.winfo_rooty() + lbl.winfo_height()
         x = max(x1, min(x, x2 - w))
         y = max(y1, min(y, y2 - h))
         t.geometry(f"+{x}+{y}")
@@ -1153,7 +1157,8 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
 CARD_W = (436, 460)       # 2026-10-13 量到 左 425、右 450 (最高 472px, 工作區 1020)
 CARD_GAP = 12
 PV_W, PV_H = 230, 100      # 找圖左卡的預覽
-CFM_W = 18                 # 確認圖下拉的寬度 (字元; 四份流程最長的範本名約 16 字元寬)
+CFM_W = 18                 # 確認圖下拉寬 (字元): 2026-10-13 量到流程預設位置底下 134 個範本名最長
+                           # 「CONFIDENTIAL线索」159px＝15.9 字元
 ACT_ZH = {"find_click": "點擊該圖片", "find": "不點擊（僅等待出現）",
           "wait_gone": "不點擊（等待消失）"}
 CFM_ZH = {"none": "不確認（點一次）", "gone": "點到目標圖消失為止",
@@ -1601,17 +1606,16 @@ class _StepEditor:
         """要使用者動手處理的提示 (⚠ 一行常駐; 不擋存檔)."""
         out = list(self.fields.warnings()) if self.fields else []
         v = self.v
-        sends = (self.t in findtarget.POINTER_TYPES
-                 or (self.t in findtarget.FIND_TYPES and v["type"].get() == "find_click"))
-        mode = v["confirm"].get() if sends else "none"
+        kind = v["type"].get() if "type" in v else self.t
+        mode = v["confirm"].get() if sends_input({"type": kind}) else "none"
+        # 執行前檢查的同一套判斷 (找圖相連、原點來源), 套在「這一步放進清單後」的樣子上
         i, editing = self._index()
         steps = self.app.steps
-        if mode == "next":
-            j = i + (1 if editing else 0)
-            if not (j < len(steps) and findtarget.is_find(steps[j])):
-                out.append("下一步要是找圖步驟")
-        if self.t in findtarget.POINTER_TYPES and mode == "gone" \
-                and origin_source(steps, i) != "find":
+        here = dict(self.step, type=kind, confirm=mode)
+        hyp = steps[:i] + [here] + steps[i + (1 if editing else 0):]
+        if uses_confirm_next(here) and not confirm_next_connected(hyp, i):
+            out.append("下一步要是找圖步驟")
+        if uses_origin_leaves(here) and origin_source(hyp, i) != "find":
             out.append("原點要來自找圖步驟（前面放一個找圖）")
         return out
 
@@ -1812,16 +1816,17 @@ def show_match_test(app, target, hide=(), origin_fn=None):
         target = {"template": target}
     template_name = target.get("template", "")
     root = app.root
-    if not app.engine_gate():  # `引擎就緒`前提示並拒絕 (ADR 0004)
+    parent = ui_grab.top_window() or root   # 從流程設定等 modal 按的: 提示疊在它上面
+    if not app.engine_gate(parent):  # `引擎就緒`前提示並拒絕 (ADR 0004)
         return
     app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中 (票 05)
     if template_name not in app.library.templates:
-        messagebox.showerror("測試", f"範本不存在: {template_name}")
+        messagebox.showerror("測試", f"範本不存在: {template_name}", parent=parent)
         return
     try:
         app.hub.ensure_template(template_name)  # 單張隨用載入 (票 05)
     except Exception as e:
-        messagebox.showerror("測試", f"範本載入失敗: {e}", parent=root)
+        messagebox.showerror("測試", f"範本載入失敗: {e}", parent=parent)
         return
 
     scan = getattr(app, "scan_region", None)

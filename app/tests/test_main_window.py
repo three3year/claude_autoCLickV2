@@ -294,6 +294,19 @@ def test_清除主校準對_確認後整份清空_摘要與現狀跟著變(main_
     assert any("已清除校準對與備用校準對" in m for m in _logs(a))
 
 
+def test_清除校準對_有存下的座標時提醒不會跟著換算_回答否不清(main_app, monkeypatch):
+    a = main_app
+    a.flow_cal = dict(CAL)
+    a.steps = [flowdefaults.complete({"type": "find_click",
+                                      "target": {"template": "x", "within": [1, 2, 3, 4]}})]
+    asked = []
+    monkeypatch.setattr(app_mod.messagebox, "askyesno",
+                        lambda title, msg, **kw: asked.append(msg) or False)
+    a.clear_calibration()
+    assert asked and "1 個座標" in asked[0] and "不會跟著換算" in asked[0]
+    assert a.flow_cal == CAL
+
+
 def test_清除備用只拿掉備用_清除忙碌指示_都不問(main_app, no_real_dialogs):
     a = main_app
     a.flow_cal = dict(CAL_FB)

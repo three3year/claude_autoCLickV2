@@ -214,6 +214,20 @@ def measure(query, screen, pair, origin=(0, 0)):
     return Measurement(pair, centers, scores, missing)
 
 
+def measure_fallback(query, screen, origin, cal):
+    """只用`備用校準對`量一次 (流程設定的「測試」: 主對看得到時也確認備用對真的量得到).
+
+    回傳 (Measurement, 畫面倍率, 座標基準點); 量不到時後兩個是 None。基準點＝備用第一張
+    中心＋偏移×倍率 (與 calibrate 用備用對時同一個算法)。
+    """
+    fb = fallback_pair(cal)
+    m = measure(query, screen, fb["pair"], origin)
+    if not m.ok:
+        return m, None, None
+    k = m.scale(fb["baseline"])
+    return m, k, fallback_anchor(m.anchor, fb["offset"], k)
+
+
 class Calibrated:
     """一次`校準`的結論: 量測 + 這份流程的基準距離 → 成功時有`座標基準點` (螢幕座標)
     與`畫面倍率`; 失敗時 problem / describe() 說明原因, 不得寫入任何座標。

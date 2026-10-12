@@ -768,15 +768,26 @@ class App:
             self.log_ui("校準對還沒設定，沒有可清除的", "info")
             return
         fb = calibration.fallback_pair(cal)
-        if fb and not messagebox.askyesno(
-                "清除校準對", "備用校準對依附校準對的座標基準點，會一起清除。\n"
-                "要清除嗎？", parent=self._parent()):
+        stored = self._stored_coords()
+        if (fb or stored) and not messagebox.askyesno("清除校準對", "\n".join(filter(None, (
+                "備用校準對依附校準對的座標基準點，會一起清除。" if fb else "",
+                f"已存的 {stored} 個座標（固定矩形、範本拍攝位置）相對現在的基準點；"
+                "清除後再設定的校準對會從新的基準點與尺度起算，這些座標不會跟著換算"
+                "（要換校準對請直接按「設定…」，座標會自動平移）。" if stored else "",
+                "要清除嗎？"))), parent=self._parent()):
             return
         self.flow_cal = None
         self._mark_dirty()
         self._settings_changed()
         self.log_ui("已清除校準對" + ("與備用校準對" if fb else "")
                     + "（沒有校準對不能執行）", "warn")
+
+    def _stored_coords(self):
+        """相對座標基準點存下的座標數 (固定矩形＋範本拍攝位置; 清除校準對前提醒用)."""
+        tgts = [t for s in self.steps for _key, t in findtarget.step_targets(s)]
+        tgts += [self.busy_target] if self.busy_target else []
+        return (sum(1 for t in tgts if t.get("within") is not None)
+                + len(self.store.pos()))
 
     def clear_fallback(self):
         """清除備用校準對 (主校準對不動)."""
@@ -826,12 +837,11 @@ class App:
             return
         with ui_overlay.screen_clear(self.root):
             screen, org = self.grab_frame()
-        m = calibration.measure(self.detector.query, screen, list(fb["pair"]), org)
+        m, k, anchor = calibration.measure_fallback(self.detector.query, screen, org,
+                                                    self.flow_cal)
         if not m.ok:
             self.log_ui(f"{title}：{m.describe()}", "warn")
             return
-        k = m.scale(fb["baseline"])
-        anchor = calibration.fallback_anchor(m.anchor, fb["offset"], k)
         self.log_ui(f"{title}：畫面倍率 ×{k:.3f}（距離 {m.distance:.1f}px ÷ 基準 "
                     f"{float(fb['baseline']):.1f}px）、座標基準點 {tuple(anchor)}；"
                     "只是顯示", "ok")
@@ -1718,7 +1728,7 @@ class App:
         """框選一個區域並在那張畫面上`校準`: 回傳 (pick_region_raw 的結果, 座標基準點,
         畫面倍率); 取消時結果為 None, 量不到時整個回 None (已提示).
 
-        截範本的共同入口 (主視窗「截圖框選」、選範本對話框「截圖新增」): 圖要除以
+        截範本的共同入口 (範本面板「截圖新增」與「重截」、選範本對話框「截圖新增」): 圖要除以
         當下倍率、拍攝位置要相對當下基準點 (ADR 0012)。沒有校準對＝倍率 1、不記位置。
         結果多帶 "frame"＝校準用的那張搜尋範圍截圖 (`拾取檢查`的縮放餘裕用它)。
         """
