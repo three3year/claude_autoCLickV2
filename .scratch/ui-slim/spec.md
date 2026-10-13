@@ -1,6 +1,6 @@
 # Spec：UI 瘦身階段
 
-Status: ready-for-agent
+Status: done
 
 專案整理地圖的第 3 階段（[階段切法與順序](../project-cleanup/issues/01-phases-and-order.md)）。前置票：[主視窗與流程設定對話框版面](../project-cleanup/issues/05-main-window-and-flow-settings-layout.md)（下稱「05」，原型在 `prototype/main-layout` 分支，版面 D＝定案）、[步驟編輯器依動作顯示欄位](../project-cleanup/issues/06-step-editor-fields-by-action.md)（下稱「06」，原型在 `prototype/step-editor` 分支，版面 B＝定案）。UI 該留什麼、拿掉什麼的總表在 grilling 紀錄 §5（`.scratch/project-cleanup/grilling.md`）。決策正本另有 ADR 0014（流程＝資料夾、步驟選項裁減）、0013（拾取檢查只警告）、0012（座標基準點）。詞彙以 `app/CONTEXT.md` 為準。
 
