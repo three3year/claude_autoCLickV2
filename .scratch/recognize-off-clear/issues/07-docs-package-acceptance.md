@@ -42,3 +42,4 @@
 
 - 2026-10-13 agent：`app/CLAUDE.md` 已更新（架構、拾取骨架、拾取檢查／`check_template_scale`、坑清單「清場中不做任何辨識」、測試手法 Inline／Held／ClearProbe）。全套：app 748 passed、引擎＋tools 349 passed（隱藏桌面）。打包與情境驗收見下。
 - 2026-10-13 22:08 打包（PyInstaller → dist-new）並換上：舊版（ui-slim 那版）改名 `dist\AutoClick-舊-20261013-2208` 保留；更早的 `AutoClick-舊-20261013-1956` 也還在（ui-slim 驗收過關才刪）。隱藏桌面冒煙：noUAC 版啟動 25 秒沒退出、日誌 engine.load.done 1.69s。剩：實機看日誌的清場時間、情境清單驗收。
+- 2026-10-14 已知問題（使用者決定先不處理）：步驟編輯器框完固定矩形，子視窗會在還原後被 Tk 改成 withdrawn，約 3 秒後由保險絲叫回（日誌 fuse.trigger）。已排除：Python 端呼叫 withdraw、前景被搶、主視窗最小化。隱藏桌面重現不出來；「主視窗 Map 晚到 + transient 跟著藏」在登記成 modal 後也不重現，未定案。診斷探針已從原始碼移除。
