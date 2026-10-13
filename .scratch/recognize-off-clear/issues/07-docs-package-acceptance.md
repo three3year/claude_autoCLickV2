@@ -34,10 +34,11 @@
 
 - [x] `app/CLAUDE.md` 已更新，與實作一致。
 - [x] 全套測試綠（記下 app／tools／引擎的數量）。
-- [ ] 新打包版已換進 `app\dist\AutoClick\`，舊版保留並記下資料夾名。
+- [x] 新打包版已換進 `app\dist\AutoClick\`，舊版保留並記下資料夾名。
 - [ ] 日誌顯示每次清場只有截圖的時間（清場時間 ≪ 1 秒，拾取類另加你框選的時間），背景辨識有起訖與耗時。
 - [ ] 使用者情境驗收通過；過關後才刪舊打包版。
 
 ## Comments
 
 - 2026-10-13 agent：`app/CLAUDE.md` 已更新（架構、拾取骨架、拾取檢查／`check_template_scale`、坑清單「清場中不做任何辨識」、測試手法 Inline／Held／ClearProbe）。全套：app 748 passed、引擎＋tools 349 passed（隱藏桌面）。打包與情境驗收見下。
+- 2026-10-13 22:08 打包（PyInstaller → dist-new）並換上：舊版（ui-slim 那版）改名 `dist\AutoClick-舊-20261013-2208` 保留；更早的 `AutoClick-舊-20261013-1956` 也還在（ui-slim 驗收過關才刪）。隱藏桌面冒煙：noUAC 版啟動 25 秒沒退出、日誌 engine.load.done 1.69s。剩：實機看日誌的清場時間、情境清單驗收。
