@@ -3,6 +3,7 @@
 覆蓋層開著時 `pick` 卡在事件迴圈, 操作排進 root.after; 點擊用 event_generate 發到 Canvas
 (合成事件不走 grab 路由, 這裡只驗覆蓋層自己的狀態變化)。
 """
+import time
 import tkinter as tk
 
 import numpy as np
@@ -34,12 +35,25 @@ def no_grab(monkeypatch):
 
 
 def _drive(root, *steps, ms=120):
-    """覆蓋層開著時依序做 steps (各收 Canvas); 出錯也把覆蓋層關掉, 不卡住."""
+    """覆蓋層開著時依序做 steps (各收 Canvas); 出錯也把覆蓋層關掉, 不卡住.
+
+    第一步等覆蓋層真的畫出來才做 (機器忙時 pick 建覆蓋層會超過 ms; 2026-10-14 曾因此
+    操作落空、覆蓋層一直等); 等太久算失敗。
+    """
     errors = []
+    deadline = time.monotonic() + 10
 
     def run(i):
         def go():
             top = getattr(root, "_pick_top", None)
+            if i == 0 and (top is None or not top.winfo_viewable()):
+                if time.monotonic() < deadline:
+                    root.after(30, go)
+                else:
+                    errors.append(AssertionError("覆蓋層沒出現"))
+                    if top is not None:
+                        top._done_var.set(1)
+                return
             try:
                 cv = next(c for c in top.winfo_children() if isinstance(c, tk.Canvas))
                 steps[i](cv)
