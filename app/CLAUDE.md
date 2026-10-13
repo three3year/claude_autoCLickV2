@@ -12,7 +12,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   `window_coord.py`(modal 堆疊＋清場還原清單的純狀態機)；`ui_grab.py`(堆疊的 Tk 執行層)；
   `applog.py`(檔案日誌)；`apppaths.py`(流程預設位置、本機狀態資料夾、上次開的流程)；
   `flowfile.py`(**流程資料夾讀寫與本流程範本的唯一入口**，見下)；
-  `calibration.py`(校準與畫面倍率的全部純邏輯，見下)
+  `calibration.py`(校準與畫面倍率的全部純邏輯，見下)；
+  `recognition.py`(**背景辨識入口**＝`辨識中`：編輯器的辨識都在背景執行緒做，見下)
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：
   `capture.py`(mss 截圖)、`win.py`(ctypes 滑鼠/DPI/視窗資訊)、`runner.py`(步驟執行緒)、
   `hotkey.py`(F12 急停)、`imgio.py`(中文路徑圖片讀寫)、
@@ -85,11 +86,19 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     `findtarget.limit_rect(anchor=…)`）、範本拍攝位置 `template_pos`。換算只有 `flowfmt.to_screen`／
     `from_screen`（與 `rect_*` 版）一對純函式，執行器、編輯器、換算工具都用它
   - **編輯器沒有跨操作保存的倍率或基準點**（`App.editor_scale` 已移除）：每次拾取都走
-    `ui_dialogs.measured_pick`——清場前檢查（`App.calibration_ready`）、清場中先
-    `App.calibrate_frame()` 在這次的截圖上量基準點與倍率，再做拾取，清場後提示。拾取到的座標
-    （`flowfmt.from_screen`／`_unscale`）、截下的範本（`imgio.to_flow_scale`）、拍攝位置
-    （`ui_dialogs.template_pos_from_shot`）都用當下的值換回；量不到＝不存並提示重框搜尋範圍；
-    沒有校準對＝需要基準點的拾取（固定矩形）擋下，只依原點的照常（倍率 1）。
+    `ui_dialogs.measured_pick`——清場前檢查（`App.calibration_ready`，只查引擎就緒與範本在清單）→
+    清場中只截一張整個虛擬桌面的圖（`App.grab_shot`）、派背景辨識（裁出搜尋範圍 `App.scan_frame`
+    量校準、推算 ◎）、叫覆蓋層（直接顯示那張圖，`ui_overlay.pick(shot=, pending=)`）→ 還原 →
+    背景還沒做完就`辨識中`等它 → 收尾 `done(r, Measured)` 在介面執行緒。拾取與校準用同一張圖
+    （仍是「拾取當下那張截圖」，ADR 0012）。拾取到的座標（`flowfmt.from_screen`／`_unscale`）、截下的
+    範本（`imgio.to_flow_scale`）、拍攝位置（`ui_dialogs.template_pos_from_shot`）都用當下的值換回；
+    量不到＝不存並提示重框搜尋範圍（覆蓋層顯示中就量不到＝覆蓋層立刻結束回 `ABORT`，還原後提示）；
+    沒有校準對＝需要基準點的拾取（固定矩形）擋下，只依原點的照常（倍率 1）。◎ 可以晚到：覆蓋層
+    `late=`，還沒算好時照收點擊（結果帶 `early`，收尾用算好的原點換算並在紀錄區寫原點位置），確定
+    推不出且還沒點＝`NO_MARK`，呼叫端改走「先點原點」或拖線（同一次清場，不還原再隱藏）；比對測試要原點時
+    用 `late="origin"`：◎ 算好覆蓋層自己結束、推不出才請使用者點；叫覆蓋層一律經 `ui_dialogs.overlay_pick`
+    （結果已出來就不開待定）。「即時找上一步的圖」（`_find_target_now`）在給定的截圖上找、在背景
+    跑；預設原點推算器（`origin_fn()`）在介面執行緒先讀好表單值，回傳的函式才在背景跑。
     **新增拾取、截圖或比對測試入口一律走 `measured_pick`**。流程設定的「測試」只量測並寫紀錄，不存任何值
   - 換校準對（`App.designate_pair`）：同一張截圖先用舊對量倍率與舊基準點（量不到就拒絕），
     新基準距離＝新距離 ÷ 倍率，再依新舊基準點的差把所有存下的座標平移
@@ -101,8 +110,10 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
     影片轉流程三處都只走這個入口；執行紀錄印一行警告照跑；主備皆無才不執行。主對該選**遊戲畫面內**兩張
     固定圖，標題列圖示＋關閉鈕量到的倍率偏小 0.4%，只當備用
   - **`拾取檢查`（`automation/pickcheck.py`，ADR 0013）**：只警告不擋存檔。截範本後跑縮放餘裕
-    （`App.check_template_scale`，用拾取當下的整張截圖 `frame`，等 `ensure_registered` 後查）、找圖設定
+    （`App.check_template_scale`，用拾取當下的搜尋範圍截圖 `frame`；`ensure_registered` 在介面執行緒、
+    登錄產物載入與查詢在背景，接在截圖那件辨識後面 `job=`——範本在校準做完才存，存完接著查）、找圖設定
     按確定與比對測試跑唯一＋縮放餘裕（`ui_dialogs.pick_check_now`，走 `measured_pick(quiet=True)`：
+    清場只截搜尋範圍、`cleared=` 趁隱藏時關掉對話框，檢查在主視窗以辨識中進行；
     只是檢查，引擎沒就緒／校準量不到都不彈 modal、不過 `engine_gate`，寫一行紀錄區就略過——這是
     「新增辨識入口要過 gate」的唯一例外）、固定矩形框完跑矩形餘裕。警告經
     `App.note_pick_warnings` 寫紀錄區並在範本面板標 ⚠（`pick_warnings()`，只活在這次編輯，不進存檔）。
@@ -184,6 +195,16 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - `SegListbox` 大量列重建要用 `load()` 批次（單次 state 切換），不要逐列 `append`；
   拖曳排序中 `render_steps` 會跳過圖示列定位（`RowIcons.refresh` 依 `drag_guard` 早退），
   放開時補一次——拖曳效能問題先查「每次 motion 做了什麼重活」（磁碟寫入/強制版面同步），不是先改演算法
+- **清場中不做任何辨識；新增辨識入口一律走背景辨識入口**（recognize-off-clear，詞彙見
+  app/CONTEXT.md `清場`、`辨識中`）：清場只截圖與讓使用者在覆蓋層上操作——在清場裡校準、找圖、
+  `hub.ensure_template` 就是「視窗不見」，還原後在介面執行緒做就是「全白」。辨識一律交
+  `App.recognition`（`recognition.Recognition`）在背景執行緒做：拾取類走 `measured_pick`，只量不框的
+  （流程設定的測試與設定）清場只截圖再 `App.recognize(title, work, done, origin)`。介面執行緒只做
+  `ensure_registered`、`引擎就緒`檢查、modal、寫紀錄區、填欄位、改流程資料；背景不碰 Tk
+  （表單值、步驟清單在派工前讀好）。圖片類動作（存檔、開檔、執行、截圖、重截、所有拾取、比對測試、校準對的設定與
+  測試）登記在 `recognition.register`，辨識中一律反灰——反灰規則只有那一份；登記的元件平常改可用與否
+  走 `recognition.want`（直接改 state 會在辨識中把反灰打開）。發起辨識的對話框用
+  `ui_dialogs.busy_foot` 登記底列與關閉類按鈕、Esc／Enter 用 `unless_busy` 包，做完前關不掉
 - 讓出螢幕截圖一律用 `ui_overlay.screen_clear`（可巢狀：只有最外層真正隱藏/還原、自動列舉視窗、
   進場記錄「本次隱藏的清單＋zoomed 快照」、離場照清單逐窗驗證式還原——deiconify 後等 `<Map>`
   確認真的畫出來、逾時重試，全部可見後 grab 交還 modal 堆疊堆頂，見 ADR 0003）——
@@ -217,6 +238,10 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 ## 測試手法（無頭環境驗證 GUI）
 
 - 執行器邏輯有 pytest 回歸網（`app/tests/`，隨根目錄 `pytest` 一起跑）。
+- **背景辨識在測試裡預設當場做完**（conftest `inline_recognition` 換上 `harness.Inline`），斷言照舊緊接
+  在操作後面；要看`辨識中`當下的樣子換 `app.recognition.executor = harness.Held()`，操作→斷言反灰／
+  「辨識中…」→`release()`→斷言結果。「清場中查詢 0 次」用 `test_recognition.ClearProbe`（清場樁＋
+  查詢紀錄）配 `Held`：Inline 會在清場裡當場做背景那段，量不出這件事
   假畫面／假輸入／虛擬時鐘都在 `tests/harness.py`：假件形狀＝`enginehub`
   生命週期介面（`query` 回 `QueryResult`＋state/preload/ensure_template）——
   這是全 repo 唯一假件點；`vision.plan(範本名, [None, (x,y), [(x,y), (x,y,分數,比色分數)]])`

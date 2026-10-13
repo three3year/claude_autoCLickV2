@@ -131,7 +131,8 @@ class _Lib:
 
     @property
     def templates(self):
-        return {n: object() for n in self.app.store.names()}
+        from types import SimpleNamespace
+        return {n: SimpleNamespace(artifacts=None) for n in self.app.store.names()}
 
 
 def _engine(app, monkeypatch):
@@ -149,8 +150,9 @@ def test_截範本後縮放餘裕_0_85粗篩沒過_紀錄區警告_面板標記(
     app = make_app(1.0)
     _engine(app, monkeypatch)
     app.vision.plan("tmpl_001", [miss("match", 0.6), (300, 400)])
-    monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20, 210, 250))
-    assert app.capture_template() == "tmpl_001"
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", lambda root, mode, prompt, **kw: _shot(40, 20, 210, 250))
+    app.capture_template()
+    assert "tmpl_001" in app.store.names()
     logs = _check_logs(app)
     assert len(logs) == 1 and logs[0][0] == "warn"
     assert "×0.85" in logs[0][1] and "粗篩最高 0.600" in logs[0][1]
@@ -163,7 +165,7 @@ def test_截範本後縮放餘裕全通過_無警告無標記(make_app, monkeypa
     app = make_app(1.0)
     _engine(app, monkeypatch)
     app.vision.plan("tmpl_001", [(300, 400)])
-    monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20, 210, 250))
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", lambda root, mode, prompt, **kw: _shot(40, 20, 210, 250))
     app.capture_template()
     assert _check_logs(app) == []
     assert app.pick_warnings() == {}
@@ -173,11 +175,13 @@ def test_先警告後通過_標記消失(make_app, monkeypatch):
     app = make_app(1.0)
     _engine(app, monkeypatch)
     app.vision.plan("tmpl_001", [miss("match", 0.5), (300, 400)])
-    monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20, 210, 250))
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", lambda root, mode, prompt, **kw: _shot(40, 20, 210, 250))
     app.capture_template()
     assert "tmpl_001" in app.pick_warnings()
     app.vision.plan("tmpl_001", [(300, 400)])
-    app.check_template_scale("tmpl_001", (app.vision.grab(None)[0], (0, 0)), (0, 0), 1.0)
+    from types import SimpleNamespace
+    app.check_template_scale("tmpl_001", SimpleNamespace(
+        frame=(app.vision.grab(None)[0], (0, 0)), anchor=(0, 0), k=1.0))
     assert app.pick_warnings() == {}
     assert _check_logs(app)[-1][0] == "ok"
 
@@ -186,7 +190,7 @@ def test_沒有校準對時截範本也查縮放餘裕_以倍率1為基準(make_
     app = make_app(pair=False)
     _engine(app, monkeypatch)
     app.vision.plan("tmpl_001", [miss("match", 0.55), (300, 400)])
-    monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20))
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", lambda root, mode, prompt, **kw: _shot(40, 20))
     app.capture_template()
     scales = [round(s, 3) for n, s in app.vision.expected_scales if n == "tmpl_001"]
     assert scales == [0.85, 1.15]
@@ -198,7 +202,8 @@ def test_選範本對話框現場截圖_確定後也查縮放餘裕(make_app, mo
     from test_template_picker import TITLE, _Driver, _open
     app = make_app(1.0)
     _engine(app, monkeypatch)
-    app.shot = _shot(40, 20, 170, 240)
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick",
+                        lambda root, mode, prompt, **kw: _shot(40, 20, 170, 240))
     app.vision.plan("tmpl_001", [miss("verify", 0.7), (300, 400)])
     d = _Driver(app.root, TITLE)
     got = _open(app, d, lambda dr: (dr.press("截圖新增"), dr.press("確定")))

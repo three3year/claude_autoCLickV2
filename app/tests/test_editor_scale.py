@@ -37,6 +37,7 @@ class _EditApp(_PickApp):
         self.vision = Vision()
         self.detector = self.vision
         self.flow_cal = harness.cal() if pair else None
+        self.hub.ensure_template = lambda name: None   # 登錄產物載入 (背景) 是樁
         if pair:
             for n in CAL_PAIR:
                 self.store.add(n, b"P")
@@ -61,10 +62,11 @@ def make_app(tkroot, tmp_path, monkeypatch):
     tkroot.update()
     monkeypatch.setattr(ui_dialogs.ui_overlay, "screen_clear",
                         lambda root, extra=(): contextlib.nullcontext())
-    monkeypatch.setattr(app_mod.capture, "grab",
-                        lambda region=None: (Screen((region[0], region[1]),
-                                                    (region[2], region[3])),
-                                             (region[0], region[1])))
+    def grab(region=None):
+        if region is None:      # 清場中截整個虛擬桌面 (覆蓋層顯示它, 校準裁搜尋範圍)
+            return Screen((0, 0), (1920, 1080)), (0, 0)
+        return Screen((region[0], region[1]), (region[2], region[3])), (region[0], region[1])
+    monkeypatch.setattr(app_mod.capture, "grab", grab)
     monkeypatch.setattr(app_mod.time, "sleep", lambda s: None)
     yield lambda scale=1.0, **kw: _EditApp(tkroot, tmp_path, scale, **kw)
     tkroot.withdraw()
@@ -154,7 +156,7 @@ def _target_dialog(app, monkeypatch, tgt, *actions):
     d = _Driver(app.root, "找圖設定")
     d.run(*actions)
     got = ui_dialogs.edit_target_opts(app, app.root, tgt, "找圖設定",
-                                      origin_fn=lambda anchor, k: (500, 500))
+                                      origin_fn=lambda: lambda frame, anchor, k: (500, 500))
     if d.error is not None:
         raise d.error
     return got
@@ -212,8 +214,9 @@ def test_主視窗截圖_倍率1時與原圖逐位元相同(make_app, tmp_path):
 def test_截圖框選走拾取當下的校準(make_app, monkeypatch):
     app = make_app(2.0)
     shot = _shot(40, 20, 210, 250)
-    monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): shot)
-    name = app.capture_template()
+    _overlay(monkeypatch, shot)
+    app.capture_template()
+    [name] = [n for n in app.store.names() if n not in CAL_PAIR]
     assert imgio.imread(app.store.path_of(name)).shape[:2] == (10, 20)
     assert app.store.pos_of(name) == [40, 15]
     assert app.vision.lookups == list(CAL_PAIR)
@@ -221,8 +224,9 @@ def test_截圖框選走拾取當下的校準(make_app, monkeypatch):
 
 def test_沒有校準對時截圖不縮放_不記拍攝位置(make_app, monkeypatch):
     app = make_app(pair=False)
-    monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20))
-    name = app.capture_template()
+    _overlay(monkeypatch, _shot(40, 20))
+    app.capture_template()
+    [name] = app.store.names()
     assert imgio.imread(app.store.path_of(name)).shape[:2] == (20, 40)
     assert app.store.pos_of(name) is None
 
@@ -230,15 +234,16 @@ def test_沒有校準對時截圖不縮放_不記拍攝位置(make_app, monkeypa
 def test_截圖當下找不到校準對_不存範本並提示(make_app, monkeypatch, no_real_dialogs):
     app = make_app(1.0)
     app.vision.plan(CAL_PAIR[0], [None])
-    monkeypatch.setattr(app, "pick_region_raw", lambda hide=(): _shot(40, 20))
-    assert app.capture_template() is None
+    calls = _overlay(monkeypatch, _shot(40, 20))
+    app.capture_template()
+    assert calls == [], "已知量不到就不開覆蓋層"
     assert app.store.names() == list(sorted(CAL_PAIR))
     assert no_real_dialogs["warning"]
 
 
-def test_選範本對話框現場截圖_也換回流程尺度與相對基準點(make_app):
+def test_選範本對話框現場截圖_也換回流程尺度與相對基準點(make_app, monkeypatch):
     app = make_app(0.5)
-    app.shot = _shot(40, 20, 170, 240)
+    _overlay(monkeypatch, _shot(40, 20, 170, 240))
     d = _Driver(app.root, TITLE)
     got = _open(app, d, lambda dr: (dr.press("截圖新增"), dr.press("確定")))
     assert imgio.imread(app.store.path_of(got)).shape[:2] == (40, 80)

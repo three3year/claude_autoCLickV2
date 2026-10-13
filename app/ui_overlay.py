@@ -295,7 +295,27 @@ def screen_clear(root, extra=()):
             _destroy_stale_tops()
 
 
-def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None):
+class _Signal:
+    """覆蓋層的特殊回傳值 (不是拾取結果)."""
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return self.name
+
+
+# 待定結果失敗 (背景校準量不到): 覆蓋層立刻結束, 呼叫端在視窗還原後警告
+ABORT = _Signal("ABORT")
+# 晚到的 ◎ 確定推不出、使用者還沒動手: 呼叫端改走「先點原點」或拖線
+NO_MARK = _Signal("NO_MARK")
+
+PENDING_MS = 30   # 覆蓋層看待定結果的間隔
+BUSY_HINT = "辨識中…　"
+
+
+def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None,
+         shot=None, pending=None, late=None):
     """截圖後顯示全螢幕覆蓋層讓使用者選取.
 
     mode: 'region' 拖曳框選 / 'point' 點一下 / 'line' 拖曳一條線 (起點→終點).
@@ -305,18 +325,30 @@ def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None):
     mark: 純標示用的原點 (螢幕座標); 只畫記號不影響操作 (各模式皆可),
           供「相對位置拖曳」自由拖線、框選以原點為基準的限定範圍、
           點選指定點時對照原點在哪.
+    shot: 清場中預先截好的整個虛擬桌面 (影像, 左上角); 給定時不再自己截
+          (背景校準用同一張, recognize-off-clear)。
+    pending: 背景的待定結果 (校準＋◎ 推算): status() → "pending"/"ready"/"failed",
+          mark＝ready 時的 ◎ (螢幕座標或 None)。待定時提示列顯示「辨識中…」,
+          失敗＝立刻結束回 ABORT (呼叫端在視窗還原後警告)。
+    late: ◎ 晚到——"base"＝line 模式以 pending.mark 當預設原點 (只收點一下),
+          "mark"＝以 pending.mark 當標示的原點。◎ 還沒算好時照樣收點擊/拖線 (結果多帶
+          early=True, 位置由呼叫端用算好的 ◎ 換算); 確定推不出且還沒動手就回 NO_MARK。
+          "origin"＝point 模式「點一下原點」, 只在 ◎ 推不出時需要 (比對測試): ◎ 算好且還沒
+          點就結束、回 {"screenX","screenY","auto": True} (就是 ◎); 推不出就等使用者點。
     回傳:
       region → {"screenX","screenY","w","h","img"(裁切的 BGR)}
       point  → {"screenX","screenY"}
       line   → {"dx","dy","startX","startY","endX","endY"}
-      取消   → None
+               (late="base" 而 ◎ 還沒到時點的: 只有 {"endX","endY"})
+      取消   → None; 待定失敗 → ABORT; ◎ 推不出 → NO_MARK
     """
     try:
         with screen_clear(root, extra=hide):
             # 前一段拾取暫存的覆蓋層顯示著舊截圖, 截新圖前必須先移除
             _destroy_stale_tops()
             try:
-                return _pick_impl(root, mode, hint, delay, base, mark)
+                return _pick_impl(root, mode, hint, delay, base, mark,
+                                  shot, pending, late)
             finally:
                 # 出錯時先釋放 grab, 讓還原流程能把 grab 交回對話框;
                 # 覆蓋層本體留到還原後才銷毀 (保住前景擁有權, 見 finish 註解)
@@ -348,14 +380,33 @@ def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None):
                     pass
 
 
-def _pick_impl(root, mode, hint, delay, base, mark=None):
-    import cv2  # 拾取時才需要; 開窗關鍵路徑不載重量級套件 (票 06)
-    root.update()
-    if delay > 0:
-        time.sleep(delay)
-    time.sleep(0.1)  # 視窗已停用過場動畫, 短暫等待合成器刷新即可
+def _hint_text(hint, mode, base, mark):
+    """提示列: 操作說明跟著模式與原點標出來沒變."""
+    if mode == "region" and mark is not None:
+        return hint + "　（◎＝原點，拖曳＝框出範圍，Esc 取消）"
+    if mode == "region":
+        return hint + "　（直接點選＝取用高亮框，拖曳＝自訂範圍，Esc 取消）"
+    if mode == "line" and base is not None:
+        return hint + "　（原點已標示，點一下目標位置即完成，Esc 取消）"
+    if mode == "line" and mark is not None:
+        return hint + "　（◎＝原點，拖出一條線＝拖曳路徑，Esc 取消）"
+    if mode == "line":
+        return hint + "　（拖曳：起點＝基準點，終點＝目標點，Esc 取消）"
+    if mark is not None:
+        return hint + "　（◎＝原點，Esc 取消）"
+    return hint + "　（Esc 取消）"
 
-    img, origin = capture.grab()
+
+def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None,
+               late=None):
+    import cv2  # 拾取時才需要; 開窗關鍵路徑不載重量級套件 (票 06)
+    if shot is None:
+        root.update()
+        if delay > 0:
+            time.sleep(delay)
+        time.sleep(0.1)  # 視窗已停用過場動畫, 短暫等待合成器刷新即可
+        shot = capture.grab()
+    img, origin = shot
     vs = {"x": origin[0], "y": origin[1], "w": img.shape[1], "h": img.shape[0]}
     rects = _enum_element_rects(vs)
     h, w = img.shape[:2]
@@ -383,24 +434,24 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
 
     INFO = "#2080F0"  # 選取層所有線條統一用藍
     hint_x = max(20, -origin[0]) + 40
-    if mode == "region" and mark is not None:
-        full = hint + "　（◎＝原點，拖曳＝框出範圍，Esc 取消）"
-    elif mode == "region":
-        full = hint + "　（直接點選＝取用高亮框，拖曳＝自訂範圍，Esc 取消）"
-    elif mode == "line" and base is not None:
-        full = hint + "　（原點已標示，點一下目標位置即完成，Esc 取消）"
-    elif mode == "line" and mark is not None:
-        full = hint + "　（◎＝原點，拖出一條線＝拖曳路徑，Esc 取消）"
-    elif mode == "line":
-        full = hint + "　（拖曳：起點＝基準點，終點＝目標點，Esc 取消）"
-    elif mark is not None:
-        full = hint + "　（◎＝原點，Esc 取消）"
+    # ◎ 晚到的 line 模式 (late="base"): 待定時也照「點一下」收, 好了才標原點
+    click_line = mode == "line" and (base is not None or late == "base")
+    hint_bg = cv.create_rectangle(0, 0, 0, 0, fill="#0F172A", outline=INFO, width=1)
+    hint_item = cv.create_text(hint_x, 34, anchor="w", fill="#F0F4F8",
+                               font=("Microsoft JhengHei UI", 11), text="")
+
+    def set_hint(text):
+        cv.itemconfigure(hint_item, text=text)
+        cv.coords(hint_bg, hint_x - 14, 16, hint_x + len(text) * 15 + 20, 52)
+
+    if pending is None:
+        set_hint(_hint_text(hint, mode, base, mark))
+    elif late == "origin":
+        set_hint(BUSY_HINT + "原點還在算，算好就直接用；也可以先點一下原點（Esc 取消）")
+    elif late is not None:
+        set_hint(BUSY_HINT + hint + "　（◎ 原點還在算，可以先點目標；Esc 取消）")
     else:
-        full = hint + "　（Esc 取消）"
-    cv.create_rectangle(hint_x - 14, 16, hint_x + len(full) * 15 + 20, 52,
-                        fill="#0F172A", outline=INFO, width=1)
-    cv.create_text(hint_x, 34, anchor="w", fill="#F0F4F8",
-                   font=("Microsoft JhengHei UI", 11), text=full)
+        set_hint(BUSY_HINT + _hint_text(hint, mode, base, mark))
 
     snap_box = cv.create_rectangle(0, 0, 0, 0, outline=INFO, width=4)
     sel_rect = cv.create_rectangle(0, 0, 0, 0, outline=INFO, width=2, state="hidden")
@@ -448,19 +499,29 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
         cv.coords(mag_text, mx + MAG_W // 2, my + MAG_H + 12)
         cv.itemconfigure(mag_text, text=f"({sx}, {sy})")
 
-    st = {"start": None, "dragging": False, "snap": None}
+    st = {"start": None, "dragging": False, "snap": None, "down": False,
+          "early": pending is not None and late is not None}
     result = [None]
-    if mode == "line" and base is not None:
-        # 預設原點: 直接標示, 之後點一下即為終點
-        x0, y0 = base[0] - origin[0], base[1] - origin[1]
+
+    def show_base(b):
+        """預設原點: 直接標示, 之後點一下即為終點."""
+        x0, y0 = b[0] - origin[0], b[1] - origin[1]
         st["start"] = (x0, y0)
         cv.coords(line_dot, x0 - 2.5, y0 - 2.5, x0 + 2.5, y0 + 2.5)
         cv.itemconfigure(line_dot, state="normal")
+
+    def show_mark(m):
+        """純標示的原點記號 (◎): 不影響拖線/框選/點選操作."""
+        mx0, my0 = m[0] - origin[0], m[1] - origin[1]
+        cv.create_oval(mx0 - 7, my0 - 7, mx0 + 7, my0 + 7, outline=INFO, width=2,
+                       tags="mark")
+        cv.create_oval(mx0 - 2, my0 - 2, mx0 + 2, my0 + 2, fill=INFO, outline="",
+                       tags="mark")
+
+    if mode == "line" and base is not None:
+        show_base(base)
     if mark is not None and not (mode == "line" and base is not None):
-        # 純標示的原點記號 (◎): 不影響拖線/框選/點選操作
-        mx0, my0 = mark[0] - origin[0], mark[1] - origin[1]
-        cv.create_oval(mx0 - 7, my0 - 7, mx0 + 7, my0 + 7, outline=INFO, width=2)
-        cv.create_oval(mx0 - 2, my0 - 2, mx0 + 2, my0 + 2, fill=INFO, outline="")
+        show_mark(mark)
     hl_photo = [None]  # 高亮裁切圖 (防止被回收)
     hl_box = [None]    # 目前高亮範圍, 避免重複重建 PhotoImage
 
@@ -552,7 +613,8 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
         update_snap_highlight(sx, sy)
 
     def on_down(e):
-        if mode == "point" or (mode == "line" and base is not None):
+        st["down"] = True
+        if mode == "point" or click_line:
             # 放開時才完成: 按下就銷毀覆蓋層的話, 使用者手指放開的
             # release 事件會落到底下的應用程式 (等於把點擊漏出去)
             return
@@ -572,12 +634,20 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
         return True
 
     def on_up(e):
+        st["down"] = False
+        early = {"early": True} if st["early"] else {}
         if mode == "point":
             sx, sy = to_screen(e.x, e.y)
-            result[0] = {"screenX": sx, "screenY": sy}
+            result[0] = dict({"screenX": sx, "screenY": sy}, **early)
             finish()
             return
-        if mode == "line" and base is not None:
+        if click_line:
+            if st["start"] is None:
+                # ◎ 還沒到就點了: 只記終點, 呼叫端用算好的原點換算
+                result[0] = {"endX": origin[0] + e.x, "endY": origin[1] + e.y,
+                             "early": True}
+                finish()
+                return
             # 原點已預設 → 點一下 (放開) 即為終點
             x0, y0 = st["start"]
             result[0] = {
@@ -597,11 +667,11 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
                 cv.itemconfigure(line_item, state="hidden")
                 cv.itemconfigure(line_dot, state="hidden")
                 return
-            result[0] = {
+            result[0] = dict({
                 "dx": e.x - x0, "dy": e.y - y0,
                 "startX": origin[0] + x0, "startY": origin[1] + y0,
                 "endX": origin[0] + e.x, "endY": origin[1] + e.y,
-            }
+            }, **early)
             finish()
             return
         if mode != "region" or st["start"] is None:
@@ -655,8 +725,48 @@ def _pick_impl(root, mode, hint, delay, base, mark=None):
             return
         top.after(100, _guard_grab)
 
+    def watch_pending():
+        """待定結果: 好了換回原說明 (◎ 晚到就這時畫), 失敗立刻結束."""
+        try:
+            if not top.winfo_exists() or getattr(top, "_closing", False):
+                return
+        except tk.TclError:
+            return
+        status = pending.status()
+        if status == "pending":
+            top.after(PENDING_MS, watch_pending)
+            return
+        st["early"] = False
+        if status == "failed":
+            result[0] = ABORT
+            finish()
+            return
+        got = pending.mark if late is not None else None
+        if late == "origin":
+            if got is not None and not st["down"]:
+                result[0] = {"screenX": got[0], "screenY": got[1], "auto": True}
+                finish()
+                return
+            set_hint(_hint_text(hint, mode, None, None))   # 推不出: 請使用者點
+            return
+        if late is not None and got is None:
+            if st["start"] is None and not st["down"]:
+                result[0] = NO_MARK   # 推不出原點、還沒動手: 呼叫端改走原本的流程
+                finish()
+                return
+            # 按到一半 (自由拖線拖到一半、點擊還沒放開): 讓它做完, 呼叫端看到沒有原點
+            # 再警告——這時結束會把放開漏給底下的應用程式
+        elif late == "base":
+            show_base(got)
+        elif late == "mark":
+            show_mark(got)
+        set_hint(_hint_text(hint, mode, got if late == "base" else base,
+                            got if late == "mark" else mark))
+
     top.focus_force()
     _guard_grab()
+    if pending is not None:
+        watch_pending()
     # 等待改用變數而非 wait_window: finish 不銷毀覆蓋層 (見 finish 註解),
     # 意外銷毀時也要能結束等待, 避免卡死
     top._done_var = tk.IntVar(master=root, value=0)

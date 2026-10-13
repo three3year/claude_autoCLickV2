@@ -6,6 +6,7 @@
 (既有紀律)。
 """
 import os
+from types import SimpleNamespace
 import tkinter as tk
 
 import numpy as np
@@ -34,7 +35,7 @@ class _PickApp(app_mod.App):
         self._rereg_after = None
         self.logged = []
         self.reloads = 0
-        self.shot = None      # `pick_region_raw` 要回傳的假截圖
+        self.shot = None      # 「截圖新增」框到的假截圖
         self.shot_anchor = None   # 假截圖當下量到的`座標基準點` (None＝沒有校準對)
         self.shot_k = 1.0         # 假截圖當下量到的`畫面倍率`
 
@@ -50,12 +51,11 @@ class _PickApp(app_mod.App):
     def log_ui(self, msg, level="info"):
         self.logged.append((level, msg))
 
-    def pick_region_raw(self, hide=()):
-        return self.shot
-
-    def pick_region_measured(self, hide=(), parent=None):
-        # 清場與量校準在 test_editor_scale 測; 這裡直接回假截圖與假量測
-        return (self.shot, self.shot_anchor, self.shot_k) if self.shot else None
+    def pick_region_measured(self, done, hide=(), parent=None):
+        # 清場與量校準在 test_editor_scale 測; 這裡直接拿假截圖與假量測收尾
+        if self.shot:
+            done(self.shot, SimpleNamespace(anchor=self.shot_anchor, k=self.shot_k,
+                                            frame=self.shot.get("frame"), job=None))
 
     def _schedule_reregister(self):
         pass       # 測試不跑事件迴圈的延後排程

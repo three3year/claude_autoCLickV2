@@ -150,6 +150,9 @@ class Screen:
         return Screen((self.origin[0] + x0, self.origin[1] + y0),
                       (max(0, x1 - x0), max(0, y1 - y0)))
 
+    def copy(self):
+        return self
+
     def resized(self, s):
         """等比縮 s 倍的假畫面 (拾取檢查的縮放餘裕用; 原點也跟著乘 s)."""
         return Screen((round(self.origin[0] * s), round(self.origin[1] * s)),
@@ -474,3 +477,33 @@ class Harness:
 
     def log_text(self, runner=None):
         return "\n".join(self.logs(runner))
+
+
+# ---------- 背景辨識的 executor (recognition 的測試接縫) ----------
+
+class Inline:
+    """背景段當場做完 (測試預設, conftest 換上): 呼叫端寫起來跟以前同步的時候一樣."""
+
+    def launch(self, rec, step):
+        step.run()
+        rec._pump()
+
+
+class Held:
+    """扣住背景段, release() 才放行 (一路做到這件辨識的最後一段): 斷言`辨識中`當下的樣子.
+
+    用法: `app.recognition.executor = Held()`; 操作 → 斷言反灰、「辨識中…」→
+    `executor.release()` → 斷言結果。
+    """
+
+    def __init__(self):
+        self.held = []
+
+    def launch(self, rec, step):
+        self.held.append((rec, step))
+
+    def release(self):
+        while self.held:
+            rec, step = self.held.pop(0)
+            step.run()
+            rec._pump()

@@ -4,6 +4,7 @@
 斷言看得到什麼 (按鈕文字、提示框、標題), 不看內部欄位。
 """
 import tkinter as tk
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -421,7 +422,8 @@ def test_重截_同名換圖_存檔前templates不動_存檔後換成新圖(main
     _select_tmpl(a, "a")
     shot = {"img": _img(30, 20, 10), "screenX": 0, "screenY": 0, "w": 20, "h": 10,
             "frame": None}
-    monkeypatch.setattr(a, "pick_region_measured", lambda **kw: (shot, None, 1.0))
+    monkeypatch.setattr(a, "pick_region_measured", lambda done, **kw: done(
+        shot, SimpleNamespace(anchor=None, k=1.0, frame=None, job=None)))
     _btn_in(a.tmpl_list.master, "重截").invoke()
     assert a.list_template_names() == ["a"]
     assert a.steps[0]["target"]["template"] == "a", "引用它的步驟不用改"
@@ -436,7 +438,7 @@ def test_重截_同名換圖_存檔前templates不動_存檔後換成新圖(main
 def test_重截取消什麼都不變_沒選範本寫一行提示(main_app, tmp_path, monkeypatch):
     a = main_app
     folder = _opened(a, tmp_path)
-    monkeypatch.setattr(a, "pick_region_measured", lambda **kw: None)
+    monkeypatch.setattr(a, "pick_region_measured", lambda done, **kw: None)
     a.tmpl_list.selection_clear(0, "end")
     a.recapture_template()
     assert any("先在範本清單選一個範本" in m for m in _logs(a))

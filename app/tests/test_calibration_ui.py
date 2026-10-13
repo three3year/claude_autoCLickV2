@@ -362,24 +362,33 @@ def test_按校準主對找不到退備用對_備用對的範本也先載入(tkr
 def test_拾取檢查的安靜量測_備用對的範本也先確認載得起來(tkroot, monkeypatch):
     # 同上一個案例的漏洞, 另一條路: measured_pick(quiet=True) 只檢查主對兩張
     import contextlib
+
+    import recognition
     monkeypatch.setattr(ui_dialogs.ui_overlay, "screen_clear",
                         lambda root, extra=(): contextlib.nullcontext())
     cal = dict(OLD)
     cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
         ["標題左", "標題右"], 500.0, (0, 0))
-    asked = []
+    known, loaded = [], []
     measured = SimpleNamespace(ok=True, used="main", anchor=(1, 2), scale=1.0,
                                in_range=True)
+    monkeypatch.setattr(ui_dialogs.calibration, "calibrate", lambda *a: measured)
     app = SimpleNamespace(
-        root=tkroot, flow_cal=cal, logged=[],
-        template_ready=lambda n: asked.append(n) or True,
+        root=tkroot, flow_cal=cal, hub=SimpleNamespace(ready=True),
+        detector=SimpleNamespace(query=None),
+        templates_known=lambda names: known.extend(names) or True,
+        load_problem=lambda names: loaded.extend(names),
         calibration_ready=lambda *a, **k: (_ for _ in ()).throw(AssertionError("quiet 不該走這裡")),
-        calibrate_frame=lambda: (measured, "frame"),
+        ensure_registered=lambda: None,
+        grab_frame=lambda: ("frame", (0, 0)),
         log_ui=lambda msg, level="info": None)
-    got = ui_dialogs.measured_pick(app, tkroot, lambda anchor, k, frame: "body",
-                                   quiet=True)
-    assert got == ("body", (1, 2), 1.0)
-    assert set(asked) == {"舊圖示", "舊關閉", "標題左", "標題右"}
+    app.calibration_names = lambda: app_mod.App.calibration_names(app)
+    app.recognition = recognition.Recognition(app)
+    got = []
+    ui_dialogs.measured_pick(app, tkroot, "拾取檢查", lambda r, m: got.append((m.anchor, m.k)),
+                             quiet=True)
+    assert got == [((1, 2), 1.0)]
+    assert set(known) == set(loaded) == {"舊圖示", "舊關閉", "標題左", "標題右"}
 
 
 def test_校準量測查詢不帶預期尺度(tkroot, monkeypatch, tmp_path):

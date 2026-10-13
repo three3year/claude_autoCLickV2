@@ -4,8 +4,10 @@
 對話框不再有每步門檻欄位 (ADR 0002)。
 
 座標 (ADR 0012): 存檔裡的座標都相對`座標基準點`、`流程尺度`。每次`拾取`都經
-`measured_pick`: 清場後先在這次的截圖上`校準`, 得到當下的基準點與`畫面倍率`, 拾取到
-的螢幕座標再換算 (flowfmt.from_screen) 後才存; 量不到＝這次不存、提示重框搜尋範圍。
+`measured_pick`: 清場中截一張圖、派背景在上面`校準`(覆蓋層同時出現), 得到當下的基準點與
+`畫面倍率`, 拾取到的螢幕座標再換算 (flowfmt.from_screen) 後才存; 量不到＝這次不存、提示重框
+搜尋範圍。清場中不做任何辨識 (recognize-off-clear): 辨識一律經 App 的背景辨識入口
+(`app.recognition`), 視窗還原後還沒做完就是`辨識中`。
 """
 import os
 import time
@@ -81,6 +83,23 @@ def make_modal(dlg):
             _flash(dlg)
 
     dlg.bind("<ButtonPress>", on_press, add=True)
+
+
+def busy_foot(app, dlg, foot, closers=()):
+    """對話框底列的「辨識中…」: dlg 發起的辨識做完前顯示它, closers (關閉／確定／取消)
+    反灰、視窗 X 無效 (Esc／Enter 用 unless_busy 包). 回傳那個標籤."""
+    lbl = ttk.Label(foot, style="Panel.TLabel", foreground=C["warn"])
+    lbl.pack(side="left", padx=(0, 8))
+    app.recognition.register_window(dlg, lbl, closers)
+    return lbl
+
+
+def unless_busy(app, dlg, fn):
+    """快捷鍵 (Esc／Enter) 版的關閉類動作: dlg 正在等自己發起的辨識時不理."""
+    def handler(_e=None):
+        if not app.recognition.holds(dlg):
+            fn()
+    return handler
 
 
 THUMB_W, THUMB_H = 176, 120
@@ -326,7 +345,7 @@ class _Source:
         return None
 
     def check(self, name):
-        """拾取當下的 (截圖, 基準點, 倍率), 供`拾取檢查`的縮放餘裕; 沒有＝None."""
+        """拾取當下的量測 (Measured), 供`拾取檢查`的縮放餘裕; 沒有＝None."""
         return None
 
 
@@ -540,21 +559,20 @@ def pick_template(app, title="選擇範本", initial=None):
 
     def shoot():
         # 走既有的清場入口 (絕不自行 withdraw/deiconify); 截下來的圖只暫存,
-        # 按取消就一起丟掉。截圖當下量基準點與倍率: 圖除以倍率換回流程尺度,
-        # 拍攝位置存成相對基準點 (沒有校準對＝不記位置)
-        got = app.pick_region_measured(hide=(dlg,), parent=dlg)
-        if not got or got[0] is None:
-            return
-        r, anchor, k = got
-        _stage(app.next_template_name(taken=pending),
-               imgio.encode_png(imgio.to_flow_scale(r["img"], k)),
-               pos=template_pos_from_shot(r, anchor, k),
-               check=(r.get("frame"), anchor, k))
+        # 按取消就一起丟掉。截圖當下量基準點與倍率 (背景, 本對話框以辨識中等它):
+        # 圖除以倍率換回流程尺度, 拍攝位置存成相對基準點 (沒有校準對＝不記位置)
+        def done(r, m):
+            _stage(app.next_template_name(taken=pending),
+                   imgio.encode_png(imgio.to_flow_scale(r["img"], m.k)),
+                   pos=template_pos_from_shot(r, m.anchor, m.k),
+                   check=m)
+        app.pick_region_measured(done, hide=(dlg,), parent=dlg)
 
     tools = ttk.Frame(body, style="Panel.TFrame")
     tools.grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
-    ttk.Button(tools, text="截圖新增", style="Accent.TButton",
-               command=shoot).pack(side="left")
+    shoot_btn = ttk.Button(tools, text="截圖新增", style="Accent.TButton", command=shoot)
+    shoot_btn.pack(side="left")
+    app.recognition.register(shoot_btn)
     ttk.Button(tools, text="從磁碟挑圖…", style="Small.TButton",
                command=from_disk).pack(side="left", padx=(6, 0))
     info_tip(tools, "從本流程或流程預設位置底下的其他流程挑一張；也可以從磁碟挑圖或"
@@ -589,16 +607,17 @@ def pick_template(app, title="選擇範本", initial=None):
         result[0] = final
         dlg.destroy()
         chk = src.check(name)
-        if chk is not None:   # 現場截圖: 登錄完成後跑縮放餘裕 (拾取當下的整張截圖)
-            app.check_template_scale(final, *chk)
+        if chk is not None:   # 現場截圖: 進了範本清單再跑縮放餘裕 (拾取當下那張截圖)
+            app.check_template_scale(final, chk)
 
     foot.pack(fill="x")
-    ttk.Button(foot, text="取消", command=dlg.destroy).pack(side="right",
-                                                           padx=(8, 0))
-    ttk.Button(foot, text="確定", style="Run.TButton",
-               command=on_ok).pack(side="right")
+    cancel = ttk.Button(foot, text="取消", command=dlg.destroy)
+    cancel.pack(side="right", padx=(8, 0))
+    ok = ttk.Button(foot, text="確定", style="Run.TButton", command=on_ok)
+    ok.pack(side="right")
+    busy_foot(app, dlg, foot, (ok, cancel))
     err.pack(side="left")
-    dlg.bind("<Escape>", lambda e: dlg.destroy())
+    dlg.bind("<Escape>", unless_busy(app, dlg, dlg.destroy))
 
     render(select=(CUR_FLOW_LABEL, initial) if initial else None)
     _center(dlg, root)
@@ -632,56 +651,236 @@ def out_of_range_warning(scale):
             "（用這個大小執行會被擋，拾取的範本與座標不可靠）")
 
 
-def measured_pick(app, parent, body, need_anchor=False, hide=(), title="拾取",
-                  quiet=False):
-    """一次`拾取`的共同骨架 (ADR 0012): 清場前檢查 → 清場 → 先在這次的截圖上`校準` →
-    body(anchor, k, frame) 做實際的拾取 → 清場後提示.
+class Measured:
+    """一次拾取當下的量測 (背景算好, 介面執行緒的收尾拿來換算).
 
-    回傳 (body 的結果, 座標基準點, 畫面倍率); 被擋下或量不到時回 None (已提示, 這次
-    什麼都不存)。frame＝校準用的那張搜尋範圍截圖 (影像, 左上角螢幕座標), 比對測試
-    直接拿它當畫面; 沒有校準對時為 None。
+    frame: 搜尋範圍那塊截圖 (影像, 左上角螢幕座標); shot: 清場中截的整個虛擬桌面 (只量不框
+    的拾取檢查沒有); c: calibration.Calibrated (沒有校準對＝None); anchor, k: 這次的
+    `座標基準點`與`畫面倍率` (沒有校準對＝None 與 1); base: 預設原點 (◎, 螢幕座標) 或 None;
+    problem: 校準圖載不起來 (範本名, 例外); extra: 呼叫端要背景多做的辨識的結果;
+    job: 這件背景辨識 (收尾裡要接下一段背景用 job.chain)。
+    """
+
+    def __init__(self, frame, shot=None):
+        self.frame, self.shot = frame, shot
+        self.c = None
+        self.anchor, self.k = None, 1.0
+        self.base = None
+        self.problem = None
+        self.extra = None
+        self.job = None
+
+    @property
+    def failed(self):
+        """量不到 (校準圖載不起來、校準對找不到): 這次什麼都不存."""
+        return self.problem is not None or (self.c is not None and not self.c.ok)
+
+
+class _Pending:
+    """覆蓋層看的待定結果 (ui_overlay.pick 的 pending): 背景的校準＋◎ 推算."""
+
+    def __init__(self, job):
+        self.job = job
+
+    def status(self):
+        done, m, err = self.job.peek()
+        if not done:
+            return "pending"
+        return "failed" if err is not None or m.failed else "ready"
+
+    @property
+    def mark(self):
+        _done, m, _err = self.job.peek()
+        return m.base if m is not None else None
+
+
+def _measure(app, cal, names, frame, shot, resolve, extra):
+    """(背景) 拾取當下的量測: 載入校準圖 → 在 frame 上`校準` → ◎ 推算 → 呼叫端的辨識."""
+    m = Measured(frame, shot)
+    if cal is not None:
+        m.problem = app.load_problem(names)
+        if m.problem is not None:
+            return m
+        screen, org = frame
+        m.c = calibration.calibrate(app.detector.query, screen, org, cal)
+        if not m.c.ok:
+            return m
+        m.anchor, m.k = m.c.anchor, m.c.scale
+    if resolve is not None:
+        m.base = resolve(frame, m.anchor, m.k)
+    if extra is not None:
+        m.extra = extra(m)
+    return m
+
+
+def measured_pick(app, parent, title, done, overlay=None, need_anchor=False, hide=(),
+                  quiet=False, origin=None, extra=None, cleared=None):
+    """一次`拾取`的共同骨架 (ADR 0012; recognize-off-clear): 清場前檢查 → 清場: 截圖、派
+    背景辨識 (校準＋◎ 推算)、叫覆蓋層 → 還原 → 背景還沒做完就`辨識中`等它 → done 收尾.
+
+    清場中只截圖與讓使用者在覆蓋層上操作; 引擎查詢一律在背景。
+    - overlay(shot, pending): 清場中叫覆蓋層 (shot＝整個虛擬桌面的截圖, 覆蓋層直接顯示它;
+      pending 交給 ui_overlay.pick)。回傳拾取結果; None＝取消 (背景結果作廢)。沒有 overlay＝
+      只量不框 (比對測試、拾取檢查)。
+    - origin(): (介面執行緒) 回傳預設原點推算器 (frame, anchor, k) → 螢幕座標 | None,
+      背景跑, 結果在 m.base (覆蓋層的 ◎)。
+    - extra(m): 背景再做的辨識 (找圖、拾取檢查), 結果在 m.extra。
+    - cleared(): 清場中截完圖就做的事 (按確定觸發的檢查: 趁隱藏時關掉對話框)。
+    - done(r, m): 介面執行緒收尾, m＝Measured; 量不到不呼叫 (已提示)。
     - 流程沒有校準對: need_anchor 的拾取 (固定矩形) 擋下並提示先設校準對;
-      只依原點的拾取照常, anchor＝None、k＝1 (新流程還沒有尺度, 當下畫面就是)。
+      其餘照常, anchor＝None、k＝1 (新流程還沒有尺度, 當下畫面就是)。
     - 有校準對: 量不到 (範圍內找不到、兩張重疊) ＝不存、提示重框搜尋範圍;
       量到`支援倍率範圍`外照常拾取, 只在紀錄區印一行警告。
     所有提示都在清場「之外」彈 (清場中彈 modal 會隱形卡死)。quiet＝只是檢查 (拾取檢查):
-    引擎沒就緒、校準圖載不起來、量不到都不彈 modal, 寫一行紀錄區就回 None。
+    引擎沒就緒、校準圖載不起來、量不到都不彈 modal, 寫一行紀錄區; 清場只截搜尋範圍。
+    發起的視窗＝parent (辨識中顯示在它那裡、做完前關不掉)。回傳這件辨識 (Job), 被擋下
+    或取消回 None。
     """
+    if app.recognition.busy:
+        if quiet:
+            app.log_ui(f"{title}略過：上一件辨識還沒做完", "warn")
+        return None
     cal = app.flow_cal
+    names = []
     if cal is None:
         if need_anchor:
             messagebox.showwarning(title, NO_PAIR_MSG, parent=parent)
             return None
-        with ui_overlay.screen_clear(app.root, extra=hide):
-            return body(None, 1.0, None), None, 1.0
-    if quiet:
-        # 主對找不到時 calibrate() 會改量備用對: 備用對的範本也要先載得起來
-        fb = calibration.fallback_pair(cal)
-        names = [*cal["pair"], *(fb["pair"] if fb else ())]
-        if not all(app.template_ready(n) for n in names):
-            return None
-    elif not app.calibration_ready(title, parent=parent):
-        return None
-    r = None
-    with ui_overlay.screen_clear(app.root, extra=hide):
-        c, frame = app.calibrate_frame()
-        if c.ok:
-            r = body(c.anchor, c.scale, frame)
-    if c.ok and c.used == "fallback":
-        app.log_ui(f"{title}：主校準對找不到（缺「{'」「'.join(c.main.missing)}」），"
-                   "改用備用校準對量座標基準點與倍率", "warn")
-    if c.ok and not c.in_range:
-        app.log_ui(f"{title}：{out_of_range_warning(c.scale)}", "warn")
-    if not c.ok:
+    else:
+        # 主對找不到時 calibrate() 會改量備用對: 備用對的範本也要在
+        names = app.calibration_names()
         if quiet:
-            app.log_ui(f"{title}略過：{c.describe()}", "warn")
+            if not app.templates_known(names):
+                return None
+        elif not app.calibration_ready(title, parent=parent):
             return None
-        messagebox.showwarning(
-            title, f"拾取當下{c.describe()}。\n這次沒有存下任何座標；"
-            "請重新框選搜尋範圍（要框住校準對兩張圖，例如遊戲視窗的標題列）後再試",
-            parent=parent)
+    if app.hub.ready:
+        app.ensure_registered()   # 背景即時找圖要查得到剛截的範本
+    resolve = origin() if origin is not None else None
+    job = None
+    try:
+        with ui_overlay.screen_clear(app.root, extra=hide):
+            if quiet:
+                shot, frame = None, app.grab_frame()
+            else:
+                shot = app.grab_shot()
+                frame = app.scan_frame(shot)
+            job = app.recognition.start(
+                title, lambda: _measure(app, cal, names, frame, shot, resolve, extra),
+                origin=parent)
+            if cleared is not None:
+                cleared()
+            r = overlay(shot, _Pending(job)) if overlay is not None else True
+    except BaseException:
+        if job is not None:
+            job.cancel()   # 覆蓋層或還原出錯: 背景結果作廢, 做完就解除辨識中 (不卡在反灰)
+        raise
+    if r is None:
+        job.cancel()
         return None
-    return r, c.anchor, c.scale
+
+    def finish(m):
+        m.job = job
+        if m.failed:
+            if m.problem is not None:
+                why = f"校準圖載入失敗：{m.problem[0]}（{m.problem[1]}）"
+            else:
+                why = m.c.describe()
+            if quiet:
+                app.log_ui(f"{title}略過：{why}", "warn")
+            elif m.problem is not None:
+                messagebox.showwarning(title, why, parent=parent)
+            else:
+                messagebox.showwarning(
+                    title, f"拾取當下{why}。\n這次沒有存下任何座標；"
+                    "請重新框選搜尋範圍（要框住校準對兩張圖，例如遊戲視窗的標題列）後再試",
+                    parent=parent)
+            return
+        c = m.c
+        if c is not None and c.used == "fallback":
+            app.log_ui(f"{title}：主校準對找不到（缺「{'」「'.join(c.main.missing)}」），"
+                       "改用備用校準對量座標基準點與倍率", "warn")
+        if c is not None and not c.in_range:
+            app.log_ui(f"{title}：{out_of_range_warning(c.scale)}", "warn")
+        if _not_picked(r):
+            return
+        done(r, m)
+    return job.then(finish)
+
+
+def _not_picked(r):
+    """覆蓋層回的不是拾取結果 (取消、ABORT、NO_MARK)."""
+    return r is None or r is ui_overlay.ABORT or r is ui_overlay.NO_MARK
+
+
+def _tagged(r, tag):
+    """拾取結果帶上 tag 交給收尾 ((tag, 結果)); 不是拾取結果 (取消、中止) 原樣傳回."""
+    return r if _not_picked(r) else (tag, r)
+
+
+def overlay_pick(root, mode, hint, hide, shot, pending, late=None, **kw):
+    """叫覆蓋層 (ui_overlay.pick); 待定結果已經出來時照它決定, 不帶待定:
+    失敗＝不開、回 ABORT; ◎ 確定推不出＝不開、回 NO_MARK (免得覆蓋層一閃就關);
+    ◎ 已算好＝當一般的預設原點/標示原點 (late="origin" 就不必點, 直接回 ◎)。"""
+    status = pending.status() if pending is not None else "ready"
+    if status == "failed":
+        return ui_overlay.ABORT
+    if status == "pending":
+        return ui_overlay.pick(root, mode, hint, hide=hide, shot=shot, pending=pending,
+                               late=late, **kw)
+    mark = pending.mark if late is not None else None
+    if late == "origin":
+        if mark is not None:
+            return {"screenX": mark[0], "screenY": mark[1], "auto": True}
+    elif late is not None:
+        if mark is None:
+            return ui_overlay.NO_MARK
+        kw["base" if late == "base" else "mark"] = mark
+    return ui_overlay.pick(root, mode, hint, hide=hide, shot=shot, **kw)
+
+
+def _click_origin(root, shot, pending, hide,
+                  hint="推算不出原點：先點一下原點（前一個原點步驟的位置）"):
+    """請使用者點一下原點 (清場中); 回傳螢幕座標, 或覆蓋層的 None／ABORT."""
+    p = overlay_pick(root, "point", hint, hide, shot, pending)
+    return p if _not_picked(p) else (p["screenX"], p["screenY"])
+
+
+def _pick_around_origin(root, mode, hint, hide, shot, pending, late,
+                        click_hint="推算不出原點：先點一下原點（前一個原點步驟的位置）"):
+    """以原點為基準的拾取 (指定點、拖曳; 清場中): late＝◎ 在背景推算——標著 ◎ 拾取 (晚到也
+    可以先動手); ◎ 推不出或沒有推算器就先請使用者點原點, 再標著那一點拾取.
+    回傳 (使用者點的原點 | None, 拾取結果), 或覆蓋層的取消／中止."""
+    if late:
+        r = overlay_pick(root, mode, hint, hide, shot, pending, late="mark")
+        if r is not ui_overlay.NO_MARK:
+            return _tagged(r, None)
+    base = _click_origin(root, shot, pending, hide, click_hint)
+    if _not_picked(base):
+        return base
+    return _tagged(overlay_pick(root, mode, hint, hide, shot, pending, mark=base), base)
+
+
+NO_ORIGIN_MSG = ("推算不出原點，這次沒存；再拾取一次"
+                 "（等 ◎ 出現，沒有 ◎ 會先請你點原點）")
+
+
+def _late_base(app, parent, title, clicked, r, m):
+    """拾取用的原點: 使用者自己點的 clicked, 否則背景算好的 ◎ (m.base).
+
+    ◎ 出現前就點了的, 紀錄區寫一行原點位置讓使用者事後核對; 推不出原點＝警告、這次不存
+    (回 None, 欄位維持原值)。
+    """
+    if clicked is not None:
+        return clicked
+    base = m.base
+    if base is None:
+        messagebox.showwarning(title, NO_ORIGIN_MSG, parent=parent)
+        return None
+    if r.get("early"):
+        app.log_ui(f"{title}：原點 ◎ 在 ({base[0]}, {base[1]})"
+                   "（點的時候 ◎ 還沒出現，請核對）", "info")
+    return base
 
 
 def _template_screen_pos(app, name, anchor, k):
@@ -692,45 +891,43 @@ def _template_screen_pos(app, name, anchor, k):
     return flowfmt.to_screen(pos, anchor, k)
 
 
-def _find_template_now(app, dlg, prev, origin=None, k=1.0, anchor=None):
-    """隱藏視窗後在搜尋範圍內即時找一次 prev 的找圖目標, 回傳挑中的中心或 None.
+def _find_template_now(app, frame, prev, origin=None, k=1.0, anchor=None):
+    """(背景) 在拾取那張截圖上即時找一次 prev 的找圖目標, 回傳挑中的中心或 None.
 
     origin: prev 判定時的原點 (它的找圖目標以原點為基準時才需要); k、anchor: 當下
     的`畫面倍率`與`座標基準點` (找圖目標的像素設定照它們換算, k 也是預期尺度——同執行器)。
     """
-    return _find_target_now(app, dlg, findtarget.target(prev), origin, k, anchor)
+    return _find_target_now(app, frame, findtarget.target(prev), origin, k, anchor)
 
 
-def _find_target_now(app, dlg, tgt, origin=None, k=1.0, anchor=None):
-    """隱藏視窗後即時執行一次`找圖目標` (與執行器同一個模組), 回傳挑中的
-    匹配中心 (螢幕座標) 或 None."""
+def _find_target_now(app, frame, tgt, origin=None, k=1.0, anchor=None):
+    """(背景) 在給定的截圖 frame (影像, 左上角) 上即時執行一次`找圖目標` (與執行器同一個
+    findtarget.find), 回傳挑中的匹配中心 (螢幕座標) 或 None.
+
+    不清場、不另截: 用拾取當下那張。引擎沒就緒、範本不在清單或載不起來都回 None
+    (走「截圖當下位置」備援, 拾取流程不中斷); `引擎就緒`與 ensure_registered 在派工前的
+    介面執行緒做。
+    """
     name = tgt.get("template", "")
-    if not app.hub.ready:
-        # `引擎就緒`前提示並拒絕 (清場中不得彈 modal——會隱形卡死);
-        # 回 None 走「截圖當下位置」備援, 拾取流程不中斷
-        if not ui_grab.coord.clearing:
-            app.engine_gate(parent=dlg)
-        return None
-    app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中
-    if name not in app.library.templates:
+    if frame is None or not app.hub.ready or name not in app.library.templates:
         return None
     try:
         app.hub.ensure_template(name)  # 單張隨用載入 (票 05)
     except Exception:
-        return None  # 載入失敗走「截圖當下位置」備援, 拾取流程不中斷
-    with ui_overlay.screen_clear(app.root, extra=(dlg,)):
-        screen, org = app.grab_frame()
+        return None
+    screen, org = frame
     f = findtarget.find(tgt, app.detector, screen, org, origin=origin, scale=k,
                         anchor=anchor)
     return f.picked.center if f.picked is not None else None
 
 
-def _resolve_prev_origin(app, step, dlg, k=1.0, anchor=None):
-    """推算相對座標拾取的預設原點 (螢幕座標), 無法推算回傳 None.
+def _resolve_prev_origin(app, step, frame, k=1.0, anchor=None, steps=None):
+    """(背景) 推算相對座標拾取的預設原點 (螢幕座標), 無法推算回傳 None.
 
     步驟裡存的都是流程尺度的偏移量, 換算成螢幕座標時一律乘上當下的`畫面倍率` k;
     範本拍攝位置相對當下的`座標基準點` anchor (與 runner 執行期同一套換算,
-    ADR 0009、0012)。
+    ADR 0009、0012)。frame＝拾取那張截圖 (即時找圖在它上面找); steps＝派工前在介面
+    執行緒拿的步驟清單 (預設 app.steps)。
 
     從本步驟往上找「有座標的動作」(跳過等待):
     - 座標點擊 → 累積偏移×k, 繼續往上找基準
@@ -740,12 +937,13 @@ def _resolve_prev_origin(app, step, dlg, k=1.0, anchor=None):
       相對點擊/拖曳時, 畫面通常已被那次點擊切換, 即時找到的殘留同圖不可信,
       一律用拍攝位置重現使用者剛剛拾取的位置
     """
+    steps = app.steps if steps is None else steps
     idx = step.get("_index", 0)
     dx = dy = 0  # 途中經過的相對點擊累積偏移 (已乘倍率的螢幕像素)
     via_rel = False  # 途中是否經過相對步驟 (影響找圖的推算方式, 見 docstring)
-    i = min(idx, len(app.steps)) - 1
+    i = min(idx, len(steps)) - 1
     while i >= 0:
-        prev = app.steps[i]
+        prev = steps[i]
         t = prev["type"]
         if t == "click" and prev["update_origin"]:
             dx += flowfmt.scale_px(prev["click"][0], k)
@@ -762,10 +960,10 @@ def _resolve_prev_origin(app, step, dlg, k=1.0, anchor=None):
                 pos = _template_screen_pos(app, name, anchor, k)
             else:
                 # 前一步的找圖目標以原點為基準時, 先推算它自己的原點 (再往上找)
-                before = (_resolve_prev_origin(app, {"_index": i}, dlg, k, anchor)
+                before = (_resolve_prev_origin(app, {"_index": i}, frame, k, anchor, steps)
                           if findtarget.needs_origin(findtarget.target(prev))
                           else None)
-                pos = (_find_template_now(app, dlg, prev, before, k, anchor)
+                pos = (_find_template_now(app, frame, prev, before, k, anchor)
                        or _template_screen_pos(app, name, anchor, k))
             if pos:
                 return pos[0] + off[0] + dx, pos[1] + off[1] + dy
@@ -782,50 +980,38 @@ PICK_ZH = {"score": "分數最高", "top": "由上到下第 N 個",
 
 
 def pick_check_now(app, tgt, hide=(), origin_fn=None,
-                   kinds=(pickcheck.SCALE, pickcheck.UNIQUE)):
-    """找圖目標設好之後的`拾取檢查`: 清場 → 截一張當下的搜尋範圍 (有校準對就在上面量) →
-    照目標的限定範圍跑唯一 (與縮放餘裕) → 警告寫紀錄區並標記範本. 回傳警告清單.
+                   kinds=(pickcheck.SCALE, pickcheck.UNIQUE), cleared=None):
+    """找圖目標設好之後的`拾取檢查` (按確定觸發): 清場只截一張當下的搜尋範圍 → cleared()
+    (趁隱藏時關掉對話框) → 背景: 有校準對就在上面量、照目標的限定範圍跑唯一 (與縮放餘裕) →
+    收尾在主視窗: 警告寫紀錄區並標記範本. 發起的視窗是主視窗 (狀態列顯示辨識中)。
 
-    只是檢查, 不擋確定: 引擎沒就緒、範本不在清單、校準量不到都安靜略過 (量不到寫一行)。
-    origin_fn(anchor, k): 這個找圖目標判定時的預設原點 (以原點為基準的設定才需要;
-    推算不出來就略過, 不請使用者點)。
+    只是檢查, 不擋確定: 引擎沒就緒、範本不在清單都安靜略過; 校準量不到、範本載不起來寫一行。
+    origin_fn(): 這個找圖目標判定時的預設原點推算器 (以原點為基準的設定才需要;
+    推算不出來就照沒有原點查, 不請使用者點)。
+    回傳有沒有派出檢查——沒派出時 cleared 不會被呼叫, 呼叫端自己收。
     """
     name = tgt.get("template", "")
-    if not app.template_ready(name):
-        return []
+    if not app.templates_known([name]):
+        return False
 
-    def body(anchor, k, frame):
-        if frame is None:   # 沒有校準對: 這裡才截圖 (有的話用量校準的那張)
-            frame = app.grab_frame()
-        origin = None
-        if origin_fn is not None and findtarget.needs_origin(tgt):
-            origin = origin_fn(anchor, k)
-        return frame, origin
+    def extra(m):
+        problem = app.load_problem([name])
+        if problem is not None:
+            return problem, []
+        screen, org = m.frame
+        return None, pickcheck.check(app.detector, screen, org, tgt, m.anchor, m.k,
+                                     origin=m.base, kinds=kinds)
 
-    got = measured_pick(app, app.root, body, hide=hide, title="拾取檢查", quiet=True)
-    if not got or got[0] is None:
-        return []
-    (frame, origin), anchor, k = got
-    screen, org = frame
-    warns = pickcheck.check(app.detector, screen, org, tgt, anchor, k,
-                            origin=origin, kinds=kinds)
-    app.note_pick_warnings(name, warns)
-    return warns
+    def done(_r, m):
+        problem, warns = m.extra
+        if problem is not None:
+            app.log_ui(f"拾取檢查略過：範本「{name}」載入失敗（{problem[1]}）", "warn")
+            return
+        app.note_pick_warnings(name, warns)
 
-
-def _origin_or_click(root, origin_fn, anchor, k, hide):
-    """預設原點 (螢幕座標); 推算不出來就請使用者點一下原點, 取消回 None.
-
-    必須在清場「之內」呼叫 (推算可能要即時找圖, 拾取要讓出螢幕)。
-    """
-    base = origin_fn(anchor, k) if origin_fn is not None else None
-    if base is None:
-        p = ui_overlay.pick(root, "point",
-                            "推算不出原點：先點一下原點（前一個原點步驟的位置）",
-                            hide=hide)
-        if p:
-            base = (p["screenX"], p["screenY"])
-    return base
+    origin = origin_fn if origin_fn is not None and findtarget.needs_origin(tgt) else None
+    return measured_pick(app, app.root, "拾取檢查", done, hide=hide, quiet=True,
+                         origin=origin, extra=extra, cleared=cleared) is not None
 
 
 # ================= 對話框的版面零件 (說明文字規則, ui-slim) =================
@@ -944,8 +1130,9 @@ class _TargetFields:
     挑選規則四種 (第 N 個接在同一行, 最接近指定點的「原點＋X Y 點選」另起一行); 比色。
     拾取都在拾取當下量`座標基準點`與`畫面倍率` (measured_pick): `固定矩形`相對基準點、
     指定點相對原點, 一律反除倍率換回流程尺度。
-    template_fn(): 目前的範本名 (矩形餘裕對照它的大小); origin_fn(anchor, k): 判定時的
-    預設原點 (點選指定點時標出 ◎); on_change(): 任何值變了 (含框完矩形) 時呼叫。
+    template_fn(): 目前的範本名 (矩形餘裕對照它的大小); origin_fn(): 判定時的預設原點推算器
+    ((frame, anchor, k) → 螢幕座標 | None, 背景跑; 點選指定點時標出 ◎); on_change(): 任何
+    值變了 (含框完矩形) 時呼叫。框選、點選是圖片類動作 (辨識中反灰)。
     """
 
     def __init__(self, app, dlg, rows, tgt, template_fn, origin_fn, on_change):
@@ -969,6 +1156,7 @@ class _TargetFields:
         self.rect_btn = ttk.Button(top, text="框選", style="Small.TButton",
                                    command=self.pick_rect)
         self.rect_btn.pack(side="left")
+        app.recognition.register(self.rect_btn)
         self.rect_lbl = ttk.Label(fr, style="Muted.TLabel")
 
         fr = rows.add("挑選規則", TIP["pick"]).frame
@@ -981,8 +1169,10 @@ class _TargetFields:
         _text(self.n_fr, "個")
         self.near_fr = ttk.Frame(fr, style="Panel.TFrame")
         _xy(self.near_fr, self.nx, self.ny, "原點＋")
-        ttk.Button(self.near_fr, text="點選", style="Small.TButton",
-                   command=self.pick_point).pack(side="left")
+        pt = ttk.Button(self.near_fr, text="點選", style="Small.TButton",
+                        command=self.pick_point)
+        pt.pack(side="left")
+        app.recognition.register(pt)
 
         fr = rows.add("比色", TIP["color"]).frame
         _check(fr, "顏色不符就不算找到", self.color).pack(side="left")
@@ -993,7 +1183,7 @@ class _TargetFields:
     def sync(self, show_all=False):
         """依目前選項顯示/收起座標行、第 N 個、指定點 (show_all＝全部攤開, 量寬度用)."""
         fixed = self.limit.get() == "rect"
-        self.rect_btn.state(["!disabled"] if fixed and self.has_pair else ["disabled"])
+        self.app.recognition.want(self.rect_btn, fixed and self.has_pair)
         self.rect_lbl.configure(text=findtarget.limit_text(self.rect) if self.rect
                                 else "（還沒框選）")
         pk = self.pick.get()
@@ -1022,36 +1212,39 @@ class _TargetFields:
     def pick_rect(self):
         app, dlg = self.app, self.dlg
 
-        def body(anchor, k, _frame):
-            return ui_overlay.pick(app.root, "region",
-                                   "框出只在這一塊找圖的範圍（存成相對座標基準點的位置）",
-                                   hide=(dlg,))
+        def overlay(shot, pending):
+            return overlay_pick(app.root, "region",
+                                 "框出只在這一塊找圖的範圍（存成相對座標基準點的位置）",
+                                 (dlg,), shot, pending)
 
-        got = measured_pick(app, dlg, body, need_anchor=True, hide=(dlg,), title="固定矩形")
-        if got and got[0]:
-            r, anchor, k = got
+        def done(r, m):
             self.rect = findtarget.fixed_rect_from_screen(
-                (r["screenX"], r["screenY"], r["w"], r["h"]), anchor, k)
+                (r["screenX"], r["screenY"], r["w"], r["h"]), m.anchor, m.k)
             self.on_change()
 
+        measured_pick(app, dlg, "固定矩形", done, overlay=overlay, need_anchor=True,
+                      hide=(dlg,))
+
     def pick_point(self):
+        """指定點: 覆蓋層馬上出現; ◎ 晚到可以先點 (點完就關, ◎ 算好才換算填入)."""
         app, dlg = self.app, self.dlg
+        hint = "點一下指定點（畫面上有好幾個時挑最接近它的）"
 
-        def body(anchor, k, _frame):
-            base = _origin_or_click(app.root, self.origin_fn, anchor, k, (dlg,))
+        def overlay(shot, pending):
+            return _pick_around_origin(app.root, "point", hint, (dlg,), shot, pending,
+                                       late=self.origin_fn is not None)
+
+        def done(got, m):
+            clicked, r = got
+            base = _late_base(app, dlg, "指定點", clicked, r, m)
             if base is None:
-                return None
-            r = ui_overlay.pick(app.root, "point",
-                                "點一下指定點（畫面上有好幾個時挑最接近它的）",
-                                hide=(dlg,), mark=base)
-            return (r, base) if r else None
-
-        got = measured_pick(app, dlg, body, hide=(dlg,), title="指定點")
-        if got and got[0]:
-            (r, base), _anchor, k = got
-            x, y = findtarget.offset_from_screen((r["screenX"], r["screenY"]), base, k)
+                return
+            x, y = findtarget.offset_from_screen((r["screenX"], r["screenY"]), base, m.k)
             self.nx.set(x)
             self.ny.set(y)
+
+        measured_pick(app, dlg, "指定點", done, overlay=overlay, hide=(dlg,),
+                      origin=self.origin_fn)
 
     def current(self):
         """表單 → {"within", "pick", "color"} (findtarget.make_target 的參數);
@@ -1081,9 +1274,10 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
 
     欄位與步驟編輯器的左卡同一份 (`_TargetFields`)。回傳表單值 {"within", "pick", "color"}
     (交給 `findtarget.make_target` 組回找圖目標), 取消回 None。
-    origin_fn(anchor, k): 這個找圖目標判定時的預設原點 (螢幕座標) 或 None; test_fn(表單值,
+    origin_fn(): 這個找圖目標判定時的預設原點推算器 (見 _TargetFields) 或 None; test_fn(表單值,
     子對話框): 以這組設定比對測試 (提示以子對話框為 parent, 才不會被壓在它後面)。
-    按確定照目標的限定範圍跑一次`拾取檢查` (唯一、縮放餘裕; 只警告不擋)。
+    按確定照目標的限定範圍跑一次`拾取檢查` (唯一、縮放餘裕; 只警告不擋): 截完圖對話框就關,
+    檢查在主視窗以辨識中進行。
     """
     root = app.root
     sub = tk.Toplevel(root)
@@ -1128,19 +1322,25 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
         opts = checked()
         if opts is not None:
             result[0] = opts
-            # 找圖目標設好了: 照它的限定範圍查唯一 (與縮放餘裕), 只警告不擋
-            pick_check_now(app, findtarget.make_target(tgt.get("template", ""), **opts),
-                           hide=(sub,), origin_fn=origin_fn)
-            sub.destroy()
+            # 找圖目標設好了: 照它的限定範圍查唯一 (與縮放餘裕), 只警告不擋;
+            # 清場截完圖就關對話框 (隱藏中關, 不再閃一下), 檢查在主視窗以辨識中進行
+            if not pick_check_now(app, findtarget.make_target(tgt.get("template", ""), **opts),
+                                  hide=(sub,), origin_fn=origin_fn, cleared=sub.destroy):
+                sub.destroy()
 
     if test_fn is not None:
-        ttk.Button(foot, text="以這組設定比對測試", style="Accent.TButton",
-                   command=on_test).pack(side="left", padx=(0, 8))
+        test_btn = ttk.Button(foot, text="以這組設定比對測試", style="Accent.TButton",
+                              command=on_test)
+        test_btn.pack(side="left", padx=(0, 8))
+        app.recognition.register(test_btn)
     err.pack(side="left")
-    ttk.Button(foot, text="取消", command=sub.destroy).pack(side="right", padx=(8, 0))
-    ttk.Button(foot, text="確定", style="Run.TButton", command=on_ok).pack(side="right")
-    sub.bind("<Return>", lambda e: on_ok())
-    sub.bind("<Escape>", lambda e: sub.destroy())
+    cancel = ttk.Button(foot, text="取消", command=sub.destroy)
+    cancel.pack(side="right", padx=(8, 0))
+    ok = ttk.Button(foot, text="確定", style="Run.TButton", command=on_ok)
+    ok.pack(side="right")
+    busy_foot(app, sub, foot, (ok, cancel))
+    sub.bind("<Return>", unless_busy(app, sub, on_ok))
+    sub.bind("<Escape>", unless_busy(app, sub, sub.destroy))
 
     _center(sub, parent)
     ui_theme.disable_transitions(sub)   # 拾取前隱藏對話框需立即生效
@@ -1196,9 +1396,11 @@ class _StepEditor:
         d.transient(root)
         foot = ttk.Frame(d, style="Panel.TFrame", padding=(16, 0, 16, 14))
         foot.pack(side="bottom", fill="x")    # 先 pack: 內容再長也擠不掉確定鈕
-        ttk.Button(foot, text="取消", command=d.destroy).pack(side="right", padx=(8, 0))
-        ttk.Button(foot, text="確定", style="Run.TButton",
-                   command=self.ok).pack(side="right")
+        cancel = ttk.Button(foot, text="取消", command=d.destroy)
+        cancel.pack(side="right", padx=(8, 0))
+        ok = ttk.Button(foot, text="確定", style="Run.TButton", command=self.ok)
+        ok.pack(side="right")
+        busy_foot(app, d, foot, (ok, cancel))
         self.err = ttk.Label(foot, style="Panel.TLabel", foreground=C["danger"])
         self.err.pack(side="left")
         body = ttk.Frame(d, style="Panel.TFrame", padding=(16, 14, 16, 6))
@@ -1213,8 +1415,8 @@ class _StepEditor:
         for var in self.v.values():
             if isinstance(var, tk.Variable):
                 var.trace_add("write", lambda *_: self.sync())
-        d.bind("<Return>", lambda e: self.ok())
-        d.bind("<Escape>", lambda e: d.destroy())
+        d.bind("<Return>", unless_busy(app, d, self.ok))
+        d.bind("<Escape>", unless_busy(app, d, d.destroy))
 
     # ---------- 共用的列 ----------
 
@@ -1329,9 +1531,10 @@ class _StepEditor:
                    command=self.choose_tmpl).pack(side="left")
         self.fields = _TargetFields(app, self.dlg, lrows, findtarget.target(step),
                                     v["template"].get, self.main_origin, self.sync)
-        ttk.Button(left, text="立即比對測試", style="Accent.TButton",
-                   command=self.test_now).grid(row=99, column=0, columnspan=2,
-                                               sticky="w", pady=(8, 0))
+        test_btn = ttk.Button(left, text="立即比對測試", style="Accent.TButton",
+                              command=self.test_now)
+        test_btn.grid(row=99, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        app.recognition.register(test_btn)
 
         rrows = _Rows(right, 1)
         v["type"] = tk.StringVar(value=self.t)   # `找圖三態`就是步驟的 type
@@ -1361,30 +1564,40 @@ class _StepEditor:
         self.pv.configure(image=ph)
         self.pv._photo = ph
 
-    def main_origin(self, anchor, k):
-        """本步驟判定時的原點＝本步驟之前的原點 (與執行器同一套推算)."""
-        return _resolve_prev_origin(self.app, self.step, self.dlg, k, anchor)
+    def main_origin(self):
+        """本步驟判定時的原點推算器＝本步驟之前的原點 (與執行器同一套推算).
 
-    def cfm_origin(self, anchor, k):
-        """確認圖判定時的原點＝點擊後的原點: 本步驟更新原點時是點擊落點 (即時找本步驟的
-        找圖目標 + 偏移), 否則沿用本步驟之前的原點."""
+        介面執行緒呼叫, 先拿好步驟清單; 回傳的 (frame, anchor, k) → 螢幕座標 | None 在背景跑。
+        """
+        app, step, steps = self.app, dict(self.step), list(self.app.steps)
+        return lambda frame, anchor, k: _resolve_prev_origin(app, step, frame, k, anchor,
+                                                             steps)
+
+    def cfm_origin(self):
+        """確認圖判定時的原點推算器＝點擊後的原點: 本步驟更新原點時是點擊落點 (即時找本步驟
+        的找圖目標 + 偏移), 否則沿用本步驟之前的原點. 表單值在介面執行緒先讀好."""
         v = self.v
+        main = self.main_origin()
         if not v["update_origin"].get():
-            return self.main_origin(anchor, k)
+            return main
         try:
             tgt = findtarget.make_target(v["template"].get(), **self.fields.current())
         except ValueError:
             tgt = {"template": v["template"].get()}
-        before = self.main_origin(anchor, k) if findtarget.needs_origin(tgt) else None
-        pos = (_find_target_now(self.app, self.dlg, tgt, before, k, anchor)
-               or _template_screen_pos(self.app, tgt["template"], anchor, k))
-        if pos is None:
-            return None
         try:
             ox, oy = int(v["offset_x"].get()), int(v["offset_y"].get())
         except (tk.TclError, ValueError):
             ox = oy = 0
-        return pos[0] + flowfmt.scale_px(ox, k), pos[1] + flowfmt.scale_px(oy, k)
+        app = self.app
+
+        def resolve(frame, anchor, k):
+            before = main(frame, anchor, k) if findtarget.needs_origin(tgt) else None
+            pos = (_find_target_now(app, frame, tgt, before, k, anchor)
+                   or _template_screen_pos(app, tgt["template"], anchor, k))
+            if pos is None:
+                return None
+            return pos[0] + flowfmt.scale_px(ox, k), pos[1] + flowfmt.scale_px(oy, k)
+        return resolve
 
     def _choose(self, var, title):
         """選範本對話框 (跨存檔瀏覽、從磁碟挑圖、現場截圖; 確定才複製進本流程)."""
@@ -1462,9 +1675,10 @@ class _StepEditor:
             _xy(lrows.add("起點", TIP["drag_pos"]).frame, v["x1"], v["y1"], "原點＋")
             _xy(lrows.add("終點").frame, v["x2"], v["y2"], "原點＋")
         fr = lrows.add("").frame
-        ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
-                   command=self.pick_pos if self.t == "click" else self.pick_drag).pack(
-            side="left", padx=(0, 8))
+        pick_btn = ttk.Button(fr, text="截圖拾取", style="Accent.TButton",
+                              command=self.pick_pos if self.t == "click" else self.pick_drag)
+        pick_btn.pack(side="left", padx=(0, 8))
+        self.app.recognition.register(pick_btn)
         _check(fr, "預設原點", v["use_base"]).pack(side="left")
         if self.t == "drag":
             v["duration"] = tk.DoubleVar(value=step["duration"])
@@ -1492,56 +1706,64 @@ class _StepEditor:
             self._optional(row, lambda: v["confirm"].get() != "none")
 
     def pick_pos(self):
-        """座標點擊的截圖拾取: 整段 (量校準、找圖預查、拾取) 包進同一個 screen_clear."""
+        """座標點擊的截圖拾取: 覆蓋層馬上出現; 勾預設原點時 ◎ 在背景算, 還沒算好也可以先點
+        (只收點一下), 推不出原點就改拖線 (起點＝原點、終點＝目標)."""
         app, v, dlg = self.app, self.v, self.dlg
+        use_base = v["use_base"].get()
 
-        def body(anchor, k, _frame):
-            base = (_resolve_prev_origin(app, self.step, dlg, k, anchor)
-                    if v["use_base"].get() else None)
-            if base is not None:
-                return ui_overlay.pick(app.root, "line",
-                                       "點一下要點擊的位置（原點＝上一步位置）",
-                                       hide=(dlg,), base=base)
-            return ui_overlay.pick(
-                app.root, "line",
-                "拖曳一條線：起點＝上一步點擊位置（基準），終點＝要點擊的位置",
-                hide=(dlg,))
+        def overlay(shot, pending):
+            if use_base:
+                r = overlay_pick(app.root, "line", "點一下要點擊的位置（原點＝上一步位置）",
+                                  (dlg,), shot, pending, late="base")
+                if r is not ui_overlay.NO_MARK:
+                    return _tagged(r, "base")
+            r = overlay_pick(app.root, "line",
+                              "拖曳一條線：起點＝上一步點擊位置（基準），終點＝要點擊的位置",
+                              (dlg,), shot, pending)
+            return _tagged(r, "line")
+
+        def done(got, m):
+            how, r = got
+            if how == "base" and "dx" not in r:   # ◎ 出現前就點了: 用算好的原點換算
+                base = _late_base(app, dlg, "拾取座標", None, r, m)
+                if base is None:
+                    return
+                dx, dy = r["endX"] - base[0], r["endY"] - base[1]
+            else:
+                dx, dy = r["dx"], r["dy"]
+            v["x"].set(_unscale(dx, m.k))
+            v["y"].set(_unscale(dy, m.k))
 
         # 相對座標只要倍率 (不需要座標基準點)
-        got = measured_pick(app, dlg, body, hide=(dlg,), title="拾取座標")
-        if not got or not got[0]:
-            return
-        r, _anchor, k = got
-        v["x"].set(_unscale(r["dx"], k))
-        v["y"].set(_unscale(r["dy"], k))
+        measured_pick(app, dlg, "拾取座標", done, overlay=overlay, hide=(dlg,),
+                      origin=self.main_origin if use_base else None)
 
     def pick_drag(self):
-        """拖曳的截圖拾取: 推算不出原點時先點一下原點, 再拖出路徑 (同一個 screen_clear)."""
+        """拖曳的截圖拾取: ◎ 在背景算 (晚到也可以先拖); 推算不出原點時先點一下原點,
+        再拖出路徑 (同一次清場)."""
         app, v, dlg = self.app, self.v, self.dlg
+        use_base = v["use_base"].get()
+        hint = "拖曳一條線：起點＝按下位置，終點＝放開位置"
 
-        def body(anchor, k, _frame):
-            base = (_resolve_prev_origin(app, self.step, dlg, k, anchor)
-                    if v["use_base"].get() else None)
+        def overlay(shot, pending):
+            return _pick_around_origin(app.root, "line", hint, (dlg,), shot, pending,
+                                       late=use_base,
+                                       click_hint="先點一下原點（上一步點擊位置），"
+                                                  "接著再拖出拖曳路徑")
+
+        def done(got, m):
+            clicked, r = got
+            base = _late_base(app, dlg, "拾取座標", clicked, r, m)
             if base is None:
-                p = ui_overlay.pick(app.root, "point",
-                                    "先點一下原點（上一步點擊位置），接著再拖出拖曳路徑",
-                                    hide=(dlg,))
-                if not p:
-                    return None
-                base = (p["screenX"], p["screenY"])
-            r = ui_overlay.pick(app.root, "line", "拖曳一條線：起點＝按下位置，終點＝放開位置",
-                                hide=(dlg,), mark=base)
-            return (r, base) if r else None
+                return
+            # 兩端點都相對同一個原點
+            x1, y1 = flowfmt.from_screen((r["startX"], r["startY"]), base, m.k)
+            x2, y2 = flowfmt.from_screen((r["endX"], r["endY"]), base, m.k)
+            for key, val in (("x1", x1), ("y1", y1), ("x2", x2), ("y2", y2)):
+                v[key].set(val)
 
-        got = measured_pick(app, dlg, body, hide=(dlg,), title="拾取座標")
-        if not got or not got[0]:
-            return
-        (r, base), _anchor, k = got
-        # 兩端點都相對同一個原點
-        x1, y1 = flowfmt.from_screen((r["startX"], r["startY"]), base, k)
-        x2, y2 = flowfmt.from_screen((r["endX"], r["endY"]), base, k)
-        for key, val in (("x1", x1), ("y1", y1), ("x2", x2), ("y2", y2)):
-            v[key].set(val)
+        measured_pick(app, dlg, "拾取座標", done, overlay=overlay, hide=(dlg,),
+                      origin=self.main_origin if use_base else None)
 
     def _apply_pointer(self, s):
         v = self.v
@@ -1686,9 +1908,11 @@ class _StepEditor:
         self.result = flowdefaults.complete({k: v_ for k, v_ in s.items() if k in keys})
         changed = findtarget.target(self.result) != findtarget.target(self.step)
         if findtarget.is_find(self.result) and (changed or not self.step.get("_edit")):
-            # 找圖目標設好了 (新增或改過): 照它的限定範圍查唯一 (與縮放餘裕), 只警告不擋
-            pick_check_now(self.app, findtarget.target(self.result), hide=(self.dlg,),
-                           origin_fn=self.main_origin)
+            # 找圖目標設好了 (新增或改過): 照它的限定範圍查唯一 (與縮放餘裕), 只警告不擋;
+            # 清場截完圖就關對話框, 檢查在主視窗以辨識中進行
+            if pick_check_now(self.app, findtarget.target(self.result), hide=(self.dlg,),
+                              origin_fn=self.main_origin, cleared=self.dlg.destroy):
+                return
         self.dlg.destroy()
 
     def run(self):
@@ -1802,56 +2026,83 @@ _WHY = {"none": "沒有任何匹配", "count": "匹配數不到挑選規則的�
 
 
 def show_match_test(app, target, hide=(), origin_fn=None):
-    """隱藏視窗 → 在搜尋範圍的截圖上`校準` → 照`找圖目標`完整執行一次 → 標註預覽.
+    """比對測試: 清場只截一張圖 → 背景: 在搜尋範圍那塊`校準`、照`找圖目標`完整執行一次、
+    拾取檢查、畫標註 → 結果視窗 (發起的視窗以辨識中等它, 做完前關不掉).
 
     target: 找圖目標 (或範本名＝只有範本、其餘預設的找圖目標)。與執行器走
     同一個模組 (`findtarget`): 限定範圍 (固定矩形以這張截圖量到的`座標基準點`
     換算)、比色、挑選規則都照設定, 倍率同時當預期尺度, 畫面上黃粗框的那個就是
-    執行時會點的。origin_fn(anchor, k): 這個找圖目標判定時的預設原點; 設定以
-    原點為基準卻推算不出時, 請使用者點一下原點。找到時補記範本的拍攝位置
-    (相對基準點; 沒有校準對就不記)。
+    執行時會點的。origin_fn(): 這個找圖目標判定時的預設原點推算器 (背景推算); 設定以
+    原點為基準時同一次清場叫「點一下原點」的覆蓋層 (◎ 算好就直接用、不必點; 推不出才點),
+    點了就接著在背景找。找到時補記範本的拍攝位置 (相對基準點; 沒有校準對就不記)。
     """
-    import cv2
     if isinstance(target, str):
         target = {"template": target}
     template_name = target.get("template", "")
     root = app.root
     parent = ui_grab.top_window() or root   # 從流程設定等 modal 按的: 提示疊在它上面
+    if app.recognition.busy:
+        return
     if not app.engine_gate(parent):  # `引擎就緒`前提示並拒絕 (ADR 0004)
         return
     app.ensure_registered()  # 剛存的範本可能還在延後重登錄佇列中 (票 05)
     if template_name not in app.library.templates:
         messagebox.showerror("測試", f"範本不存在: {template_name}", parent=parent)
         return
-    try:
-        app.hub.ensure_template(template_name)  # 單張隨用載入 (票 05)
-    except Exception as e:
-        messagebox.showerror("測試", f"範本載入失敗: {e}", parent=parent)
-        return
+    needs = findtarget.needs_origin(target)
 
-    scan = getattr(app, "scan_region", None)
+    def extra(m):
+        problem = app.load_problem([template_name])   # 單張隨用載入 (票 05), 在背景
+        if problem is not None:
+            return "load", problem
+        if needs and m.base is None:
+            return None   # 推算不出原點: 用使用者在覆蓋層上點的
+        return "ok", _match(app, target, m, m.base)
 
-    def body(anchor, k, frame):
-        origin = None
-        if findtarget.needs_origin(target):
-            origin = _origin_or_click(root, origin_fn, anchor, k, hide)
-            if origin is None:
-                return None   # 使用者取消點選原點
-        if frame is None:   # 沒有校準對: 這裡才截圖 (有的話就用量校準的那張)
-            frame = app.grab_frame()
-        return origin, frame
+    def overlay(shot, pending):
+        # 同一次清場: ◎ 算好就直接用 (覆蓋層自己結束; 已經算好就不開), 推不出才請使用者點
+        return overlay_pick(root, "point", "推算不出原點：先點一下原點（前一個原點步驟的位置）",
+                            hide, shot, pending, late="origin")
 
-    got = measured_pick(app, root, body, need_anchor=findtarget.needs_anchor(target),
-                        hide=hide, title="比對測試")
-    if not got or got[0] is None:
-        return
-    (origin, (screen, org)), anchor, k = got
+    def done(r, m):
+        got = m.extra
+        if (got is not None and got[0] == "load") or not needs or r.get("auto"):
+            _show_match(app, target, m, got, parent)
+            return
+        origin = (r["screenX"], r["screenY"])   # 使用者點的原點: 接著在背景找
+        m.job.chain(lambda: ("ok", _match(app, target, m, origin)),
+                    lambda res: _show_match(app, target, m, res, parent))
+
+    measured_pick(app, parent, "比對測試", done,
+                  need_anchor=findtarget.needs_anchor(target), hide=hide,
+                  overlay=overlay if needs else None,
+                  origin=origin_fn if needs else None, extra=extra)
+
+
+def _match(app, target, m, origin):
+    """(背景) 照找圖目標在拾取那張搜尋範圍上找一次, 畫標註, 同一張再跑`拾取檢查`
+    (縮放餘裕與唯一, ADR 0013). 回傳 (Found, 標註圖, 警告, 原點)."""
+    screen, org = m.frame
     f = findtarget.find(target, app.detector, screen, org, origin=origin,
-                        scale=k, anchor=anchor)
-    annotated = _annotate_find(screen, org, f, origin, anchor)
-    # `拾取檢查`: 同一張截圖再跑縮放餘裕與唯一, 結果與比對測試一起顯示 (ADR 0013)
-    warns = pickcheck.check(app.detector, screen, org, target, anchor, k,
+                        scale=m.k, anchor=m.anchor)
+    annotated = _annotate_find(screen, org, f, origin, m.anchor)
+    warns = pickcheck.check(app.detector, screen, org, target, m.anchor, m.k,
                             origin=origin, kinds=(pickcheck.SCALE, pickcheck.UNIQUE))
+    return f, annotated, warns, origin
+
+
+def _show_match(app, target, m, got, parent):
+    """比對測試的收尾 (介面執行緒): 拾取檢查寫紀錄與標記、補記拍攝位置、開結果視窗."""
+    import cv2
+    kind, data = got
+    if kind == "load":
+        messagebox.showerror("測試", f"範本載入失敗: {data[1]}", parent=parent)
+        return
+    f, annotated, warns, origin = data
+    root = app.root
+    template_name = target.get("template", "")
+    anchor, k = m.anchor, m.k
+    scan = getattr(app, "scan_region", None)
     app.note_pick_warnings(template_name, warns)
 
     win_ = tk.Toplevel(root)

@@ -165,9 +165,9 @@ def test_拾取當下主對找不到_改用備用對並提示(make_app, monkeypa
     app.vision.plan(CAL_PAIR[0], [None])     # 主對第一張被蓋住
     app.vision.plan(FB[0], [(100, 200)])     # 備用: 距離 100 → ×1.0, 基準點 (100,200)+(50,30)
     app.vision.plan(FB[1], [(200, 200)])
-    monkeypatch.setattr(app, "pick_region_raw",
-                        lambda hide=(): _shot(40, 20, 280, 390))   # 中心 (300,400)
-    name = app.capture_template()
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", lambda root, mode, prompt, **kw: _shot(40, 20, 280, 390))   # 中心 (300,400)
+    app.capture_template()
+    [name] = [n for n in app.store.names() if n.startswith("tmpl_")]
     assert app.store.pos_of(name) == [150, 170], "基準點仍是 (150,230) (備用對換回)"
     assert any("備用校準對" in m for _, m in app.logged)
 

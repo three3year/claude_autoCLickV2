@@ -45,6 +45,18 @@ def no_real_dialogs(monkeypatch):
     return stub_dialogs(monkeypatch.setattr)
 
 
+@pytest.fixture(autouse=True)
+def inline_recognition(monkeypatch):
+    """背景辨識預設當場做完 (同步): 不在意`辨識中`的測試照舊寫, 斷言緊接在操作後面.
+
+    要看辨識中當下的樣子就換成 `harness.Held()` (扣住／放行); 真的開執行緒的
+    `recognition.Threaded` 另有測試。
+    """
+    import recognition
+    from harness import Inline
+    monkeypatch.setattr(recognition, "DEFAULT_EXECUTOR", Inline)
+
+
 @pytest.fixture
 def harness(monkeypatch):
     return Harness(monkeypatch)

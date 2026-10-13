@@ -40,7 +40,7 @@ def test_即時找圖只單張載入目標範本(monkeypatch):
     monkeypatch.setattr(ui_dialogs.time, "sleep", lambda s: None)
 
     pos = ui_dialogs._find_template_now(
-        app, None, {"type": "find_click", "target": {"template": "b"}})
+        app, (Screen((0, 0)), (0, 0)), {"type": "find_click", "target": {"template": "b"}})
     assert pos == (500, 400)
     assert vision.ensured == ["b"]      # 只載當下那張
     assert vision.lookups == ["b"]
@@ -53,6 +53,6 @@ def test_即時找圖範本載入失敗_回None不炸(monkeypatch):
     app = _fake_app(vision)
 
     pos = ui_dialogs._find_template_now(
-        app, None, {"type": "find_click", "target": {"template": "b"}})
+        app, (Screen((0, 0)), (0, 0)), {"type": "find_click", "target": {"template": "b"}})
     assert pos is None
     assert vision.lookups == []  # 載入失敗就不查詢
