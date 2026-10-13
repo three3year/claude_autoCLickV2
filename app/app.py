@@ -84,6 +84,10 @@ UNREF_MARK = "（未引用）"
 FUSE_INTERVAL_MS = 1000
 FUSE_TRIP = 3
 
+# 主視窗大小一變 (標題列雙擊放大/還原), 這麼多秒內主視窗裡的按下不算點擊 (見 _guard_resize_clicks)
+RESIZE_CLICK_GUARD = 0.5
+RESIZE_GUARD_TAG = "ResizeClickGuard"
+
 
 def _pointer_confirm_desc(s):
     """座標點擊/拖曳的`生效確認`摘要 (沒設＝空字串)."""
@@ -376,6 +380,7 @@ class App:
         self._build_menu()
         self._build_toolbar()
         self._build_main()
+        self._guard_resize_clicks()
 
         self.log_ui("引擎載入中…（就緒前，執行／比對測試等辨識功能暫不可用）")
 
@@ -1106,6 +1111,36 @@ class App:
         self.btn_stop = ttk.Button(bar2, text="■ 停止", style="Stop.TButton",
                                    command=self.stop_all, state="disabled")
         self.btn_stop.pack(side="left")
+
+    def _guard_resize_clicks(self):
+        """主視窗剛變大小時的按下不算點擊 (標題列雙擊放大).
+
+        雙擊標題列的第二下「按著」時視窗就放大了; 放開時游標若落在客戶區, Tk 看到滑鼠鍵
+        狀態變了會補一個按下給游標底下的元件, 接著放開＝點擊——游標剛好在「開始執行」上
+        就直接開跑 (2026-10-14 使用者回報)。視窗大小改變後 RESIZE_CLICK_GUARD 秒內, 主視窗
+        裡的按下一律不理 (所有元件的 bindtags 最前面插一個擋的標籤, 回 "break" 擋掉後面的)。
+        """
+        self._resized_at = -RESIZE_CLICK_GUARD
+        self._size_seen = None
+
+        def on_configure(e):
+            if e.widget is self.root and (e.width, e.height) != self._size_seen:
+                self._size_seen = (e.width, e.height)
+                self._resized_at = time.monotonic()
+
+        def on_press(_e):
+            if time.monotonic() - self._resized_at < RESIZE_CLICK_GUARD:
+                return "break"
+
+        self.root.bind("<Configure>", on_configure, add=True)
+        self.root.bind_class(RESIZE_GUARD_TAG, "<ButtonPress>", on_press)
+        stack = list(self.root.winfo_children())
+        while stack:
+            w = stack.pop()
+            if isinstance(w, (tk.Toplevel, tk.Menu)):
+                continue   # 子視窗不會跟著主視窗放大
+            w.bindtags((RESIZE_GUARD_TAG,) + tuple(w.bindtags()))
+            stack.extend(w.winfo_children())
 
     def _mode_ui(self):
         state = "normal" if self.run_mode.get() == "執行次數" else "disabled"

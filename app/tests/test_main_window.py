@@ -446,3 +446,25 @@ def test_重截取消什麼都不變_沒選範本寫一行提示(main_app, tmp_p
     a.recapture_template()
     assert not a.dirty
     assert a.store.path_of("a") == str(folder / "templates" / "a.png")
+
+
+# ---------- 標題列雙擊放大: 放開落在按鈕上不算點擊 ----------
+
+def _click(w):
+    w.event_generate("<ButtonPress-1>", x=4, y=4)
+    w.event_generate("<ButtonRelease-1>", x=4, y=4)
+    w.update()
+
+
+def test_放大後立刻落在開始執行上的按下_不執行_過一下再按才執行(main_app, no_real_dialogs):
+    import time
+    a = main_app
+    a.root.state("zoomed")         # 雙擊標題列的第二下按著時視窗就放大了
+    a.root.update()
+    _click(a.btn_run)              # Tk 補給游標底下元件的那一下
+    assert no_real_dialogs["warning"] == [], "不應該執行（引擎載入中會跳就緒提示）"
+    time.sleep(0.6)
+    a.root.update()
+    _click(a.btn_run)
+    assert any("引擎" in m for m in no_real_dialogs["warning"]), "之後正常按照常執行"
+    a.root.state("normal")
