@@ -2,7 +2,7 @@
 
 對外行為＝流程資料夾在各操作之後的檔案狀態、開啟後得到的流程、執行紀錄與彈窗。
 App 的重量級 __init__ 以子類跳過; 檔案對話框以樁取代 (使用者選了哪個檔);
-本機狀態資料夾與流程預設位置由 conftest 換到暫存目錄。
+本機狀態資料夾與流程存放區由 conftest 換到暫存目錄。
 """
 import os
 import tkinter as tk
@@ -143,7 +143,7 @@ def _opened(a, monkeypatch, folder):
 
 # ---------- 開檔 ----------
 
-def test_開檔對話框篩選flow_yaml_從流程預設位置開(tkroot, tmp_path, monkeypatch):
+def test_開檔對話框篩選flow_yaml_從流程存放區開(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, monkeypatch)
     seen = {}
     monkeypatch.setattr(app_mod.filedialog, "askopenfilename",
@@ -288,7 +288,7 @@ def test_被引用卻缺圖的範本在紀錄裡如實回報(tkroot, tmp_path, m
     assert any("gone" in m and "沒有帶到" in m for m in a.logged)
 
 
-def test_存檔不動流程預設位置裡的其他流程(tkroot, tmp_path, monkeypatch):
+def test_存檔不動流程存放區裡的其他流程(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, monkeypatch)
     other = _write(os.path.join(apppaths.flows_root(), "別的"), [_find("x")], {"x": b"X"})
     before = open(os.path.join(other, "flow.yaml"), "rb").read()

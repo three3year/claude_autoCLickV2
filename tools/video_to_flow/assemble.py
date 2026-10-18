@@ -8,7 +8,7 @@
 影片尺度就是`流程尺度` (ADR 0009): 偏移與範本圖原樣進流程; `基準距離`在影片影格上量,
 第一張的中心就是`座標基準點` (ADR 0012)——固定矩形與範本拍攝位置相對它。不寫搜尋範圍
 (＝全螢幕)。流程一律經 app 的 `flowfile.write_flow` 寫出 (格式只由一個地方決定)。
-輸出在 `<輸出位置>/<流程名>/` (預設 %USERPROFILE%/AutoClick/), 撞名加序號, 絕不覆蓋。
+輸出在 `<輸出位置>/<流程名>/` (預設`流程存放區`, app 的 `apppaths.flows_root()`), 撞名加序號, 絕不覆蓋。
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ import tempfile
 
 import cv2
 
+import apppaths
 import calibration
 import flowfile
 from automation import flowcheck, flowfmt
@@ -82,9 +83,6 @@ def png(img):
     return buf.tobytes()
 
 
-DEFAULT_OUT = os.path.join(os.path.expanduser("~"), "AutoClick")
-
-
 def scroll_confirm(steps, measured):
     """同一份報告段落 (頂層區段) 有拖曳、找圖又沒宣告捲動軸的 → [(索引, 文字)]."""
     secs = report_mod.sections(steps)
@@ -120,10 +118,10 @@ def assemble(plan, engine=None, out_dir=None):
     """組裝一份流程資料夾; 回傳結果 dict (flow_path＝流程資料夾、report_path＝交付報告/、…).
 
     plan: 計畫 dict 或計畫 JSON 檔路徑。engine: 已建好的引擎 (測試共用; None＝自行建構)。
-    out_dir: 輸出位置 (None＝計畫的 out, 再沒有就是 DEFAULT_OUT)。
+    out_dir: 輸出位置 (None＝計畫的 out, 再沒有就是流程存放區)。
     """
     p = plan_mod.load(plan, plan_mod.ASSEMBLE)
-    out = os.path.abspath(out_dir or p.out or DEFAULT_OUT)
+    out = os.path.abspath(out_dir or p.out or apppaths.flows_root())
     info = video_mod.probe(p.video)
     size = (info["width"], info["height"])
     frames = video_mod.read_frames(

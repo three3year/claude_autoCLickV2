@@ -1,7 +1,9 @@
-"""app 用到的固定位置 (詞彙見 app/CONTEXT.md「存檔與快取」; 佈局見 ADR 0015 與
+"""app 用到的固定位置 (詞彙見 app/CONTEXT.md「存檔與快取」; 佈局見 ADR 0015、0017 與
 .scratch/project-cleanup/issues/09-packaged-layout-and-flow-location.md).
 
-    %USERPROFILE%\\AutoClick\\        流程資料夾的預設位置 (開檔與新流程第一次存檔的對話框從這裡開)
+    流程存放區                         流程資料夾的預設位置 (開檔與新流程第一次存檔的對話框從這裡開)
+        原始碼執行:        <repo>\\flows\\  (gitignore)
+        打包版 (frozen):   exe 往上找得到本專案就是 <repo>\\flows\\, 找不到 %USERPROFILE%\\AutoClick\\
     本機狀態資料夾                     state.json (只記上次開的流程)、autoclick.log、「未存檔」快取
         打包版 (frozen):   %LOCALAPPDATA%\\AutoClick\\
         原始碼執行:        <repo>\\.local\\  (agent 冒煙開過的流程不會變成打包版下次自動開的那份)
@@ -15,9 +17,31 @@ import sys
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+# 認 repo 根的記號: 本專案自己的原始檔 (別的 git repo 不會誤認, 沒有 .git 的複本也認得)
+_REPO_MARKER = os.path.join("app", "apppaths.py")
+
+
+def _repo_above(start):
+    """從 start 逐層往上找本專案的 repo 根; 到磁碟根都沒有回 None."""
+    d = os.path.abspath(start)
+    while True:
+        if os.path.isfile(os.path.join(d, _REPO_MARKER)):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
+
+
 def flows_root():
-    """流程資料夾的預設位置 (不在 OneDrive 同步的「文件」裡)."""
-    return os.path.join(os.path.expanduser("~"), "AutoClick")
+    """`流程存放區`: 原始碼執行在 repo 的 flows; 打包版從 exe 往上找 repo, 找不到
+    (整包拿到沒有 repo 的電腦) 退回 %USERPROFILE%\\AutoClick (ADR 0017)."""
+    if getattr(sys, "frozen", False):
+        repo = _repo_above(os.path.dirname(sys.executable))
+        if repo is None:
+            return os.path.join(os.path.expanduser("~"), "AutoClick")
+        return os.path.join(repo, "flows")
+    return os.path.join(REPO_ROOT, "flows")
 
 
 def state_dir():

@@ -85,7 +85,7 @@ def main(argv=None):
     asm = sub.add_parser("assemble", help="轉換計畫 → 自我驗證 → 新的流程資料夾 + 交付報告")
     asm.add_argument("plan")
     asm.add_argument("--out", help="輸出位置：流程資料夾建在它底下"
-                                   "（預設計畫的 out，再沒有就是 %%USERPROFILE%%\\AutoClick\\）")
+                                   "（預設計畫的 out，再沒有就是流程存放區：repo 的 flows\\）")
     ins = sub.add_parser("insert", help="補充計畫 → 量好的步驟插進既有流程（直接改寫，不備份）")
     ins.add_argument("plan")
     ins.add_argument("folder", help="既有流程資料夾（有 flow.yaml 的那一層）")

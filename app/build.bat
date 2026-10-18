@@ -14,7 +14,8 @@ if not exist dist\AutoClick\AutoClick.exe (
     exit /b 1
 )
 
-rem 打包版資料夾裡沒有使用者資料 (ADR 0015): 流程資料夾在 %USERPROFILE%\AutoClick\,
+rem 打包版資料夾裡沒有使用者資料 (ADR 0015、0017): 流程資料夾在 repo 的 flows\
+rem (exe 往上找不到 repo 時 %USERPROFILE%\AutoClick\),
 rem 本機狀態與日誌在 %LOCALAPPDATA%\AutoClick\ ; 不必放任何東西到 exe 旁。
 
 echo.

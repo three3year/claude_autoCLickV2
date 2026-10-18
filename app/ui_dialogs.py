@@ -405,7 +405,7 @@ class _OtherFlow(_Source):
 
 
 def _tmpl_sources(app, pending):
-    """對話框左側的所有來源 (依顯示順序): 新加入的、本流程、流程預設位置底下的其他流程."""
+    """對話框左側的所有來源 (依顯示順序): 新加入的、本流程、流程存放區底下的其他流程."""
     sources = []
     if pending:
         sources.append(_Staged(pending))
@@ -575,7 +575,7 @@ def pick_template(app, title="選擇範本", initial=None):
     app.recognition.register(shoot_btn)
     ttk.Button(tools, text="從磁碟挑圖…", style="Small.TButton",
                command=from_disk).pack(side="left", padx=(6, 0))
-    info_tip(tools, "從本流程或流程預設位置底下的其他流程挑一張；也可以從磁碟挑圖或"
+    info_tip(tools, "從本流程或流程存放區底下的其他流程挑一張；也可以從磁碟挑圖或"
                     "現場截圖。按「確定」才把選中的圖複製進本流程，取消什麼都不留").pack(
         side="left", padx=(8, 0))
     foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
@@ -1357,7 +1357,7 @@ def edit_target_opts(app, parent, tgt, title, origin_fn=None, test_fn=None):
 CARD_W = (436, 460)       # 2026-10-13 量到 左 425、右 450 (最高 472px, 工作區 1020)
 CARD_GAP = 12
 PV_W, PV_H = 230, 100      # 找圖左卡的預覽
-CFM_W = 18                 # 確認圖下拉寬 (字元): 2026-10-13 量到流程預設位置底下 134 個範本名最長
+CFM_W = 18                 # 確認圖下拉寬 (字元): 2026-10-13 量到流程存放區底下 134 個範本名最長
                            # 「CONFIDENTIAL线索」159px＝15.9 字元
 ACT_ZH = {"find_click": "點擊該圖片", "find": "不點擊（僅等待出現）",
           "wait_gone": "不點擊（等待消失）"}

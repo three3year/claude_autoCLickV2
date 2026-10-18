@@ -10,7 +10,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   綁定＋query/預載/單張登錄的單一接縫，也是 runner 的偵測接縫實作）；
   `ui_theme.py` 深色主題；`ui_overlay.py` 全螢幕截圖選取層；`ui_dialogs.py` 步驟編輯對話框；
   `window_coord.py`(modal 堆疊＋清場還原清單的純狀態機)；`ui_grab.py`(堆疊的 Tk 執行層)；
-  `applog.py`(檔案日誌)；`apppaths.py`(流程預設位置、本機狀態資料夾、上次開的流程)；
+  `applog.py`(檔案日誌)；`apppaths.py`(流程存放區、本機狀態資料夾、上次開的流程)；
   `flowfile.py`(**流程資料夾讀寫與本流程範本的唯一入口**，見下)；
   `calibration.py`(校準與畫面倍率的全部純邏輯，見下)；
   `recognition.py`(**背景辨識入口**＝`辨識中`：編輯器的辨識都在背景執行緒做，見下)
@@ -149,7 +149,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   對較高權限視窗注入的滑鼠事件會被系統無聲丟棄；部署後的自動啟動測試會被 UAC 擋住——
   自動化冒煙改用同包的 `AutoClick-noUAC.exe`（共用 `_internal`；點擊會被高權限視窗
   丟棄，不作正式使用）
-- 使用者資料（`apppaths.py`）：流程資料夾預設在 `%USERPROFILE%\AutoClick\`（開檔與第一次存檔的
+- 使用者資料（`apppaths.py`）：流程資料夾預設在`流程存放區`＝repo 的 `flows\`（gitignore；
+  打包版從 exe 往上找 repo，找不到退回 `%USERPROFILE%\AutoClick\`；ADR 0017；開檔與第一次存檔的
   對話框從這裡開）；本機狀態資料夾（`state.json` 只記上次開的流程、`autoclick.log`、「未存檔」快取）
   打包版在 `%LOCALAPPDATA%\AutoClick\`、原始碼執行在 repo 的 `.local\`（gitignore）——agent 冒煙開過的
   流程不會變成打包版下次自動開的那份。repo 的 `profiles/arknights/` 只剩引擎基準測試集
@@ -250,7 +251,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
 - 流程資料夾讀寫與本流程的範本是純檔案邏輯，用暫存目錄真測不 mock
   （`test_flowfolder.py`、`test_flowfile.py`、`test_flow_open_save.py`）；
   斷言的是**資料夾與快取的檔案狀態、讀回來的流程**，不是內部欄位。conftest 把本機狀態資料夾與
-  流程預設位置換到暫存目錄（`local_paths`），測試不碰 repo 的 `.local/` 與使用者的流程
+  流程存放區換到暫存目錄（`local_paths`），測試不碰 repo 的 `.local/` 與使用者的流程
 - 測試要靠子程序開靶視窗時，**不能用 pid 找它的視窗**——venv 的 `python.exe` 啟動子程序時
   pid 會轉手，`Popen.pid` 跟實際擁有視窗的程序不同 → 用視窗標題辨識
 - GUI 畫面驗證：用 PrintWindow 擷取視窗，不能只做語法檢查
@@ -299,7 +300,7 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   經 `flowfile.clean_name` 清成能當檔名）；使用者改名輸入不能當檔名的字元＝擋下說明，不靜靜改寫。
   主視窗的範本面板列的是**本流程的範本**（平面清單，沒有資料夾），改名靠面板的重新命名
   （`flowfile.rename_template_refs` 同步改寫所有引用含`確認圖`、校準對、忙碌指示，撞名自動加序號）
-- **選範本一律走 `ui_dialogs.pick_template`**：左側樹狀「新加入／本流程／流程預設位置底下的
+- **選範本一律走 `ui_dialogs.pick_template`**：左側樹狀「新加入／本流程／流程存放區底下的
   其他流程資料夾」（其他流程只列檔名，預覽才讀那一張）、可從磁碟挑 PNG、可現場
   截圖；**按確定才複製進本流程**，取消時檔案系統完全沒有變化。`確認圖`走同一個
   對話框（取消時這次加進來、最後沒被引用的圖一併丟棄）——舊的「截圖即時存檔、取消對話框圖仍留下」

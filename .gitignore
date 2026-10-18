@@ -13,6 +13,8 @@ profiles/*/calibration.json
 profiles/app_state.json
 autoclick.log
 autoclick.log.1
+# 流程存放區 (使用者自己的流程資料夾: 範本圖、快取、個人調整; ADR 0017)
+/flows/
 # 原始碼執行的本機狀態資料夾 (state.json、autoclick.log、未存檔快取; apppaths)
 .local/
 .scratch/**/tmp/

@@ -8,8 +8,8 @@
 #     AutoClick.exe        正式版 (--uac-admin: UIPI 需要管理員權限)
 #     AutoClick-noUAC.exe  冒煙測試用 (自動化啟動測試會被 UAC 擋住;
 #                          對高權限視窗的點擊會被系統丟棄, 不作正式使用)
-# - 打包版資料夾裡沒有使用者資料 (流程在 %USERPROFILE%/AutoClick, 狀態與日誌在
-#   %LOCALAPPDATA%/AutoClick; ADR 0015): 部署＝整個資料夾換掉。
+# - 打包版資料夾裡沒有使用者資料 (流程在 repo 的 flows/, 找不到 repo 時 %USERPROFILE%/AutoClick;
+#   狀態與日誌在 %LOCALAPPDATA%/AutoClick; ADR 0015、0017): 部署＝整個資料夾換掉。
 import os
 
 HUB = os.path.join(os.environ.get(

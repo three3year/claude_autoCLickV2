@@ -123,6 +123,16 @@ def test_輸出位置可由參數指定_優先於計畫(demo, engine, tmp_path):
     assert os.listdir(out) == []
 
 
+def test_沒指定輸出位置時建在流程存放區(demo, engine):
+    import apppaths  # conftest 已把流程存放區換成暫存目錄
+    video, out = demo
+    plan = demo_plan(video, out)
+    del plan["out"]
+    res = run(plan, engine)
+    assert res["flow_path"] == os.path.join(apppaths.flows_root(), "日常")
+    assert os.listdir(out) == []
+
+
 def test_計畫寫了已退場的頂層欄位就報錯(demo, engine):
     video, out = demo
     for key in ("profile", "reportPath", "busyTarget", "retryIntervalMs"):

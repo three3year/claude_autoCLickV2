@@ -72,7 +72,7 @@ def _png(fill=200, w=12, h=8):
 
 
 def _other_flow(name, template, images):
-    """流程預設位置底下的另一份流程資料夾 (選範本對話框的來源之一)."""
+    """流程存放區底下的另一份流程資料夾 (選範本對話框的來源之一)."""
     import apppaths
     folder = os.path.join(apppaths.flows_root(), name)
     flow = flowfile.new_flow()

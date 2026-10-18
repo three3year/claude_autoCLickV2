@@ -1760,7 +1760,7 @@ class App:
         return self.store.folder
 
     def other_flow_folders(self):
-        """流程預設位置底下的其他流程資料夾 (選範本對話框的來源)."""
+        """流程存放區底下的其他流程資料夾 (選範本對話框的來源)."""
         cur = self.store.folder
         return [p for p in flowfile.list_flow_folders(apppaths.flows_root())
                 if cur is None or os.path.normcase(os.path.abspath(p))

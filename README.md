@@ -16,7 +16,8 @@
 ```
 
 - 一份流程＝一個資料夾:`flow.yaml`(步驟與流程設定)+ `templates/`(範本圖)+ `.cache/`
-  (可重建的快取)。預設放在 `%USERPROFILE%\AutoClick\`;開檔選資料夾裡的 `flow.yaml`。
+  (可重建的快取)。預設放在流程存放區:repo 的 `flows\`(不進 git;
+  打包版找不到 repo 時改用 `%USERPROFILE%\AutoClick\`);開檔選資料夾裡的 `flow.yaml`。
 - 引擎參數＝引擎內建預設 + 流程 `flow.yaml` 的 `engine:` 段覆蓋。
 - 開 app 自動開上次的流程;本機狀態與日誌在 `%LOCALAPPDATA%\AutoClick\`
   (從原始碼執行時在 repo 的 `.local\`)。
