@@ -90,7 +90,7 @@ def test_有匹配時沒有未過的關卡(engine, tmp_path):
 
 def real_case(name):
     """基準測試集裡的真實影格 case: (模板圖, 截圖, expect)."""
-    case = next(c for c in load_cases(ARKNIGHTS) if c.name == name)
+    case = next(c for c in load_cases(ARKNIGHTS / "benchmark") if c.name == name)
     return case.template_path, imread(case.screenshot_path), case.expect
 
 

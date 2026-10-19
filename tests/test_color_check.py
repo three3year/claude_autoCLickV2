@@ -119,7 +119,7 @@ REAL = ["r3_color_快速置入_d2f960", "r4_color_快速置入灰_d2f1064",
 
 @pytest.mark.parametrize("name", REAL)
 def test_真實影格_開比色後只剩真正的目標(engine, tmp_path, name):
-    case = next(c for c in load_cases(ARKNIGHTS) if c.name == name)
+    case = next(c for c in load_cases(ARKNIGHTS / "benchmark") if c.name == name)
     assert case.expect.get("color_check") is True
     lib = engine.load_templates({case.name: case.template_path},
                                 config=load_config(ARKNIGHTS),

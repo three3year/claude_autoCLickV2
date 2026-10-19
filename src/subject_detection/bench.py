@@ -1,8 +1,10 @@
-"""Benchmark runner: replay every case in <profile>/benchmark/ and report
-accuracy with miss / false-alarm breakdown.
+"""Benchmark runner: replay every case in a benchmark folder and report
+accuracy with miss / false-alarm breakdown, known failures listed apart.
 
 **Every case carries its own template image**, so the benchmark needs no
-template library of any kind — only the case folders themselves.
+template library of any kind — only the case folders themselves. The engine
+runs on its **built-in defaults only**: no config file anywhere is read, so
+the numbers are what the app ships with.
 
 Case folder contract (adding a case = dropping files, no code change):
 
@@ -16,15 +18,25 @@ Case folder contract (adding a case = dropping files, no code change):
                          tolerance: 15       (px, optional)
                          color_check: true   (optional: query with the color
                                              check, ADR 0007)
+                         expected_scale: 1.15  (optional, default 1.0: the
+                                  expected scale handed to the query, as the
+                                  app does; centers are in the scaled image)
+                         known_failure: <why>  (optional: a known engine
+                                  weakness — reported apart, never fails
+                                  the run)
+                         source: {...}       (optional, for people: flow,
+                                  template, video, frame, kind; not read)
                          template: <file>    (optional, defaults template.png)
                          screenshot: <file>  (optional, defaults screenshot.png)
 
 Folders starting with "_" are assets, not cases; registration artifacts are
-cached under benchmark/_registered/. A "miss" is a present-case reported
+cached under <benchmark>/_registered/. A "miss" is a present-case reported
 not-found; a wrong position or a hit on an absent-case are both "false_alarm"
 (per CONTEXT.md both are equally unacceptable).
 
-CLI: python -m subject_detection.bench <profile_dir> [-v]
+CLI: python -m subject_detection.bench [benchmark_dir] [-v]
+     (default: the repo's benchmark/; exit status 1 when any case that is not
+     a known failure fails)
 """
 from __future__ import annotations
 
@@ -37,9 +49,10 @@ import yaml
 
 from .engine import Engine
 from .imio import imread
-from .library import load_config
+from .library import load_default_config
 
 ARTIFACTS_DIRNAME = "_registered"
+DEFAULT_BENCH_DIR = Path(__file__).resolve().parents[2] / "benchmark"
 
 
 @dataclass
@@ -56,6 +69,10 @@ class Case:
     def screenshot_path(self) -> Path:
         return self.dir / self.expect.get("screenshot", "screenshot.png")
 
+    @property
+    def expected_scale(self) -> float:
+        return float(self.expect.get("expected_scale", 1.0))
+
 
 @dataclass
 class CaseResult:
@@ -67,6 +84,7 @@ class CaseResult:
     box: tuple | None
     elapsed_ms: float
     debug: dict = field(default_factory=dict)
+    known_failure: str | None = None   # why it is a known engine weakness
 
 
 @dataclass
@@ -93,13 +111,22 @@ class BenchReport:
     def accuracy(self) -> float:
         return self.correct / self.total if self.total else 0.0
 
+    @property
+    def others(self) -> list[CaseResult]:
+        return [c for c in self.cases if c.known_failure is None]
 
-def bench_dir(profile_dir: str | Path) -> Path:
-    return Path(profile_dir) / "benchmark"
+    @property
+    def known_failures(self) -> list[CaseResult]:
+        return [c for c in self.cases if c.known_failure is not None]
+
+    @property
+    def ok(self) -> bool:
+        """Every case that is not a known failure is correct."""
+        return all(c.verdict == "correct" for c in self.others)
 
 
-def load_cases(profile_dir: str | Path) -> list[Case]:
-    root = bench_dir(profile_dir)
+def load_cases(bench_dir: str | Path) -> list[Case]:
+    root = Path(bench_dir)
     if not root.is_dir():
         return []
     cases = []
@@ -123,7 +150,8 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
 
     t0 = time.perf_counter()
     res = engine.query(library, case.name, scene,
-                       color_check=bool(expect.get("color_check", False)))
+                       color_check=bool(expect.get("color_check", False)),
+                       expected_scale=case.expected_scale)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     if expected == "present" and "centers" in expect:
@@ -157,43 +185,75 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
 
     return CaseResult(name=case.name, expected=expected, verdict=verdict,
                       found=res.found, score=res.score, box=res.box,
-                      elapsed_ms=elapsed_ms, debug=res.debug)
+                      elapsed_ms=elapsed_ms, debug=res.debug,
+                      known_failure=expect.get("known_failure"))
 
 
-def run_bench(profile_dir: str | Path, engine: Engine | None = None) -> BenchReport:
+def run_bench(bench_dir: str | Path | None = None,
+              engine: Engine | None = None) -> BenchReport:
+    bench_dir = Path(bench_dir) if bench_dir is not None else DEFAULT_BENCH_DIR
     engine = engine or Engine()
-    cases = load_cases(profile_dir)
-    # 每個 case 自帶模板圖 → 範本清單就是「case 名 → 該 case 的模板圖」
+    cases = load_cases(bench_dir)
+    # 每個 case 自帶模板圖 → 範本清單就是「case 名 → 該 case 的模板圖」;
+    # 引擎參數只用內建預設 (量的是 app 出廠的行為)
     library = engine.load_templates(
         {c.name: c.template_path for c in cases},
-        config=load_config(profile_dir),
-        artifacts_dir=bench_dir(profile_dir) / ARTIFACTS_DIRNAME)
+        config=load_default_config(),
+        artifacts_dir=bench_dir / ARTIFACTS_DIRNAME)
     return BenchReport(cases=[run_case(engine, library, c) for c in cases])
+
+
+_MARKS = {"correct": "PASS", "miss": "MISS", "false_alarm": "FALSE"}
+
+
+def _case_line(c: CaseResult) -> str:
+    return (f"  [{_MARKS[c.verdict]:5}] {c.name:48} "
+            f"score={c.score:.3f} {c.elapsed_ms:6.1f}ms")
+
+
+def _counts(cases: list[CaseResult]) -> str:
+    correct = sum(1 for c in cases if c.verdict == "correct")
+    misses = sum(1 for c in cases if c.verdict == "miss")
+    false_alarms = sum(1 for c in cases if c.verdict == "false_alarm")
+    return (f"{correct}/{len(cases)}  misses: {misses}  "
+            f"false_alarms: {false_alarms}")
 
 
 def format_report(report: BenchReport, verbose: bool = False) -> str:
     lines = []
-    for c in sorted(report.cases, key=lambda c: (c.verdict == "correct", c.name)):
-        mark = {"correct": "PASS", "miss": "MISS", "false_alarm": "FALSE"}[c.verdict]
-        lines.append(f"  [{mark:5}] {c.name:48} "
-                     f"score={c.score:.3f} {c.elapsed_ms:6.1f}ms")
+    for c in sorted(report.others,
+                    key=lambda c: (c.verdict == "correct", c.name)):
+        lines.append(_case_line(c))
         if verbose and c.debug:
             lines.append(f"          debug: {c.debug}")
+    known = report.known_failures
+    if known:
+        lines.append("")
+        lines.append("已知失敗:")
+        for c in sorted(known, key=lambda c: c.name):
+            note = ("  <- 這次通過, 可拿掉標記" if c.verdict == "correct"
+                    else f"  ({c.known_failure})")
+            lines.append(_case_line(c) + note)
+            if verbose and c.debug:
+                lines.append(f"          debug: {c.debug}")
     lines.append("")
-    lines.append(f"cases: {report.total}  correct: {report.correct}/{report.total} "
-                 f"({report.accuracy * 100:.1f}%)  "
-                 f"misses: {report.misses}  false_alarms: {report.false_alarms}")
+    lines.append(f"其他案例 {_counts(report.others)}  |  "
+                 f"已知失敗 {_counts(known)}  |  "
+                 f"{'OK' if report.ok else 'FAIL'}")
     return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("profile_dir")
+    parser.add_argument("bench_dir", nargs="?", default=None,
+                        help="benchmark folder (default: the repo's benchmark/)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
-    report = run_bench(args.profile_dir)
+    bench_dir = (Path(args.bench_dir) if args.bench_dir is not None
+                 else DEFAULT_BENCH_DIR)
+    report = run_bench(bench_dir)
     print(format_report(report, verbose=args.verbose))
-    return 0
+    return 0 if report.ok else 1
 
 
 if __name__ == "__main__":
