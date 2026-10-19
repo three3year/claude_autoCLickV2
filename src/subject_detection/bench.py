@@ -86,6 +86,14 @@ class CaseResult:
     debug: dict = field(default_factory=dict)
     known_failure: str | None = None   # why it is a known engine weakness
 
+    @property
+    def is_known_failure(self) -> bool:
+        return self.known_failure is not None
+
+
+def _count(cases: list[CaseResult], verdict: str) -> int:
+    return sum(1 for c in cases if c.verdict == verdict)
+
 
 @dataclass
 class BenchReport:
@@ -97,32 +105,33 @@ class BenchReport:
 
     @property
     def correct(self) -> int:
-        return sum(1 for c in self.cases if c.verdict == "correct")
+        return _count(self.cases, "correct")
 
     @property
     def misses(self) -> int:
-        return sum(1 for c in self.cases if c.verdict == "miss")
+        return _count(self.cases, "miss")
 
     @property
     def false_alarms(self) -> int:
-        return sum(1 for c in self.cases if c.verdict == "false_alarm")
+        return _count(self.cases, "false_alarm")
 
     @property
     def accuracy(self) -> float:
         return self.correct / self.total if self.total else 0.0
 
     @property
-    def others(self) -> list[CaseResult]:
-        return [c for c in self.cases if c.known_failure is None]
+    def regular(self) -> list[CaseResult]:
+        """Cases that are not known failures (the ones that decide `ok`)."""
+        return [c for c in self.cases if not c.is_known_failure]
 
     @property
     def known_failures(self) -> list[CaseResult]:
-        return [c for c in self.cases if c.known_failure is not None]
+        return [c for c in self.cases if c.is_known_failure]
 
     @property
     def ok(self) -> bool:
         """Every case that is not a known failure is correct."""
-        return all(c.verdict == "correct" for c in self.others)
+        return all(c.verdict == "correct" for c in self.regular)
 
 
 def load_cases(bench_dir: str | Path) -> list[Case]:
@@ -186,7 +195,14 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
     return CaseResult(name=case.name, expected=expected, verdict=verdict,
                       found=res.found, score=res.score, box=res.box,
                       elapsed_ms=elapsed_ms, debug=res.debug,
-                      known_failure=expect.get("known_failure"))
+                      known_failure=_known_failure(expect))
+
+
+def _known_failure(expect: dict) -> str | None:
+    """The reason text; a `known_failure:` key left empty still marks one."""
+    if "known_failure" not in expect:
+        return None
+    return str(expect["known_failure"] or "(沒寫原因)")
 
 
 def run_bench(bench_dir: str | Path | None = None,
@@ -212,32 +228,31 @@ def _case_line(c: CaseResult) -> str:
 
 
 def _counts(cases: list[CaseResult]) -> str:
-    correct = sum(1 for c in cases if c.verdict == "correct")
-    misses = sum(1 for c in cases if c.verdict == "miss")
-    false_alarms = sum(1 for c in cases if c.verdict == "false_alarm")
-    return (f"{correct}/{len(cases)}  misses: {misses}  "
-            f"false_alarms: {false_alarms}")
+    return (f"{_count(cases, 'correct')}/{len(cases)}  "
+            f"misses: {_count(cases, 'miss')}  "
+            f"false_alarms: {_count(cases, 'false_alarm')}")
 
 
 def format_report(report: BenchReport, verbose: bool = False) -> str:
     lines = []
-    for c in sorted(report.others,
-                    key=lambda c: (c.verdict == "correct", c.name)):
-        lines.append(_case_line(c))
+
+    def add(c: CaseResult, note: str = "") -> None:
+        lines.append(_case_line(c) + note)
         if verbose and c.debug:
             lines.append(f"          debug: {c.debug}")
+
+    for c in sorted(report.regular,
+                    key=lambda c: (c.verdict == "correct", c.name)):
+        add(c)
     known = report.known_failures
     if known:
         lines.append("")
         lines.append("已知失敗:")
         for c in sorted(known, key=lambda c: c.name):
-            note = ("  <- 這次通過, 可拿掉標記" if c.verdict == "correct"
-                    else f"  ({c.known_failure})")
-            lines.append(_case_line(c) + note)
-            if verbose and c.debug:
-                lines.append(f"          debug: {c.debug}")
+            add(c, "  <- 這次通過, 可拿掉標記" if c.verdict == "correct"
+                else f"  ({c.known_failure})")
     lines.append("")
-    lines.append(f"其他案例 {_counts(report.others)}  |  "
+    lines.append(f"其他案例 {_counts(report.regular)}  |  "
                  f"已知失敗 {_counts(known)}  |  "
                  f"{'OK' if report.ok else 'FAIL'}")
     return "\n".join(lines)
@@ -249,9 +264,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="benchmark folder (default: the repo's benchmark/)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
-    bench_dir = (Path(args.bench_dir) if args.bench_dir is not None
-                 else DEFAULT_BENCH_DIR)
-    report = run_bench(bench_dir)
+    report = run_bench(args.bench_dir)
     print(format_report(report, verbose=args.verbose))
     return 0 if report.ok else 1
 

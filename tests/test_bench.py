@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import cv2
 import yaml
 
 from synth import imwrite, make_scene, make_template, paste
@@ -183,10 +184,16 @@ def _missed_case(bench_dir, name, seed, **extra):
                 center=(320, 180), **extra)
 
 
+def _resize(img, scale):
+    h, w = img.shape[:2]
+    return cv2.resize(img, (round(w * scale), round(h * scale)),
+                      interpolation=cv2.INTER_AREA)
+
+
 def test_預期尺度_案例寫了就傳它_沒寫傳1(engine, tmp_path):
     bench_dir = tmp_path / "benchmark"
     tpl = make_template(w=56, h=40, seed=21)
-    big = cv2_resize(tpl, 1.15)
+    big = _resize(tpl, 1.15)
     scene = paste(make_scene(seed=71), big, 200, 120)
     _write_case(bench_dir, "scaled", scene, tpl, "present",
                 center=(200 + big.shape[1] / 2, 120 + big.shape[0] / 2),
@@ -198,13 +205,6 @@ def test_預期尺度_案例寫了就傳它_沒寫傳1(engine, tmp_path):
 
     assert spy.scales == {"scaled": 1.15, "plain": 1.0}
     assert [c.verdict for c in report.cases] == ["correct", "correct"]
-
-
-def cv2_resize(img, scale):
-    import cv2
-    h, w = img.shape[:2]
-    return cv2.resize(img, (round(w * scale), round(h * scale)),
-                      interpolation=cv2.INTER_AREA)
 
 
 def test_資料夾裡的設定檔不讀_只用引擎內建預設(engine, tmp_path):
@@ -232,7 +232,7 @@ def test_已知失敗沒過_不算其他案例的失敗_列在已知失敗區(en
     report = run_bench(bench_dir, engine=engine)
 
     assert report.ok
-    assert [c.name for c in report.others] == ["good"]
+    assert [c.name for c in report.regular] == ["good"]
     assert [c.name for c in report.known_failures] == ["weak"]
     weak = report.known_failures[0]
     assert weak.verdict == "miss" and weak.known_failure == "引擎弱點: 測試用"
@@ -241,6 +241,18 @@ def test_已知失敗沒過_不算其他案例的失敗_列在已知失敗區(en
     assert "weak" in known_part and "引擎弱點: 測試用" in known_part
     assert "可拿掉標記" not in text
     assert bench.main([str(bench_dir)]) == 0
+
+
+def test_已知失敗沒寫原因也算已知失敗(engine, tmp_path):
+    """`known_failure:` 後面空著 (YAML 讀成 None) 仍是已知失敗, 不算其他案例的失敗."""
+    bench_dir = tmp_path / "benchmark"
+    _missed_case(bench_dir, "weak", seed=35, known_failure=None)
+
+    report = run_bench(bench_dir, engine=engine)
+
+    assert report.ok
+    assert [c.name for c in report.known_failures] == ["weak"]
+    assert report.regular == []
 
 
 def test_已知失敗通過_報表標示可拿掉標記(engine, tmp_path):
@@ -292,20 +304,19 @@ def test_來源欄位讀得進來_不影響判定(engine, tmp_path):
 
     (case,) = load_cases(bench_dir)
     assert case.expect["source"] == source
-    assert [c.verdict for c in run_bench(bench_dir, engine=engine).cases]         == ["correct"]
+    report = run_bench(bench_dir, engine=engine)
+    assert [c.verdict for c in report.cases] == ["correct"]
 
 
-def test_不帶參數就跑repo的benchmark資料夾(monkeypatch):
-    seen = []
-
-    def fake_run_bench(bench_dir=None, engine=None):
-        seen.append(Path(bench_dir) if bench_dir is not None else None)
-        return bench.BenchReport(cases=[])
-
-    monkeypatch.setattr(bench, "run_bench", fake_run_bench)
-    assert bench.main([]) == 0
-    assert seen == [REPO / "benchmark"]
+def test_不帶參數就跑repo的benchmark資料夾(monkeypatch, tmp_path):
     assert bench.DEFAULT_BENCH_DIR == REPO / "benchmark"
+    # 預設資料夾換成一個只有沒過案例的: 不帶參數跑的就是它
+    default = tmp_path / "benchmark"
+    _missed_case(default, "bad", seed=36)
+    monkeypatch.setattr(bench, "DEFAULT_BENCH_DIR", default)
+
+    assert [c.name for c in run_bench().cases] == ["bad"]
+    assert bench.main([]) == 1
 
 
 def test_登錄快取在底線資料夾且不進版控(engine, tmp_path):
