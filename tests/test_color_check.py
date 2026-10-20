@@ -1,7 +1,7 @@
 """find-target 票 04 — 比色: 查詢可要求的額外一關 (公開 API: Engine.query).
 
 候選通過梯度比對與嵌入驗證後, 以彩色、候選自身的尺度、整張模板 (不套遮罩)
-再比一次, 未達 profile 的 `color_threshold` 就不算匹配 (ADR 0007)。
+再比一次, 未達引擎參數的 `color_threshold` 就不算匹配 (ADR 0007)。
 """
 from __future__ import annotations
 
@@ -85,7 +85,7 @@ def test_全部比色不符時沒有匹配_未過的關卡是比色(engine, tmp_
     assert len(res.rejected) == 1
 
 
-def test_比色門檻在profile_config_改了不必重新登錄(engine, tmp_path):
+def test_比色門檻在引擎參數改了不必重新登錄(engine, tmp_path):
     btn = orange_button()
     scene = paste(make_scene(w=800, h=360, seed=93), grey(btn), 300, 100)
     profile = write_profile(tmp_path, {"btn": btn},

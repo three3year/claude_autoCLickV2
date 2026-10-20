@@ -1,11 +1,13 @@
-"""Shared test helpers: build tiny synthetic game profiles on disk.
+"""Shared test helpers: build tiny synthetic template folders on disk.
 
 Tests exercise the engine only through its public API (load_templates +
-query), so these helpers create real profile folders (templates/ +
-config.yaml) in tmp_path, then play the caller's part: scan the folder into a
-**template list** and hand it to the engine (`load_library`). The engine itself
-never scans — `template_list` here is the test's stand-in for whatever the real
-caller does (the app scans its workspace; bench uses per-case images).
+query), so these helpers create real folders (templates/ + config.yaml) in
+tmp_path, then play the caller's part: scan the folder into a **template
+list**, merge the folder's config.yaml over the engine defaults, and hand both
+to the engine (`load_library`). The engine itself never scans or reads a
+config file — `template_list` / `load_config` here are the test's stand-in
+for whatever the real caller does (the app hands over its flow's templates
+and `engine:` overrides; bench uses per-case images and the defaults).
 
 (Lives outside conftest.py so the name stays unique: app/tests/ has its own
 conftest.py, and `from conftest import ...` would resolve ambiguously.)
@@ -19,9 +21,21 @@ import numpy as np
 import yaml
 
 from subject_detection.imio import imwrite  # noqa: F401  (shared helper)
-from subject_detection.library import load_config
+from subject_detection.library import load_default_config
 
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+
+
+def load_config(folder: Path | None) -> dict:
+    """Engine defaults overlaid by `<folder>/config.yaml` when present — the
+    caller's job (the engine reads no config file, ADR 0015)."""
+    config = load_default_config()
+    if folder is None:
+        return config
+    path = Path(folder) / "config.yaml"
+    if path.is_file():
+        config.update(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+    return config
 
 rng = np.random.default_rng(1234)
 
@@ -61,7 +75,8 @@ def paste(scene: np.ndarray, patch: np.ndarray, x: int, y: int) -> np.ndarray:
 
 def write_profile(root: Path, templates: dict[str, np.ndarray],
                   config: dict | None = None) -> Path:
-    """Create a profile folder: one image per template (ADR 0016)."""
+    """Create a template folder (templates/ + config.yaml): one image per
+    template (ADR 0016)."""
     profile = root / "profile"
     tdir = profile / "templates"
     tdir.mkdir(parents=True, exist_ok=True)
@@ -89,7 +104,7 @@ def template_list(templates_dir: Path) -> dict[str, Path]:
 
 
 def load_library(engine, profile_dir: Path):
-    """Play the caller: hand the engine this profile's template list."""
+    """Play the caller: hand the engine this folder's template list and config."""
     profile_dir = Path(profile_dir)
     return engine.load_templates(template_list(profile_dir / "templates"),
                                  config=load_config(profile_dir),

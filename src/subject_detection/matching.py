@@ -23,7 +23,7 @@ _BEST_K = 5                 # per-scale best peaks always refined too (the
 _PEAKS_PER_SCALE = 64       # local peaks examined per scale (before NMS)
 _NMS_IOU = 0.3
 _EXPECTED_STEPS = 2         # expected scale given: sweep this many grid steps
-                            # each side of it (fixed here, not a profile knob)
+                            # each side of it (fixed here, not a config knob)
 
 
 @dataclass

@@ -1,6 +1,6 @@
 """Ticket 05 — auto-registration: drop a file, reload, query. No manual steps.
 
-All tests operate the profile folder and config like a user would, then
+All tests operate the template folder and its config.yaml like a user would, then
 assert query behavior and whether registration artifacts were (re)built.
 """
 from __future__ import annotations

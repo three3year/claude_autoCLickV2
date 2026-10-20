@@ -2,13 +2,11 @@
 
 The engine does not scan directories and knows nothing about how the caller
 stores its images. A caller delivers a **template list** — template name →
-one image path (a template is exactly one image, ADR 0016) — plus the tunable
-config and the directory registration artifacts may be cached in::
+one image path (a template is exactly one image, ADR 0016) — plus the engine
+config (the built-in defaults, with the caller's overrides merged in by the
+caller, ADR 0015) and the directory registration artifacts may be cached in::
 
     make_library({"back": "…/back.png"}, config, artifacts_dir)
-
-Config is the engine defaults, optionally overlaid by a folder's
-`config.yaml` (`load_config(dir)`); only template discovery moved out.
 """
 from __future__ import annotations
 
@@ -30,18 +28,6 @@ if TYPE_CHECKING:
 def load_default_config() -> dict:
     with open(_DEFAULT_CONFIG_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)
-
-
-def load_config(profile_dir: str | Path | None) -> dict:
-    """Engine defaults overlaid by `<profile_dir>/config.yaml` when present."""
-    config = load_default_config()
-    if profile_dir is None:
-        return config
-    path = Path(profile_dir) / "config.yaml"
-    if path.is_file():
-        with open(path, encoding="utf-8") as f:
-            config.update(yaml.safe_load(f) or {})
-    return config
 
 
 @dataclass
@@ -79,8 +65,8 @@ def make_library(templates, config=None, artifacts_dir=None) -> Library:
     out: dict[str, Template] = {}
     for name, path in templates.items():
         if not isinstance(path, (str, Path)):
-            raise ValueError(f"template {name!r}: 一個範本只收一張圖的路徑, "
-                             f"不收清單 (got {type(path).__name__})")
+            raise ValueError(f"template {name!r}: exactly one image path per "
+                             f"template, not a list (got {type(path).__name__})")
         out[name] = Template(name=name, image_path=Path(path))
     return Library(templates=out,
                    config=load_default_config() if config is None else config,

@@ -24,8 +24,9 @@ Case folder contract (adding a case = dropping files, no code change):
                          known_failure: <why>  (optional: a known engine
                                   weakness — reported apart, never fails
                                   the run)
-                         source: {...}       (optional, for people: flow,
-                                  template, video, frame, kind; not read)
+                         source: {...}       (optional, for people, never
+                                  read: flow, template, video, frame, kind,
+                                  client, answer_from, template_video, …)
                          template: <file>    (optional, defaults template.png)
                          screenshot: <file>  (optional, defaults screenshot.png)
 
@@ -73,6 +74,17 @@ class Case:
     @property
     def expected_scale(self) -> float:
         return float(self.expect.get("expected_scale", 1.0))
+
+    @property
+    def color_check(self) -> bool:
+        return bool(self.expect.get("color_check", False))
+
+    @property
+    def known_failure(self) -> str | None:
+        """The reason text; a `known_failure:` key left empty still marks one."""
+        if "known_failure" not in self.expect:
+            return None
+        return str(self.expect["known_failure"] or "(沒寫原因)")
 
 
 @dataclass
@@ -160,7 +172,7 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
 
     t0 = time.perf_counter()
     res = engine.query(library, case.name, scene,
-                       color_check=bool(expect.get("color_check", False)),
+                       color_check=case.color_check,
                        expected_scale=case.expected_scale)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
@@ -196,14 +208,7 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
     return CaseResult(name=case.name, expected=expected, verdict=verdict,
                       found=res.found, score=res.score, box=res.box,
                       elapsed_ms=elapsed_ms, debug=res.debug,
-                      known_failure=_known_failure(expect))
-
-
-def _known_failure(expect: dict) -> str | None:
-    """The reason text; a `known_failure:` key left empty still marks one."""
-    if "known_failure" not in expect:
-        return None
-    return str(expect["known_failure"] or "(沒寫原因)")
+                      known_failure=case.known_failure)
 
 
 def run_bench(bench_dir: str | Path | None = None,
@@ -265,10 +270,15 @@ def main(argv: list[str] | None = None) -> int:
                         help="benchmark folder (default: the repo's benchmark/)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
-    report = run_bench(args.bench_dir)
+    bench_dir = Path(args.bench_dir) if args.bench_dir else DEFAULT_BENCH_DIR
+    report = run_bench(bench_dir)
     # 輸出被導向 (管線、檔案) 時預設是系統代碼頁 (cp950), 編不出簡中案例名
     if not sys.stdout.isatty() and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+    if not report.cases:
+        # 空集合不能算「沒退步」: 多半是路徑打錯
+        print(f"沒有案例: {bench_dir}")
+        return 1
     print(format_report(report, verbose=args.verbose))
     return 0 if report.ok else 1
 

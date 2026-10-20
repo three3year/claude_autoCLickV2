@@ -10,10 +10,10 @@ verification stage, and every candidate that passes it is a **match**. A query
 reports all matches (zero or more); which one to use is the caller's business
 (ADR 0007). A caller may additionally request the **color check** for a single
 query (`color_check=True`): verified candidates whose color comparison falls
-under the profile's `color_threshold` are not matches (see color.py). A
+under the config's `color_threshold` are not matches (see color.py). A
 caller that knows about how large the subject is relative to its template may
 pass the **expected scale**: the coarse sweep then covers only the few scales
-centered on it (see matching.py) instead of the profile's `scale_range`.
+centered on it (see matching.py) instead of the config's `scale_range`.
 """
 from __future__ import annotations
 

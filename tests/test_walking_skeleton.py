@@ -46,7 +46,7 @@ def test_match_threshold_from_config_is_effective(engine, tmp_path):
     assert res.found is False  # impossible threshold => nothing passes
 
 
-def test_engine_is_reusable_across_queries_and_profiles(engine, tmp_path):
+def test_engine_is_reusable_across_queries_and_libraries(engine, tmp_path):
     tpl_a = make_template(seed=4)
     tpl_b = make_template(seed=5)
     p1 = write_profile(tmp_path / "a", {"a": tpl_a})
@@ -69,7 +69,7 @@ def test_一個範本給清單_報錯_只收一張圖路徑(engine, tmp_path, n_
     for p in paths:
         imwrite(p, make_template(seed=6))
 
-    with pytest.raises(ValueError, match="一張圖"):
+    with pytest.raises(ValueError, match="one image"):
         engine.load_templates({"multi": paths}, artifacts_dir=tmp_path / "reg")
 
 
@@ -84,7 +84,7 @@ def test_unknown_template_name_raises(engine, tmp_path):
         raise AssertionError("expected KeyError for unknown template name")
 
 
-def test_default_config_used_when_profile_config_is_minimal(engine, tmp_path):
+def test_default_config_used_when_folder_config_is_minimal(engine, tmp_path):
     tpl = make_template(seed=8)
     scene = paste(make_scene(seed=56), tpl, 50, 50)
     profile_dir = write_profile(tmp_path, {"btn": tpl}, config={})

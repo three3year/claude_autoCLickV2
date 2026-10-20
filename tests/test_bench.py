@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import cv2
+import pytest
 import yaml
 
 from synth import imwrite, make_scene, make_template, paste
@@ -96,6 +97,16 @@ def test_bench_report_formatting_lists_every_case(tmp_path):
 def test_bench_empty_benchmark_dir_reports_zero_cases(tmp_path):
     report = run_bench(tmp_path / "benchmark")
     assert report.total == 0
+
+
+@pytest.mark.parametrize("make_dir", [False, True])
+def test_沒有案例_結束碼失敗_不能把打錯路徑當成沒退步(tmp_path, capsys, make_dir):
+    bench_dir = tmp_path / "nope"
+    if make_dir:
+        bench_dir.mkdir()
+
+    assert bench.main([str(bench_dir)]) == 1
+    assert "沒有案例" in capsys.readouterr().out
 
 
 def test_underscore_folders_are_assets_not_cases(tmp_path):

@@ -6,7 +6,7 @@ source:
   template: 最多
   video: demo4
   frame: 168
-  kind: 跨影片
+  kind: 跨影片（比色負樣本：範本取自 demo6，在 demo4 影格上灰掉的「最多」該找不到）
   client: 簡中
   template_video: demo6
   answer_from: 配對工具

@@ -95,7 +95,7 @@ result.debug   # match_score / verify_score / candidates(除錯用,格式不承�
 
 ## 基準測試集(bench)
 
-引擎品質唯一的客觀驗收。住在 repo 根目錄 `benchmark/`:97 個案例,範本取自四份在用流程、
+引擎品質唯一的客觀驗收。住在 repo 根目錄 `benchmark/`:範本取自四份在用流程、
 畫面取自示範影片的真實影格(ADR 0016),照類型配額:一般正例、同款多個、比色、忙碌指示、
 線索背景、混淆、縮放 ×0.85/×1.15、易誤判負樣本、跨影片;簡中、繁中各半。
 案例 = 一個資料夾,不用改程式:
@@ -111,7 +111,8 @@ benchmark/<案例名>/
                       # color_check: true     (選填: 開比色)
                       # expected_scale: 1.15  (選填: 預期尺度, 沒寫＝1)
                       # known_failure: 原因   (選填: 已知的引擎弱點, 分開報)
-                      # source: {...}         (給人看: 流程、範本、影片、幀、類型)
+                      # source: {...}         (給人看, 執行器不讀: flow, template, video,
+                      #                        frame, kind, client, answer_from, template_video…)
 ```
 
 **改引擎(門檻、模型、刪路徑)前後都要跑**,結果要一致(已知失敗可以變少,不能變多):

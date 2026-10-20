@@ -24,3 +24,7 @@
   - 重跑新集：`其他案例 80/80  misses: 0  false_alarms: 0  |  已知失敗 0/17  misses: 9  false_alarms: 8  |  OK`，逐案例判定跟 06 基線一致。
   - 全套：引擎＋tools 362 passed、app 751 passed（隱藏桌面）。
   - 專案整理地圖 Notes 已註記基準集階段完成。
+- 2026-10-21 agent：`/code-review`（since 0dbf6ed，兩軸並行）後修正：
+  - 修：`library.py::load_config` 已無生產呼叫端，搬進 `tests/synth.py`、`__init__.__all__` 拿掉；`engine.py`／`matching.py`／測試 docstring 與測試名的 profile 字眼改掉；`make_library` 錯誤訊息統一英文（測試改 `match="one image"`）；`bench.py` 的 `color_check`／`known_failure` 收成 `Case` property，docstring 與 README 的 `source:` 鍵補齊；**沒有案例（路徑打錯、空資料夾）結束碼 1 並印「沒有案例」**（原本印 `0/0 … OK`，先寫紅燈測試再改）；`CONTEXT.md` 只留一句指向根目錄 `CLAUDE.md`，不重複指令；README 去掉寫死的「97 個案例」；`cluebg08_tw`／`multi06_tw` 的原因文字改繁中「來自」；`cross04` 的 `source.kind` 註明是跨影片的比色負樣本。
+  - 不修（有理由）：bench 輸出 UTF-8（票 06 已申報）、README 超出基準集描述的改動（都指向已刪的東西）、空 `known_failure` 算已知失敗（票 01 review 決定）、兩個貼內部格式的測試（種舊快取必須）、app 側沒有 US 43 的新測試（spec 測試決定放接縫二，引擎側已測）。
+  - 修完：引擎 80、tools 284、app 751（隱藏桌面）全綠；新集跟基線一致。
