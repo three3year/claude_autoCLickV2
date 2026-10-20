@@ -250,6 +250,20 @@ def unstable(video, n, boxes, k=2, thr=6.0):
     return False
 
 
+_busy_tpls = {}
+
+BUSY_ON = 0.6   # 忙碌指示範本配對到這麼高＝畫面上有忙碌字樣 (淡的也算)
+
+
+def busy_on(img, lang):
+    """畫面上有忙碌字樣嗎 (實跑時開了忙碌檢查的步驟會先等它消失, app 不會在這種畫面找別的範本)."""
+    if lang not in _busy_tpls:
+        _busy_tpls[lang] = {cv2.imencode(".png", t)[1].tobytes(): t
+                            for f, lg in FLOWS.items() if lg == lang
+                            for n, t in flow_templates(f).items() if n == "忙碌指示"}
+    return any(best(img, t)[0] >= BUSY_ON for t in _busy_tpls[lang].values())
+
+
 def scene_quality(video, n):
     """(整張畫面跟前後 2 幀的最大平均灰階差, 清晰度 (Laplacian 變異數)), 半解析度算."""
     m = max(n, 2)

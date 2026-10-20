@@ -133,7 +133,8 @@ def card_page(cands, path, title="基準集候選案例"):
     if os.path.isdir(img_dir):
         shutil.rmtree(img_dir)
     os.makedirs(img_dir)
-    numbered = list(enumerate(order(cands), 1))
+    # card_no: 小卡片頁沿用大卡片頁的編號
+    numbered = [(c.get("card_no", i), c) for i, c in enumerate(order(cands), 1)]
     counts = {}
     for _, c in numbered:
         counts[c["kind"]] = counts.get(c["kind"], 0) + 1

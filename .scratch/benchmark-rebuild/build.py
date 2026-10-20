@@ -57,7 +57,9 @@ def rkey(name, video, n):
 
 def dropped(name, video, n):
     """agent 審過、不收的 (review.yaml 的 drop): 挑的時候跳過, 換下一個."""
-    return rkey(name, video, n) in (review().get("drop") or {})
+    drops = review().get("drop") or {}
+    # 「範本@影片f*」＝那支影片裡這張範本的幀都不收
+    return rkey(name, video, n) in drops or f"{name}@{video}f*" in drops
 
 
 def special(name):
@@ -121,9 +123,14 @@ def exact(scene, tpl, thr=0.6):
     return (top[0], top[1:]), (ps[1][0] if len(ps) > 1 else 0.0)
 
 
-def clean(lang, video, n, boxes):
-    """(乾淨嗎, 原因)——游標碰到框、框在變都不乾淨."""
+def clean(lang, video, n, boxes, allow_busy=False):
+    """(乾淨嗎, 原因)——游標碰到框、框在變、畫面上有忙碌字樣都不乾淨.
+
+    忙碌字樣: 實跑時流程會先等它消失才找別的範本 (使用者 10/20 審卡片 #15), 所以除了忙碌指示類
+    (allow_busy) 都不收。"""
     img = bc.frame(video, n)
+    if not allow_busy and bc.busy_on(img, lang):
+        return False, "忙碌"
     if bc.cursor_touches(img, lang, boxes):
         return False, "游標"
     if bc.unstable(video, n, boxes):
@@ -293,6 +300,8 @@ def negative_at(scan, flow, name, video, g, box, how):
     if dropped(name, video, g) or not bc.calm_scene(video, g):
         return None
     scene = bc.frame(video, g)
+    if bc.busy_on(scene, lang):
+        return None
     s, where = bc.best(scene, tpl)
     if s >= NEG:
         return None
@@ -587,7 +596,7 @@ def busy_cases(scan, lang):
                     if not dropped(BUSY, video, n):
                         img = bc.frame(video, n)
                         s_, box = bc.best(img, tpl)
-                        if s_ >= POS and clean(lang, video, n, [box])[0]:
+                        if s_ >= POS and clean(lang, video, n, [box], allow_busy=True)[0]:
                             add("clean", video, n, img, box, "present",
                                 f"忙碌字樣在場（配對 {s_:.2f}）")
                 # 疊字: 段中間掉下去、前後取樣幀都還很清楚
@@ -823,6 +832,8 @@ def confuser_absent(scan, flow, k, used, names=None):
             continue
         tpl = scan.tpl(scan.key_of(flow, name))
         scene = bc.frame(video, n)
+        if bc.busy_on(scene, lang):
+            continue
         s, box = bc.best(scene, tpl)
         if not 0.72 <= s < 0.88:
             continue
@@ -1067,6 +1078,13 @@ def apply_review(cands):
             c["doubt"] = None
         if k in (rv.get("note") or {}):
             c["note"] = rv["note"][k]
+        if k in (rv.get("color_absent") or {}):
+            c["color_check"] = True
+            c["expected"] = "absent"
+            c["lookalike"] = c["boxes"][0] if c["boxes"] else None
+            c["boxes"] = []
+            c["multi"] = False
+            c["note"] = rv["color_absent"][k]
     return [c for c in cands if not dropped(c["template"], c["video"], c["frame"])]
 
 
@@ -1100,6 +1118,11 @@ def main():
         return f"{rkey(c['template'], c['video'], c['frame'])}|{c['kind']}|{len(c['boxes'])}"
     new = [(no, c) for no, c in numbered if sig(c) not in seen]
     cases.review_sheets(new, os.path.join(bc.TMP, "review_new"))
+    for no, c in numbered:
+        c["card_no"] = no
+    if new:
+        cases.card_page([c for _, c in new], os.path.join(bc.TMP, "changes", "cards.html"),
+                        title="基準集候選案例：這次換掉或改過的")
     print(f"agent 還沒看過: {len(new)} 個 → tmp/review_new/")
     if a.seen:
         bc.dump(seen_path, sorted(seen | {sig(c) for _, c in numbered}))
