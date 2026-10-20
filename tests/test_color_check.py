@@ -14,9 +14,9 @@ import pytest
 from synth import load_library, make_scene, paste, write_profile
 
 from subject_detection.bench import load_cases, run_case
-from subject_detection.library import load_config
+from subject_detection.library import load_default_config
 
-ARKNIGHTS = Path(__file__).resolve().parent.parent / "profiles" / "arknights"
+BENCH = Path(__file__).resolve().parent.parent / "benchmark"
 
 
 def orange_button(w=64, h=40):
@@ -104,25 +104,26 @@ def test_比色門檻在profile_config_改了不必重新登錄(engine, tmp_path
         == stamp, "門檻不是登錄失效鍵"
 
 
-def test_預設config與明日方舟profile都有比色門檻():
-    assert load_config(None)["color_threshold"] == 0.95
-    assert "color_threshold" in (ARKNIGHTS / "config.yaml").read_text(
-        encoding="utf-8")
+def test_內建預設有比色門檻():
+    assert load_default_config()["color_threshold"] == 0.95
 
 
-REAL = ["r3_color_快速置入_d2f960", "r4_color_快速置入灰_d2f1064",
-        "r5_color_快速置入灰_d2f1085",
-        "r6_color_貿易站1列_d3f490", "r7_color_製造站1列_d3f490",
-        "r8_color_製造站1列_d3f552", "r9_color_貿易站1列_d3f552",
-        "r10_color_貿易站1列_d3f600", "r11_color_製造站卡_貿易站列_d3f300"]
+# 基準測試集 (repo 的 benchmark/) 裡開比色、不是已知失敗的案例: 售罄的商店格、
+# 灰掉的解锁线索／快速置入、暗掉的全部收取都要被比色擋下, 亮的照樣找到
+REAL = ["color01_cn_全部收取_demo5f1096", "color03_cn_採購_固源岩_demo6f3532",
+        "color04_cn_採購_聚酸酯_demo6f3532", "color05_cn_解锁线索_demo5f1200",
+        "color06_cn_解锁线索_demo6f856", "color07_tw_全部收取_add2f80",
+        "color09_tw_快速置入_demo2f968", "color10_tw_採購_初級作戰記錄_demo2f3020",
+        "color11_tw_採購_招聘許可_demo2f3020", "color12_tw_解鎖線索_demo2f968"]
 
 
 @pytest.mark.parametrize("name", REAL)
 def test_真實影格_開比色後只剩真正的目標(engine, tmp_path, name):
-    case = next(c for c in load_cases(ARKNIGHTS / "benchmark") if c.name == name)
+    case = next(c for c in load_cases(BENCH) if c.name == name)
     assert case.expect.get("color_check") is True
+    assert "known_failure" not in case.expect
     lib = engine.load_templates({case.name: case.template_path},
-                                config=load_config(ARKNIGHTS),
+                                config=load_default_config(),
                                 artifacts_dir=tmp_path / "registered")
     result = run_case(engine, lib, case)
     assert result.verdict == "correct", (name, result.debug.get("matches"),

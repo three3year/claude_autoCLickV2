@@ -1,8 +1,7 @@
-# Conservative defaults for a brand-new game profile.
-# Copy this file into <profile>/config.yaml and tune per game.
+# The engine's built-in defaults (ADR 0015: what the app ships with; a flow
+# may override individual keys in its `engine:` section).
 scale_range: [0.5, 2.0]     # template-to-screen scale factors swept by the coarse stage
 aspect_jitter: 0.1          # +/- relative width distortion tolerated
 match_threshold: 0.6        # coarse-stage acceptance (loose: favors recall)
 verify_threshold: 0.8       # verification-stage acceptance (strict: favors precision)
 color_threshold: 0.95       # color-check acceptance (only queries that request it; ADR 0007)
-mask_strategy: multi_capture  # multi_capture | single

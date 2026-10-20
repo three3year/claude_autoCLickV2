@@ -1,7 +1,7 @@
 """Public engine API: Engine.load_templates + Engine.query.
 
-The caller delivers a **template list** (name → image path) together with the
-config and the artifacts directory; the engine never scans a directory and
+The caller delivers a **template list** (name → one image path) together with
+the config and the artifacts directory; the engine never scans a directory and
 holds no assumptions about the caller's storage layout (see `library.py`).
 
 Query pipeline: gradient-domain multiscale coarse matching produces ranked
@@ -79,9 +79,9 @@ class Engine:
 
     def load_templates(self, templates, config=None,
                        artifacts_dir=None) -> Library:
-        """收`範本清單` (範本名 → 圖檔路徑) 並登錄全部, 回傳可查詢的模板庫.
+        """收`範本清單` (範本名 → 一個圖檔路徑) 並登錄全部, 回傳可查詢的模板庫.
 
-        templates: {name: path} 或 {name: [path, ...]} (多路徑＝一個多截圖範本);
+        templates: {name: path}; 一個範本一張圖, 給清單就報錯 (ADR 0016);
         artifacts_dir: 登錄產物的存放位置, 由呼叫端指定。
         """
         library = make_library(templates, config, artifacts_dir)
@@ -96,7 +96,7 @@ class Engine:
             embed_fn = (self._embed_template
                         if self._verifier is not None else None)
             t.artifacts = load_or_register(library.artifacts_dir, t.name,
-                                           t.capture_paths, library.config,
+                                           t.image_path, library.config,
                                            embed_fn=embed_fn)
 
     def query(self, library: Library, template_name: str,

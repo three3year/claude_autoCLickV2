@@ -2,13 +2,13 @@
 
 The engine does not scan directories and knows nothing about how the caller
 stores its images. A caller delivers a **template list** — template name →
-image path (or several paths for one multi-capture template) — plus the tunable
+one image path (a template is exactly one image, ADR 0016) — plus the tunable
 config and the directory registration artifacts may be cached in::
 
     make_library({"back": "…/back.png"}, config, artifacts_dir)
 
-Config is still the engine defaults overlaid by a game profile's `config.yaml`
-(`load_config(profile_dir)`); only template discovery moved out.
+Config is the engine defaults, optionally overlaid by a folder's
+`config.yaml` (`load_config(dir)`); only template discovery moved out.
 """
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ from typing import TYPE_CHECKING
 import yaml
 
 _DEFAULT_CONFIG_PATH = Path(__file__).parent / "default_config.yaml"
+# engine parameters that no longer exist: a caller still handing one over has
+# a stale config, which must surface rather than be silently ignored
+_RETIRED_CONFIG_KEYS = ("mask_strategy",)
 
 if TYPE_CHECKING:
     from .registration import Artifacts
@@ -43,9 +46,9 @@ def load_config(profile_dir: str | Path | None) -> dict:
 
 @dataclass
 class Template:
-    """One registered template: name + capture image paths."""
+    """One registered template: name + its single image path."""
     name: str
-    capture_paths: list[Path]
+    image_path: Path
     artifacts: "Artifacts | None" = None  # filled in by Engine.register
 
 
@@ -64,15 +67,21 @@ class Library:
 def make_library(templates, config=None, artifacts_dir=None) -> Library:
     """Build a Library from a template list (pure data — no image is read).
 
-    templates: {name: path} or {name: [path, ...]} (several paths = one
-    multi-capture template). Paths are not required to exist yet; they are
-    read at registration time.
+    templates: {name: path}; one image per template — a list of paths is an
+    error (ADR 0016). Paths are not required to exist yet; they are read at
+    registration time. A config carrying a retired key is an error.
     """
+    if config is not None:
+        retired = [k for k in _RETIRED_CONFIG_KEYS if k in config]
+        if retired:
+            raise ValueError(f"engine config key(s) no longer exist: "
+                             f"{', '.join(retired)} (ADR 0016)")
     out: dict[str, Template] = {}
-    for name, paths in templates.items():
-        if isinstance(paths, (str, Path)):
-            paths = [paths]
-        out[name] = Template(name=name, capture_paths=[Path(p) for p in paths])
+    for name, path in templates.items():
+        if not isinstance(path, (str, Path)):
+            raise ValueError(f"template {name!r}: 一個範本只收一張圖的路徑, "
+                             f"不收清單 (got {type(path).__name__})")
+        out[name] = Template(name=name, image_path=Path(path))
     return Library(templates=out,
                    config=load_default_config() if config is None else config,
                    artifacts_dir=None if artifacts_dir is None

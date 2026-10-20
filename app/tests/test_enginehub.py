@@ -137,7 +137,7 @@ def test_bind不需引擎_範本清單由app給(tmp_path):
                    tmp_path / "reg")
     assert hub.library is lib
     assert list(lib.templates) == ["按鈕"]
-    assert lib.templates["按鈕"].capture_paths == [tmp_path / "按鈕.png"]
+    assert lib.templates["按鈕"].image_path == tmp_path / "按鈕.png"
     assert lib.config == {"scale_range": [0.6, 1.5]}
     assert lib.artifacts_dir == tmp_path / "reg"
     assert hub.state == enginehub.LOADING   # 不觸碰生命週期狀態
@@ -341,4 +341,4 @@ def test_搬檔期間背景預載停在原地_換好清單後讀新路徑(tmp_pa
                  changed=set())   # 同一段裡換清單 (可重入)
     t.join(5)
     assert engine.registered == ["a"]
-    assert hub.library.templates["a"].capture_paths[0] == tmp_path / "templates" / "a.png"
+    assert hub.library.templates["a"].image_path == tmp_path / "templates" / "a.png"

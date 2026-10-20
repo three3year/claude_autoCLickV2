@@ -12,9 +12,9 @@ from synth import load_library, make_scene, make_template, paste, write_profile
 
 from subject_detection.bench import load_cases
 from subject_detection.imio import imread
-from subject_detection.library import load_config
+from subject_detection.library import load_default_config
 
-ARKNIGHTS = Path(__file__).resolve().parent.parent / "profiles" / "arknights"
+BENCH = Path(__file__).resolve().parent.parent / "benchmark"
 
 
 def _center(box):
@@ -89,44 +89,45 @@ def test_有匹配時沒有未過的關卡(engine, tmp_path):
 
 
 def real_case(name):
-    """基準測試集裡的真實影格 case: (模板圖, 截圖, expect)."""
-    case = next(c for c in load_cases(ARKNIGHTS / "benchmark") if c.name == name)
+    """基準測試集 (repo 的 benchmark/) 裡的真實影格 case: (模板圖, 截圖, expect)."""
+    case = next(c for c in load_cases(BENCH) if c.name == name)
     return case.template_path, imread(case.screenshot_path), case.expect
 
 
 def test_真實影格_小圖示不被別的尺度的雜訊峰擠出候選(engine, tmp_path):
-    """範本取自同一幀, 一定要找到: 每個尺度收多個峰值後, 單一實例的最佳峰仍要在候選裡."""
-    for name in ("s0_small_訂單交付_d2f478", "s1_small_每日線索_d2f1142"):
+    """範本取自在用流程, 一定要找到: 每個尺度收多個峰值後, 單一實例的最佳峰仍要在候選裡."""
+    for name in ("pos02_cn_待办铃铛_demo5f416", "pos08_tw_生產面板箭頭_demo2f705",
+                 "conf08_tw_標題列圖示_demo2f1152"):
         tpl, scene, expect = real_case(name)
-        lib = engine.load_templates({"icon": tpl}, config=load_config(ARKNIGHTS),
+        lib = engine.load_templates({"icon": tpl}, config=load_default_config(),
                                     artifacts_dir=tmp_path / "registered")
         res = engine.query(lib, "icon", scene)
         assert any(_near(m.box, expect["center"], 15) for m in res.matches), name
 
 
-def test_真實影格_基建總覽上四張製造站卡全部回報(engine, tmp_path):
-    """同款四張全部是匹配 (不開比色時同形狀的貿易站卡也會進來——那是比色的事)."""
-    for name in ("r0_multi_製造站卡_d3f300", "r1_multi_製造站卡_d2f662",
-                 "r2_multi_製造站卡_d2f683"):
+def test_真實影格_商店同款多格全部回報(engine, tmp_path):
+    """同款多格全部是匹配 (不開比色時售罄的同款也會進來——那是比色的事)."""
+    for name in ("multi01_cn_採購_聚酸酯_demo5f3300", "multi03_cn_採購_聚酸酯_demo5f3820",
+                 "multi07_tw_採購_初級作戰記錄_demo2f2880"):
         tpl, scene, expect = real_case(name)
-        lib = engine.load_templates({"card": tpl}, config=load_config(ARKNIGHTS),
+        lib = engine.load_templates({"card": tpl}, config=load_default_config(),
                                     artifacts_dir=tmp_path / "registered")
         res = engine.query(lib, "card", scene)
         for want in expect["centers"]:
             assert any(_near(m.box, want, 15) for m in res.matches), (name, want)
 
 
-def test_真實影格_預期尺度1_X站1列開比色仍找到且框與全掃一致(engine, tmp_path):
+def test_真實影格_預期尺度1_開比色仍找到且框與全掃一致(engine, tmp_path):
     """flow-scale 票 01: 流程尺度下執行 (倍率 1) 時引擎只掃 1.0 附近; 網格對準 1.0,
     框不偏、比色照樣過門檻 (沒對準時框偏 2～4px, 比色會掉到門檻下).
 
-    範本取自同一幀, 所以對準 1.0 的框就是範本原尺寸; 全掃的網格沒有一格落在
-    1.0, 框可能差 1px——位置與全掃一致即可."""
-    for name in ("r7_color_製造站1列_d3f490", "r9_color_貿易站1列_d3f552",
-                 "r10_color_貿易站1列_d3f600"):
+    範本取自在用流程 (同一客戶端、同一倍率), 所以對準 1.0 的框就是範本原尺寸;
+    全掃的網格沒有一格落在 1.0, 框可能差 1px——位置與全掃一致即可."""
+    for name in ("color04_cn_採購_聚酸酯_demo6f3532", "color10_tw_採購_初級作戰記錄_demo2f3020",
+                 "color01_cn_全部收取_demo5f1096"):
         tpl, scene, expect = real_case(name)
         th, tw = imread(tpl).shape[:2]
-        lib = engine.load_templates({"row": tpl}, config=load_config(ARKNIGHTS),
+        lib = engine.load_templates({"row": tpl}, config=load_default_config(),
                                     artifacts_dir=tmp_path / "registered")
         full = engine.query(lib, "row", scene, color_check=True)
         near = engine.query(lib, "row", scene, color_check=True,
@@ -135,5 +136,5 @@ def test_真實影格_預期尺度1_X站1列開比色仍找到且框與全掃一
         for a, b in zip(near.matches, full.matches):
             assert _near(a.box, _center(b.box), 2), name
             assert a.box[2:] == (tw, th), name
-        for want in expect["centers"]:
+        for want in expect.get("centers") or [expect["center"]]:
             assert any(_near(m.box, want, 15) for m in near.matches), name

@@ -1,9 +1,10 @@
 """Ticket 01 — walking skeleton: public API round trip at fixed scale."""
 from __future__ import annotations
 
-import numpy as np
+import pytest
 
-from synth import load_library, make_scene, make_template, paste, write_profile
+from synth import (imwrite, load_library, make_scene, make_template, paste,
+                   write_profile)
 
 
 def test_query_finds_subject_within_tolerance(engine, tmp_path):
@@ -61,16 +62,15 @@ def test_engine_is_reusable_across_queries_and_profiles(engine, tmp_path):
     assert engine.query(prof1, "a", scene1).found  # repeatable
 
 
-def test_multi_capture_template_dir_is_accepted(engine, tmp_path):
-    cap1 = make_template(seed=6)
-    cap2 = make_template(seed=6)  # same subject, second capture
-    scene = paste(make_scene(seed=55), cap1, 400, 150)
-    profile_dir = write_profile(tmp_path, {"multi": {"one": cap1, "two": cap2}})
+@pytest.mark.parametrize("n_paths", [1, 2])
+def test_一個範本給清單_報錯_只收一張圖路徑(engine, tmp_path, n_paths):
+    # ADR 0016: 多張圖登錄路徑退場; 給清單 (就算只有一個路徑) 也不收
+    paths = [tmp_path / f"cap{i}.png" for i in range(n_paths)]
+    for p in paths:
+        imwrite(p, make_template(seed=6))
 
-    profile = load_library(engine, profile_dir)
-    res = engine.query(profile, "multi", scene)
-
-    assert res.found is True
+    with pytest.raises(ValueError, match="一張圖"):
+        engine.load_templates({"multi": paths}, artifacts_dir=tmp_path / "reg")
 
 
 def test_unknown_template_name_raises(engine, tmp_path):

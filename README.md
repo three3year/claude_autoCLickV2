@@ -59,9 +59,8 @@ result.debug   # match_score / verify_score / candidates(除錯用,格式不承�
 
 1. 建資料夾 `profiles/<game>/templates/`,把裁好的模板圖丟進去。
    - 單張圖 = 一個模板(檔名即模板名,可用子資料夾當命名空間)。
-   - 同一元素有多組拍攝(不同解析度/介面版本/遊戲狀態)時,建一個
-     資料夾放多張圖:`templates/<名稱>/<拍攝1>.png, <拍攝2>.png ...`
-     登錄會跨拍攝比對像素穩定度,自動剔除半透明透出背景與可變文字區。
+     **一個模板只有一張圖**(ADR 0016;多張圖登錄已退場,給清單會報錯)。
+     登錄用單張梯度啟發式產生遮罩:有結構的地方留下,平坦區剔除。
 2. 複製引擎預設設定 `src/subject_detection/default_config.yaml` 到
    `profiles/<game>/config.yaml`(保守值,先跑起來)。
 3. 程式碼照上面「使用」呼叫即可。**沒有手動登錄步驟**:`load_profile`
@@ -81,10 +80,9 @@ result.debug   # match_score / verify_score / candidates(除錯用,格式不承�
 | 誤判(不存在卻回報存在) | 驗證 | `verify_threshold` | 調高 |
 | 誤判(位置錯) | 粗篩 | `match_threshold` | 調高 |
 | 太慢 | — | `scale_range` | 縮窄(掃描尺度數下降) |
-| 半透明/可變區污染 | 登錄 | `mask_strategy` | 用 `multi_capture` 並補第二張拍攝 |
 
-**會觸發重新登錄的參數**:`scale_range`、`mask_strategy`(改完自動重跑,
-不用手動)。`match_threshold`、`verify_threshold` 只在查詢時讀取,改動即生效。
+**會觸發重新登錄的參數**:`scale_range`(改完自動重跑,不用手動)。
+`match_threshold`、`verify_threshold` 只在查詢時讀取,改動即生效。
 
 ## 調參紀律
 

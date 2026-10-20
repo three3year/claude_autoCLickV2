@@ -59,58 +59,32 @@ def paste(scene: np.ndarray, patch: np.ndarray, x: int, y: int) -> np.ndarray:
     return out
 
 
-def write_profile(root: Path, templates: dict[str, np.ndarray | dict[str, np.ndarray]],
+def write_profile(root: Path, templates: dict[str, np.ndarray],
                   config: dict | None = None) -> Path:
-    """Create a profile folder.
-
-    templates: name -> image (single capture) or name -> {capture_name: image}.
-    """
+    """Create a profile folder: one image per template (ADR 0016)."""
     profile = root / "profile"
     tdir = profile / "templates"
     tdir.mkdir(parents=True, exist_ok=True)
-    for name, val in templates.items():
-        if isinstance(val, dict):
-            for cap, img in val.items():
-                imwrite(tdir / name / f"{cap}.png", img)
-        else:
-            imwrite(tdir / f"{name}.png", val)
+    for name, img in templates.items():
+        imwrite(tdir / f"{name}.png", img)
     (profile / "config.yaml").write_text(
         yaml.safe_dump(config or {}), encoding="utf-8")
     return profile
 
 
-def template_list(templates_dir: Path) -> dict[str, list[Path]]:
-    """Scan an image folder into a template list: {name: [path, ...]}.
+def template_list(templates_dir: Path) -> dict[str, Path]:
+    """Scan an image folder into a template list: {name: path}.
 
-    Name = relative path without extension; a folder holding only images is one
-    multi-capture template. This is the caller's job, not the engine's.
+    Name = relative path without extension. This is the caller's job, not
+    the engine's.
     """
     templates_dir = Path(templates_dir)
-    found: dict[str, list[Path]] = {}
-
-    def only_images(path: Path) -> bool:
-        has_image = False
-        for child in path.iterdir():
-            if child.is_dir():
-                return False
-            has_image = has_image or child.suffix.lower() in _IMAGE_EXTS
-        return has_image
-
-    def walk(d: Path) -> None:
-        for child in sorted(d.iterdir()):
+    found: dict[str, Path] = {}
+    if templates_dir.is_dir():
+        for child in sorted(templates_dir.rglob("*")):
             if child.is_file() and child.suffix.lower() in _IMAGE_EXTS:
                 found[child.relative_to(templates_dir)
-                      .with_suffix("").as_posix()] = [child]
-            elif child.is_dir():
-                if only_images(child):
-                    found[child.relative_to(templates_dir).as_posix()] = sorted(
-                        p for p in child.iterdir()
-                        if p.suffix.lower() in _IMAGE_EXTS)
-                else:
-                    walk(child)
-
-    if templates_dir.is_dir():
-        walk(templates_dir)
+                      .with_suffix("").as_posix()] = child
     return found
 
 

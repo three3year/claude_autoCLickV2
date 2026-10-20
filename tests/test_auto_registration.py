@@ -5,6 +5,9 @@ assert query behavior and whether registration artifacts were (re)built.
 """
 from __future__ import annotations
 
+import hashlib
+import json
+
 import yaml
 
 from synth import (imwrite, load_library, make_scene, make_template, paste,
@@ -62,12 +65,31 @@ def test_registration_config_change_triggers_rebuild(engine, tmp_path):
 
     _set_config(profile_dir, scale_range=[0.8, 1.2])
     load_library(engine, profile_dir)
-    after = _mtimes(reg)
-    assert after != before
+    assert _mtimes(reg) != before
 
-    _set_config(profile_dir, scale_range=[0.8, 1.2], mask_strategy="single")
+
+def test_刪路徑前的舊快取_比對資訊帶遮罩策略_失效重建一次(engine, tmp_path):
+    tpl = make_template(seed=49)
+    profile_dir = write_profile(tmp_path, {"a": tpl})
     load_library(engine, profile_dir)
-    assert _mtimes(reg) != after
+    reg = profile_dir / "registered" / "a"
+    # 引擎刪多張圖路徑之前寫下的比對資訊 (ADR 0016 之前的格式)
+    png = profile_dir / "templates" / "a.png"
+    (reg / "meta.json").write_text(json.dumps({
+        "version": 2,
+        "captures": {"a.png": hashlib.sha1(png.read_bytes()).hexdigest()},
+        "config": {"mask_strategy": "multi_capture", "scale_range": [0.5, 2.0]},
+    }, sort_keys=True), encoding="utf-8")
+    before = _mtimes(reg)
+
+    profile = load_library(engine, profile_dir)
+    rebuilt = _mtimes(reg)
+    assert rebuilt != before                       # 失效, 重建
+    scene = paste(make_scene(seed=94), tpl, 120, 80)
+    assert engine.query(profile, "a", scene).found is True
+
+    load_library(engine, profile_dir)
+    assert _mtimes(reg) == rebuilt                 # 只重建一次
 
 
 def test_threshold_change_applies_immediately_without_rebuild(engine, tmp_path):
