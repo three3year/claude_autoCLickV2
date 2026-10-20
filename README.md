@@ -1,8 +1,8 @@
 # Subject Detection Engine(圖像主體偵測引擎)
 
 在螢幕截圖的指定範圍內,判斷某張預先登錄的模板主體是否存在並回報位置。
-遊戲無關:引擎只實作「怎麼找」,所有遊戲知識(模板庫、尺度、閾值)住在
-遊戲設定檔資料夾。詞彙表見 [CONTEXT.md](CONTEXT.md)。
+遊戲無關:引擎只實作「怎麼找」,模板圖、搜尋範圍、預期尺度都由呼叫端交付
+(ADR 0006、0015);引擎參數只有內建預設加呼叫端的覆蓋。詞彙表見 [CONTEXT.md](CONTEXT.md)。
 
 本 repo 另含自動化應用層 **AutoClick**(`app/`,Tkinter 桌面工具:流程編輯、
 截圖建範本、找圖點擊、F12 急停),辨識全面走本引擎(ADR 0002)。
@@ -44,8 +44,10 @@ torch 供驗證階段(DINOv2-S,第一次使用時自 torch.hub 下載並常駐�
 from subject_detection import Engine
 
 engine = Engine()                              # 模型載入一次,常駐
-profile = engine.load_profile("profiles/arknights")   # 自動補登錄
-result = engine.query(profile, "cn/返回", search_region_bgr)  # np.ndarray (BGR)
+library = engine.load_templates({"返回": "templates/返回.png"},   # 範本清單: 名 → 一張圖
+                                artifacts_dir=".cache/registered")  # 登錄產物放哪 (自動補登錄)
+result = engine.query(library, "返回", search_region_bgr,  # np.ndarray (BGR)
+                      expected_scale=1.0)                   # 選填: 預期尺度 (ADR 0009)
 result.found   # bool
 result.box     # (x, y, w, h),search_region 座標系
 result.score   # 驗證分數(嵌入餘弦相似度)
@@ -55,17 +57,17 @@ result.debug   # match_score / verify_score / candidates(除錯用,格式不承�
 每次查詢針對單一模板、單一搜尋區域。搜尋區域由呼叫端裁好傳入
 (預期座標、語言選擇等遊戲邏輯留在呼叫端)。
 
-## 新遊戲上手
+## 接上一個呼叫端
 
-1. 建資料夾 `profiles/<game>/templates/`,把裁好的模板圖丟進去。
-   - 單張圖 = 一個模板(檔名即模板名,可用子資料夾當命名空間)。
-     **一個模板只有一張圖**(ADR 0016;多張圖登錄已退場,給清單會報錯)。
-     登錄用單張梯度啟發式產生遮罩:有結構的地方留下,平坦區剔除。
-2. 複製引擎預設設定 `src/subject_detection/default_config.yaml` 到
-   `profiles/<game>/config.yaml`(保守值,先跑起來)。
-3. 程式碼照上面「使用」呼叫即可。**沒有手動登錄步驟**:`load_profile`
-   自動偵測新模板、內容變更(hash)、登錄相關參數變更,補跑受影響的登錄,
-   產物寫在 `profiles/<game>/registered/`(可整個刪除,會自動重建)。
+1. 呼叫端自己管模板圖,交給引擎的是**範本清單**(範本名 → 一張圖的路徑);
+   引擎不掃目錄。**一個模板只有一張圖**(ADR 0016;多張圖登錄已退場,給清單會報錯)。
+   登錄用單張梯度啟發式產生遮罩:有結構的地方留下,平坦區剔除。
+2. 引擎參數＝`src/subject_detection/default_config.yaml` 的內建預設;呼叫端要改就
+   把覆蓋後的 dict 交給 `load_templates(config=...)`(AutoClick 用流程的 `engine:` 段)。
+   沒有的鍵(例:已退場的 `mask_strategy`)交付了就報錯。
+3. **沒有手動登錄步驟**:`load_templates` 依圖的內容 hash 與登錄相關參數判斷
+   產物過不過期,只重算受影響的那張;產物寫在呼叫端指定的 `artifacts_dir`
+   (可整個刪除,會自動重建)。
 
 ## 調參:症狀 → 參數
 
@@ -86,49 +88,50 @@ result.debug   # match_score / verify_score / candidates(除錯用,格式不承�
 
 ## 調參紀律
 
-1. 遇到失敗案例,**先**把它存進 `profiles/<game>/benchmark/`(見下),再調參。
+1. 遇到失敗案例,**先**把它存進 `benchmark/`(見下),再調參。
 2. 以 bench 整體數字為準,不對單一案例調參(避免過擬合)。
 3. 調參只動 config;若必須改引擎程式碼才能達標,那是引擎通用能力的缺口,
    回頭修引擎(並補測試),不要塞遊戲特例。
 
-## 基準測試(bench)
+## 基準測試集(bench)
 
-案例 = 一個資料夾丟進 `profiles/<game>/benchmark/`,不用改程式:
+引擎品質唯一的客觀驗收。住在 repo 根目錄 `benchmark/`:97 個案例,範本取自四份在用流程、
+畫面取自示範影片的真實影格(ADR 0016),照類型配額:一般正例、同款多個、比色、忙碌指示、
+線索背景、混淆、縮放 ×0.85/×1.15、易誤判負樣本、跨影片;簡中、繁中各半。
+案例 = 一個資料夾,不用改程式:
 
 ```
 benchmark/<案例名>/
+    template.png      # 這個案例的範本圖 (每個案例自帶, 不依賴任何模板庫)
     screenshot.png    # 查詢用的搜尋區域影像
-    expect.yaml       # template: cn/返回
-                      # expected: present | absent
-                      # center: [x, y]     (present 時必填,主體中心)
-                      # tolerance: 15      (px,選填)
+    expect.yaml       # expected: present | absent
+                      # center: [x, y]        (present 時必填,主體中心)
+                      # centers: [[x, y], …]  (同款多個: 全中且不能多)
+                      # tolerance: 15         (px,選填)
+                      # color_check: true     (選填: 開比色)
+                      # expected_scale: 1.15  (選填: 預期尺度, 沒寫＝1)
+                      # known_failure: 原因   (選填: 已知的引擎弱點, 分開報)
+                      # source: {...}         (給人看: 流程、範本、影片、幀、類型)
 ```
 
-跑全部案例、輸出總正確率與漏抓/誤判分項:
+**改引擎(門檻、模型、刪路徑)前後都要跑**,結果要一致(已知失敗可以變少,不能變多):
 
 ```bash
-python -m subject_detection.bench profiles/arknights      # -v 附除錯分數
+.venv/Scripts/python -m subject_detection.bench      # 不帶參數＝repo 的 benchmark/; -v 附除錯分數
 ```
 
-`_` 開頭的資料夾是素材,不當案例。明日方舟基準集由
-`tools/build_arknights_benchmark.py` 產生(確定性,可重生)。
+引擎參數只用內建預設、不讀任何設定檔;`_` 開頭的資料夾是登錄快取,不進版控。
+結束碼 0 ＝除已知失敗外全部命中且零誤判;報表把已知失敗分開列,已知失敗這次通過的
+標「可拿掉標記」。基準集不接進 pytest,手動跑。
 
-## 驗收紀錄(明日方舟)
-
-- 基準測試集 38 案例(跨模板集互測/合成尺度/色偏/半透明線索卡/可變計數/
-  細粒度混淆/負樣本/全螢幕):**38/38 = 100%**(目標 ≥95%),漏抓 0、誤判 0。
-- 近全螢幕(1063×789)單次查詢 **~385ms(純 CPU)**,已低於 500ms 目標;
-  開發機無 NVIDIA GPU,GPU 數字待有 CUDA 環境補測(只會更快)。
-  量測方式:`j0_fullscreen_返回` 案例重複 5 次取平均(暖機後)。
-- cn 與翻新模板集已合併:同一元素的兩組拍攝放同一模板資料夾
-  (`templates/cn/<名稱>/{cn,翻新}.png`),跨集案例(cn 參考圖 × 翻新尺度場景)
-  全數命中——尺度處理做對後,不再需要按解析度維護平行模板集。
-- 逐票數字見 `.scratch/subject-detection-engine/bench-log.md`。
+目前基線(2026-10-21,ADR 0016 刪多張圖路徑前後一致):其他案例 80/80,已知失敗 17
+(淡入淡出最淡的忙碌字樣、整張畫面找小範本、整顆變暗的按鈕比色擋不住、列名互相像、
+範本連暗底一起截);每個已知失敗的原因寫在案例自己的 `expect.yaml`。
 
 ## 架構(兩階段查詢)
 
-1. **登錄**(離線、自動):跨拍攝穩定度 → 有效像素遮罩;參考圖 + 遮罩 +
-   主體嵌入向量存於 `registered/`。
+1. **登錄**(離線、自動):單張梯度啟發式 → 有效像素遮罩;參考圖 + 遮罩 +
+   主體嵌入向量存於呼叫端指定的 `artifacts_dir`。
 2. **粗篩**(保召回):梯度域(Scharr)多尺度模板匹配,粗掃降採樣影像後
    於原解析度帶遮罩精修,天然抗亮度/色偏。
 3. **驗證**(保精確):DINOv2-S 嵌入相似度比對候選框與模板主體(雙方套遮罩),

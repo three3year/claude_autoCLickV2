@@ -1,5 +1,0 @@
-center:
-- 153
-- 110
-expected: present
-tolerance: 15

@@ -153,7 +153,8 @@ Windows 桌面版按鍵精靈：在畫面中找圖並點擊 + 步驟序列自動
   打包版從 exe 往上找 repo，找不到退回 `%USERPROFILE%\AutoClick\`；ADR 0017；開檔與第一次存檔的
   對話框從這裡開）；本機狀態資料夾（`state.json` 只記上次開的流程、`autoclick.log`、「未存檔」快取）
   打包版在 `%LOCALAPPDATA%\AutoClick\`、原始碼執行在 repo 的 `.local\`（gitignore）——agent 冒煙開過的
-  流程不會變成打包版下次自動開的那份。repo 的 `profiles/arknights/` 只剩引擎基準測試集
+  流程不會變成打包版下次自動開的那份。`profiles/` 已整個退場（ADR 0015、0016）；引擎的基準測試集
+  在 repo 根目錄 `benchmark/`，改引擎前後必跑（根目錄 CLAUDE.md）
 - 部署 = 整個 `AutoClick\` 資料夾換掉
 - 使用者回報 UI 問題時，先確認截圖是部署的 exe 還是原始碼版——原始碼修正後要重新打包部署
 

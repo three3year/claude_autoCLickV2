@@ -1,4 +1,0 @@
-# real frame: no 貿易站 rows on screen; 製造站1/2 rows have yellow pips
-color_check: true
-expected: absent
-tolerance: 15

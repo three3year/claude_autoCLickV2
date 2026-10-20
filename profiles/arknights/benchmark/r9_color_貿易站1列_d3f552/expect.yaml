@@ -1,7 +1,0 @@
-# real frame: only the 貿易站1 row (not the yellow 製造站 rows)
-centers:
-- - 114
-  - 915
-color_check: true
-expected: present
-tolerance: 15

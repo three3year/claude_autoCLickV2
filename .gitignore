@@ -4,14 +4,6 @@ __pycache__/
 .pytest_cache/
 # 引擎基準測試集的衍生資料 (benchmark 本身進版控)
 /benchmark/_*/
-profiles/*/benchmark/_registered/
-profiles/*/benchmark/_assets/_registered/
-# 退場的 profile 留在本機的舊使用者資料 (流程已轉成流程資料夾; 不進版控)
-profiles/*/flows/
-profiles/*/workspace/
-profiles/*/calibration/
-profiles/*/calibration.json
-profiles/app_state.json
 autoclick.log
 autoclick.log.1
 # 流程存放區 (使用者自己的流程資料夾: 範本圖、快取、個人調整; ADR 0017)
