@@ -4,12 +4,12 @@
 
 **Blocked by:** 01 — 文件對照測試（可與 02 並行）
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 對照測試在 `app/CLAUDE.md` 與三份 `docs/agents/` 新檔全綠
-- [ ] 正文約 150 行；每個意思只在一處（正文或某一份分出去的檔）
-- [ ] 三個指標各寫明觸發條件（改 Tk／覆蓋層／grab 的程式碼、寫或改 app 測試、改版面或樣式）
-- [ ] 已移除清單只有一份、不用反引號
-- [ ] 建置與部署含 agent 打包法與冒煙法（來源：memory 的 build-bat-encoding、packaged-smoke）
-- [ ] 文件用 `app/CONTEXT.md` 的詞；「profile」「workspace」等退場詞只出現在已移除清單
-- [ ] 根目錄 `CLAUDE.md` 不加指標（地圖票 10 的決定）
+- [x] 對照測試在 `app/CLAUDE.md` 與三份 `docs/agents/` 新檔全綠
+- [x] 正文約 150 行；每個意思只在一處（正文或某一份分出去的檔）
+- [x] 三個指標各寫明觸發條件（改 Tk／覆蓋層／grab 的程式碼、寫或改 app 測試、改版面或樣式）
+- [x] 已移除清單只有一份、不用反引號
+- [x] 建置與部署含 agent 打包法與冒煙法（來源：memory 的 build-bat-encoding、packaged-smoke）
+- [x] 文件用 `app/CONTEXT.md` 的詞；「profile」「workspace」等退場詞只出現在已移除清單
+- [x] 根目錄 `CLAUDE.md` 不加指標（地圖票 10 的決定）

@@ -22,6 +22,7 @@ flow.yaml 的具體長相、UI 版面、影片轉流程的新規則、基準集�
 - 四份在用流程的最新實體在打包版 `app/dist/AutoClick/profiles/arknights/flows/`（2026-10-10 14:58），不在 git。
 - torch／DINOv2 不動；引擎只刪 multi_capture 路徑。
 - **基準集階段完成（2026-10-21）**：`benchmark/` 97 案例、基線 80/80＋已知失敗 17；引擎多張圖路徑、`mask_strategy`、整個 `profiles/`、舊建構工具都刪了；刪前後新集結果一致。spec 與票在 `.scratch/benchmark-rebuild/`。
+- **文件階段完成（2026-10-21）**：README 重排成「AutoClick／主體偵測引擎」兩大段、`app/CLAUDE.md` 分層成約 160 行正文＋`docs/agents/` 三份（坑、測試手法、UI 慣例）、`CONTEXT-MAP.md` 拿掉 `load_config`；新增文件對照測試 `app/tests/test_doc_refs.py` 擋文件過期。spec 與票在 `.scratch/docs-rewrite/`。**六個階段全部結束，本地圖收尾。**
 - 解票時機：格式階段之前解 02、04、09、11、12（04 可能回頭要 schema 欄位，所以提前）；
   05、06、07、08、13 等到各自階段開工前才解（影片轉流程＋agent 文件階段等 04、10、13）——它們建立在格式階段之後的現況上，早解會過期。
 

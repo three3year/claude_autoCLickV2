@@ -4,11 +4,11 @@
 
 **Blocked by:** 01 — 文件對照測試
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] 對照測試在 README、根目錄 `CLAUDE.md`、三份 CONTEXT 全綠
-- [ ] 調參表每一列的參數名、預設值、方向對過引擎內建預設與程式碼
-- [ ] 基準測試集的格式與指令只在 README 一處；根目錄 `CLAUDE.md` 指過去、不重複格式
-- [ ] 舊集數字與「驗收紀錄」不出現
-- [ ] 文件用 CONTEXT 的詞（範本清單、預期尺度、已知失敗…），不用標為「避免」的詞
-- [ ] 每個指令的參數照現在的工具（bench 不帶參數、pytest 不給路徑即三個 testpaths）
+- [x] 對照測試在 README、根目錄 `CLAUDE.md`、三份 CONTEXT 全綠
+- [x] 調參表每一列的參數名、預設值、方向對過引擎內建預設與程式碼
+- [x] 基準測試集的格式與指令只在 README 一處；根目錄 `CLAUDE.md` 指過去、不重複格式
+- [x] 舊集數字與「驗收紀錄」不出現
+- [x] 文件用 CONTEXT 的詞（範本清單、預期尺度、已知失敗…），不用標為「避免」的詞
+- [x] 每個指令的參數照現在的工具（bench 不帶參數、pytest 不給路徑即三個 testpaths）

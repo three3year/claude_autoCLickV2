@@ -18,7 +18,6 @@ Issues 與規格以本地 markdown 存於 `.scratch/<feature>/`。See `docs/agen
 ## 引擎基準測試集
 
 改引擎(`src/subject_detection/`:門檻、模型、粗篩、遮罩、刪路徑)**前後都要跑**
-`.venv/Scripts/python -m subject_detection.bench`(不帶參數＝repo 的 `benchmark/`;不接進 pytest)。
-改前先跑一次當基線,改後結果要跟基線一致:結束碼 0,已知失敗可以變少、不能變多;
-已知失敗這次通過了就拿掉它的 `known_failure`。新的失敗情境加一個案例資料夾進 `benchmark/`
-(格式見 README「基準測試集」),影格髒(游標壓到、轉場)的不收。
+`.venv/Scripts/python -m subject_detection.bench`。改前先跑一次當基線,改後結果要跟基線一致:
+結束碼 0,已知失敗可以變少、不能變多;已知失敗這次通過了就拿掉它的 `known_failure`。
+新的失敗情境加一個案例資料夾進 `benchmark/`。案例格式、指令選項、收案標準見 README「基準測試集」。

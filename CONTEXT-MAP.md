@@ -31,9 +31,9 @@
 見 ADR 0002），不允許第二條比對路徑。
 此外 app 也使用引擎的公開 API 做範本登錄與顯示：`Engine.load_templates`
 （收`範本清單`＋引擎參數＋登錄產物位置）、`Engine.register`（單張登錄）、
-`Library.templates`／`Artifacts.ref_bgr`（面板清單與預覽）、
-`library.load_config`（引擎內建預設＋流程的`引擎參數覆蓋`合併，ADR 0015）、`QueryResult.debug`
-（比對測試的除錯分數，格式不承諾穩定）。**掃目錄是呼叫端的事**：引擎沒有
+`Library.templates`／`Artifacts.ref_bgr`（面板清單與預覽）、`QueryResult.debug`
+（比對測試的除錯分數，格式不承諾穩定）。引擎參數由 app 合併內建預設與流程的`引擎參數覆蓋`
+後交付（`App.engine_config`，ADR 0015），引擎只讀自己的內建預設，不讀呼叫端的任何設定檔。**掃目錄是呼叫端的事**：引擎沒有
 「給我一個 profile 目錄我自己找圖」這條入口（ADR 0006）。
 `tools/video_to_flow`（`影片轉流程`工具，不進 app、不進打包版）也直接用同一組
 公開 API（`make_library`＋`Engine.register`／`query`）在影片影格上自我驗證範本：
