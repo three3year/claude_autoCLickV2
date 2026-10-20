@@ -167,7 +167,7 @@ def card_page(cands, path, title="基準集候選案例"):
         zoom = (f'<figure><img src="cards/{base}_zoom.png"><figcaption>{zcap}</figcaption></figure>'
                 if z is not None else "")
         rows.append(f"""
-<section class="card{' has-doubt' if c.get('doubt') else ''}" id="c{no}">
+<section class="card {'neg' if c['expected'] == 'absent' else 'pos'}{' has-doubt' if c.get('doubt') else ''}" id="c{no}">
   <header><span class="no">#{no}</span> <span class="kind">{html.escape(c['kind'])}</span>
     <span class="verdict {'neg' if c['expected'] == 'absent' else 'pos'}">{verdict}</span>
     {''.join(f'<span class="tag">{t}</span>' for t in tags)}
@@ -188,16 +188,20 @@ def card_page(cands, path, title="基準集候選案例"):
 <title>{html.escape(title)}</title>
 <style>
 :root {{ --bg:#f6f6f4; --card:#fff; --ink:#1d1d1f; --muted:#666; --line:#ddd;
-  --doubt:#b45309; --doubt-bg:#fff7e6; --pos:#0a7d32; --neg:#b42318; }}
+  --doubt:#b45309; --doubt-bg:#fff7e6; --pos:#0a7d32; --neg:#b42318;
+  --pos-bg:#e6f6ea; --neg-bg:#fdeaea; }}
 @media (prefers-color-scheme: dark) {{ :root {{ --bg:#18181a; --card:#232326; --ink:#eee;
-  --muted:#aaa; --line:#3a3a3d; --doubt:#f5a524; --doubt-bg:#3a2d12; --pos:#4ade80; --neg:#f87171; }} }}
+  --muted:#aaa; --line:#3a3a3d; --doubt:#f5a524; --doubt-bg:#3a2d12; --pos:#4ade80; --neg:#f87171;
+  --pos-bg:#16301f; --neg-bg:#3a1a1a; }} }}
 body {{ background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, "Microsoft JhengHei", sans-serif;
   margin:0 auto; max-width:960px; padding:16px; }}
 h1 {{ font-size:22px; margin:8px 0; }}
 .intro {{ color:var(--muted); }}
 .card {{ background:var(--card); border:1px solid var(--line); border-radius:8px;
   padding:12px 14px; margin:14px 0; }}
-.card.has-doubt {{ border-color:var(--doubt); }}
+.card.pos {{ background:var(--pos-bg); }}
+.card.neg {{ background:var(--neg-bg); }}
+.card.has-doubt {{ border-color:var(--doubt); border-width:3px; }}
 header {{ display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; }}
 .no {{ font-weight:700; font-size:20px; }}
 .kind {{ font-weight:600; }}
@@ -216,7 +220,7 @@ img.scene {{ width:100%; image-rendering:auto; border:1px solid var(--line); }}
 </style></head><body>
 <h1>{html.escape(title)}</h1>
 <p class="intro">共 {len(numbered)} 張：{summary}。agent 有疑問的 {n_doubt} 張排在最前面（橘框）。
-紅框＝答案；「應該沒有」的不畫框，請確認畫面裡真的沒有那張範本。看完把<strong>錯的編號</strong>回報就好。</p>
+綠底＝應該找到（紅框＝答案），紅底＝應該沒有（不畫框，請確認畫面裡真的沒有那張範本）。看完把<strong>錯的編號</strong>回報就好。</p>
 {''.join(rows)}
 </body></html>"""
     with open(path, "w", encoding="utf-8") as f:
