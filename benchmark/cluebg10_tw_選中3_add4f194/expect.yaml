@@ -8,3 +8,4 @@ source:
   kind: 線索背景
   client: 繁中
   answer_from: 人工判定 (quick-place 線索情境)
+known_failure: "選中圓鈕只差中間的數字: 範本 3 號配到選中的 7 號 (驗證 0.88); app 只在 3 號鈕的小範圍找"

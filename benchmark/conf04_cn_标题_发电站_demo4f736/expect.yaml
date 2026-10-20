@@ -8,3 +8,4 @@ source:
   kind: 混淆
   client: 簡中
   answer_from: 配對工具
+known_failure: "列名互相像: 類別標題「发电站」配到左欄列名「发电站1」(驗證 0.98); 引擎分不出列名, app 靠期望位置窄帶擋"

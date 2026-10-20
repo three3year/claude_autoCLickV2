@@ -11,3 +11,4 @@ source:
   kind: 忙碌指示
   client: 繁中
   answer_from: 配對工具 (逐幀)
+known_failure: "忙碌字樣淡入淡出中最淡的幾幀, 字幾乎透明: 粗篩或驗證分數不到門檻 (app 輪詢會在下一幀字變清楚時找到)"

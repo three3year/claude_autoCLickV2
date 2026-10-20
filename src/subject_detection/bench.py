@@ -41,6 +41,7 @@ CLI: python -m subject_detection.bench [benchmark_dir] [-v]
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -265,6 +266,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
     report = run_bench(args.bench_dir)
+    # 輸出被導向 (管線、檔案) 時預設是系統代碼頁 (cp950), 編不出簡中案例名
+    if not sys.stdout.isatty() and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     print(format_report(report, verbose=args.verbose))
     return 0 if report.ok else 1
 

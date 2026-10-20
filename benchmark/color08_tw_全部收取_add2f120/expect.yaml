@@ -9,3 +9,4 @@ source:
   kind: 比色
   client: 繁中
   answer_from: 配對工具＋色差
+known_failure: "比色用 TM_CCOEFF_NORMED (扣平均、除對比), 整顆按鈕等比變暗／變灰看不出來, 比色分數 0.98–0.99 仍過門檻 0.95"

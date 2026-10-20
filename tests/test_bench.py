@@ -9,6 +9,8 @@ apart from the rest.
 """
 from __future__ import annotations
 
+import io
+import sys
 from pathlib import Path
 
 import cv2
@@ -306,6 +308,18 @@ def test_來源欄位讀得進來_不影響判定(engine, tmp_path):
     assert case.expect["source"] == source
     report = run_bench(bench_dir, engine=engine)
     assert [c.verdict for c in report.cases] == ["correct"]
+
+
+def test_輸出被導向到代碼頁編碼_簡中案例名照樣印出(monkeypatch, tmp_path):
+    # 管線／檔案的預設編碼是系統代碼頁 (cp950), 編不出簡中字
+    bench_dir = tmp_path / "benchmark"
+    _present_case(bench_dir, "multi05_cn_访问基建", seed=37)
+    raw = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(raw, encoding="cp950"))
+
+    assert bench.main([str(bench_dir)]) == 0
+    sys.stdout.flush()
+    assert "multi05_cn_访问基建" in raw.getvalue().decode("utf-8")
 
 
 def test_不帶參數就跑repo的benchmark資料夾(monkeypatch, tmp_path):

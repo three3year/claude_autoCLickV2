@@ -8,3 +8,4 @@ source:
   kind: 混淆
   client: 繁中
   answer_from: 配對工具
+known_failure: "選中圓鈕 (白圓灰環) 配到商店底部的問號鈕 (驗證 0.88), 中間圖案太小不夠分"
