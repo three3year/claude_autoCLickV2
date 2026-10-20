@@ -1,0 +1,10 @@
+expected: absent
+tolerance: 15
+source:
+  flow: 晚_繁中
+  template: 進駐總覽
+  video: demo3
+  frame: 488
+  kind: 易誤判負樣本
+  client: 繁中
+  answer_from: 配對工具

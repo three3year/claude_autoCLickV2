@@ -1,0 +1,14 @@
+expected: present
+center:
+- 191
+- 168
+tolerance: 15
+source:
+  flow: 早_簡中
+  template: 进驻总览
+  video: demo5
+  frame: 920
+  kind: 跨影片
+  client: 簡中
+  template_video: demo6
+  answer_from: 配對工具

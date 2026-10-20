@@ -1,0 +1,13 @@
+expected: present
+center:
+- 1822
+- 797
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: CONFIDENTIAL線索
+  video: demo2
+  frame: 968
+  kind: 線索背景
+  client: 繁中
+  answer_from: 配對工具

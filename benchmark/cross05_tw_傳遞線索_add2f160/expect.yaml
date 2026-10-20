@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1819
+- 493
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 傳遞線索
+  video: add2
+  frame: 160
+  kind: 跨影片
+  client: 繁中
+  template_video: demo2
+  answer_from: 配對工具

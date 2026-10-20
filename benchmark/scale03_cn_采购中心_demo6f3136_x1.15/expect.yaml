@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1692
+- 388
+tolerance: 15
+expected_scale: 1.15
+source:
+  flow: 早_簡中
+  template: 采购中心
+  video: demo6
+  frame: 3136
+  kind: 縮放
+  client: 簡中
+  answer_from: 配對工具

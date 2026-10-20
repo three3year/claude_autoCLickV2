@@ -1,0 +1,13 @@
+expected: present
+center:
+- 922
+- 486
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 標題_貿易站
+  video: demo2
+  frame: 1528
+  kind: 混淆
+  client: 繁中
+  answer_from: 配對工具

@@ -1,0 +1,10 @@
+expected: absent
+tolerance: 15
+source:
+  flow: 晚_簡中
+  template: 公告关闭
+  video: demo4
+  frame: 72
+  kind: 易誤判負樣本
+  client: 簡中
+  answer_from: 配對工具

@@ -1,0 +1,11 @@
+expected: absent
+tolerance: 15
+color_check: true
+source:
+  flow: 早_繁中
+  template: 快速傳遞
+  video: demo2
+  frame: 1200
+  kind: 混淆
+  client: 繁中
+  answer_from: 配對工具

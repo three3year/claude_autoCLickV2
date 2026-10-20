@@ -1,0 +1,11 @@
+expected: absent
+tolerance: 15
+color_check: true
+source:
+  flow: 早_簡中
+  template: 全部收取
+  video: demo6
+  frame: 1136
+  kind: 比色
+  client: 簡中
+  answer_from: 配對工具＋色差

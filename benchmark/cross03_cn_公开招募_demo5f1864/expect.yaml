@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1195
+- 324
+tolerance: 15
+source:
+  flow: 晚_簡中
+  template: 公开招募
+  video: demo5
+  frame: 1864
+  kind: 跨影片
+  client: 簡中
+  template_video: demo6
+  answer_from: 配對工具

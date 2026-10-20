@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1369
+- 206
+tolerance: 15
+expected_scale: 0.85
+source:
+  flow: 早_簡中
+  template: 每日线索
+  video: demo6
+  frame: 1096
+  kind: 縮放
+  client: 簡中
+  answer_from: 配對工具

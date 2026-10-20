@@ -43,7 +43,9 @@ def imread(path, flags=cv2.IMREAD_COLOR):
 def imwrite(path, img):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     ext = os.path.splitext(path)[1] or ".png"
-    cv2.imencode(ext, img)[1].tofile(path)
+    # PNG 用最高壓縮 (無損; 案例要進版控, 整張影格預設壓縮每張 1.4MB)
+    params = [cv2.IMWRITE_PNG_COMPRESSION, 9] if ext.lower() == ".png" else []
+    cv2.imencode(ext, img, params)[1].tofile(path)
 
 
 def dump(path, data):

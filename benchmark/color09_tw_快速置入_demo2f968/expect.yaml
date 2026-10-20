@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1730
+- 943
+tolerance: 15
+color_check: true
+source:
+  flow: 早_繁中
+  template: 快速置入
+  video: demo2
+  frame: 968
+  kind: 比色
+  client: 繁中
+  answer_from: 配對工具＋色差

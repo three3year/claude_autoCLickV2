@@ -1,0 +1,13 @@
+expected: present
+center:
+- 613
+- 827
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 生產面板箭頭
+  video: demo2
+  frame: 705
+  kind: 一般正例
+  client: 繁中
+  answer_from: 人工判定 (轉換計畫取材幀)

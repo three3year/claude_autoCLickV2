@@ -1,0 +1,13 @@
+expected: present
+center:
+- 1848
+- 752
+tolerance: 15
+source:
+  flow: 晚_繁中
+  template: 無人機加速
+  video: demo3
+  frame: 408
+  kind: 一般正例
+  client: 繁中
+  answer_from: 配對工具

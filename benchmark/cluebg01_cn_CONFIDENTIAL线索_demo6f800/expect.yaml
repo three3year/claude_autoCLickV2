@@ -1,0 +1,13 @@
+expected: present
+center:
+- 1616
+- 711
+tolerance: 15
+source:
+  flow: 早_簡中
+  template: CONFIDENTIAL线索
+  video: demo6
+  frame: 800
+  kind: 線索背景
+  client: 簡中
+  answer_from: 配對工具

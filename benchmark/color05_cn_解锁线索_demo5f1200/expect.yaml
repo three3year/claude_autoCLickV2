@@ -1,0 +1,14 @@
+expected: present
+center:
+- 898
+- 790
+tolerance: 15
+color_check: true
+source:
+  flow: 早_簡中
+  template: 解锁线索
+  video: demo5
+  frame: 1200
+  kind: 比色
+  client: 簡中
+  answer_from: 配對工具＋色差

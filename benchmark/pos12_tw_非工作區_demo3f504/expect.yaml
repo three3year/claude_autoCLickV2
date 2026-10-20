@@ -1,0 +1,13 @@
+expected: present
+center:
+- 1668
+- 84
+tolerance: 15
+source:
+  flow: 晚_繁中
+  template: 非工作區
+  video: demo3
+  frame: 504
+  kind: 一般正例
+  client: 繁中
+  answer_from: 配對工具

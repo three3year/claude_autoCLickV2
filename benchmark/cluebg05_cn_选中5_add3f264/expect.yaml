@@ -1,0 +1,10 @@
+expected: absent
+tolerance: 15
+source:
+  flow: 早_簡中
+  template: 选中5
+  video: add3
+  frame: 264
+  kind: 線索背景
+  client: 簡中
+  answer_from: 人工判定 (quick-place 線索情境)

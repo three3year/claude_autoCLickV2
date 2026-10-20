@@ -1,0 +1,21 @@
+expected: present
+centers:
+- - 1342
+  - 251
+- - 1342
+  - 431
+- - 1342
+  - 791
+- - 1342
+  - 971
+- - 1342
+  - 611
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 訪問基建
+  video: demo2
+  frame: 1824
+  kind: 同款多個
+  client: 繁中
+  answer_from: 配對工具

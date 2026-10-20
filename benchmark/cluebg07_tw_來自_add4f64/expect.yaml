@@ -1,0 +1,10 @@
+expected: absent
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 來自
+  video: add4
+  frame: 64
+  kind: 線索背景
+  client: 繁中
+  answer_from: 人工判定 (quick-place 線索情境)

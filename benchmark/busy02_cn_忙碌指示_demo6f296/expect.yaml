@@ -1,0 +1,13 @@
+expected: present
+center:
+- 1066
+- 850
+tolerance: 15
+source:
+  flow: 早_簡中
+  template: 忙碌指示
+  video: demo6
+  frame: 296
+  kind: 忙碌指示
+  client: 簡中
+  answer_from: 配對工具

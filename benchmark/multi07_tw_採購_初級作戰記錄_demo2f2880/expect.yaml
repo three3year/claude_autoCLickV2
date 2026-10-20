@@ -1,0 +1,17 @@
+expected: present
+centers:
+- - 1097
+  - 404
+- - 1409
+  - 404
+- - 160
+  - 717
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 採購_初級作戰記錄
+  video: demo2
+  frame: 2880
+  kind: 同款多個
+  client: 繁中
+  answer_from: 人工判定 (商店標註 annotations.json)

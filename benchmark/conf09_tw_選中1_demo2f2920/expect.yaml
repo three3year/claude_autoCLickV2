@@ -1,0 +1,10 @@
+expected: absent
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 選中1
+  video: demo2
+  frame: 2920
+  kind: 混淆
+  client: 繁中
+  answer_from: 配對工具

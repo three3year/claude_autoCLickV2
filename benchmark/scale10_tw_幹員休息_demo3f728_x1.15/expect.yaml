@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1948
+- 1107
+tolerance: 15
+expected_scale: 1.15
+source:
+  flow: 晚_繁中
+  template: 幹員休息
+  video: demo3
+  frame: 728
+  kind: 縮放
+  client: 繁中
+  answer_from: 配對工具

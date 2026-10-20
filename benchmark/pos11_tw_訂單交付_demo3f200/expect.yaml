@@ -1,0 +1,13 @@
+expected: present
+center:
+- 470
+- 984
+tolerance: 15
+source:
+  flow: 晚_繁中
+  template: 訂單交付
+  video: demo3
+  frame: 200
+  kind: 一般正例
+  client: 繁中
+  answer_from: 配對工具

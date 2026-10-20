@@ -1,0 +1,14 @@
+expected: present
+center:
+- 84
+- 836
+tolerance: 15
+expected_scale: 0.85
+source:
+  flow: 晚_繁中
+  template: 待辦事項
+  video: demo3
+  frame: 200
+  kind: 縮放
+  client: 繁中
+  answer_from: 配對工具

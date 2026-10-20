@@ -1,0 +1,14 @@
+expected: present
+center:
+- 76
+- 320
+tolerance: 15
+expected_scale: 1.15
+source:
+  flow: 早_繁中
+  template: 線索交流彈窗
+  video: demo2
+  frame: 915
+  kind: 縮放
+  client: 繁中
+  answer_from: 人工判定 (轉換計畫取材幀)

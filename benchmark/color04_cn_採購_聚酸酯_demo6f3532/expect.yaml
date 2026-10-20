@@ -1,0 +1,16 @@
+expected: present
+centers:
+- - 696
+  - 362
+- - 1248
+  - 362
+tolerance: 15
+color_check: true
+source:
+  flow: 早_簡中
+  template: 採購_聚酸酯
+  video: demo6
+  frame: 3532
+  kind: 比色
+  client: 簡中
+  answer_from: 人工判定 (商店標註 annotations.json)

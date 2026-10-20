@@ -1,0 +1,13 @@
+expected: present
+center:
+- 1888
+- 19
+tolerance: 15
+source:
+  flow: 晚_繁中
+  template: 標題列關閉鈕
+  video: demo3
+  frame: 192
+  kind: 混淆
+  client: 繁中
+  answer_from: 配對工具

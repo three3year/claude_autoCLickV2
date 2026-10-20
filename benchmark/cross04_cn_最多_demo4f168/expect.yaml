@@ -1,0 +1,12 @@
+expected: absent
+tolerance: 15
+color_check: true
+source:
+  flow: 晚_簡中
+  template: 最多
+  video: demo4
+  frame: 168
+  kind: 跨影片
+  client: 簡中
+  template_video: demo6
+  answer_from: 配對工具

@@ -1,0 +1,13 @@
+expected: present
+center:
+- 229
+- 984
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 可收穫
+  video: demo2
+  frame: 495
+  kind: 一般正例
+  client: 繁中
+  answer_from: 人工判定 (轉換計畫取材幀)

@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1463
+- 875
+tolerance: 15
+color_check: true
+source:
+  flow: 早_簡中
+  template: 全部收取
+  video: demo5
+  frame: 1096
+  kind: 比色
+  client: 簡中
+  answer_from: 配對工具＋色差

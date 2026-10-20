@@ -1,0 +1,10 @@
+expected: absent
+tolerance: 15
+source:
+  flow: 晚_簡中
+  template: 标题_发电站
+  video: demo4
+  frame: 736
+  kind: 混淆
+  client: 簡中
+  answer_from: 配對工具

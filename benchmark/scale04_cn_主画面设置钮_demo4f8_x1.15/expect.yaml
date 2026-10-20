@@ -1,0 +1,14 @@
+expected: present
+center:
+- 62
+- 92
+tolerance: 15
+expected_scale: 1.15
+source:
+  flow: 晚_簡中
+  template: 主画面设置钮
+  video: demo4
+  frame: 8
+  kind: 縮放
+  client: 簡中
+  answer_from: 配對工具

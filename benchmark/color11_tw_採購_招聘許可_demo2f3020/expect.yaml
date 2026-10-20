@@ -1,0 +1,11 @@
+expected: absent
+tolerance: 15
+color_check: true
+source:
+  flow: 早_繁中
+  template: 採購_招聘許可
+  video: demo2
+  frame: 3020
+  kind: 比色
+  client: 繁中
+  answer_from: 人工判定 (商店標註 annotations.json)

@@ -1,0 +1,17 @@
+expected: present
+centers:
+- - 1600
+  - 308
+- - 1600
+  - 550
+- - 1600
+  - 792
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 來自
+  video: add4
+  frame: 80
+  kind: 同款多個
+  client: 繁中
+  answer_from: 配對工具

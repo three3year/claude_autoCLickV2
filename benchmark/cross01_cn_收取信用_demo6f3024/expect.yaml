@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1465
+- 82
+tolerance: 15
+source:
+  flow: 早_簡中
+  template: 收取信用
+  video: demo6
+  frame: 3024
+  kind: 跨影片
+  client: 簡中
+  template_video: demo5
+  answer_from: 配對工具

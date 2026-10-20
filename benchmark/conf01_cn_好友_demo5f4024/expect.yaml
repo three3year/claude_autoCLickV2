@@ -1,0 +1,13 @@
+expected: present
+center:
+- 1486
+- 73
+tolerance: 15
+source:
+  flow: 早_簡中
+  template: 好友
+  video: demo5
+  frame: 4024
+  kind: 混淆
+  client: 簡中
+  answer_from: 配對工具

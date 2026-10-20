@@ -1,0 +1,13 @@
+expected: present
+center:
+- 1650
+- 672
+tolerance: 15
+source:
+  flow: 晚_簡中
+  template: 无人机加速
+  video: demo4
+  frame: 208
+  kind: 一般正例
+  client: 簡中
+  answer_from: 配對工具

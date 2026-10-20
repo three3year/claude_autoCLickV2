@@ -1,0 +1,14 @@
+expected: present
+center:
+- 1820
+- 259
+tolerance: 15
+source:
+  flow: 早_繁中
+  template: 每日線索
+  video: add4
+  frame: 264
+  kind: 跨影片
+  client: 繁中
+  template_video: demo2
+  answer_from: 配對工具
