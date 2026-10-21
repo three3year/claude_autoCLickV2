@@ -1,6 +1,6 @@
 # 製造站加速點錯格子
 
-Status: ready-for-human
+Status: done
 
 2026-10-06 12:36 起的繁中 arknights 實跑（打包版 `app/dist/AutoClick/profiles/arknights`，日誌 `app/dist/AutoClick/autoclick.log`）。
 
@@ -76,3 +76,5 @@ x +180、y +470、w 160、h 90），找不到就停止。比 A 多一層「真�
 照建議 A 改了 `早_繁中` 第 22–23 步（進駐總覽定位＋(+269, +551)，做到生產面板箭頭出現），「製造站卡」範本已移出存檔。
 備份：`app/dist/profiles-backup-2026-10-06-shift-fix/`。修正紀錄在 `早_繁中.md` 開頭。
 簡中另存的 `早_簡中_demo6` 也改成同樣做法（进驻总览＋(+356, +502)）。
+
+**2026-10-21 收票（使用者同意）**：10/06 的修正之後，早班兩份流程已多次重建（demo6 重建、scale-range 重截、流程＝資料夾轉換），本票改的步驟早已不是現況。 四份在用流程 10/19–10/21 已在新格式（流程＝資料夾）與新打包版全套實機驗收通過（見 `.scratch/scale-out-of-range/issues/03`），本票的驗收項目已被整份實跑涵蓋；未勾項目不再逐一補驗。

@@ -1,6 +1,6 @@
 # 簡中早班：基建入口找不到
 
-Status: ready-for-human
+Status: done
 
 2026-10-06 12:49 與 12:50 兩次簡中實跑（打包版 `profiles/arknights/flows/早_簡中.autoclickpack`，日誌 `app/dist/AutoClick/autoclick.log`）。
 
@@ -22,3 +22,5 @@ Status: ready-for-human
 - 「基建入口」找不到的可能原因：舊範本框到了右上的通知數字與「BASE」字樣，demo6 當天那裡被 ⚠3、🔔80 蓋住。
   新範本只框左邊的基建圖樣。
 - polls=1 的疑點沒查（不改程式）；重建後若開頭彈窗段仍慢，另開票。
+
+**2026-10-21 收票（使用者同意）**：早_簡中已以 demo6 重建並多次改版，基建入口範本 10/09 也已換過；舊 `早_簡中.autoclickpack` 與 profiles/ 都已刪除。 四份在用流程 10/19–10/21 已在新格式（流程＝資料夾）與新打包版全套實機驗收通過（見 `.scratch/scale-out-of-range/issues/03`），本票的驗收項目已被整份實跑涵蓋；未勾項目不再逐一補驗。

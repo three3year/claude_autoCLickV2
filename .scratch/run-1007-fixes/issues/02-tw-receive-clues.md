@@ -1,6 +1,6 @@
 # 早_繁中 補接收線索
 
-Status: ready-for-human（已改，待實跑）
+Status: done
 
 先前診斷見 `.scratch/run-1006-fixes/issues/03-reception-friend-clue-not-claimed.md`（當時使用者說之後再補）。
 
@@ -32,3 +32,7 @@ Status: ready-for-human（已改，待實跑）
 - 日誌 `find.target` / `input.confirm`：接收線索（branch）、全部收取 confirm_appear 暫未收到新的線索、
   座標點擊 confirm 傳遞線索。
 - 簡中 10/07 早上接收线索逾時 (best 0.587)，推測是快速置入誤按把線索板弄亂；若修好快速置入後仍逾時，要重看範本。
+
+## Comments
+
+**2026-10-21 收票（使用者同意）**：接收線索段 10/07 已寫回兩份早班流程，後續 quick-place-clue-check 又改過查線索段；10/21 早_繁中、早_簡中整份實跑使用者回報沒問題。 四份在用流程 10/19–10/21 已在新格式（流程＝資料夾）與新打包版全套實機驗收通過（見 `.scratch/scale-out-of-range/issues/03`），本票的驗收項目已被整份實跑涵蓋；未勾項目不再逐一補驗。
