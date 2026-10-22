@@ -4,6 +4,7 @@
 全為 ASCII (cmd 用錯 codepage 解析 UTF-8 批次檔會把行當指令跑掉)。
 """
 import os
+import sys
 
 import pytest
 
@@ -153,7 +154,7 @@ def test_build_bat_轉交給工具():
 # ---------- 執行器 (用假步驟, 不碰環境) ----------
 
 def test_執行器照清單跑_警告繼續_停止就停(capsys, tmp_path):
-    py = os.sys.executable
+    py = sys.executable
     ok = build.Step("一", ((py, "-c", "print('hi')"),), str(tmp_path), build.STOP)
     warn = build.Step("二", ((py, "-c", "raise SystemExit(3)"),), str(tmp_path), build.WARN)
     stop = build.Step("三", ((py, "-c", "raise SystemExit(4)"),), str(tmp_path), build.STOP)
@@ -168,7 +169,7 @@ def test_執行器照清單跑_警告繼續_停止就停(capsys, tmp_path):
 
 
 def test_執行器全綠回_0(capsys, tmp_path):
-    py = os.sys.executable
+    py = sys.executable
     code = build.run([build.Step("一", ((py, "-c", "pass"),), str(tmp_path), build.STOP)])
     assert code == 0
 
@@ -177,6 +178,20 @@ def test_拒絕時_main_印訊息回_1(capsys, monkeypatch):
     monkeypatch.setattr(build, "detect", lambda: facts(system_python=None, system_version=None))
     assert build.main([]) == 1
     assert "3.11" in capsys.readouterr().out
+
+
+def test_不認得的參數回_2_help_回_0(capsys, monkeypatch):
+    monkeypatch.setattr(build, "detect", lambda: facts())
+    assert build.main(["--bogus"]) == 2
+    assert build.main(["--help"]) == 0
+    assert "--dry-run" in capsys.readouterr().out
+
+
+def test_警告步驟每條指令都跑(capsys, tmp_path):
+    cmds = ((sys.executable, "-c", "raise SystemExit(3)"),
+            (sys.executable, "-c", "open(r'%s', 'w')" % (tmp_path / "second")))
+    assert build.run([build.Step("一", cmds, str(tmp_path), build.WARN)]) == 0
+    assert (tmp_path / "second").exists()
 
 
 def test_dry_run_只印清單不執行(capsys, monkeypatch):
@@ -192,7 +207,7 @@ def test_打包失敗且_exe_被鎖住時提示先關_AutoClick(capsys, tmp_path
     exe.parent.mkdir(parents=True)
     exe.write_bytes(b"x")
     monkeypatch.setattr(build, "_locked", lambda path: path == str(exe))
-    py = os.sys.executable
+    py = sys.executable
     pack = build.Step(build.WHAT_PACK, ((py, "-c", "raise SystemExit(1)"),), str(tmp_path),
                       build.STOP)
     assert build.run([pack], root=str(tmp_path)) == 1
