@@ -12,8 +12,9 @@ autoclick.log.1
 .local/
 .scratch/**/tmp/
 *.egg-info/
+# setuptools 與 PyInstaller 的工作目錄 (tools/build 是原始碼, 不能用 build/ 一網打盡)
 /build/
-/app/build/   # setuptools 與 PyInstaller 的工作目錄 (tools/build 是原始碼)
+/app/build/
 dist/
 # coord-anchor 一次性換算的產物與改前副本 (流程存檔含範本圖, 使用者資料)
 .scratch/coord-anchor/converted/
