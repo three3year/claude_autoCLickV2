@@ -6,8 +6,8 @@ __pycache__/
 /benchmark/_*/
 autoclick.log
 autoclick.log.1
-# 流程存放區 (使用者自己的流程資料夾: 範本圖、快取、個人調整; ADR 0017)
-/flows/
+# 流程存放區 (ADR 0017; 2026-10-22 修訂起流程本身進版控, 只排除可重建的快取)
+/flows/*/.cache/
 # 原始碼執行的本機狀態資料夾 (state.json、autoclick.log、未存檔快取; apppaths)
 .local/
 .scratch/**/tmp/
