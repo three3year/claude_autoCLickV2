@@ -127,8 +127,8 @@ def test_沒有拖曳的段落不列捲動待確認(demo, engine):
 def test_矩形餘裕沒過是工具錯誤(demo, engine, monkeypatch):
     real = verify_mod.fixed_rect
 
-    def tight(box_, size, anchor, scroll=None):
-        rect, _ = real(box_, size, anchor, scroll)
+    def tight(box_, size, anchor, *rule):
+        rect, _ = real(box_, size, anchor, *rule)
         return [rect[0] + rect[2] // 4, rect[1], rect[2] // 2, rect[3]], set()
     monkeypatch.setattr(verify_mod, "fixed_rect", tight)
     with pytest.raises(video_to_flow.ToolError, match="工具錯誤.*矩形餘裕"):

@@ -290,6 +290,7 @@ def insert(plan, folder, engine=None):
         raise ToolError("既有流程沒有校準對：量不了影片倍率，請先在 app 設定校準對")
     old = flow["steps"]
     pos = insertion_index(old, p)
+    plan_mod.check_drift(p, old[:pos])
     # 只看步驟種類的檢查先做 (不必等量測): 找圖相連、原點的圖離開、後面舊步驟的原點來源
     plan_mod.precheck(old[:pos] + p.steps + old[pos:], flow.get("busy"))
     _origin_check(old, old[:pos] + p.steps + old[pos:], pos, len(p.steps))
@@ -374,24 +375,38 @@ def insert(plan, folder, engine=None):
     new_flow["template_pos"] = pos_map
 
     used = set(images) | refs
-    retake = retake_of(checked, used)
+    # 待重拍只留這次新裁的; 引用的既有範本沒過列待確認 (重截會一起影響流程裡共用它的地方)
+    bad = retake_of(checked, used)
+    retake = {n: why for n, why in bad.items() if n in q.templates}
+    seg_range = (pos, pos + len(seg))
+    sec, _ = report_mod.segment_section(folder, old, new_steps, seg_range)
+    existing_bad = {}
+    for n, why in bad.items():
+        if n not in q.templates:
+            k, files = report_mod.template_uses(old, new_steps, seg_range, sec, n)
+            existing_bad[n] = {"reasons": why, "steps": k, "files": files}
     scroll = [(i - pos, text) for i, text in scroll_confirm(
         new_steps, _shifted_scroll(measured, pos)) if pos <= i < pos + len(seg)]
-    confirm = ([("捲動清單", f"{t}：段落有拖曳但沒宣告捲動軸，確認是否在捲動清單裡")
+    confirm = ([("捲動清單", f"{t}：段落有拖曳但沒宣告捲動軸或停點差，確認是否在捲動清單"
+                              "或被拖過的清單裡")
                 for _, t in scroll]
                + [("忙碌檢查", f"{t} 勾了，但之後的影格沒看到忙碌指示")
                   for _, t in measured.busy_unseen]
                + [("忙碌檢查", f"{t} 沒勾，但之後的影格看到忙碌指示")
                   for _, t in measured.busy_unchecked]
                + [("範本重複", f"新範本「{n}」跟既有的「{e}」幾乎一樣，建議改用既有的")
-                  for n, e in similar.items()])
+                  for n, e in similar.items()]
+               + [("既有範本", _existing_text(n, info)) for n, info in existing_bad.items()])
     note = f"來源影片 `{os.path.basename(p.video)}`（影片倍率 ×{r:.3f}，{how}）。"
     if shift is not None:
         note += _align_note(q.align["find"], old[p.align["step"] - 1], shift, drag_change)
+    if measured.loosened:
+        note += ("固定矩形放寬：" + "；".join(report_mod.loosened_lines(seg, measured.loosened))
+                 + "。")
     shared = shared_info(q, measured, seg, source)
     for n, info in shared.items():   # 報告的容器框照計畫寫的影片像素 (q 已除過倍率)
         info["box"] = p.shared_rects[n].get("box")
-    files = report_mod.supplement(folder, old, new_steps, (pos, pos + len(seg)), note,
+    files = report_mod.supplement(folder, old, new_steps, seg_range, note,
                                   list(retake.items()), confirm, list(shared.items()))
     def verify():
         res = check(folder)
@@ -401,7 +416,8 @@ def insert(plan, folder, engine=None):
     _write_back(folder, new_flow, images, files, verify)
     return {"flow_path": folder, "position": pos + 1, "inserted": len(seg),
             "video": p.video, "video_scale": r, "scale_from": how,
-            "retake": retake, "similar": similar,
+            "retake": retake, "existing": existing_bad, "similar": similar,
+            "loosened": measured.loosened,
             "scroll_confirm": scroll, "busy_unseen": measured.busy_unseen,
             "busy_unchecked": measured.busy_unchecked,
             "shared_rects": shared,
@@ -422,6 +438,14 @@ def _align_note(name, ref_step, shift, drag_change):
     if drag_change:
         text += f"；第一次拖曳的距離從 {drag_change[0]} px 改成 {drag_change[1]} px"
     return text + "。"
+
+
+def _existing_text(name, info):
+    """補充引用的既有範本沒過自我驗證時的待確認文字 (共用它的段落報告用連結, 不寫步驟編號)."""
+    links = "、".join(report_mod.file_link(fn) for fn in info["files"])
+    return (f"引用的既有範本「{name}」沒通過自我驗證（{'；'.join(info['reasons'])}）：流程裡共 "
+            f"{info['steps']} 步引用它（{links}），重截會一起影響這些地方——先在遊戲裡確認"
+            "找得到、點得對；不是這次新裁的，不列待重拍")
 
 
 def _shifted_scroll(measured, pos):

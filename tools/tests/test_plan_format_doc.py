@@ -28,7 +28,7 @@ def test_文件裡的範例計畫讀得進來():
     q = plan_mod.load(add, plan_mod.INSERT)
     assert (q.after, q.expect) == (120, {"branch": "标题_办公室"})
     assert [s["type"] for s in q.steps][:3] == ["branch_start", "find", "drag"]
-    assert q.evidence[1]["scroll"] == "vertical"
+    assert q.evidence[1]["drift"] == "vertical" and q.evidence[3]["drift"] == "vertical"
     assert q.align_set and q.align == {"find": "标题_办公室", "frame": 180, "at": [1440, 742],
                                        "step": 121}
     r = plan_mod.load(same, plan_mod.INSERT)
