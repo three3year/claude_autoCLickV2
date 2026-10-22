@@ -69,7 +69,7 @@ except Exception:
     cuda = None
 if cuda:
     print("venv 裝的是 CUDA 版 torch (cu" + cuda.replace(".", "") + "), CUDA DLL 隨 torch 進了 _internal,"
-          " 所以交付物約 3 GB (CPU 版約 700 MB); 在有 NVIDIA 的目標機自動用 GPU, 沒有的照常跑 CPU。")
+          " 所以交付物約 4.5 GB (CPU 版約 700 MB); 在有 NVIDIA 的目標機自動用 GPU, 沒有的照常跑 CPU。")
 """
 
 

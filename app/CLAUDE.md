@@ -128,7 +128,7 @@ runner 用堆疊與跳轉解譯（`Runner._exec_branch`、`_break_out`、`runner
 
   約 3–5 分鐘（第一次 clone 再加下載時間）。工具只用標準庫、用系統 Python 啟動，venv 裡的套件一律經 venv 的 Python
   子程序跑；每次都跑 pip install，靠 pip 略過已裝的。直接覆蓋舊 dist（`--noconfirm`，不保留舊版），打包前確認沒有
-  AutoClick 程序在跑（exe 被鎖住時工具會提示先關掉）。有 NVIDIA 的機器裝 cu126 版 torch、交付物約 3 GB；沒有的
+  AutoClick 程序在跑（exe 被鎖住時工具會提示先關掉）。有 NVIDIA 的機器裝 cu126 版 torch、交付物約 4.5 GB；沒有的
   CPU 版約 700 MB。改偵測或步驟順序時 `tools/tests/test_build.py` 會擋（餵事實、斷言步驟清單，不真的建 venv 或打包）。
 - spec 在 `app\AutoClick.spec`：必須 onedir（onefile 啟動 4.6s 對 1.4s）；`upx=False` 明確關閉（ADR 0004——本機從未裝過
   upx，別去「補上」）。torch 與 DINOv2 隨包：spec 把本機 torch hub 快取塞進 _internal，frozen 時 app.py 以 TORCH_HOME

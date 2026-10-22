@@ -68,7 +68,7 @@ engine.load.done(`coarse_only=True` 表示隨包的 DINOv2 沒載成功,退化�
 印在視窗裡,結束視窗停住。重新打包會整個換掉 app 的 dist 底下的舊版,先關掉正在跑的 AutoClick。agent 跑同一支
 工具 `python tools/build`,見 [app/CLAUDE.md](app/CLAUDE.md)「建置與部署」。
 
-**交付物**:app 的 dist 底下整個 AutoClick 資料夾(從有 NVIDIA 的機器打約 3 GB,CUDA 的 DLL 隨 torch 進包;
+**交付物**:app 的 dist 底下整個 AutoClick 資料夾(從有 NVIDIA 的機器打約 4.5 GB,CUDA 的 DLL 隨 torch 進包;
 沒有的約 700 MB),裡面只有三樣:
 
 | 什麼 | 用途 |
