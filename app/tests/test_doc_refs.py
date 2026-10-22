@@ -50,9 +50,10 @@ INTERPRETERS = {"python", "pip"}
 SCRIPT_PREFIXES = ("tools/", "app\\", "app/")
 # 原始檔目錄 → 模組索引 (模組名 → 頂層名字與類別)
 SOURCE_DIRS = ("app", "app/automation", "app/tests", "src/subject_detection",
-               "tools/flow_check", "tools/video_to_flow")
+               "tools/flow_check", "tools/video_to_flow", "tools/build")
 PACKAGES = {"subject_detection": "src/subject_detection", "automation": "app/automation",
-            "video_to_flow": "tools/video_to_flow", "flow_check": "tools/flow_check"}
+            "video_to_flow": "tools/video_to_flow", "flow_check": "tools/flow_check",
+            "build": "tools/build"}
 # 文件裡的慣用簡寫 → (模組, 類別或 None)
 ALIASES = {"App": ("app", "App"), "Runner": ("runner", "Runner"),
            "hub": ("enginehub", "EngineHub"), "store": ("flowfile", "FlowTemplates"),

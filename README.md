@@ -9,14 +9,18 @@
 
 ### 安裝(原始碼版)
 
+Windows、Python 3.11 以上(pyproject 的 `requires-python`;3.12 驗過)。只想打包可以略過這段,直接看
+「打包與部署」,build.bat 會自己建好同一套環境。
+
 ```bash
 python -m venv .venv
 .venv/Scripts/pip install -e ".[app,dev]"
 .venv/Scripts/pip install torch --index-url https://download.pytorch.org/whl/cpu
 ```
 
-torch 給引擎的驗證階段用(DINOv2-S,第一次啟動時從 torch.hub 下載權重並快取在本機);
-沒裝 torch 引擎退化成「僅粗篩」,照常可用但精確率下降。有 NVIDIA GPU 裝 CUDA 版即自動用 GPU。
+torch 給引擎的驗證階段用(DINOv2-S,第一次啟動時從 torch.hub 下載權重並快取在本機
+`%USERPROFILE%\.cache\torch\hub\`);沒裝 torch 引擎退化成「僅粗篩」,照常可用但精確率下降。
+有 NVIDIA GPU 裝 CUDA 版即自動用 GPU。只要跑打包版就不必裝這些:見「打包與部署」。
 
 ### 啟動
 
@@ -24,8 +28,8 @@ torch 給引擎的驗證階段用(DINOv2-S,第一次啟動時從 torch.hub 下�
 .venv/Scripts/python app/app.py
 ```
 
-視窗先開、引擎在背景載入;就緒前執行與比對測試等辨識功能會提示並拒絕。開 app 自動開上次的流程。
-F12 急停。
+視窗先開、引擎在背景載入(幾秒);就緒前執行與比對測試等辨識功能會提示並拒絕。開 app 自動開上次的流程,
+第一次開或上次的流程不在了就是空白新流程。F12 急停。打包版的啟動方式見「打包與部署」。
 
 ### 流程
 
@@ -40,23 +44,44 @@ F12 急停。
 .venv/Scripts/python tools/video_to_flow --help      # 影片轉流程 (由 skill 驅動, 不進 app)
 ```
 
+這兩個命令列工具只有原始碼版有;打包版只有 app 本體,沒有附帶任何命令列工具。
+
 ### 使用者資料在哪
 
 | 什麼 | 打包版 | 原始碼執行 |
 |------|--------|-----------|
 | 流程存放區(開檔、新流程第一次存檔的預設位置) | exe 往上找得到本 repo 就是 repo 的 `flows\`,找不到 `%USERPROFILE%\AutoClick\` | repo 的 `flows\`(不進 git) |
-| 本機狀態(`state.json` 只記上次開的流程)與日誌 `autoclick.log` | `%LOCALAPPDATA%\AutoClick\` | repo 的 `.local\`(不進 git) |
+| 本機狀態(`state.json` 只記上次開的流程)、日誌 `autoclick.log`、還沒存檔的新流程的截圖快取 `unsaved\` | `%LOCALAPPDATA%\AutoClick\` | repo 的 `.local\`(不進 git) |
 
-流程資料夾也可以放在別處,存放區只是預設。點錯、找不到圖、輸入被吃掉先看 `autoclick.log`
-(`find.target`、`input`、`busy.check`、`calibrate` 幾種紀錄,超過 1MB 輪替一份)。
+打包版放在 repo 裡(app 的 dist 底下)時,打包版與原始碼執行看到同一組流程,但本機狀態各一份:
+從原始碼開過的流程不會變成打包版下次自動開的那份。流程資料夾也可以放在別處,存放區只是預設。
+點錯、找不到圖、輸入被吃掉先看 `autoclick.log`(`find.target`、`input`、`busy.check`、`calibrate`
+幾種紀錄,超過 1MB 輪替一份);打包版開不起來或引擎沒就緒看同一份日誌的 engine.load.start /
+engine.load.done(`coarse_only=True` 表示隨包的 DINOv2 沒載成功,退化成僅粗篩)。
 
 ### 打包與部署
 
-雙擊 `app\build.bat`(PyInstaller onedir,torch CPU 與 DINOv2 權重隨包;打包前先從原始碼啟動過一次
-app,讓 torch.hub 快取存在)。交付物是 app 的 dist 底下整個 AutoClick 資料夾:目標機免 Python 免網路,
-執行 AutoClick.exe(開啟時跳 UAC,管理員權限是對高權限視窗送滑鼠事件所必需);同包的 AutoClick-noUAC.exe
-只給自動化冒煙用。資料夾裡沒有使用者資料,部署＝整個資料夾換掉。agent 打包的方法與坑在
-[app/CLAUDE.md](app/CLAUDE.md)「建置與部署」。
+**打包**:第一次 clone 直接雙擊 `app\build.bat`,缺的環境它自己補(約 3–5 分鐘 ＋ 第一次下載的時間)。
+它只轉交給 `tools/build`:缺 `.venv` 就用機器上的 Python(3.11 以上,沒有或太舊會停下來告訴你)建一個並裝依賴
+(含 PyInstaller);有 NVIDIA 顯卡裝 CUDA 版 torch、沒有裝 CPU 版;缺 DINOv2 權重就先下載(不開視窗、不動流程與
+本機狀態);然後 PyInstaller onedir 打包。以後每次雙擊都順便補齊缺的東西,離線時只要都齊了照常打包。每一步開始都
+印在視窗裡,結束視窗停住。重新打包會整個換掉 app 的 dist 底下的舊版,先關掉正在跑的 AutoClick。agent 跑同一支
+工具 `python tools/build`,見 [app/CLAUDE.md](app/CLAUDE.md)「建置與部署」。
+
+**交付物**:app 的 dist 底下整個 AutoClick 資料夾(從有 NVIDIA 的機器打約 3 GB,CUDA 的 DLL 隨 torch 進包;
+沒有的約 700 MB),裡面只有三樣:
+
+| 什麼 | 用途 |
+|------|------|
+| AutoClick.exe | 正式用。開啟時跳 UAC,管理員權限是對高權限視窗送滑鼠事件所必需(不提權點擊會被系統無聲丟棄) |
+| AutoClick-noUAC.exe | 只給自動化冒煙用(UAC 會擋自動啟動);對高權限視窗的點擊會被丟棄,不作正式使用 |
+| _internal 資料夾 | 兩個 exe 共用的程式、torch 與 DINOv2 權重;exe 離開它就開不起來 |
+
+**使用**:目標機免 Python 免網路,整個資料夾放哪都行、要搬就整個搬,執行 AutoClick.exe 即可。
+放在 repo 裡用的是 repo 的 `flows\`,拿到沒有 repo 的電腦用 `%USERPROFILE%\AutoClick\`(見上表);
+本機狀態與日誌都在 `%LOCALAPPDATA%\AutoClick\`,資料夾裡沒有使用者資料,**部署＝關掉 AutoClick、
+整個資料夾換掉**,流程與日誌不受影響。要驗一包好不好,開起來看日誌有 engine.load.done 且
+`coarse_only=False`,開一份有範本的流程後紀錄區出現「範本就緒」。
 
 ## 主體偵測引擎
 

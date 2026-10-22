@@ -119,19 +119,20 @@ runner 用堆疊與跳轉解譯（`Runner._exec_branch`、`_break_out`、`runner
 
 - **每次改完 app/ 或引擎的程式碼，收尾都要重新打包**——使用者平常用的是打包版，dist 沒跟上＝修正沒送達。
   使用者回報 UI 問題先確認是打包版還是原始碼版。
-- 使用者打包：雙擊 `app\build.bat`（PyInstaller onedir，spec 在 `app\AutoClick.spec`；必須 onedir，onefile 啟動 4.6s
-  對 1.4s；`upx=False` 明確關閉，ADR 0004——本機從未裝過 upx，別去「補上」）。torch CPU 與 DINOv2 隨包：spec 把
-  本機 torch hub 快取塞進 _internal，frozen 時 app.py 以 TORCH_HOME 指過去，**打包前先從原始碼跑過一次 app**
-  （spec 會 assert 快取存在）。
-- **agent 打包**：`app\build.bat` 由程式呼叫會壞編碼（cmd 用錯 codepage 解析 UTF-8 批次檔，batch 行被當指令跑掉），
-  直接跑 PyInstaller 打到新資料夾再換名，全程只改名不刪：
+- **打包只有一條路**：`tools/build`（使用者雙擊 `app\build.bat` 也只是轉交給它；bat 只含 ASCII，有測試擋）。agent 直接跑：
 
   ```bash
-  cd app && ../.venv/Scripts/python -m PyInstaller --distpath dist-new AutoClick.spec
+  python tools/build            # 探測環境 → 補缺的 (.venv、依賴、torch、DINOv2 權重) → PyInstaller 覆蓋 app\dist\AutoClick
+  python tools/build --dry-run  # 只印步驟清單, 不執行
   ```
 
-  約 4–5 分鐘。不要 `--noconfirm` 直接打進 dist（會整個刪掉舊版）。打完確認沒有 AutoClick 程序在跑，
-  把 dist 裡的 AutoClick 改名成「AutoClick-舊-<月日-時分>」、dist-new 裡的新資料夾搬進 dist。
+  約 3–5 分鐘（第一次 clone 再加下載時間）。工具只用標準庫、用系統 Python 啟動，venv 裡的套件一律經 venv 的 Python
+  子程序跑；每次都跑 pip install，靠 pip 略過已裝的。直接覆蓋舊 dist（`--noconfirm`，不保留舊版），打包前確認沒有
+  AutoClick 程序在跑（exe 被鎖住時工具會提示先關掉）。有 NVIDIA 的機器裝 cu126 版 torch、交付物約 3 GB；沒有的
+  CPU 版約 700 MB。改偵測或步驟順序時 `tools/tests/test_build.py` 會擋（餵事實、斷言步驟清單，不真的建 venv 或打包）。
+- spec 在 `app\AutoClick.spec`：必須 onedir（onefile 啟動 4.6s 對 1.4s）；`upx=False` 明確關閉（ADR 0004——本機從未裝過
+  upx，別去「補上」）。torch 與 DINOv2 隨包：spec 把本機 torch hub 快取塞進 _internal，frozen 時 app.py 以 TORCH_HOME
+  指過去；spec 會 assert 快取存在，工具的下載那步（無頭建一次引擎的 Verifier）保證它成立。
 - 交付物與部署方式見 README「打包與部署」。exe 以系統管理員執行（`uac_admin`）的原因：不以管理員執行時，
   對高權限視窗注入的滑鼠事件被 UIPI 無聲丟棄。
 - **打包後冒煙**：UAC 會擋自動啟動，用同包的 AutoClick-noUAC.exe（共用 _internal；對高權限視窗的點擊會被丟棄，

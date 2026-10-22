@@ -16,6 +16,8 @@ dependencies = [
 [project.optional-dependencies]
 verify = ["torch"]
 dev = ["pytest"]
+# 打包 (tools/build 裝 .[app,dev,build])
+build = ["pyinstaller"]
 # 自動化應用層 (app/) 的執行依賴; Windows 專用
 app = ["mss", "pynput"]
 
