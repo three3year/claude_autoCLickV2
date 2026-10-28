@@ -36,7 +36,7 @@ class _PanelApp(app_mod.App):
         # 顯示出來, 互動路徑才走得到
         root.deiconify()
         root.geometry("+40+40")
-        root.update()          # 先真的映射, 之後 event_generate 才派送得到
+        root.update()
         self.panel = tk.Frame(root)
         self.tmpl_list = tk.Listbox(self.panel, font=FONT_MONO,
                                     selectbackground=C["sel"], width=24,
@@ -77,11 +77,6 @@ def _add(app, name, w=12, h=8, fill=200):
 
 
 def _select(app, name):
-    """真的走一遍互動: 點選清單中的某一列.
-
-    先 update 讓元件真的映射——虛擬事件在未映射的視窗上不會派送, 少了這步
-    就變成「只驗靜態畫面」, 互動才會執行到的 callback 根本沒跑到。
-    """
     app.root.update()
     assert app.tmpl_list.winfo_viewable(), "清單要真的畫出來, 事件才派送得到"
     i = app._tmpl_names.index(name)

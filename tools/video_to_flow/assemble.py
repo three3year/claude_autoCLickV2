@@ -1,13 +1,7 @@
 """組裝: `轉換計畫` → 一份新的流程資料夾 (flow.yaml＋templates/＋交付報告/).
 
-順序 (任何一步拒絕都在寫檔之前, 輸出位置一個檔案都不會多)::
-
-    讀計畫 → 裁範本 → 量校準對 (新流程必填) → 原點推算＋固定矩形＋自我驗證 →
-    忙碌檢查兩向報告 → 寫進暫存資料夾 → 檢查指令 → 改名成正式名稱
-
 影片尺度就是`流程尺度` (ADR 0009): 偏移與範本圖原樣進流程; `基準距離`在影片影格上量,
-第一張的中心就是`座標基準點` (ADR 0012)——固定矩形與範本拍攝位置相對它。不寫搜尋範圍
-(＝全螢幕)。流程一律經 app 的 `flowfile.write_flow` 寫出 (格式只由一個地方決定)。
+第一張的中心就是`座標基準點` (ADR 0012)——固定矩形與範本拍攝位置相對它。
 輸出在 `<輸出位置>/<流程名>/` (預設`流程存放區`, app 的 `apppaths.flows_root()`), 撞名加序號, 絕不覆蓋。
 """
 from __future__ import annotations
@@ -34,7 +28,6 @@ from .labels import label
 
 
 def measure_one(pair, frame, checker, frames):
-    """在第 frame 幀上量一對: 回傳 (Measurement 或 None, 量不到的原因或 None)."""
     unregistered = [n for n in pair if n not in checker.registered]
     if unregistered:
         return None, f"引擎無法登錄 {'、'.join(unregistered)}"
@@ -47,11 +40,6 @@ def measure_one(pair, frame, checker, frames):
 
 
 def _measure_pair(c, checker, frames):
-    """量`校準對` (與`備用校準對`): 回傳 (流程的校準資料, `座標基準點`, 備用對量不到的原因).
-
-    主對量不到＝報錯 (新流程不產跑不動的流程); 備用對量不到只是不帶備用對。
-    與執行開頭的校準同一套量測 (`calibration.measure`, 全範圍查詢)。
-    """
     pair, frame = c["pair"], c["frame"]
     m, problem = measure_one(pair, frame, checker, frames)
     if m is None:
@@ -84,7 +72,6 @@ def png(img):
 
 
 def scroll_confirm(steps, measured):
-    """同一份報告段落 (頂層區段) 有拖曳、找圖又沒宣告捲動軸的 → [(索引, 文字)]."""
     secs = report_mod.sections(steps)
     out = []
     for sec in secs:
@@ -97,9 +84,6 @@ def scroll_confirm(steps, measured):
 
 
 def shared_info(p, measured, steps, source=None):
-    """`共用矩形`給結果與交付報告: {名: {why, scroll, frame, box, within, members, source}}.
-
-    members: [(步驟索引或 None (忙碌指示), 內容指稱)]; source: same_as 照抄的那一步的指稱."""
     members = measure_mod.shared_members(p, steps)
     out = {}
     for name, d in p.shared_rects.items():
@@ -145,7 +129,6 @@ def assemble(plan, engine=None, out_dir=None):
     if errs:
         raise ToolError("轉換計畫有誤（app 執行前會擋下）：" + "；".join(errs))
     used = flowfile.template_refs(flow)
-    # 範本拍攝位置＝取材框的中心, 相對`座標基準點` (編輯器推算預設原點的備援)
     flow["template_pos"] = {
         n: list(flowfmt.from_screen((t["box"][0] + t["box"][2] // 2,
                                      t["box"][1] + t["box"][3] // 2), anchor))
@@ -179,7 +162,6 @@ def assemble(plan, engine=None, out_dir=None):
 
 
 def _free_dir(out, name):
-    """輸出位置底下未被占用的流程資料夾 (name、name_2、name_3…; 不覆蓋既有的)."""
     stem, n = name, 1
     while os.path.exists(os.path.join(out, stem)):
         n += 1
@@ -188,8 +170,6 @@ def _free_dir(out, name):
 
 
 def _place(folder, flow, images, files):
-    """先在同一個輸出位置的暫存資料夾寫完整 (flow.yaml、templates/、交付報告/) 並跑檢查指令,
-    再改名成正式名稱; 任何一步失敗都不留半成品."""
     from flow_check import check
 
     parent = os.path.dirname(folder)

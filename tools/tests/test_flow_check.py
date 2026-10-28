@@ -1,7 +1,3 @@
-"""檢查指令: 對 tmp_path 裡手寫的流程資料夾跑, 斷言結束碼、訊息與檔案狀態.
-
-不載引擎、不開視窗; 只打命令列入口 (`flow_check.main` 與子程序) 與 `check`。
-"""
 import subprocess
 import sys
 
@@ -120,7 +116,6 @@ def test_normalize_把手改過編號過期的檔寫回標準排版(tmp_path, ca
     assert "- {find_click: 開始}    # 1" in text
     assert "- repeat: 2    # 3" in text
     assert "update_origin" not in text and "timeout" not in text, "等於預設的不寫"
-    # 已是標準排版: 再跑一次不改檔
     before = snapshot(folder)
     code, out = run(folder, "--normalize", capsys=capsys)
     assert code == 0 and "已重寫" not in out

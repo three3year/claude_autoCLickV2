@@ -1,22 +1,6 @@
 """打包工具: 把「準備環境 → 打包」做成一條路, 第一次 clone 直接跑就能從零打出交付物.
 
     python tools/build [--dry-run]
-
-人雙擊 `app\\build.bat` 與 agent 由程式呼叫走的都是這支。只用標準庫, 可在任何系統 Python 下啟動
-(venv 裡的套件一律經 venv 的 Python 子程序跑); 打包版本身的佈局與行為不變 (spec 在
-`app\\AutoClick.spec`, 交付物在 `app\\dist\\AutoClick\\`)。
-
-三段, 接縫是中間那個純函式:
-
-1. `detect()`: 探測環境事實 (`Facts`), 唯一碰環境的讀取——有沒有 `.venv`、找得到哪個系統 Python
-   (`py -3` 優先, 再 `python`) 與版本、`nvidia-smi` 跑不跑得動、torch hub 快取在不在、舊 dist 在不在。
-2. `plan(facts)`: 事實 → 有序步驟清單 (`Step`: 說明一句、要跑的指令、工作目錄、失敗處置 STOP／WARN),
-   或 `Refusal` (找不到 Python、版本低於 3.11, 附給人看的訊息)。順序固定: 建 venv (缺才做) →
-   pip 升級與 install `.[app,dev,build]` (一律; 失敗警告繼續) → pip install torch 到 cu126 或 cpu
-   index (一律; 警告繼續) → 無頭建一次引擎驗證器下載 DINOv2 權重 (缺快取才做; 停止) →
-   PyInstaller `--noconfirm` 覆蓋 dist (停止) → 確認 exe 存在、印位置與大小 (停止)。
-3. `run(steps)`: 照清單跑 subprocess, 每步前印說明、後印結果; 結束碼 0／1。打包失敗且舊 dist 的
-   exe 被鎖住時提示先關掉 AutoClick。
 """
 from __future__ import annotations
 
@@ -27,10 +11,10 @@ from dataclasses import dataclass
 from typing import Optional, Sequence, Tuple, Union
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MIN_VERSION = (3, 11)   # pyproject 的 requires-python
+MIN_VERSION = (3, 11)
 EXTRAS = ".[app,dev,build]"
 TORCH_INDEX_CPU = "https://download.pytorch.org/whl/cpu"
-TORCH_INDEX_CUDA = "https://download.pytorch.org/whl/cu126"  # 驅動 ≥560; 見 spec
+TORCH_INDEX_CUDA = "https://download.pytorch.org/whl/cu126"
 
 STOP, WARN = "stop", "warn"
 
@@ -43,12 +27,9 @@ WHAT_CONFIRM = "確認交付物"
 
 DIST_EXE = os.path.join("app", "dist", "AutoClick", "AutoClick.exe")
 
-# 下載權重: 走 app 載引擎的同一段 torch.hub.load, 不開視窗、不碰使用者資料;
-# 引擎改模型時這裡自動跟著。sys.path 補 src/ 是為了 pip install 失敗 (離線) 時仍能匯入。
 _WEIGHTS_SCRIPT = ("import sys; sys.path.insert(0, 'src'); "
                    "from subject_detection.verification import Verifier; Verifier()")
 
-# 確認交付物: exe 存在、資料夾大小; 裝了 CUDA 版 torch 時說明變大的原因。
 _CONFIRM_SCRIPT = r"""
 import os, sys
 exe = sys.argv[1]
@@ -76,20 +57,20 @@ if cuda:
 @dataclass(frozen=True)
 class Facts:
     root: str
-    venv_python: Optional[str]               # .venv 的 python.exe; 沒有 venv 則 None
-    system_python: Optional[Tuple[str, ...]]  # ("py", "-3") 或 ("python",); 找不到則 None
+    venv_python: Optional[str]
+    system_python: Optional[Tuple[str, ...]]
     system_version: Optional[Tuple[int, int]]
-    has_nvidia: bool                         # nvidia-smi 跑得動
-    hub_cache: bool                          # torch hub 快取 (hub/checkpoints) 在
+    has_nvidia: bool
+    hub_cache: bool
     dist_exists: bool
 
 
 @dataclass(frozen=True)
 class Step:
     what: str
-    commands: Tuple[Tuple[str, ...], ...]   # 依序跑; 任一失敗＝這步失敗
+    commands: Tuple[Tuple[str, ...], ...]
     cwd: str
-    on_fail: str                            # STOP／WARN
+    on_fail: str
 
 
 @dataclass(frozen=True)
@@ -100,10 +81,7 @@ class Refusal:
 Plan = Union[list, Refusal]
 
 
-# ================= 探測 =================
-
 def _run_quiet(argv, cwd=None):
-    """跑一個指令拿 (結束碼, stdout); 找不到程式視為失敗."""
     try:
         p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=60,
                            encoding="utf-8", errors="replace")
@@ -113,7 +91,6 @@ def _run_quiet(argv, cwd=None):
 
 
 def _find_system_python():
-    """系統 Python: 先 `py -3` (Windows 標準安裝都有), 找不到才退 PATH 上的 `python`; 回 (argv, 版本)."""
     for argv in (("py", "-3"), ("python",)):
         code, out = _run_quiet(argv + ("-c", "import sys; print(sys.version_info[0], sys.version_info[1])"))
         parts = out.split()
@@ -123,12 +100,10 @@ def _find_system_python():
 
 
 def venv_python_path(root):
-    """repo 的 .venv 裡的 python.exe (不管它存不存在)."""
     return os.path.join(root, ".venv", "Scripts", "python.exe")
 
 
 def hub_dir():
-    """與 AutoClick.spec 同一個判斷: TORCH_HOME 或使用者資料夾 .cache\\torch."""
     return os.path.join(os.environ.get(
         "TORCH_HOME", os.path.join(os.path.expanduser("~"), ".cache", "torch")), "hub")
 
@@ -146,8 +121,6 @@ def detect(root=ROOT) -> Facts:
         dist_exists=os.path.isfile(os.path.join(root, DIST_EXE)),
     )
 
-
-# ================= 排步驟 (純函式) =================
 
 def plan(facts: Facts) -> Plan:
     steps = []
@@ -174,8 +147,6 @@ def plan(facts: Facts) -> Plan:
     steps.append(Step(WHAT_CONFIRM, ((venv_py, "-c", _CONFIRM_SCRIPT, DIST_EXE),), facts.root, STOP))
     return steps
 
-
-# ================= 執行 =================
 
 def _say(msg=""):
     print(msg, flush=True)
@@ -205,7 +176,7 @@ def run(steps: Sequence[Step], root=ROOT) -> int:
         _say()
         _say("[%d/%d] %s" % (i, total, step.what))
         failed = None
-        for argv in step.commands:   # 每條都跑 (pip 升級失敗仍要裝依賴), 記第一個失敗的結束碼
+        for argv in step.commands:
             _say("  > " + _show(argv))
             code = _run_command(argv, step.cwd)
             if code != 0 and failed is None:

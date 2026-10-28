@@ -1,8 +1,4 @@
-"""讀`示範影片`: 一律循序解碼 (壓縮影片的隨機跳幀不保證落在同一幀).
-
-影格編號＝從 0 起算、循序解碼的第幾幀; 時間＝編號 ÷ fps。掃描與組裝都走
-這一條解碼路徑, 兩邊說的「第 N 幀」才是同一張畫面。
-"""
+"""讀`示範影片`: 一律循序解碼 (壓縮影片的隨機跳幀不保證落在同一幀)."""
 from __future__ import annotations
 
 import os
@@ -24,10 +20,7 @@ def _open(path):
 
 
 def probe(path):
-    """影片基本資訊 {width, height, fps, frames}; 讀不到或沒有任何影格丟 ToolError.
-
-    frames 是容器宣告的幀數 (可能不準, 只供參考); 實際以循序解碼為準。
-    """
+    """frames 是容器宣告的幀數 (可能不準, 只供參考); 實際以循序解碼為準。"""
     cap = _open(path)
     try:
         ok, frame = cap.read()
@@ -42,7 +35,6 @@ def probe(path):
 
 
 def iter_frames(path):
-    """循序產出 (影格編號, BGR 影像)."""
     cap = _open(path)
     try:
         i = 0
@@ -57,7 +49,6 @@ def iter_frames(path):
 
 
 def read_frames(path, indices):
-    """取出指定編號的影格 {編號: 影像}; 超出影片長度丟 ToolError."""
     want = sorted({int(i) for i in indices})
     if not want:
         return {}

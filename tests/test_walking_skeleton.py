@@ -1,4 +1,3 @@
-"""Ticket 01 — walking skeleton: public API round trip at fixed scale."""
 from __future__ import annotations
 
 import pytest
@@ -25,7 +24,7 @@ def test_query_finds_subject_within_tolerance(engine, tmp_path):
 
 def test_query_absent_subject_reports_not_found(engine, tmp_path):
     tpl = make_template(seed=2)
-    scene = make_scene(seed=51)  # subject never pasted
+    scene = make_scene(seed=51)
     profile_dir = write_profile(tmp_path, {"btn": tpl})
 
     profile = load_library(engine, profile_dir)
@@ -43,7 +42,7 @@ def test_match_threshold_from_config_is_effective(engine, tmp_path):
     profile = load_library(engine, profile_dir)
     res = engine.query(profile, "btn", scene)
 
-    assert res.found is False  # impossible threshold => nothing passes
+    assert res.found is False
 
 
 def test_engine_is_reusable_across_queries_and_libraries(engine, tmp_path):
@@ -59,12 +58,11 @@ def test_engine_is_reusable_across_queries_and_libraries(engine, tmp_path):
     scene2 = paste(make_scene(seed=54), tpl_b, 300, 200)
     assert engine.query(prof1, "a", scene1).found
     assert engine.query(prof2, "b", scene2).found
-    assert engine.query(prof1, "a", scene1).found  # repeatable
+    assert engine.query(prof1, "a", scene1).found
 
 
 @pytest.mark.parametrize("n_paths", [1, 2])
 def test_一個範本給清單_報錯_只收一張圖路徑(engine, tmp_path, n_paths):
-    # ADR 0016: 多張圖登錄路徑退場; 給清單 (就算只有一個路徑) 也不收
     paths = [tmp_path / f"cap{i}.png" for i in range(n_paths)]
     for p in paths:
         imwrite(p, make_template(seed=6))

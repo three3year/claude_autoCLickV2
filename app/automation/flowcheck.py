@@ -1,8 +1,6 @@
-"""流程的結構檢查: 不依賴視窗的純函式 (app 執行前、檢查指令、影片轉流程共用).
+"""流程的結構檢查: 不依賴視窗的純函式.
 
 輸入是記憶體裡的完整步驟清單 (平面標記, 見 flowfile), 回傳給人看的錯誤訊息。
-app 的執行前檢查與 `tools/flow_check` 都只呼叫這裡, 兩邊對「合法流程」的判斷
-不會分歧。
 """
 from . import findtarget
 from .runner import (branch_layout, confirm_next_connected, has_busy_check,
@@ -10,7 +8,7 @@ from .runner import (branch_layout, confirm_next_connected, has_busy_check,
 
 STEP_LABELS = {
     "find_click": "找圖點擊",
-    "find": "找圖點擊",        # 找圖三態共用一個標籤, 摘要寫出找到之後做什麼
+    "find": "找圖點擊",
     "wait_gone": "找圖點擊",
     "click": "座標點擊",
     "drag": "滑鼠拖曳",
@@ -31,7 +29,7 @@ def section_error(steps):
     分岔的每個分支開頭必須是找圖、「或」必須直接在分岔內。
     """
     zh = {"repeat_start": "重複", "branch_start": "分岔"}
-    stack = []  # 進行中區段的 (start type, 步驟序號)
+    stack = []
     for i, s in enumerate(steps):
         t = s["type"]
         if t in ("repeat_start", "branch_start"):

@@ -1,17 +1,4 @@
-"""`補充`: 補充計畫＋只錄一段的示範影片 → 插進一份既有流程的指定位置 (直接改寫, 不備份).
-
-順序 (任何報錯都在寫檔前; 失敗時既有資料夾一個位元都不變)::
-
-    讀計畫與既有流程 → 核對插入點 (after/into＋expect)、`對齊圖`的參考步驟、`共用矩形`的
-    same_as (照抄第 N 步的固定矩形) → 量`影片倍率` →
-    影格整張縮放 1/倍率、對齊`座標基準點` → 量`對齊位移`並套到插入段 → 與 assemble 同一段
-    量測 (原點推算、固定矩形、拾取檢查、忙碌兩向) → 插入後的原點來源比對 → 結構檢查 →
-    寫回 (新範本、flow.yaml、交付報告) → 檢查指令
-
-影片倍率在影格上量既有流程的`校準對` (主對量不到改備用對; 都量不到改量計畫的
-scale_image——跟影片同取景的一張圖片), 支援倍率範圍外報錯。量到之後影片的一切像素量
-÷倍率才進流程, 新範本也縮放到流程尺度 (詞彙見 app/GLOSSARY.md「補充」「影片倍率」)。
-"""
+"""`補充`: 補充計畫＋只錄一段的示範影片 → 插進一份既有流程的指定位置 (直接改寫, 不備份)."""
 from __future__ import annotations
 
 import os
@@ -48,7 +35,6 @@ def _yaml_head(s):
 
 
 def _expect_value(steps, i):
-    """第 i 步 (平面) 在 expect 裡的值: 找圖是範本名, 分岔是第一個分支條件的範本名."""
     head, value = _yaml_head(steps[i])
     if head == "branch":
         value = findtarget.template(steps[i + 1])
@@ -61,7 +47,6 @@ def _in_range(steps, n, key):
 
 
 def _check_expect(steps, n, expect, key):
-    """第 n 步 (從 1 起算) 跟 expect 核對 (插入點與共用矩形的 same_as 同一套)."""
     head, value = _expect_value(steps, n - 1)
     (ehead, evalue), = expect.items()
     same = ehead == head and (evalue is None and head in ("repeat", "branch", "click",
@@ -74,8 +59,6 @@ def _check_expect(steps, n, expect, key):
 
 
 def copy_shared(p, steps):
-    """`共用矩形`的 same_as: 核對第 N 步並照抄它的固定矩形 (就地寫進宣告的 within)
-    → {名: 第 N 步的內容指稱}."""
     source = {}
     for name, d in p.shared_rects.items():
         if "same_as" not in d:
@@ -94,7 +77,6 @@ def copy_shared(p, steps):
 
 
 def insertion_index(steps, p):
-    """插入點 → 平面索引 (插入段放在 steps[idx] 之前); 核對 expect."""
     key = "after" if p.after is not None else "into"
     n = p.after if p.after is not None else p.into
     _in_range(steps, n, key)
@@ -113,19 +95,11 @@ def insertion_index(steps, p):
     return n
 
 
-# ---------- 影片倍率 ----------
-
 def _detector(engine, images, config):
-    """只為量校準對建的小偵測接縫 (images: {名: 影像})."""
     return verify_mod.detector(engine, images, config)
 
 
 def video_scale(p, cal, frames, detector):
-    """在影格上 (依編號) 量既有流程的校準對 → (倍率, 基準點 (影片像素), 量法說明).
-
-    主對量不到改備用對 (`calibration.calibrate` 的規則); 全部影格都量不到時量
-    p.scale_image; 沒有圖片＝報錯 (不收手打的倍率)。
-    """
     last = None
     for f in sorted(frames):
         c = calibration.calibrate(detector.query, frames[f], (0, 0), cal)
@@ -154,8 +128,6 @@ def _div(v, r):
 
 
 def scaled_plan(p, r):
-    """影片像素 → 流程尺度 (÷r): 步驟的位置、證據的 at、範本的裁切框與 present.at、
-    共用矩形的容器框 (same_as 照抄的框已是流程尺度, 不動)."""
     if r == 1:
         return p
 
@@ -195,10 +167,7 @@ def scaled_plan(p, r):
                    shared_rects=shared)
 
 
-# ---------- 範本 ----------
-
 def similar_existing(engine, config, crops, frames, templates, existing, size):
-    """新範本跟哪張既有範本幾乎一樣 (既有的在新範本取材處附近匹配得到) → {新: 既有}."""
     cands = {}
     for n, img in crops.items():
         if n not in templates:
@@ -227,8 +196,6 @@ def similar_existing(engine, config, crops, frames, templates, existing, size):
     return out
 
 
-# ---------- 原點來源 ----------
-
 def _uses_origin(s):
     t = s["type"]
     if t in ("click", "drag"):
@@ -237,7 +204,6 @@ def _uses_origin(s):
 
 
 def origin_changes(old, new, pos, n):
-    """插入點後面的舊步驟 (用到原點的) 原點來源有沒有變 → [(舊索引, 舊來源, 新來源)]."""
     bad = []
     for j in range(pos, len(old)):
         if not _uses_origin(old[j]):
@@ -266,8 +232,6 @@ def _origin_check(old, new, pos, n):
                     + "——請換插入點，或在插入段尾重新定位（例：最後一步不更新原點）")
 
 
-# ---------- 入口 ----------
-
 def insert(plan, folder, engine=None):
     """把補充計畫量好的步驟插進既有流程資料夾; 回傳結果 dict."""
     from flow_check import check
@@ -291,7 +255,6 @@ def insert(plan, folder, engine=None):
     old = flow["steps"]
     pos = insertion_index(old, p)
     plan_mod.check_drift(p, old[:pos])
-    # 只看步驟種類的檢查先做 (不必等量測): 找圖相連、原點的圖離開、後面舊步驟的原點來源
     plan_mod.precheck(old[:pos] + p.steps + old[pos:], flow.get("busy"))
     _origin_check(old, old[:pos] + p.steps + old[pos:], pos, len(p.steps))
     source = copy_shared(p, old)
@@ -375,7 +338,6 @@ def insert(plan, folder, engine=None):
     new_flow["template_pos"] = pos_map
 
     used = set(images) | refs
-    # 待重拍只留這次新裁的; 引用的既有範本沒過列待確認 (重截會一起影響流程裡共用它的地方)
     bad = retake_of(checked, used)
     retake = {n: why for n, why in bad.items() if n in q.templates}
     seg_range = (pos, pos + len(seg))
@@ -404,7 +366,7 @@ def insert(plan, folder, engine=None):
         note += ("固定矩形放寬：" + "；".join(report_mod.loosened_lines(seg, measured.loosened))
                  + "。")
     shared = shared_info(q, measured, seg, source)
-    for n, info in shared.items():   # 報告的容器框照計畫寫的影片像素 (q 已除過倍率)
+    for n, info in shared.items():
         info["box"] = p.shared_rects[n].get("box")
     files = report_mod.supplement(folder, old, new_steps, seg_range, note,
                                   list(retake.items()), confirm, list(shared.items()))
@@ -430,7 +392,6 @@ def insert(plan, folder, engine=None):
 
 
 def _align_note(name, ref_step, shift, drag_change):
-    """交付報告裡對齊的一句 (參考步驟用內容指稱)."""
     d = shift.d
     text = (f"對齊圖「{name}」（參考插入點前{label(ref_step)}那一步的固定矩形）："
             f"影片裡在 ({shift.video[0]}, {shift.video[1]})、執行時在 "
@@ -441,7 +402,6 @@ def _align_note(name, ref_step, shift, drag_change):
 
 
 def _existing_text(name, info):
-    """補充引用的既有範本沒過自我驗證時的待確認文字 (共用它的段落報告用連結, 不寫步驟編號)."""
     links = "、".join(report_mod.file_link(fn) for fn in info["files"])
     return (f"引用的既有範本「{name}」沒通過自我驗證（{'；'.join(info['reasons'])}）：流程裡共 "
             f"{info['steps']} 步引用它（{links}），重截會一起影響這些地方——先在遊戲裡確認"
@@ -449,13 +409,10 @@ def _existing_text(name, info):
 
 
 def _shifted_scroll(measured, pos):
-    """measured.no_scroll 是插入段內的索引; 換成插入後整份流程的索引."""
     return replace(measured, no_scroll={i + pos for i in measured.no_scroll})
 
 
 def _write_back(folder, flow, images, files, verify):
-    """寫回既有資料夾: 新範本 → flow.yaml → 交付報告 → verify() (檢查指令);
-    任何一步失敗 (含檢查沒過) 就把寫過的還原."""
     tdir = os.path.join(folder, flowfile.TEMPLATES_DIR)
     ypath = os.path.join(folder, flowfile.FLOW_YAML)
     rdir = os.path.join(folder, report_mod.DIR)

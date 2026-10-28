@@ -1,9 +1,3 @@
-"""量測核心: 計畫的步驟 (影片像素) → 流程步驟 (偏移、固定矩形), `assemble` 與 `insert` 共用.
-
-輸入的影格已是`流程尺度` (補充時先整張縮放 1/影片倍率), anchor 是`座標基準點`在影格上的
-位置。這裡做的事兩個入口一模一樣: 原點推算、每個找圖目標挑框＋固定矩形＋拾取檢查、
-忙碌指示的固定矩形、`共用矩形`、忙碌檢查的兩向報告、捲動軸沒宣告的找圖。
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,11 +10,10 @@ from . import video as video_mod
 from .errors import ToolError
 from .labels import label
 
-INPUT_TYPES = ("find_click", "click", "drag")   # 送出輸入的步驟 (可勾忙碌檢查)
+INPUT_TYPES = ("find_click", "click", "drag")
 
 
 def step_frame(p, i):
-    """第 i 步 (0-based) 在影片裡看的那一幀; 座標點擊/拖曳沒寫＝None."""
     s, ev = p.steps[i], p.evidence[i] or {}
     if ev.get("frame") is not None:
         return ev["frame"]
@@ -34,7 +27,6 @@ def step_frame(p, i):
 
 
 def confirm_frame(p, i):
-    """第 i 步確認圖的證據影格 (預設＝確認圖範本的取材幀)."""
     ev = p.evidence[i] or {}
     if ev.get("confirm_frame") is not None:
         return ev["confirm_frame"]
@@ -46,7 +38,6 @@ def confirm_frame(p, i):
 
 
 def frames_needed(p, extra=()):
-    """驗證要讀的影格編號."""
     need = set(extra)
     for t in p.templates.values():
         need.add(t["frame"])
@@ -66,19 +57,16 @@ def frames_needed(p, extra=()):
 
 @dataclass
 class Measured:
-    steps: list                                     # 流程步驟 (偏移、固定矩形已算好)
-    busy: dict | None = None                        # 忙碌指示的找圖目標 (含 within)
-    no_scroll: set = field(default_factory=set)     # 沒宣告捲動軸的找圖步驟索引
-    busy_unseen: list = field(default_factory=list)     # 勾了、之後沒看到 [(索引, 文字)]
-    busy_unchecked: list = field(default_factory=list)  # 沒勾、之後看到了
-    shared: dict = field(default_factory=dict)          # 共用矩形 {名: within}
-    loosened: list = field(default_factory=list)        # 停點差／遞補方向 [(索引, 鍵, 值)]
+    steps: list
+    busy: dict | None = None
+    no_scroll: set = field(default_factory=set)
+    busy_unseen: list = field(default_factory=list)
+    busy_unchecked: list = field(default_factory=list)
+    shared: dict = field(default_factory=dict)
+    loosened: list = field(default_factory=list)
 
 
 def measure(p, checker, busy=None, shifts=None):
-    """原點推算＋每個找圖目標挑框與固定矩形; busy: 忙碌指示 (組裝＝計畫的, 帶證據影格 frame;
-    補充＝既有流程的, 原樣用); shifts: 補充對齊時每步的`對齊位移` (見 align.apply).
-    回傳 `Measured`."""
 
     def shift(i):
         return shifts[i] if shifts else (0, 0)
@@ -105,35 +93,32 @@ def measure(p, checker, busy=None, shifts=None):
 
     steps = origin_mod.derive(p.steps, p.evidence, p.templates, locate, locate_confirm)
     out = Measured(steps)
-    # 共用矩形的成員、宣告停點差或遞補方向的都算已宣告 (固定矩形的來源一步只能有一個)
     out.no_scroll = {i for i, s in enumerate(steps)
                      if findtarget.is_find(s) and not any(
                          (p.evidence[i] or {}).get(k) for k in plan_mod.RECT_KEYS)}
     out.loosened = loosened(p)
-    if busy is not None and "frame" in busy:   # 計畫的忙碌指示: 在證據影格上挑框
+    if busy is not None and "frame" in busy:
         frame = busy["frame"]
         tgt = {k: v for k, v in busy.items() if k not in ("frame", "rect")}
         name = tgt["template"]
         _, within = checker.locate_target(tgt, frame, None, f"忙碌指示「{name}」",
                                           fallback_box=p.templates[name]["box"],
                                           shared=busy.get("rect"))
-        if not busy.get("rect"):               # 共用矩形的成員: resolve_shared 就地寫 within
+        if not busy.get("rect"):
             tgt["within"] = within
         out.busy = tgt
-    elif busy is not None:                     # 既有流程的: 原樣用
+    elif busy is not None:
         out.busy = dict(busy)
     out.shared = checker.resolve_shared(p.shared_rects)
     return out
 
 
 def loosened(p):
-    """宣告了`停點差`或`遞補方向`的找圖 → [(步驟索引, "drift"/"shift", 方向)] (依流程順序)."""
     return [(i, k, ev[k]) for i, ev in enumerate(p.evidence) if ev
             for k in ("drift", "shift") if ev.get(k)]
 
 
 def shared_members(p, steps):
-    """`共用矩形`的成員 (報告用內容指稱) → {名: [(步驟索引或 None (忙碌指示), 文字)]}."""
     out = {}
     for name, refs in plan_mod.shared_refs(p).items():
         for i, kind in refs:
@@ -152,8 +137,6 @@ MAX_SAMPLES = 40
 
 
 def busy_two_way(p, measured, checker, info, rescale=None):
-    """`忙碌檢查`的兩向報告: 每個送出輸入的步驟, 從它那一幀到下一個有影格的步驟那一幀之間
-    (最後一步到影片結束) 抽樣找忙碌指示. 只報告, 不擋. 就地填 measured 的兩份清單."""
     busy = measured.busy
     if not busy:
         return

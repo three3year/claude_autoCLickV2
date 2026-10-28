@@ -17,12 +17,10 @@ import sys
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-# 認 repo 根的記號: 本專案自己的原始檔 (別的 git repo 不會誤認, 沒有 .git 的複本也認得)
 _REPO_MARKER = os.path.join("app", "apppaths.py")
 
 
 def _repo_above(start):
-    """從 start 逐層往上找本專案的 repo 根; 到磁碟根都沒有回 None."""
     d = os.path.abspath(start)
     while True:
         if os.path.isfile(os.path.join(d, _REPO_MARKER)):
@@ -45,7 +43,6 @@ def flows_root():
 
 
 def state_dir():
-    """本機狀態資料夾: 打包版在 %LOCALAPPDATA%\\AutoClick, 原始碼執行在 repo 的 .local."""
     if getattr(sys, "frozen", False):
         base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
         return os.path.join(base, "AutoClick")
@@ -57,7 +54,6 @@ def log_path():
 
 
 def unsaved_dir():
-    """還沒第一次存檔的新流程用的「未存檔」快取."""
     return os.path.join(state_dir(), "unsaved")
 
 
@@ -66,7 +62,6 @@ def _state_path():
 
 
 def load_state():
-    """本機狀態 ({"last_flow": 流程資料夾}); 沒有或壞了回空 dict."""
     try:
         with open(_state_path(), encoding="utf-8") as f:
             data = json.load(f)
@@ -76,7 +71,6 @@ def load_state():
 
 
 def save_state(state):
-    """寫本機狀態; 寫不進去就算了 (不影響主流程)."""
     try:
         os.makedirs(state_dir(), exist_ok=True)
         with open(_state_path(), "w", encoding="utf-8") as f:
@@ -86,10 +80,8 @@ def save_state(state):
 
 
 def last_flow():
-    """上次開的流程資料夾; 沒記過回 None."""
     return load_state().get("last_flow")
 
 
 def remember_last_flow(folder):
-    """記下上次開的流程 (開檔、存檔時)."""
     save_state(dict(load_state(), last_flow=os.path.abspath(str(folder))))

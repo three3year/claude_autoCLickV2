@@ -2,16 +2,7 @@
 
 有些遊戲 (例: 換了自訂游標的明日方舟) 把系統游標藏起來、自己畫一個, 錄影
 程式就畫不出它的點擊特效; 但遊戲的游標本身在點擊當下會抖一下——換一兩幀
-不同的樣子 (按下、放開各一次)。這裡:
-
-- `learn(video, points, out)`: 從游標停在**不同背景**上的幾幀 (Claude 給每幀
-  游標尖端＝熱點的影片像素位置) 學出游標的樣子: 對齊後逐像素取中位數＝游標圖,
-  跨幀穩定的像素＝游標本體 (背景每幀不同, 變化大的像素就是背景) → 寫成帶
-  alpha 的 PNG + 樣本 JSON `{"kind": "cursor", "template": ..., "hotspot": [x, y]}`。
-- `Detector`: 逐幀找到游標 (遮罩比對), 游標停著 (±幾 px) 時比較它這一幀與上一幀
-  的樣子 (容許 ±3 px 對齊抖動)——平常幾乎一模一樣, 點擊特效那一幀突然變了。
-  全畫面同時微幅變動 (壓縮的關鍵幀跳動) 不算。看到特效＝高信心點擊; 畫面切換
-  前一秒半內沒看到特效的, 以游標停留處列為低信心候選 (寧可多報, Claude 覆核)。
+不同的樣子 (按下、放開各一次)。
 """
 from __future__ import annotations
 
@@ -26,27 +17,26 @@ import numpy as np
 from . import video as video_mod
 from .errors import ToolError
 
-MIN_POINTS = 4            # 學樣本至少要幾幀
-LEARN_RADIUS = 96         # 學樣本時以熱點為中心的裁切半徑 (游標最遠伸到哪)
-ALIGN = 6                 # 學樣本時各幀互相對齊容許的偏差 (Claude 讀座標的誤差)
-STABLE_STD = 20.0         # 跨幀離散程度低於此＝游標本體 (背景每幀不同)
-MAX_COVER = 0.6           # 穩定像素佔裁切窗超過此比例＝背景沒有變化, 學不出來
-FIT_MIN = 0.5             # 學樣本時每一幀與中位數游標的相似度下限
-HOT_SLACK = 6             # 熱點可以落在游標圖外多遠 (尖端常是細線, 學不進去)
+MIN_POINTS = 4
+LEARN_RADIUS = 96
+ALIGN = 6
+STABLE_STD = 20.0
+MAX_COVER = 0.6
+FIT_MIN = 0.5
+HOT_SLACK = 6
 
-TRACK_MIN = 0.5           # 遮罩比對分數 ≥ 此值才算找到游標
-TRACK_SURE = 0.7          # 分數 ≥ 此值＝肯定是游標 (低於此才拿熱點那一角來比)
-TRACK_NEAR = 0.5          # 在上一幀位置附近找到、分數 ≥ 此值就算同一個游標
-LOCK_RADIUS = 8           # 「上一幀位置附近」的範圍 (px)
-SWITCH = 0.05             # 整張找到的別處要比原地高出這麼多才換過去
-# 游標樣子變化以灰階 RMS 計 (第一支示範影片校準: 點擊 10–28、平常 0–8)
-QUIET = 8.0               # 上一幀游標樣子變化低於此＝平靜
-SPIKE = 10.0              # 這一幀變化 ≥ 此值＝游標抖了一下 (點擊特效)
-GLOBAL_MAX = 1.0          # 全畫面平均灰階差 ≥ 此值＝整張都在變 (關鍵幀、淡入淡出)
-JITTER = 3                # 比對樣子變化時容許的對齊抖動 (px)
-PAIR_SECONDS = 0.4        # 按下、放開兩次抖動相隔多近算同一次點擊
-REACT_SECONDS = 1.5       # 點擊後多久內畫面切換算「有反應」; 也是補低信心候選的回看範圍
-SCREEN_CONF = 0.4         # 畫面切換前沒看到特效時補上的候選信心
+TRACK_MIN = 0.5
+TRACK_SURE = 0.7
+TRACK_NEAR = 0.5
+LOCK_RADIUS = 8
+SWITCH = 0.05
+QUIET = 8.0
+SPIKE = 10.0
+GLOBAL_MAX = 1.0
+JITTER = 3
+PAIR_SECONDS = 0.4
+REACT_SECONDS = 1.5
+SCREEN_CONF = 0.4
 
 
 def _best(img, tpl, mask=None):
@@ -66,7 +56,6 @@ def _read_png(path):
 
 
 def load_sample(raw, base_dir):
-    """游標樣本 {"kind": "cursor", "template": PNG 路徑或 BGRA 陣列, "hotspot": [x, y]}."""
     tpl = raw.get("template")
     if isinstance(tpl, str):
         tpl = _read_png(tpl if os.path.isabs(tpl) else os.path.join(base_dir, tpl))
@@ -83,14 +72,11 @@ def load_sample(raw, base_dir):
             "hotspot": (float(hs[0]), float(hs[1]))}
 
 
-# ---------------- 學樣本 ----------------
-
 def _gray(img):
     return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 
 def _window(frame, x, y, r):
-    """以 (x, y) 為中心、半徑 r 的裁切窗; 超出畫面的部分記為無效 (valid=False)."""
     h, w = frame.shape[:2]
     pad = cv2.copyMakeBorder(frame, r, r, r, r, cv2.BORDER_CONSTANT, value=0)
     valid = np.zeros((h + 2 * r, w + 2 * r), bool)
@@ -125,8 +111,6 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
     r = int(radius)
     wins = [_window(frames[f], x, y, r) for f, (x, y) in pts]
 
-    # 逐幀對齊: 只用「跨幀穩定」的像素 (游標本體) 比對, 背景不參與;
-    # 第一輪在模糊圖上做 (Claude 讀的位置差幾 px 時游標仍大致重疊)
     shifts = [(0, 0)] * len(wins)
     for blur in (2.0, 2.0, 0, 0):
         aligned = [_shift(img, valid, dx, dy) for (img, valid), (dx, dy) in zip(wins, shifts)]
@@ -145,7 +129,6 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
         new = []
         for (img, _valid), (dx, dy) in zip(wins, shifts):
             src = cv2.GaussianBlur(img, (0, 0), blur) if blur else img
-            # 在原裁切窗上找 ref, 只在原位置 ±ALIGN 內找
             lo_y, lo_x = max(0, y0 - ALIGN), max(0, x0 - ALIGN)
             area = src[lo_y:y1 + ALIGN, lo_x:x1 + ALIGN]
             _, (lx, ly) = _best(area, ref, m)
@@ -159,8 +142,6 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
         raise ToolError("學游標樣本的幾幀背景幾乎一樣，分不出游標與背景："
                         "請挑游標停在不同畫面、不同背景上的幀")
 
-    # 熱點 (對齊後的座標): 各幀 Claude 給的位置 (裁切窗中心) 經對齊修正後取中位數
-    # (對齊後的第 u 格＝原裁切窗的第 u + shift 格)
     hot = np.median([(r - dx, r - dy) for dx, dy in shifts], axis=0)
     mask = _sprite_mask(stable, hot)
     ys, xs = np.nonzero(mask)
@@ -168,7 +149,6 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
     tpl = med[y0:y1, x0:x1].clip(0, 255).astype(np.uint8)
     alpha = mask[y0:y1, x0:x1].astype(np.uint8) * 255
 
-    # 每一幀都要像這個游標: 不像的那幾幀多半是位置給錯 (那裡沒有游標)
     bad = []
     fits = {}
     m = alpha
@@ -208,18 +188,12 @@ def learn(video, points, out_path, radius=LEARN_RADIUS):
 
 
 def _robust(stack):
-    """逐像素的中位數與離散程度 (|差|的 75 百分位, 三色平均).
-
-    要四分之三的幀都一樣才算穩定: 少數幾幀給錯不會帶偏, 但半數幀剛好都是
-    暗背景時, 那片暗背景也不會被當成游標。
-    """
     med = np.median(stack, axis=0)
     spread = np.percentile(np.abs(stack - med), 75, axis=0).mean(axis=2)
     return med, spread
 
 
 def _shift(img, valid, dx, dy):
-    """把裁切窗平移 (dx, dy), 移出去的地方記為無效."""
     m = np.float32([[1, 0, -dx], [0, 1, -dy]])
     h, w = valid.shape
     out = cv2.warpAffine(img, m, (w, h), flags=cv2.INTER_NEAREST, borderValue=0)
@@ -229,8 +203,6 @@ def _shift(img, valid, dx, dy):
 
 
 def _sprite_mask(stable, hot):
-    """穩定像素裡屬於游標的部分: 離熱點最近的那一塊, 加上緊鄰它的碎塊."""
-    # 壓縮失真與游標自己的小動畫讓本體破成碎片: 先把小縫補起來再挑連通塊
     m = cv2.morphologyEx(stable.astype(np.uint8), cv2.MORPH_CLOSE,
                          cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
@@ -252,10 +224,7 @@ def _sprite_mask(stable, hot):
     return keep
 
 
-# ---------------- 偵測 ----------------
-
 class _View:
-    """一種比對用的游標樣子: 整個游標, 或只有熱點附近那一角 (游標一半跑出畫面時用)."""
 
     def __init__(self, gray, mask):
         self.tpl, self.mask = gray, mask
@@ -263,7 +232,6 @@ class _View:
         er = cv2.erode(mask, np.ones((3, 3), np.uint8))
         self.core = er if er.sum() > 0.3 * mask.sum() else mask
         self.n = float((self.core > 0).sum())
-        # 粗找用的縮圖倍率: 讓縮小後的游標仍有 ~16 px
         self.cs = min(1.0, max(0.2, 16.0 / min(self.th, self.tw)))
         self.small_tpl = cv2.resize(gray, None, fx=self.cs, fy=self.cs,
                                     interpolation=cv2.INTER_AREA)
@@ -271,19 +239,16 @@ class _View:
         self.small_mask = sm if sm.any() else None
 
     def locate(self, padded, small_cache):
-        """回傳 (分數, 樣本左上角在補邊座標的位置)."""
         small = small_cache.get(self.cs)
         if small is None:
             small = cv2.resize(padded, None, fx=self.cs, fy=self.cs,
                                interpolation=cv2.INTER_AREA) if self.cs < 1 else padded
             small_cache[self.cs] = small
         _, (x, y) = _best(small, self.small_tpl, self.small_mask)
-        # 縮圖上的位置換回原尺寸, 在附近幾 px 內精確找
         m = int(math.ceil(2 / self.cs)) + 1
         return self.near(padded, int(x / self.cs), int(y / self.cs), m)
 
     def near(self, padded, lx, ly, r):
-        """只在左上角 (lx, ly) 附近 ±r 找: 回傳 (分數, 樣本左上角位置)."""
         x0, y0 = max(0, lx - r), max(0, ly - r)
         win = padded[y0:ly + self.th + r, x0:lx + self.tw + r]
         if win.shape[0] < self.th or win.shape[1] < self.tw:
@@ -292,7 +257,6 @@ class _View:
         return v, (x0 + x, y0 + y)
 
     def change(self, padded, prev, lx, ly):
-        """游標這一幀與上一幀同一處的樣子差 (灰階 RMS, 容許 ±JITTER 對齊)."""
         J = JITTER
         cur = padded[ly:ly + self.th, lx:lx + self.tw]
         pw = prev[max(0, ly - J):ly + self.th + J, max(0, lx - J):lx + self.tw + J]
@@ -303,13 +267,10 @@ class _View:
         return math.sqrt(max(0.0, float(r.min())) / self.n)
 
 
-# 每幀追蹤紀錄: 找到游標? 熱點 (x, y)、游標樣子變化 (RMS; 無法比較時 None)、
-# 全畫面平均灰階差、是否畫面切換
 _Rec = namedtuple("_Rec", "found x y change gdiff trans")
 
 
 class Detector:
-    """逐幀追游標、看它在停住時有沒有抖一下 (遊戲畫的點擊特效)."""
 
     def __init__(self, info, sample):
         self.fps = info["fps"]
@@ -320,16 +281,15 @@ class Detector:
         th, tw = gray.shape
         self.size = (th, tw)
         self.views = [_View(gray, mask)]
-        # 熱點那一角 (Windows 式游標的熱點在左上, 會被切掉的是右邊與下邊)
         ph = min(th, max(int(self.hot[1]) + 10, th // 2))
         pw = min(tw, max(int(self.hot[0]) + 10, tw // 2))
         if (ph, pw) != (th, tw) and mask[:ph, :pw].sum() > 0.15 * mask.sum():
             self.views.append(_View(gray[:ph, :pw].copy(), mask[:ph, :pw].copy()))
         self.pad = max(th, tw)
-        self.prev = None          # 上一幀 (補邊後的灰階)
-        self.last = None          # 上一幀找到游標時: (樣子, 位置)
+        self.prev = None
+        self.last = None
         self.prev_small = None
-        self.recs = []            # 每幀一筆 _Rec
+        self.recs = []
         self.count = 0
 
     def feed(self, i, frame):
@@ -337,7 +297,6 @@ class Detector:
         gray = _gray(frame)
         P = self.pad
         padded = cv2.copyMakeBorder(gray, P, P, P, P, cv2.BORDER_REPLICATE)
-        # 整張找一次: 整個游標不夠像時看熱點那一角是否明顯更像 (游標被畫面邊緣切掉)
         cache = {}
         view = self.views[0]
         score, loc = view.locate(padded, cache)
@@ -347,9 +306,6 @@ class Detector:
                 if sc >= TRACK_SURE and sc >= score + 0.1:
                     view, score, loc = v, sc, lc
         if self.last is not None:
-            # 也在上一幀的位置附近找 (同一個樣子): 點擊特效那幾幀游標樣子變了、
-            # 分數掉一些, 仍要鎖在原地——整張找的結果要明顯更像才換過去
-            # (游標移走了, 或上一幀其實鎖錯在背景上)
             v, (lx, ly) = self.last
             sc, lc = v.near(padded, lx, ly, LOCK_RADIUS)
             if sc >= TRACK_NEAR and not (score >= sc + SWITCH
@@ -402,7 +358,6 @@ class Detector:
         for c in out:
             reacted = any(c["frame"] <= t <= c["endFrame"] + react for t in onsets)
             c["conf"] = 0.8 + 0.1 * c.pop("paired") + 0.1 * reacted
-        # 畫面切換前一段時間沒看到特效: 以切換前游標最後停住的地方補低信心候選
         for t in onsets:
             if any(t - react <= c["frame"] <= t for c in out if c["cue"] == "effect"):
                 continue
@@ -418,7 +373,7 @@ class Detector:
             dup = [c for c in out if c["cue"] == "screen"
                    and abs(c["frame"] - spot[0]) <= react
                    and math.dist(c["c"], spot[1]) <= self.still]
-            if dup:   # 同一處停留後連續幾次切換 (淡入淡出): 併成一個
+            if dup:
                 dup[0]["endFrame"] = max(dup[0]["endFrame"], t)
                 continue
             out.append({"frame": spot[0], "endFrame": t, "c": spot[1], "kind": "click",
@@ -427,7 +382,6 @@ class Detector:
         return out
 
     def to_video(self, xy):
-        """熱點換成影片像素 (游標一半跑出畫面時熱點可能算到邊外一點: 夾回畫面內)."""
         w, h = self.frame_size
         return [min(w - 1, max(0, int(round(xy[0])))),
                 min(h - 1, max(0, int(round(xy[1]))))]

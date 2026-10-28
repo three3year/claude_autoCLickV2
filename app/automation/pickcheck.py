@@ -11,19 +11,16 @@
   尺度); 不足就警告並給「至少 W×H」。用百分比不用像素: 像素餘裕會隨倍率縮小。不需要偵測器。
 - `唯一` (unique): 照找圖目標的限定範圍以當下倍率查一次, 引擎回報的`匹配`多於一個就不唯一;
   設了「第 N 個」「最接近」這類`挑選規則`的目標已宣告會有多個, 不查; 0 個不警告。
-
-三個門檻是 app 的政策 (引擎門檻之上再留一截), 不是引擎參數; 改動它們要改 ADR 0013。
-本模組保持輕量 (cv2 延後到縮放時才 import)。
 """
 import math
 
-from calibration import SCALE_HIGH, SCALE_LOW   # `支援倍率範圍`兩端 (ADR 0013)
+from calibration import SCALE_HIGH, SCALE_LOW
 
 from . import findtarget
 
-MATCH_MIN = 0.7      # 縮放餘裕: 粗篩最高分低於此就警告 (引擎 match_threshold 0.6 再留一截)
-VERIFY_MIN = 0.85    # 縮放餘裕: 驗證最高分低於此就警告 (引擎 verify_threshold 0.8 再留一截)
-RECT_MARGIN = 0.20   # 矩形餘裕: 固定矩形每邊至少比範本多 20%
+MATCH_MIN = 0.7
+VERIFY_MIN = 0.85
+RECT_MARGIN = 0.20
 
 SCALE, RECT, UNIQUE = "scale", "rect", "unique"
 KIND_ZH = {SCALE: "縮放餘裕", RECT: "矩形餘裕", UNIQUE: "唯一"}
@@ -47,10 +44,8 @@ class PickWarning:
         return f"〔{KIND_ZH[self.kind]}〕{self.text}"
 
 
-# ================= 矩形餘裕 =================
-
 def margin_px(size):
-    """範本一邊的長度 → 那一邊兩側各至少要多的像素 (向上取整, 避免 1.4×50 的浮點誤差)."""
+    """範本一邊的長度 → 那一邊兩側各至少要多的像素."""
     return math.ceil(round(size * RECT_MARGIN, 6))
 
 
@@ -84,8 +79,6 @@ def rect_margin(tgt, template_size):
                     min=(need_w, need_h))]
 
 
-# ================= 縮放餘裕 =================
-
 def resize_image(screen, s):
     """整張截圖等比縮 s 倍 (縮小 INTER_AREA、放大 INTER_LINEAR)."""
     import cv2
@@ -96,7 +89,6 @@ def resize_image(screen, s):
 
 
 def _scaled(screen, screen_origin, anchor, origin, s):
-    """整張截圖等比縮 s 倍; 螢幕座標的原點、基準點、原點都跟著乘 s (幾何關係不變)."""
     img = resize_image(screen, s)
 
     def pt(p):
@@ -105,7 +97,6 @@ def _scaled(screen, screen_origin, anchor, origin, s):
 
 
 def _gate_scores(f):
-    """一次判定的 (粗篩最高分, 驗證最高分或 None); 沒有查詢＝(None, None)."""
     q = f.query
     if q is None:
         return None, None
@@ -132,7 +123,7 @@ def scale_margin(detector, screen, screen_origin, tgt, anchor=None, scale=1.0,
         f = findtarget.find(probe, detector, img, org, origin=ori, scale=k,
                             anchor=anc)
         if f.query is None:
-            continue   # 限定範圍裁完沒有交集: 不是範本的問題
+            continue
         match, verify = _gate_scores(f)
         where = f"縮到 ×{s:.2f}（畫面倍率 ×{k:.3f}）時"
         if not f.matches:
@@ -153,8 +144,6 @@ def scale_margin(detector, screen, screen_origin, tgt, anchor=None, scale=1.0,
                                score=float(verify)))
     return out
 
-
-# ================= 唯一 =================
 
 def exempt_from_unique(tgt):
     """設了「第 N 個」「最接近」這類挑選規則的找圖目標已宣告會有多個匹配, 不查唯一."""
@@ -185,8 +174,6 @@ def unique(detector, screen, screen_origin, tgt, anchor=None, scale=1.0,
             + f"——範本「{name}」不唯一，不能當參考點；換一張、加限定範圍或設挑選規則")
     return [PickWarning(UNIQUE, name, text, matches=centers)]
 
-
-# ================= 一次全查 =================
 
 ALL = (RECT, SCALE, UNIQUE)
 

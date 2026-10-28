@@ -12,12 +12,7 @@
 的找圖目標在 `target`, `確認圖`在 `confirm_target`; 「點到下一步的圖出現」沿用下一步的
 `target`。所有像素欄位
 (固定矩形、指定點) 與步驟偏移一樣是`流程尺度`, 執行期 ×`畫面倍率` (ADR 0009);
-固定矩形再加上`座標基準點`的螢幕位置 (ADR 0012)。九宮格、以原點為基準的矩形與
-以搜尋範圍為基準的指定點已退場 (ADR 0014)。
-
-本模組維持輕量 (不 import cv2/numpy): 編輯器、執行器、影片轉流程都經這裡的
-存取函式讀寫步驟上的找圖目標, 解析並執行一個找圖目標的邏輯也在這裡 (三處行為
-一致)。
+固定矩形再加上`座標基準點`的螢幕位置 (ADR 0012)。
 """
 
 from . import flowfmt
@@ -25,29 +20,22 @@ from . import flowfmt
 TARGET = "target"
 CONFIRM_TARGET = "confirm_target"
 
-# `找圖三態`: 步驟的 type 就是找到之後做什麼 (點擊 / 只找不點 / 等它消失)
 FIND_TYPES = ("find_click", "find", "wait_gone")
 
 
 def is_find(step):
-    """是不是找圖步驟 (三態皆是)."""
     return step.get("type") in FIND_TYPES
 
 
-# ================= 步驟上的找圖目標 =================
-
 def target(step):
-    """找圖步驟自己的找圖目標 (沒有＝空目標)."""
     return step.get(TARGET) or {}
 
 
 def confirm_target(step):
-    """`確認圖`的找圖目標 (沒有＝空目標)."""
     return step.get(CONFIRM_TARGET) or {}
 
 
 def template(step):
-    """找圖步驟的範本名 (未選＝空字串)."""
     return target(step).get("template", "")
 
 
@@ -55,22 +43,17 @@ def confirm_template(step):
     return confirm_target(step).get("template", "")
 
 
-POINTER_TYPES = ("click", "drag")               # 座標點擊與拖曳
-CONFIRMABLE = ("find_click",) + POINTER_TYPES   # 有`生效確認`的步驟種類
+POINTER_TYPES = ("click", "drag")
+CONFIRMABLE = ("find_click",) + POINTER_TYPES
 
 
 def uses_confirm_target(step):
-    """`確認圖`是否生效: 生效確認選「確認圖出現」(找圖只有找到就點的才有確認)."""
     return step.get("type") in CONFIRMABLE and step.get("confirm") == "appear"
 
 
 def referenced_templates(steps, extra=()):
     """被引用的範本名 (依出現順序去重): 找圖步驟的範本、生效確認的確認圖,
     再加上流程層級設定引用的 extra (校準對、備用校準對、忙碌指示).
-
-    「被引用的範本」只有這一份定義: 存檔 (flowfile.template_refs) 與
-    `範本預載` (執行器) 都照它。「點到下一步的圖出現」引用的是下一步的範本、
-    分岔條件是分支開頭的找圖步驟——都已涵蓋在「所有找圖步驟」之中。
     """
     seen = []
     for s in steps:
@@ -87,14 +70,12 @@ def referenced_templates(steps, extra=()):
 
 
 def step_targets(step):
-    """步驟上存在的找圖目標 [(鍵, 目標), ...] (改名時走訪用)."""
+    """步驟上存在的找圖目標 [(鍵, 目標), ...]."""
     t = step.get("type")
     keys = ((TARGET, CONFIRM_TARGET) if t in FIND_TYPES
             else (CONFIRM_TARGET,) if t in CONFIRMABLE else ())
     return [(k, step[k]) for k in keys if isinstance(step.get(k), dict)]
 
-
-# ================= 執行一個找圖目標 =================
 
 class Match:
     """畫面上符合找圖目標的一處 (螢幕座標)."""
@@ -204,7 +185,6 @@ def valid_fixed_rect(lim):
 
 _valid_fixed_rect = valid_fixed_rect
 
-# 引擎沒過的那一關的中文名 (執行紀錄、拾取檢查共用; QueryResult.failed 的值)
 GATE_ZH = {"match": "粗篩", "verify": "驗證", "color": "比色"}
 
 
@@ -212,7 +192,7 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0,
          anchor=None):
     """執行一個找圖目標: 算限定矩形 → 裁圖 → 查詢 → 座標換回螢幕 → 依挑選規則挑.
 
-    detector: 偵測接縫 (`query(範本名, 影像, color_check) → QueryResult`,
+    detector: 偵測接縫 (`query(範本名, 影像, color_check, expected_scale) → QueryResult`,
     範本不存在丟 KeyError——原樣往外拋; 開了`比色`時顏色不符的不是匹配,
     挑選規則根本看不到它們); screen: 整個`搜尋範圍`的截圖, screen_origin 是它
     左上角的螢幕座標; origin: 目前的`原點` (螢幕座標, 可能 None); scale:
@@ -231,7 +211,6 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0,
     if limit is not None:
         if limit[2] <= 0 or limit[3] <= 0:
             return Found(tgt, reason="none", limit=limit)
-        # 先裁圖再查詢: 限定範圍外的東西引擎根本看不到
         x0, y0 = limit[0] - screen_origin[0], limit[1] - screen_origin[1]
         image = screen[y0:y0 + limit[3], x0:x0 + limit[2]]
         ox, oy = limit[0], limit[1]
@@ -253,10 +232,6 @@ def find(tgt, detector, screen, screen_origin, origin=None, scale=1.0,
 
 
 def _ordered(matches, axis):
-    """依主軸排序並分組 (中心差不到半個框＝同一組), 組內依另一軸排序.
-
-    axis 0＝由左到右 (分欄), 1＝由上到下 (分列)。
-    """
     other = 1 - axis
     groups = []
     for m in sorted(matches, key=lambda m: m.center[axis]):
@@ -276,7 +251,6 @@ def _pick(matches, tgt, origin, scale):
         ordered = _ordered(matches, 1 if kind == "top" else 0)
         return ordered[n - 1] if 1 <= n <= len(ordered) else None
     if kind == "near":
-        # 指定點＝`原點` + 偏移×倍率 (偏移 (0,0)＝最接近原點); 呼叫端保證有原點
         px, py = flowfmt.to_screen(value, origin, scale)
         return min(matches, key=lambda m: (m.center[0] - px) ** 2
                    + (m.center[1] - py) ** 2)
@@ -297,8 +271,6 @@ def still_there(box, matches):
                + (m.center[1] - cy) ** 2, default=None)
 
 
-# ================= 給人看的描述 (執行紀錄、比對測試) =================
-
 def fmt_box(box):
     return "({},{},{},{})".format(*box)
 
@@ -318,8 +290,6 @@ def pick_text(tgt):
         return f"near({int(value[0]):+d},{int(value[1]):+d})"
     return "score"
 
-
-# ================= 編輯器: 組找圖目標、拾取換算、標記 =================
 
 def make_target(template, within=None, pick=None, color=False):
     """由表單值組一個找圖目標; 預設值 (不限定/分數最高/不比色) 不寫進去."""

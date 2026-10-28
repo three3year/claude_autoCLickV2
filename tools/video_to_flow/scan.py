@@ -1,27 +1,3 @@
-"""掃描: `示範影片` → 候選點擊清單 + 每個候選前後數幀的縮圖.
-
-讓 Claude 不必逐幀看影片: 找出`點擊特效`出現的時間與位置, 附信心與縮圖,
-由 Claude 覆核 (剔誤報、補漏抓) 後寫`轉換計畫`。
-
-三種偵測. 遊戲自己畫游標 (錄影程式畫不出特效) 時用第一種, 見 `cursor.py`:
-
-- **游標樣本** (`{"kind": "cursor", ...}`, 由 `learn_cursor` 從影片學到): 逐幀追
-  遊戲畫的游標, 游標停著時它自己抖一下 (按下/放開) 就是點擊; 畫面切換前沒看到
-  特效的, 以游標停留處補低信心候選。候選多一個 `cue`: effect / screen。
-
-以下兩種在縮到寬 ≤640 的影格上做, 位置換回影片像素:
-
-- **特效樣本** (色圈; sample): 錄影程式畫的特效長相描述 `{"bgr": [b, g, r],
-  "tolerance": 60}`——第一次處理某位使用者的影片時從影片學到 (見 skill)。
-  逐幀找接近該顏色的區塊、跨幀追蹤: 停在原地＝點擊, 一路移動＝拖曳
-  (起訖兩點)。一開頭就在、長時間不動、隨整個畫面切換才出現的同色區塊是
-  畫面本身的東西, 不算。
-- **退路** (fallback, 沒有樣本): 找「局部、短暫、連續幾幀都在原地劇烈變化」
-  的區塊 (特效的動畫); 全畫面變化 (過場) 與一路移動的區塊 (游標) 不算。
-  寧可多報: 只變一幀的局部變化也列為低信心候選, 誤報交給 Claude 剔除。
-
-信心 ≥ `HIGH` (0.7) 算高信心。
-"""
 from __future__ import annotations
 
 import json
@@ -36,10 +12,10 @@ from . import video as video_mod
 from .errors import ToolError
 
 HIGH = 0.7
-WORK_WIDTH = 640          # 偵測用的影格寬度上限
-TRANSITION_FRAC = 0.15    # 變化像素佔比超過＝畫面切換 (過場), 不是點擊
-DIFF_THRESHOLD = 30       # 灰階差超過才算「變了」(壓縮雜訊在這之下)
-THUMB_OFFSETS = (-1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0)   # 縮圖取的時間點 (秒)
+WORK_WIDTH = 640
+TRANSITION_FRAC = 0.15
+DIFF_THRESHOLD = 30
+THUMB_OFFSETS = (-1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0)
 THUMB_WIDTH = 400
 MERGE_SECONDS = 0.3
 
@@ -69,7 +45,6 @@ def _load_sample(sample):
 
 
 class _Tracks:
-    """把逐幀的區塊串成軌跡 (最近鄰、容許斷一幀)."""
 
     def __init__(self, radius):
         self.radius = radius
@@ -101,8 +76,6 @@ class _Tracks:
 
 
 def _blobs(mask, img, min_area, max_area, join):
-    """mask 的區塊; 相距 join px 內的碎片併成一塊 (特效圓環常被游標或背景
-    紋理切成幾段弧, 各段的重心都不在點擊處)。面積/重心/顏色以原 mask 像素算."""
     k = join | 1
     grouped = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
     n, labels = cv2.connectedComponents(grouped, connectivity=8)
@@ -168,7 +141,6 @@ class _Detector:
         return self._merge(out)
 
     def _sample_track(self, pts):
-        """特效樣本: 一條同色軌跡＝一次點擊 (停在原地) 或一次拖曳 (一路移動)."""
         first, last = pts[0], pts[-1]
         cand = {"frame": first["f"], "endFrame": last["f"],
                 "color": first["color"], "area": first["area"]}
@@ -177,7 +149,7 @@ class _Detector:
                          frm=first["c"], to=last["c"])]
         dur = (last["f"] - first["f"] + 1) / self.fps
         if first["f"] == 0 or dur > 2.0 or first["f"] in self.transitions:
-            return []   # 一開頭就在/久久不動/隨過場出現: 畫面本身的同色東西
+            return []
         med = (float(np.median([p["c"][0] for p in pts])),
                float(np.median([p["c"][1] for p in pts])))
         return [dict(cand, kind="click", c=med,
@@ -185,16 +157,9 @@ class _Detector:
 
     @property
     def still(self):
-        """「停在原地」的容許漂移 (工作尺度 px): 圓環長大蓋過有紋理的按鈕時,
-        重心會漂幾 px; 移動中的游標另由 `_still_runs` 的兩幀規則排除。"""
         return max(4.0, 0.012 * self.diag)
 
     def _still_runs(self, pts):
-        """退路: 軌跡切成「停在原地」的幾段, 每段一個候選.
-
-        一路移動的部分是游標 (退路分不出拖曳), 丟掉; 孤立的短暫區塊
-        (hover 反白之類) 列為低信心候選——寧可多報。
-        """
         runs, run = [], [pts[0]]
         for p in pts[1:]:
             if math.dist(p["c"], run[0]["c"]) <= self.still:
@@ -207,8 +172,6 @@ class _Detector:
         for run in runs:
             n = len(run)
             if len(runs) > 1 and n <= 2:
-                # 移動途中: 逐幀相減時游標每個位置出現兩次 (出現、再消失),
-                # 看起來像停了兩幀
                 continue
             out.append({"frame": run[0]["f"], "endFrame": run[-1]["f"],
                         "color": run[0]["color"], "area": run[0]["area"],
@@ -218,7 +181,6 @@ class _Detector:
         return out
 
     def _merge(self, cands):
-        """同一次特效被拆成幾段 (某幀區塊被游標切開) → 併成一個, 取最早幀."""
         gap = max(1, round(MERGE_SECONDS * self.fps))
         near = 2 * self.still
         out = []
@@ -228,7 +190,7 @@ class _Detector:
                         and c["frame"] - o["endFrame"] <= gap
                         and math.dist(o["c"], c["c"]) <= near):
                     o["endFrame"] = max(o["endFrame"], c["endFrame"])
-                    if c["conf"] > o["conf"]:   # 位置取比較可信的那段
+                    if c["conf"] > o["conf"]:
                         o.update(c=c["c"], conf=c["conf"], color=c["color"])
                     break
             else:
@@ -247,7 +209,6 @@ def _imwrite(path, img, ext=".png", params=()):
 
 
 def _grid(img):
-    """疊座標格線 (每 50px 細線、每 100px 標數字), 方便讀出影片像素位置."""
     out = img.copy()
     h, w = out.shape[:2]
     over = out.copy()

@@ -1,11 +1,3 @@
-"""Coarse stage: masked multiscale template matching in the gradient domain.
-
-Gradients are invariant to brightness offsets, and the normalized correlation
-kills contrast scaling, so color shift / night mode / graying survive without
-any color handling. The sweep is coarse-to-fine: scan a geometric scale grid
-on a downscaled scene, then refine the surviving candidates at full
-resolution with fine scale steps and aspect jitter.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,22 +5,19 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-_SCALE_STEP = 1.09          # geometric step of the coarse scale grid
-_COARSE_MAX_DIM = 640       # scene is downscaled to about this for the sweep
-_MIN_TPL_PX = 8             # scaled template may not drop below this
-_TOP_K = 20                 # candidates handed to refinement / verification:
-                            # enough for a row of a dozen identical subjects
-_BEST_K = 5                 # per-scale best peaks always refined too (the
-                            # single-instance pool), on top of top_k
-_PEAKS_PER_SCALE = 64       # local peaks examined per scale (before NMS)
+_SCALE_STEP = 1.09
+_COARSE_MAX_DIM = 640
+_MIN_TPL_PX = 8
+_TOP_K = 20
+_BEST_K = 5
+_PEAKS_PER_SCALE = 64
 _NMS_IOU = 0.3
-_EXPECTED_STEPS = 2         # expected scale given: sweep this many grid steps
-                            # each side of it (fixed here, not a config knob)
+_EXPECTED_STEPS = 2
 
 
 @dataclass
 class Candidate:
-    box: tuple[int, int, int, int]   # (x, y, w, h) in scene coords
+    box: tuple[int, int, int, int]
     score: float
     scale: float
     aspect: float
@@ -44,8 +33,6 @@ def gradient_map(gray: np.ndarray) -> np.ndarray:
 def _window_variance(img: np.ndarray, w: int, h: int,
                      out_shape: tuple[int, int],
                      mask: np.ndarray | None) -> np.ndarray:
-    """Variance of img over each (w, h) sliding window — under the mask when
-    given — aligned with the matchTemplate result grid."""
     if mask is None:
         mean = cv2.boxFilter(img, cv2.CV_32F, (w, h), anchor=(0, 0),
                              normalize=True, borderType=cv2.BORDER_CONSTANT)
@@ -71,9 +58,6 @@ def _masked_variance(img: np.ndarray, mask: np.ndarray | None) -> float:
 
 def _match(scene_grad: np.ndarray, tpl_grad: np.ndarray,
            mask: np.ndarray | None) -> np.ndarray:
-    # CCOEFF (zero-mean) is essential: gradient magnitudes are non-negative,
-    # and without mean subtraction two near-constant positive patches score
-    # cosine ~1, saturating flat background regions.
     if mask is not None:
         res = cv2.matchTemplate(scene_grad, tpl_grad, cv2.TM_CCOEFF_NORMED,
                                 mask=mask)
@@ -119,22 +103,12 @@ def _scale_grid(lo: float, hi: float) -> list[float]:
 
 
 def _expected_grid(expected: float) -> list[float]:
-    """The scales swept around an expected scale: centered on it, so the
-    expected scale itself is always on the grid (an off-grid sweep lands the
-    box a few px off, enough to fail the color check)."""
     return [expected * _SCALE_STEP ** k
             for k in range(-_EXPECTED_STEPS, _EXPECTED_STEPS + 1)]
 
 
 def _local_peaks(res: np.ndarray, w: int, h: int,
                  threshold: float | None) -> list[tuple[int, int, float]]:
-    """(x, y, score) of the result map's peaks at one scale.
-
-    The global maximum always counts (the single-instance behavior); with a
-    threshold, every other local maximum at or above it counts too, so
-    several identical subjects at the same scale all survive. Peaks closer
-    than half a template are one peak (same-scale NMS).
-    """
     _, val, _, loc = cv2.minMaxLoc(res)
     peaks = [(loc[0], loc[1], float(val))]
     if threshold is None or val < threshold:
@@ -152,7 +126,6 @@ def _local_peaks(res: np.ndarray, w: int, h: int,
 
 
 def _nms(cands: list[Candidate], limit: int | None = None) -> list[Candidate]:
-    """Greedy non-maximum suppression by score (input order irrelevant)."""
     kept: list[Candidate] = []
     for c in sorted(cands, key=lambda c: c.score, reverse=True):
         if all(_iou(c.box, k.box) < _NMS_IOU for k in kept):
@@ -168,13 +141,6 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
                     top_k: int = _TOP_K,
                     peak_threshold: float | None = None,
                     expected_scale: float | None = None) -> list[Candidate]:
-    """Sweep scales/aspect and return candidate boxes, best first.
-
-    Every scale contributes its best peak plus — given `peak_threshold` —
-    every other local peak at or above it, so repeated identical subjects
-    are all candidates. Refined candidates that converge on the same spot
-    are merged (NMS). Given `expected_scale`, the coarse grid is the few
-    scales centered on it instead of the whole `scale_range`."""
     sh, sw = scene_gray.shape
     th, tw = tpl_gray.shape
     if expected_scale is not None:
@@ -183,9 +149,7 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
         grid = _scale_grid(float(scale_range[0]), float(scale_range[1]))
     lo = grid[0]
 
-    # --- coarse pass on a downscaled scene ---------------------------------
     down = min(1.0, _COARSE_MAX_DIM / max(sh, sw))
-    # never let the smallest swept template drop under _MIN_TPL_PX
     min_native = min(th, tw) * lo
     if min_native * down < _MIN_TPL_PX:
         down = min(1.0, _MIN_TPL_PX / min_native)
@@ -195,8 +159,8 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
 
     # the coarse sweep runs unmasked (fast FFT path); the mask weighs in at
     # refinement, where the final score is computed
-    best: list[Candidate] = []    # each scale's global maximum
-    extra: list[Candidate] = []   # the other above-threshold peaks
+    best: list[Candidate] = []
+    extra: list[Candidate] = []
     for s in grid:
         w = round(tw * s * down)
         h = round(th * s * down)
@@ -213,16 +177,9 @@ def find_candidates(scene_gray: np.ndarray, tpl_gray: np.ndarray,
                      round(tw * s), round(th * s)),
                 score=val, scale=s, aspect=1.0))
 
-    # the single-instance pool is refined on its own, never crowded out or
-    # suppressed by extra peaks: on a busy screen a small template's coarse
-    # scores are noisy, so a wrong-scale peak can outscore and overlap the
-    # true match before refinement. Duplicates merge in the NMS after it.
-    # The two pools mostly hold the same candidates: refine each one once
-    # (refinement is deterministic, so dropping a duplicate changes nothing).
     pool = _nms(best, _BEST_K) + _nms(best + extra, top_k)
     kept = list({id(c): c for c in pool}.values())
 
-    # --- refinement at full resolution -------------------------------------
     refined = [_refine(scene_grad_full, tpl_gray, mask, c, aspect_jitter)
                for c in kept]
     return _nms(refined)
@@ -234,7 +191,6 @@ def _refine(scene_grad: np.ndarray, tpl_gray: np.ndarray,
     sh, sw = scene_grad.shape
     th, tw = tpl_gray.shape
     x, y, w, h = cand.box
-    # local window with margin around the coarse hit
     mx, my = max(8, w // 2), max(8, h // 2)
     x0, y0 = max(0, x - mx), max(0, y - my)
     x1, y1 = min(sw, x + w + mx), min(sh, y + h + my)

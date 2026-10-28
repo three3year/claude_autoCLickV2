@@ -63,7 +63,7 @@ class Engine:
         try:
             from .verification import Verifier
             self._verifier = Verifier()
-        except Exception as exc:  # no torch / no weights: coarse-only mode
+        except Exception as exc:
             warnings.warn(f"verification unavailable, running coarse-only: {exc}")
             self._verifier = None
 
@@ -141,8 +141,6 @@ class Engine:
             return self._result([Match(c.box, c.score) for c in passing],
                                 debug, search_region, art, cfg, color_check)
 
-        # verification: embed every passing candidate crop (masked) in one
-        # batch and compare with the registered subject embedding
         from .verification import masked_fill
         sh, sw = scene_gray.shape
         crops = []
@@ -152,8 +150,6 @@ class Engine:
             x1, y1 = min(sw, x + w), min(sh, y + h)
             mask = art.mask
             if mask is not None and (x0, y0, x1, y1) != (x, y, x + w, y + h):
-                # candidate is clipped by the scene edge: crop the mask to
-                # the visible fraction so it stays aligned with the crop
                 mh, mw = mask.shape
                 mask = mask[round((y0 - y) / h * mh):round((y1 - y) / h * mh),
                             round((x0 - x) / w * mw):round((x1 - x) / w * mw)]

@@ -1,9 +1,3 @@
-"""`補充`: 補充計畫＋一小段影片 → 插進既有流程 (v2f-rules-agent-docs 07–08).
-
-既有流程用組裝建 (經 app 寫檔), 每個測試複製一份; 補充影片在流程尺度畫好再整張縮放 r 倍
-(模擬錄影時視窗大小不同)。只打 `video_to_flow.insert` 與命令列; 斷言經 app 讀回的流程、
-templates/、交付報告/ 的檔案, 報錯時整個資料夾逐位元不變。
-"""
 import json
 import os
 import shutil
@@ -29,11 +23,11 @@ def new_center():
     return [NEW_POS[0] + 24, NEW_POS[1] + 18]
 
 
-BASE_STEPS = [find("開始"),                                         # 1
-              {"repeat": 2, "steps": [find("確定", head="find"),     # 2 3
-                                      {"click": [330, 200]}]},       # 4 (5 結尾)
-              find("下一步", head="find"),                          # 6
-              {"click": [220, 100]}]                                # 7
+BASE_STEPS = [find("開始"),
+              {"repeat": 2, "steps": [find("確定", head="find"),
+                                      {"click": [330, 200]}]},
+              find("下一步", head="find"),
+              {"click": [220, 100]}]
 
 
 @pytest.fixture(scope="module")
@@ -46,7 +40,6 @@ def base_flow(tmp_path_factory, engine):
 
 @pytest.fixture(scope="module")
 def base_flow_fb(tmp_path_factory, engine):
-    """主校準對是畫面內的「開始」＋「關閉」, 備用對是「圖示」＋「關閉」."""
     tmp = tmp_path_factory.mktemp("basefb")
     plan = demo_plan(demo_video(tmp), make_out(tmp), steps=BASE_STEPS, name="既有",
                      calibration={"pair": ["開始", "關閉"],
@@ -62,7 +55,6 @@ def flow(base_flow, tmp_path):
 
 
 def add_video(path, r=1.0, title=True, n=30):
-    """補充影片: 0–14 幀「確定」＋新鈕, 15–29 幀「下一步」; 整張縮放 r 倍."""
     a = screen([(BUTTONS["確定"], *POS["確定"]), (NEW, *NEW_POS)], title=title)
     b = screen([(BUTTONS["下一步"], *POS["下一步"])], title=title)
     frames = [a] * (n // 2) + [b] * (n - n // 2)
@@ -74,7 +66,6 @@ def add_video(path, r=1.0, title=True, n=30):
 
 
 def S(v, r):
-    """流程尺度的像素 → 影片像素."""
     return [round(c * r) for c in v] if isinstance(v, (list, tuple)) else round(v * r)
 
 
@@ -99,8 +90,6 @@ def refused(flow, plan, match, engine):
         video_to_flow.insert(plan, flow, engine=engine)
     assert snapshot(flow) == before, "報錯後既有資料夾逐位元不變"
 
-
-# ================= 07 插入 (同倍率) =================
 
 def test_插在第N步之後_座標相對插入段自己的原點_新範本進templates(flow, tmp_path, engine):
     res = video_to_flow.insert(add_plan(add_video(tmp_path / "add.mp4")), flow,
@@ -186,7 +175,6 @@ def test_插入段沒有原點就報錯(flow, tmp_path, engine):
 
 
 def test_插入改變後面舊步驟的原點來源就報錯(flow, tmp_path, engine):
-    # 插在「找 確定」之後: 後面那個舊的座標點擊原本以它為原點, 插入後會變成插入段的點擊
     plan = add_plan(add_video(tmp_path / "add.mp4"), after=3, expect={"find": "確定"})
     refused(flow, plan, "原點來源", engine)
 
@@ -258,8 +246,6 @@ def test_命令列insert(flow, tmp_path):
     assert "已插入 2 步" in out and "影片倍率 ×1.000" in out
 
 
-# ================= 08 影片倍率 =================
-
 def test_影片倍率0點9_座標固定矩形新範本都換回流程尺度(flow, tmp_path, engine):
     r = 0.9
     res = video_to_flow.insert(add_plan(add_video(tmp_path / "add.mp4", r=r), r=r),
@@ -301,7 +287,7 @@ def test_主校準對量不到時用備用對(base_flow_fb, tmp_path, engine):
 
 
 def test_倍率超出支援範圍就報錯(flow, tmp_path, engine):
-    r = 1.25     # 支援倍率範圍 ×0.85–1.15 之外 (縮太小的合成圖連校準對都找不到, 用放大的)
+    r = 1.25
     refused(flow, add_plan(add_video(tmp_path / "add.mp4", r=r), r=r), "支援倍率範圍",
             engine)
 
@@ -366,18 +352,12 @@ def test_插入段自成頂層區段時開新的一份_不寫進同名舊檔(flo
     assert "](分岔-新鈕_2.md)" in (rdir / "總覽.md").read_text(encoding="utf-8")
 
 
-# ================= 13–14 補充對齊 =================
-# 既有流程第 3 步「找 確定」的固定矩形在執行時位置 (POS 確定); 補充影片裡清單捲在別處:
-# 確定與新鈕整批往下 DY (模擬開錄時清單停在另一個位置)。插在最後一步之後。
-
 DY = 40
-OK_V = (POS["確定"][0], POS["確定"][1] + DY)       # 影片裡的「確定」左上角
+OK_V = (POS["確定"][0], POS["確定"][1] + DY)
 ALIGN = {"find": "確定", "frame": 5, "at": [OK_V[0] + 24, OK_V[1] + 18], "step": 3}
 
 
 def shifted_video(path, r=1.0, dx=0, dy=DY, drag=100):
-    """0–14 幀: 確定＋新鈕整批偏 (dx, dy); 15–29 幀: 清單往上拖了 drag px 之後的畫面
-    (新鈕停在 NEW_POS＝執行時拖完的位置)."""
     ok = (POS["確定"][0] + dx, POS["確定"][1] + dy)
     a = screen([(BUTTONS["確定"], *ok), (NEW, NEW_POS[0] + dx, NEW_POS[1] + dy)], title=True)
     b = screen([(NEW, *NEW_POS)], title=True)
@@ -400,7 +380,6 @@ def align_plan(video, r=1.0, steps=None, align=ALIGN, **extra):
 
 
 def drag_steps(r=1.0, length=100):
-    """定位確定 → 從確定下方往上拖 length px → 找新鈕 → 點新鈕 (影片像素)."""
     c = [OK_V[0] + 24, OK_V[1] + 18]
     return [{"find": "確定", "frame": 5, "at": S(c, r)},
             {"drag": S([300, 220], r), "to": S([300, 220 - length], r), "frame": 6},
@@ -409,7 +388,6 @@ def drag_steps(r=1.0, length=100):
 
 
 def edit_within(flow, step, within):
-    """改既有流程第 step 步的固定矩形 (None＝刪掉), 經 app 寫回."""
     data = read(flow)
     tgt = data["steps"][step - 1]["target"]
     if within is None:
@@ -431,7 +409,6 @@ def test_對齊_第一次拖曳吸收位移_拖後照影片(flow, tmp_path, engi
     loc, drag, new, c = steps
     assert close(loc["target"]["within"], expand(box("確定")), 3), loc["target"]["within"]
     assert close(res["align"]["shift"], [0, -DY])
-    # 拖曳起點照舊相對定位的原點 (確定中心); 距離 100 − 40＝60
     assert close(drag["drag"], [300 - (OK_V[0] + 24), 220 - (OK_V[1] + 18)])
     assert abs((drag["drag"][1] - drag["to"][1]) - 60) <= 2 and drag["drag"][0] == drag["to"][0]
     assert close(new["target"]["within"], expand(NEW_BOX), 3)

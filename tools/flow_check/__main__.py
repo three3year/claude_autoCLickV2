@@ -1,4 +1,3 @@
-"""`python tools/flow_check <流程資料夾> [--normalize]` 的進入點."""
 import sys
 from pathlib import Path
 

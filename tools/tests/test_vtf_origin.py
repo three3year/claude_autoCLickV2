@@ -1,8 +1,3 @@
-"""票 04 — 原點推算: 影片像素位置 → 存檔的偏移與相對座標.
-
-計畫只寫影片像素的畫面位置; 組裝依 runner 的`原點`規則模擬執行順序推算
-偏移。斷言存檔步驟 (經 app 既有讀取打開) 的偏移與座標模式。
-"""
 import pytest
 
 import flowfile
@@ -10,7 +5,6 @@ import video_to_flow
 from automation import flowfmt
 from vtf_synth import (FRAME, VIDEO_H, VIDEO_W, center, click, demo_plan,
                        demo_video, find, make_out, snapshot)
-
 
 
 @pytest.fixture
@@ -29,7 +23,6 @@ def saved(res):
 
 
 def sc(v):
-    """影片像素 → 存檔像素: 同尺度, 原樣."""
     return v
 
 
@@ -55,7 +48,7 @@ def test_找圖點擊的偏移等於點擊位置減找到中心且點在中心�
     s = saved(res)
     assert tuple(s[0]["offset"]) == (sc(cx0 + 9 - cx), sc(cy0 - 4 - cy))
     dx, dy = found_center(res, "確定")
-    assert (dx, dy) == tuple(center("確定"))   # 引擎在該幀找到的就是按鈕本身
+    assert (dx, dy) == tuple(center("確定"))
     assert tuple(s[1]["offset"]) == (0, 0)
 
 
@@ -153,7 +146,6 @@ def test_存檔的座標點擊與拖曳不帶座標模式(demo, engine):
 
 
 def test_重複區段內的相對座標要有區段內的原點(demo, engine):
-    # 第二次起的原點是上一輪結尾, 與第一次不同 → 偏移會錯, 要求區段內先定位
     steps = [find("開始"), {"repeat": 3, "steps": [click(150, 100), find("確定")]}]
     with pytest.raises(video_to_flow.ToolError, match="重複區段"):
         run(demo, engine, steps)

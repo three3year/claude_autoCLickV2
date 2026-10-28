@@ -1,10 +1,3 @@
-"""全螢幕截圖選取覆蓋層.
-
-- 直接在螢幕截圖上框選區域或點選座標 (座標 1:1).
-- 游標指到視窗/控制項時, 顯示該元素邊界的預設框; 直接點擊即選取該框,
-  或按住拖曳自訂範圍.
-- 所有模式都會把高亮區域以外的畫面壓黑; 粗藍吸附框只在 region 模式顯示.
-"""
 import contextlib
 import ctypes
 import time
@@ -25,8 +18,6 @@ except OSError:
 DWMWA_CLOAKED = 14
 
 
-# ---------- 視窗/元素矩形列舉 (供游標吸附預設框) ----------
-
 def _rect(hwnd):
     r = wintypes.RECT()
     if user32.GetWindowRect(hwnd, ctypes.byref(r)):
@@ -46,11 +37,6 @@ def _is_cloaked(hwnd):
 
 
 def _enum_element_rects(vs):
-    """列舉可見頂層視窗 (依 Z 順序由上到下) 及其子控制項矩形 (實體像素).
-
-    回傳 [{"rect": (x1,y1,x2,y2), "children": [rects...]}, ...].
-    vs: 虛擬螢幕範圍 dict, 用來剔除螢幕外的視窗.
-    """
     vx1, vy1 = vs["x"], vs["y"]
     vx2, vy2 = vs["x"] + vs["w"], vs["y"] + vs["h"]
     tops = []
@@ -87,7 +73,6 @@ def _enum_element_rects(vs):
         if r and not _is_cloaked(hwnd):
             children_buf.clear()
             user32.EnumChildWindows(hwnd, enum_child, 0)
-            # 子控制項依面積由小到大, 供最小含點矩形吸附
             kids = sorted(children_buf,
                           key=lambda c: (c[2] - c[0]) * (c[3] - c[1]))
             tops.append({"rect": r, "children": kids, "hwnd": hwnd})
@@ -99,16 +84,11 @@ def _enum_element_rects(vs):
 
 
 def _snap_rect(tops, sx, sy):
-    """依 Z 順序找出游標所在的最上層視窗, 再吸附其內含點的最小子控制項.
-
-    被其他視窗覆蓋的部分不會被吸附到 (以最上層含點視窗為準).
-    回傳矩形 (實體像素) 或 None.
-    """
-    for t in tops:  # Z 順序: 最上層優先
+    for t in tops:
         x1, y1, x2, y2 = t["rect"]
         if not (x1 <= sx < x2 and y1 <= sy < y2):
             continue
-        for c in t["children"]:  # 面積小→大
+        for c in t["children"]:
             cx1, cy1, cx2, cy2 = c
             if cx1 <= sx < cx2 and cy1 <= sy < cy2:
                 return c
@@ -125,13 +105,10 @@ def _walk_toplevels(wnd, out):
 
 _hide_state = {"depth": 0, "saved": [], "stale_tops": []}
 
-_MAP_TIMEOUT_MS = 500  # 每次 deiconify 後等 map 確認的逾時
+_MAP_TIMEOUT_MS = 500
 
 
 def _unbind(w, seq, funcid):
-    """只移除指定 funcid 的綁定: tkinter 的 unbind(seq, funcid) 會把同
-    事件的「所有」綁定整段清掉 (CPython gh-75666), root 的 <Map> 還掛著
-    預覽框顯隱等綁定, 不能整段清."""
     try:
         scripts = w.bind(seq).split("\n")
         w.tk.call("bind", w._w, seq,
@@ -142,13 +119,7 @@ def _unbind(w, seq, funcid):
 
 
 def _wait_mapped(root, w, timeout_ms=_MAP_TIMEOUT_MS):
-    """等待 w 真的畫出來 (map): <Map> 事件驅動 + 逾時, 回傳是否可見.
-
-    deiconify 只是把 map 請求排進佇列, 不等於視窗已畫出來——
-    這裡跑事件迴圈直到收到 <Map> 或逾時, 與進場的 update+等待對稱。
-    逾時計時與等待變數掛在 root 上: w 中途被銷毀時逾時仍會喚醒等待,
-    任何情況都不懸住。
-    """
+    """deiconify 只是把 map 請求排進佇列, 不等於視窗已畫出來."""
     try:
         if w.winfo_viewable():
             return True
@@ -167,11 +138,6 @@ def _wait_mapped(root, w, timeout_ms=_MAP_TIMEOUT_MS):
 
 
 def _restore_verified(root, w, zoomed):
-    """驗證式還原單一視窗: deiconify → 等 map 確認, 逾時依狀態機重試.
-
-    回傳是否確認可見; 每窗驗證結果、重試次數與間隔都寫入日誌
-    (偶發問題事後可查證)。
-    """
     coord = ui_grab.coord
     name = ui_grab.wname(w)
     attempt = 0
@@ -199,7 +165,6 @@ def _restore_verified(root, w, zoomed):
 
 
 def _destroy_stale_tops():
-    """銷毀先前拾取段留下的覆蓋層 (截新圖前必須移除, 否則拍到舊畫面)."""
     tops, _hide_state["stale_tops"] = _hide_state["stale_tops"], []
     for t in tops:
         try:
@@ -211,20 +176,7 @@ def _destroy_stale_tops():
 
 @contextlib.contextmanager
 def screen_clear(root, extra=()):
-    """讓出整個螢幕: 隱藏本 App 的視窗, 離開時驗證式還原. 可巢狀.
-
-    歷來卡死競態的根源都是「還原 → 立刻再隱藏」: 視窗映射是非同步的,
-    兩段讓出之間的 viewable 狀態不可靠, 漏記的視窗結束後不會被還原,
-    隱形視窗握著焦點/grab 就是整個 App 卡死. 因此讓出螢幕一律走本機制:
-    - 巢狀時只有最外層真正隱藏/還原, 中間沒有還原再隱藏的空窗
-    - 視窗自動列舉 (root + 所有 Toplevel 子孫 + extra), 呼叫端不會漏傳
-    - 進場記錄「本次 withdraw 的清單」(含 zoomed 快照), 離場照清單全數
-      還原——不再以 wm state 猜測, 一次失手不會讓之後每次清場都跳過它;
-      不在清單上的視窗一律不碰 (執行流程迷你視窗的刻意顯隱自然隔離)
-    - 離場逐窗 deiconify 並以 <Map> 事件確認真的畫出來 (逾時重試),
-      全部確認可見、grab 交還堆頂之後, 才輪到 pick() 銷毀覆蓋層
-    - grab 歸屬由 modal 堆疊決定 (ui_grab); 清場期間堆疊暫停奪 grab
-    """
+    # 視窗映射是非同步的: 還原後立刻再隱藏, 中間的 viewable 狀態不可靠, 所以巢狀時只有最外層隱藏/還原
     st = _hide_state
     if st["depth"] == 0:
         try:
@@ -240,10 +192,10 @@ def screen_clear(root, extra=()):
         for w in wnds:
             try:
                 if not w.winfo_exists() or w.overrideredirect():
-                    continue  # 覆蓋框/迷你視窗自行依 root <Map>/<Unmap> 顯隱
+                    continue
                 state = w.state()
                 if state not in ("normal", "zoomed"):
-                    continue  # withdrawn/iconic = 刻意隱藏的視窗, 尊重之
+                    continue
                 st["saved"].append((w, state == "zoomed"))
             except tk.TclError:
                 pass
@@ -263,14 +215,10 @@ def screen_clear(root, extra=()):
     finally:
         st["depth"] -= 1
         if st["depth"] == 0:
-            # 還原全程發生在覆蓋層後面 (pick 的覆蓋層延後銷毀), 使用者只會
-            # 看到「覆蓋層消失 → 完整畫面」一次揭示; 不做 topmost 脈衝
-            # (會把視窗瞬間抬到覆蓋層上, 看起來閃來閃去)
             st["saved"] = []
             plan = ui_grab.coord.restore_plan()
             for w, z in plan:
                 _restore_verified(root, w, z)
-            # 依清單順序 lift (root 先、對話框後), 維持 Z 序
             for w, _z in plan:
                 try:
                     if w.winfo_exists() and w.winfo_viewable():
@@ -291,13 +239,10 @@ def screen_clear(root, extra=()):
                 target.focus_force()
             except tk.TclError:
                 pass
-            # 交接完成後才銷毀巢狀拾取暫存的覆蓋層 (一次揭示)
             _destroy_stale_tops()
 
 
 class _Signal:
-    """覆蓋層的特殊回傳值 (不是拾取結果)."""
-
     def __init__(self, name):
         self.name = name
 
@@ -305,53 +250,22 @@ class _Signal:
         return self.name
 
 
-# 待定結果失敗 (背景校準量不到): 覆蓋層立刻結束, 呼叫端在視窗還原後警告
 ABORT = _Signal("ABORT")
-# 晚到的 ◎ 確定推不出、使用者還沒動手: 呼叫端改走「先點原點」或拖線
 NO_MARK = _Signal("NO_MARK")
 
-PENDING_MS = 30   # 覆蓋層看待定結果的間隔
+PENDING_MS = 30
 BUSY_HINT = "辨識中…　"
 
 
 def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None,
          shot=None, pending=None, late=None):
-    """截圖後顯示全螢幕覆蓋層讓使用者選取.
-
-    mode: 'region' 拖曳框選 / 'point' 點一下 / 'line' 拖曳一條線 (起點→終點).
-    hide: 額外需要暫時隱藏的視窗 (例如對話框).
-    base: line 模式的預設原點 (螢幕座標); 給定時原點已標示,
-          使用者只需點一下目標位置即完成.
-    mark: 純標示用的原點 (螢幕座標); 只畫記號不影響操作 (各模式皆可),
-          供「相對位置拖曳」自由拖線、框選以原點為基準的限定範圍、
-          點選指定點時對照原點在哪.
-    shot: 清場中預先截好的整個虛擬桌面 (影像, 左上角); 給定時不再自己截
-          (背景校準用同一張, recognize-off-clear)。
-    pending: 背景的待定結果 (校準＋◎ 推算): status() → "pending"/"ready"/"failed",
-          mark＝ready 時的 ◎ (螢幕座標或 None)。待定時提示列顯示「辨識中…」,
-          失敗＝立刻結束回 ABORT (呼叫端在視窗還原後警告)。
-    late: ◎ 晚到——"base"＝line 模式以 pending.mark 當預設原點 (只收點一下),
-          "mark"＝以 pending.mark 當標示的原點。◎ 還沒算好時照樣收點擊/拖線 (結果多帶
-          early=True, 位置由呼叫端用算好的 ◎ 換算); 確定推不出且還沒動手就回 NO_MARK。
-          "origin"＝point 模式「點一下原點」, 只在 ◎ 推不出時需要 (比對測試): ◎ 算好且還沒
-          點就結束、回 {"screenX","screenY","auto": True} (就是 ◎); 推不出就等使用者點。
-    回傳:
-      region → {"screenX","screenY","w","h","img"(裁切的 BGR)}
-      point  → {"screenX","screenY"}
-      line   → {"dx","dy","startX","startY","endX","endY"}
-               (late="base" 而 ◎ 還沒到時點的: 只有 {"endX","endY"})
-      取消   → None; 待定失敗 → ABORT; ◎ 推不出 → NO_MARK
-    """
     try:
         with screen_clear(root, extra=hide):
-            # 前一段拾取暫存的覆蓋層顯示著舊截圖, 截新圖前必須先移除
             _destroy_stale_tops()
             try:
                 return _pick_impl(root, mode, hint, delay, base, mark,
                                   shot, pending, late)
             finally:
-                # 出錯時先釋放 grab, 讓還原流程能把 grab 交回對話框;
-                # 覆蓋層本體留到還原後才銷毀 (保住前景擁有權, 見 finish 註解)
                 top = getattr(root, "_pick_top", None)
                 if top is not None:
                     top._closing = True
@@ -361,16 +275,10 @@ def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None,
                     except tk.TclError:
                         pass
     finally:
-        # 視窗還原、前景/grab 交接完成後才銷毀覆蓋層.
-        # 無論成功或出錯最終都必須銷毀: 殘留的全螢幕覆蓋層蓋住一切,
-        # 看起來就是整台電腦卡死且無法關閉程式
         top = getattr(root, "_pick_top", None)
         root._pick_top = None
         if top is not None:
             if _hide_state["depth"] > 0:
-                # 巢狀 (對話框把多段拾取包在同一次清場裡): 覆蓋層留給
-                # 最外層離場「還原完成、前景交接後」銷毀——還原全程在
-                # 覆蓋層後面完成, 一次揭示, 且覆蓋層保住本程序的前景權
                 _hide_state["stale_tops"].append(top)
             else:
                 try:
@@ -381,7 +289,6 @@ def pick(root, mode, hint, delay=0.0, hide=(), base=None, mark=None,
 
 
 def _hint_text(hint, mode, base, mark):
-    """提示列: 操作說明跟著模式與原點標出來沒變."""
     if mode == "region" and mark is not None:
         return hint + "　（◎＝原點，拖曳＝框出範圍，Esc 取消）"
     if mode == "region":
@@ -399,7 +306,7 @@ def _hint_text(hint, mode, base, mark):
 
 def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None,
                late=None):
-    import cv2  # 拾取時才需要; 開窗關鍵路徑不載重量級套件 (票 06)
+    import cv2
     if shot is None:
         root.update()
         if delay > 0:
@@ -411,14 +318,12 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
     rects = _enum_element_rects(vs)
     h, w = img.shape[:2]
 
-    # PPM (P6) 位元組直接餵給 PhotoImage — 比 PNG 快數倍
-    # 底圖用壓黑版, 高亮區域再以原亮度的裁切圖蓋回去
     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     dark = cv2.convertScaleAbs(rgb, alpha=0.45)
     ppm = f"P6 {w} {h} 255 ".encode() + dark.tobytes()
 
     top = tk.Toplevel(root)
-    root._pick_top = top  # 供 pick() 的 finally 清掉中途出錯殘留的覆蓋層
+    root._pick_top = top
     top.overrideredirect(True)
     top.geometry(f"{w}x{h}+{origin[0]}+{origin[1]}")
     top.attributes("-topmost", True)
@@ -430,11 +335,10 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
     cv.pack(fill="both", expand=True)
     cv.create_image(0, 0, anchor="nw", image=photo)
     cv._photo = photo
-    hl_item = cv.create_image(0, 0, anchor="nw", state="hidden")  # 高亮亮圖
+    hl_item = cv.create_image(0, 0, anchor="nw", state="hidden")
 
-    INFO = "#2080F0"  # 選取層所有線條統一用藍
+    INFO = "#2080F0"
     hint_x = max(20, -origin[0]) + 40
-    # ◎ 晚到的 line 模式 (late="base"): 待定時也照「點一下」收, 好了才標原點
     click_line = mode == "line" and (base is not None or late == "base")
     hint_bg = cv.create_rectangle(0, 0, 0, 0, fill="#0F172A", outline=INFO, width=1)
     hint_item = cv.create_text(hint_x, 34, anchor="w", fill="#F0F4F8",
@@ -455,15 +359,13 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
 
     snap_box = cv.create_rectangle(0, 0, 0, 0, outline=INFO, width=4)
     sel_rect = cv.create_rectangle(0, 0, 0, 0, outline=INFO, width=2, state="hidden")
-    # line 模式: 起點圓點 + 帶箭頭的連線
     line_item = cv.create_line(0, 0, 0, 0, fill=INFO, width=3,
                                arrow=tk.LAST, state="hidden")
     line_dot = cv.create_oval(0, 0, 0, 0, fill=INFO, outline="", state="hidden")
 
-    # ---- 放大鏡 (跟隨游標, 4 倍放大) ----
     MAG_SRC_W, MAG_SRC_H, MAG_ZOOM = 46, 30, 4
     MAG_W, MAG_H = MAG_SRC_W * MAG_ZOOM, MAG_SRC_H * MAG_ZOOM
-    INFO_BGR = (240, 128, 32)  # #2080F0 的 BGR
+    INFO_BGR = (240, 128, 32)
     mag_img_item = cv.create_image(0, 0, anchor="nw")
     mag_border = cv.create_rectangle(0, 0, 0, 0, outline=INFO, width=2)
     mag_text_bg = cv.create_rectangle(0, 0, 0, 0, fill="#0F172A", outline=INFO)
@@ -475,7 +377,6 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
         y0 = min(max(e.y - MAG_SRC_H // 2, 0), max(0, h - MAG_SRC_H))
         crop = img[y0:y0 + MAG_SRC_H, x0:x0 + MAG_SRC_W]
         zoom = cv2.resize(crop, (MAG_W, MAG_H), interpolation=cv2.INTER_NEAREST)
-        # 游標所在像素的十字定位線
         cx = (e.x - x0) * MAG_ZOOM + MAG_ZOOM // 2
         cy = (e.y - y0) * MAG_ZOOM + MAG_ZOOM // 2
         cv2.line(zoom, (cx, 0), (cx, MAG_H), INFO_BGR, 1)
@@ -504,14 +405,12 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
     result = [None]
 
     def show_base(b):
-        """預設原點: 直接標示, 之後點一下即為終點."""
         x0, y0 = b[0] - origin[0], b[1] - origin[1]
         st["start"] = (x0, y0)
         cv.coords(line_dot, x0 - 2.5, y0 - 2.5, x0 + 2.5, y0 + 2.5)
         cv.itemconfigure(line_dot, state="normal")
 
     def show_mark(m):
-        """純標示的原點記號 (◎): 不影響拖線/框選/點選操作."""
         mx0, my0 = m[0] - origin[0], m[1] - origin[1]
         cv.create_oval(mx0 - 7, my0 - 7, mx0 + 7, my0 + 7, outline=INFO, width=2,
                        tags="mark")
@@ -523,10 +422,9 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
     if mark is not None and not (mode == "line" and base is not None):
         show_mark(mark)
     hl_photo = [None]  # 高亮裁切圖 (防止被回收)
-    hl_box = [None]    # 目前高亮範圍, 避免重複重建 PhotoImage
+    hl_box = [None]
 
     def set_highlight(x1, y1, x2, y2):
-        """指定區域以原亮度顯示, 其餘畫面維持壓黑底圖."""
         x1 = max(0, min(int(x1), w)); x2 = max(0, min(int(x2), w))
         y1 = max(0, min(int(y1), h)); y2 = max(0, min(int(y2), h))
         if x2 - x1 < 1 or y2 - y1 < 1:
@@ -553,10 +451,10 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
         # 時 focus_force 會被 Windows 拒絕, 視窗被壓在遊戲下看似消失.
         # 銷毀延後到 pick() 還原+奪回前景之後.
         try:
-            top.unbind_all("<Escape>")  # 移除逃生口的全域綁定
+            top.unbind_all("<Escape>")
         except tk.TclError:
             pass
-        top._closing = True  # 停止 _guard_grab, 讓 grab 可以交回對話框
+        top._closing = True
         try:
             top.grab_release()
         except tk.TclError:
@@ -570,7 +468,6 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
         return origin[0] + x, origin[1] + y
 
     def update_snap_highlight(sx, sy):
-        """游標吸附元素框 → 該範圍亮顯; 粗藍框只在 region 模式畫出."""
         snap = _snap_rect(rects, sx, sy)
         st["snap"] = snap
         if snap:
@@ -599,7 +496,6 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
             return
 
         if mode == "region" and st["start"] is not None:
-            # 判定是否已構成拖曳
             if abs(e.x - st["start"][0]) > 3 or abs(e.y - st["start"][1]) > 3:
                 st["dragging"] = True
             if st["dragging"]:
@@ -643,12 +539,10 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
             return
         if click_line:
             if st["start"] is None:
-                # ◎ 還沒到就點了: 只記終點, 呼叫端用算好的原點換算
                 result[0] = {"endX": origin[0] + e.x, "endY": origin[1] + e.y,
                              "early": True}
                 finish()
                 return
-            # 原點已預設 → 點一下 (放開) 即為終點
             x0, y0 = st["start"]
             result[0] = {
                 "dx": e.x - x0, "dy": e.y - y0,
@@ -662,7 +556,6 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
                 return
             x0, y0 = st["start"]
             if abs(e.x - x0) < 2 and abs(e.y - y0) < 2:
-                # 沒有拖出線 → 重來
                 st["start"] = None
                 cv.itemconfigure(line_item, state="hidden")
                 cv.itemconfigure(line_dot, state="hidden")
@@ -686,7 +579,6 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
             else:
                 cv.itemconfigure(sel_rect, state="hidden")
         else:
-            # 單擊 → 取用吸附框
             st["start"] = None
             snap = st["snap"]
             if snap and _commit_region(snap[0] - origin[0], snap[1] - origin[1],
@@ -697,10 +589,8 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
     cv.bind("<ButtonPress-1>", on_down)
     cv.bind("<ButtonRelease-1>", on_up)
     top.bind("<Escape>", lambda e: finish())
-    # 逃生口: 就算焦點/grab 落在別的視窗, Esc 一律取消選取層
     top.bind_all("<Escape>", lambda e: finish())
 
-    # 進場即依目前游標位置顯示高亮, 不必等第一次移動
     pt = wintypes.POINT()
     if user32.GetCursorPos(ctypes.byref(pt)):
         e0 = tk.Event()
@@ -726,7 +616,6 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
         top.after(100, _guard_grab)
 
     def watch_pending():
-        """待定結果: 好了換回原說明 (◎ 晚到就這時畫), 失敗立刻結束."""
         try:
             if not top.winfo_exists() or getattr(top, "_closing", False):
                 return
@@ -747,15 +636,13 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
                 result[0] = {"screenX": got[0], "screenY": got[1], "auto": True}
                 finish()
                 return
-            set_hint(_hint_text(hint, mode, None, None))   # 推不出: 請使用者點
+            set_hint(_hint_text(hint, mode, None, None))
             return
         if late is not None and got is None:
             if st["start"] is None and not st["down"]:
-                result[0] = NO_MARK   # 推不出原點、還沒動手: 呼叫端改走原本的流程
+                result[0] = NO_MARK
                 finish()
                 return
-            # 按到一半 (自由拖線拖到一半、點擊還沒放開): 讓它做完, 呼叫端看到沒有原點
-            # 再警告——這時結束會把放開漏給底下的應用程式
         elif late == "base":
             show_base(got)
         elif late == "mark":
@@ -767,8 +654,6 @@ def _pick_impl(root, mode, hint, delay, base, mark=None, shot=None, pending=None
     _guard_grab()
     if pending is not None:
         watch_pending()
-    # 等待改用變數而非 wait_window: finish 不銷毀覆蓋層 (見 finish 註解),
-    # 意外銷毀時也要能結束等待, 避免卡死
     top._done_var = tk.IntVar(master=root, value=0)
     top.bind("<Destroy>",
              lambda e: top._done_var.set(1) if e.widget is top else None,

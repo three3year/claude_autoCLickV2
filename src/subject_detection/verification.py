@@ -1,10 +1,3 @@
-"""Verification stage: embedding similarity between a coarse candidate crop
-and the template subject (mask applied to both sides).
-
-Backbone: DINOv2-S (ViT-S/14) via torch.hub, resident in memory for the
-engine's lifetime. Runs on CUDA when available, otherwise CPU — same
-results, no speed guarantee (per spec).
-"""
 from __future__ import annotations
 
 import cv2
@@ -16,8 +9,6 @@ _INPUT_SIZE = 224
 
 
 def masked_fill(img_bgr: np.ndarray, mask: np.ndarray | None) -> np.ndarray:
-    """Replace non-subject pixels with the subject's mean color so bleed and
-    mutable regions cannot feed the embedding."""
     if mask is None:
         return img_bgr
     m = mask
@@ -32,10 +23,9 @@ def masked_fill(img_bgr: np.ndarray, mask: np.ndarray | None) -> np.ndarray:
 
 
 class Verifier:
-    """DINOv2-S embedder. Constructing it loads the model (resident)."""
 
     def __init__(self) -> None:
-        import torch  # deferred so environments without torch fail here only
+        import torch
         self._torch = torch
         # pin the branch: without it torch.hub asks GitHub for the default
         # branch on every load and raises on a 5xx (only a dead network
@@ -48,7 +38,6 @@ class Verifier:
         self._model.to(self._device)
 
     def embed(self, imgs_bgr: list[np.ndarray]) -> np.ndarray:
-        """Batch-embed BGR crops. Returns (N, D) L2-normalized float32."""
         torch = self._torch
         batch = np.stack([self._preprocess(img) for img in imgs_bgr])
         with torch.inference_mode():

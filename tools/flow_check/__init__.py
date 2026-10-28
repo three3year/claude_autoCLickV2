@@ -2,13 +2,6 @@
 
     python tools/flow_check <流程資料夾> [--normalize]
 
-只呼叫 app 既有的東西 (詞彙見 app/GLOSSARY.md, 格式見 docs/flow-format.md):
-
-1. 讀檔 `flowfile.read_flow`: 鍵、型別、`format`;
-2. `automation.flowcheck.flow_errors`: 校準對、區段結構、相對座標前的原點、
-   「原點的圖離開」與「點到下一步的圖出現」的前提、勾了忙碌檢查卻沒設忙碌指示;
-3. 引用了但 templates/ 裡沒有的範本 (`flowfile.missing_templates`)。
-
 輸出分兩類: **錯誤** (讀不進來或執行時一定被擋; 以 1 結束) 與**缺圖** (列成「要在 app 截的
 範本」; 缺圖本身不算錯, 以 0 結束)。預設一個檔都不寫; `--normalize` 且沒有錯誤時, 經 app 的
 `flowfile.dump_flow` 把 flow.yaml 重寫一次 (行尾步驟編號與排版回到標準; templates/ 不動)。
@@ -32,11 +25,11 @@ from automation import flowcheck  # noqa: E402
 @dataclass
 class Result:
     folder: str
-    errors: list = field(default_factory=list)     # 錯誤 (一則一行)
-    missing: list = field(default_factory=list)    # 要在 app 截的範本
-    unused: list = field(default_factory=list)     # templates/ 裡沒被引用的圖
-    flow: dict | None = None                        # 讀得進來時的記憶體流程
-    normalized: bool = False                        # --normalize 有沒有改寫 flow.yaml
+    errors: list = field(default_factory=list)
+    missing: list = field(default_factory=list)
+    unused: list = field(default_factory=list)
+    flow: dict | None = None
+    normalized: bool = False
 
     @property
     def ok(self):

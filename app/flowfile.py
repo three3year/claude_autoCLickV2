@@ -24,10 +24,7 @@ import calibration
 from automation import findtarget, flowdefaults
 
 
-# ================= 範本名稱與步驟引用 =================
-
 def strip_ext(name):
-    """圖檔名去 .png 副檔名 → 範本名 (已無副檔名時不動)."""
     return name[:-4] if name.lower().endswith(".png") else name
 
 
@@ -63,12 +60,6 @@ def free_name(name, taken):
 
 
 def rename_refs(steps, old, new):
-    """把步驟對 `old` 的引用 (所有`找圖目標`, 含`確認圖`) 就地改成 `new`;
-    回傳改動筆數.
-
-    跨流程複製撞名加序號、範本重新命名共用這一條路徑——引用漏改就等於
-    流程指向一張不存在的圖。
-    """
     changed = 0
     for s in steps:
         for _, t in findtarget.step_targets(s):
@@ -79,24 +70,15 @@ def rename_refs(steps, old, new):
 
 
 def used_templates(steps):
-    """所有`找圖目標`引用的範本名 (確認圖只在生效確認選「確認圖出現」時算;
-    找圖、座標點擊、拖曳都有確認圖), 已排序."""
     return sorted(findtarget.referenced_templates(steps))
 
 
 def _blob(src):
-    """把 bytes 或檔案路徑統一成 bytes (寫圖一律寫實體內容, 不留參照)."""
     if isinstance(src, (bytes, bytearray)):
         return bytes(src)
     with open(src, "rb") as f:
         return f.read()
 
-
-# ================= flow.yaml 讀寫 =================
-# 記憶體裡的流程是 dict: run、scan_region、calibration、busy、template_pos、engine、steps
-# (步驟是平面標記, 鍵名與單位跟 flow.yaml 相同, 補齊成完整步驟)。讀寫只做三種形狀轉換:
-# 巢狀區段 ⇄ 平面標記、開頭的鍵 ⇄ type、步驟層的 within/pick/color ⇄ target 子 dict
-# (確認圖 confirm: {appear: 名, …} ⇄ confirm: appear + confirm_target)。
 
 FLOW_YAML = "flow.yaml"
 TEMPLATES_DIR = "templates"
@@ -104,23 +86,17 @@ CACHE_DIR = ".cache"
 FLOW_FORMAT = 1
 
 HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "repeat",
-         "branch")   # 一步的開頭鍵 (yaml)
-# 讀檔認得的鍵 (docs/flow-format.md 的欄位表照這些; app/tests/test_flow_format_doc.py 對照)
+         "branch")
 TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy",
             "template_pos", "engine", "steps")
-TARGET_ATTRS = ("within", "pick", "color")            # 找圖目標的屬性 (步驟層、busy、確認圖)
+TARGET_ATTRS = ("within", "pick", "color")
 CALIBRATION_KEYS = ("pair", "baseline", "fallback")
 FALLBACK_KEYS = ("pair", "baseline", "offset")
 SECTION_KEYS = {"repeat": ("repeat", "steps", "on_break"), "branch": ("branch", "on_break")}
-ARM_KEYS = ("if", "then")                             # branch 的一個分支
+ARM_KEYS = ("if", "then")
 
 
 def step_keys(head):
-    """yaml 裡開頭鍵為 head 的一步可以寫的鍵 (含開頭鍵本身).
-
-    步驟由記憶體模型的 `flowdefaults.KEYS` 換算: type/target/confirm_target 換成開頭鍵,
-    找圖三態另有找圖目標的屬性; 區段 (repeat、branch) 見 SECTION_KEYS。
-    """
     if head in SECTION_KEYS:
         return set(SECTION_KEYS[head])
     keys = set(flowdefaults.KEYS[head]) - {"type", "target", "confirm_target"}
@@ -152,17 +128,12 @@ def template_name_problem(name):
 
 
 def new_flow():
-    """空白的新流程 (記憶體模型)."""
     return {"run": flowdefaults.FLOW["run"], "scan_region": None,
             "calibration": None, "busy": None, "template_pos": {},
             "engine": {}, "steps": []}
 
 
 def _flow_level_slots(flow):
-    """流程層級引用範本的位置 [(容器, 索引或鍵)]: 校準對、備用校準對、忙碌指示.
-
-    新增流程層級的找圖設定只要加在這裡, 引用集合與改名就一起照它。
-    """
     cal = flow.get("calibration")
     fb = calibration.fallback_pair(cal) if cal else None
     slots = [(pair, i) for pair in (cal["pair"] if cal else [], fb["pair"] if fb else [])
@@ -181,8 +152,6 @@ def template_refs(flow):
 
 
 def rename_template_refs(flow, old, new):
-    """把整份流程 (記憶體模型) 對 old 的引用改成 new: 步驟的找圖目標與確認圖、校準對、
-    備用校準對、忙碌指示、拍攝位置; 回傳改動筆數."""
     changed = rename_refs(flow.get("steps") or [], old, new)
     for box, key in _flow_level_slots(flow):
         if box[key] == old:
@@ -193,8 +162,6 @@ def rename_template_refs(flow, old, new):
         flow["template_pos"] = {(new if k == old else k): v for k, v in pos.items()}
     return changed
 
-
-# ---------- 讀 ----------
 
 def read_flow(folder):
     """讀流程資料夾的 flow.yaml → 記憶體的流程 (補齊預設); 讀不進來丟 FlowError."""
@@ -215,7 +182,6 @@ def missing_templates(folder, flow):
 
 
 def parse_flow(text):
-    """flow.yaml 的文字 → 記憶體的流程 (補齊預設); 寫錯丟 FlowError (指出步驟編號與鍵)."""
     import yaml
     try:
         doc = yaml.safe_load(text)
@@ -353,7 +319,6 @@ _ENGINE_KEYS = None
 
 
 def _engine(e):
-    """`引擎參數覆蓋`: 鍵名同引擎 default_config.yaml; 不認得的鍵報錯 (拼錯不能變成預設)."""
     global _ENGINE_KEYS
     if not isinstance(e, dict):
         raise FlowError("engine 要是 {引擎參數: 值}")
@@ -368,7 +333,6 @@ def _engine(e):
 
 
 def _yaml_target(where, d, head):
-    """yaml 的找圖目標 ({head: 名, within, pick, color}) → 記憶體的找圖目標."""
     if not isinstance(d, dict):
         raise FlowError(f"{where} 要是 {{{head}: 範本名, …}}")
     tgt = {"template": _name(f"{where} 的 {head}", d.get(head))}
@@ -398,7 +362,6 @@ def _pick(where, p):
 
 
 def _parse_steps(items, out):
-    """巢狀的步驟清單 → 平面標記 (就地 append 到 out); 步驟編號＝out 裡的位置 + 1."""
     for item in items:
         no = len(out) + 1
         where = f"步驟 {no}"
@@ -472,7 +435,6 @@ def _parse_branch(where, item, out):
 
 
 def _parse_step(where, head, item):
-    """一步 (flow-style mapping) → 記憶體的完整步驟."""
     t = head
     s = {"type": t}
     allowed = step_keys(head)
@@ -537,8 +499,6 @@ def _parse_step(where, head, item):
     return flowdefaults.complete(s)
 
 
-# ---------- 寫 ----------
-
 def dump_flow(flow):
     """記憶體的流程 → flow.yaml 的文字 (等於預設的不寫; 一步一行, 行尾 # N 是步驟編號).
 
@@ -582,7 +542,6 @@ def dump_flow(flow):
 
 
 def _flow_style(v):
-    """單行 flow-style YAML (中文名直接當值)."""
     import yaml
     text = yaml.dump(v, allow_unicode=True, default_flow_style=True,
                      sort_keys=False, width=10_000)
@@ -613,7 +572,6 @@ _ORDER = ("offset", "duration", "hold", "confirm", "timeout", "interval", "on_fa
 
 
 def _step_yaml(step):
-    """記憶體的步驟 → yaml 的一步 (開頭的鍵在前, 等於預設的不寫)."""
     s = flowdefaults.strip(step)
     t = step["type"]
     if t in findtarget.FIND_TYPES:
@@ -641,11 +599,6 @@ def _step_yaml(step):
 
 
 def _nest(steps):
-    """平面標記 → 巢狀節點 [(種類, 內容, 步驟編號)] (編號＝平面清單的位置 + 1, 標記也算一號).
-
-    種類: "step" (yaml 的一步)、"repeat" ({repeat, steps, on_break})、
-    "branch" ({arms: [[節點, ...], ...], on_break})。
-    """
     pos = 0
 
     def block(stop):
@@ -767,10 +720,8 @@ def _pngs(folder):
     return [fn for fn in os.listdir(folder) if fn.lower().endswith(".png")]
 
 
-# ================= 開著的流程的範本: templates/ ＋ 快取 =================
-
-SHOTS_DIR = "shots"            # 快取裡還沒存檔的截圖
-REGISTERED_DIR = "registered"  # 快取裡引擎的登錄產物
+SHOTS_DIR = "shots"
+REGISTERED_DIR = "registered"
 
 
 def _same_path(a, b):
@@ -782,30 +733,19 @@ def _inside(path, folder):
 
 
 def clear_unsaved(unsaved_dir):
-    """清空「未存檔」快取 (開新流程、讀取別的流程、重開 app 時)."""
     shutil.rmtree(unsaved_dir, ignore_errors=True)
     os.makedirs(unsaved_dir, exist_ok=True)
 
 
 class FlowTemplates:
-    """一份開著的流程的範本圖在哪裡 + 拍攝位置 (記憶體裡的「本流程的範本」).
-
-    範本名 → 圖檔路徑: 已存檔的在 templates/, 還沒存檔的截圖在快取的 shots/。新增、
-    改名、刪除只動這份對照與快取 (templates/ 不動), `save` 才把流程寫回資料夾。
-    拍攝位置 (flow.yaml 的 template_pos: 截圖當下的中心, 相對`座標基準點`、流程尺度)
-    跟著範本一起改名與刪除。
-    """
-
     def __init__(self, folder, cache):
-        self.folder = folder      # 流程資料夾; None＝還沒第一次存檔的新流程
-        self.cache = cache        # 快取: <流程資料夾>/.cache 或「未存檔」快取
-        self._src = {}            # 範本名 → 圖檔路徑
-        self._pos = {}            # 範本名 → [x, y]
+        self.folder = folder
+        self.cache = cache
+        self._src = {}
+        self._pos = {}
 
     @classmethod
     def open(cls, folder, unsaved_dir, template_pos=None):
-        """開一份流程資料夾: 上次沒存的截圖丟掉 (登錄產物留著, 過期會自己重算),
-        「未存檔」快取清空."""
         clear_unsaved(unsaved_dir)
         folder = os.path.abspath(str(folder))
         cache = os.path.join(folder, CACHE_DIR)
@@ -817,11 +757,8 @@ class FlowTemplates:
 
     @classmethod
     def new(cls, unsaved_dir):
-        """還沒有資料夾的新流程: 用清空的「未存檔」快取."""
         clear_unsaved(unsaved_dir)
         return cls(None, os.path.abspath(str(unsaved_dir)))
-
-    # ---- 位置 ----
 
     @property
     def shots_dir(self):
@@ -831,26 +768,19 @@ class FlowTemplates:
     def registered_dir(self):
         return os.path.join(self.cache, REGISTERED_DIR)
 
-    # ---- 範本 ----
-
     def names(self):
-        """本流程的範本名 (已排序)."""
         return sorted(self._src)
 
     def has(self, name):
         return name in self._src
 
     def path_of(self, name):
-        """範本的圖檔路徑 (還沒登記的名字＝快取 shots/ 裡它會在的位置)."""
         return self._src.get(name) or os.path.join(self.shots_dir, name + ".png")
 
     def images(self):
-        """{範本名: 圖檔路徑}——引擎的`範本清單`與存檔都吃這個."""
         return dict(self._src)
 
     def rescan(self):
-        """重掃 templates/ (被外力動過之後): 新放進來的圖加入, 不見了的拿掉 (快取裡的
-        截圖不動; 同名時截圖優先)。回傳有變動的範本名集合."""
         if self.folder is None:
             return set()
         tdir = os.path.join(self.folder, TEMPLATES_DIR)
@@ -868,20 +798,15 @@ class FlowTemplates:
         return changed
 
     def is_unsaved(self, name):
-        """這張是不是還沒存檔的截圖 (在快取裡, 還沒進 templates/)."""
         return name in self._src and _inside(self._src[name], self.shots_dir)
 
     def reserve(self, name):
-        """保留一個未被占用的範本名 (撞名加序號) 並登記到快取 shots/; 圖由呼叫端寫進
-        `path_of(名稱)` (影像編碼是 app 的事, 只有 `automation.imgio` 碰 cv2)."""
         os.makedirs(self.shots_dir, exist_ok=True)
         final = free_name(clean_name(name) or "template", self._src)
         self._src[final] = os.path.join(self.shots_dir, final + ".png")
         return final
 
     def add(self, name, blob, pos=None):
-        """加一張範本 (bytes 或來源圖檔路徑; 跨流程複製進來的是獨立副本) 進快取;
-        撞名自動加序號。回傳最終採用的範本名。pos＝拍攝位置 (只有本流程自己拍的才有)."""
         data = _blob(blob)
         final = self.reserve(name)
         with open(self._src[final], "wb") as f:
@@ -891,9 +816,6 @@ class FlowTemplates:
         return final
 
     def replace(self, name, blob, pos=None):
-        """以同名換圖 (重截): 新圖進快取 shots/、丟掉該名的登錄產物、拍攝位置換成這次的
-        (pos=None＝這次沒有位置, 舊的也拿掉——它指的是舊圖)。templates/ 的舊圖不動, 存檔
-        時才被覆蓋; 不存檔＝舊圖照舊。名字不在本流程回 False (什麼都不動)."""
         if name not in self._src:
             return False
         data = _blob(blob)
@@ -910,8 +832,6 @@ class FlowTemplates:
         return True
 
     def remove(self, name):
-        """從本流程拿掉一個範本: 快取裡的截圖直接刪, templates/ 的等存檔時才離開;
-        登錄產物與拍攝位置一起丟."""
         path = self._src.pop(name, None)
         if path and _inside(path, self.shots_dir):
             try:
@@ -922,11 +842,6 @@ class FlowTemplates:
         self._pos.pop(name, None)
 
     def rename(self, old, new):
-        """重新命名範本 (撞名加序號); 回傳最終名稱, 來源不存在回傳 None.
-
-        new 要先過 `template_name_problem` (呼叫端擋)。快取裡的截圖跟著改檔名, templates/
-        的圖存檔時才換檔名; 引用的改寫由呼叫端以 `rename_template_refs` 處理。
-        """
         if old not in self._src:
             return None
         final = free_name(new, [n for n in self._src if n != old])
@@ -944,13 +859,9 @@ class FlowTemplates:
         return final
 
     def drop_registered(self, name):
-        """丟棄某範本的登錄產物 (改名、刪除、重截之後; 重建很便宜)."""
         shutil.rmtree(os.path.join(self.registered_dir, name), ignore_errors=True)
 
-    # ---- 拍攝位置 ----
-
     def pos(self):
-        """{範本名: [x, y]} (相對`座標基準點`, 流程尺度)."""
         return {n: list(p) for n, p in self._pos.items()}
 
     def pos_of(self, name):
@@ -961,23 +872,13 @@ class FlowTemplates:
         self._pos[name] = [int(xy[0]), int(xy[1])]
 
     def shift_pos(self, old_anchor, new_anchor, k=1.0):
-        """換`校準對`時所有拍攝位置改成相對新基準點 (同 flowfmt.shift_flow 的換算)."""
         from automation import flowfmt
         self._pos = {n: list(flowfmt.from_screen(flowfmt.to_screen(xy, old_anchor, k),
                                                  new_anchor, k))
                      for n, xy in self._pos.items()}
         return len(self._pos)
 
-    # ---- 存檔 ----
-
     def save(self, flow, folder=None):
-        """把流程寫回資料夾; 回傳被引用卻沒有圖的範本名.
-
-        flow.yaml 整份重寫; 被引用的截圖從快取搬進 templates/; templates/ 裡沒被引用的
-        圖搬回快取的 shots/ (這次編輯期間還在, 重開或讀取別的流程時丟掉), 所以存完
-        templates/ 正好是引用集合。新流程 (還沒有資料夾) 要給 folder: 第一次存檔把
-        「未存檔」快取的登錄產物與其餘截圖搬進新資料夾的 .cache/。
-        """
         first = self.folder is None
         if first and folder is None:
             raise ValueError("新流程第一次存檔要指定資料夾")
@@ -986,7 +887,7 @@ class FlowTemplates:
         target = os.path.abspath(str(folder)) if first else self.folder
         refs = set(template_refs(flow))
         tdir = os.path.join(target, TEMPLATES_DIR)
-        kept = {}   # templates/ 裡沒被引用的: 先複製一份到快取, write_flow 寫完才刪原檔
+        kept = {}
         if not first:
             for n, p in self._src.items():
                 if n not in refs and _inside(p, tdir):
@@ -1023,10 +924,7 @@ class FlowTemplates:
         return missing
 
 
-# ================= 其他流程資料夾 (選範本對話框的來源) =================
-
 def list_flow_folders(root):
-    """root 底下的流程資料夾 (有 flow.yaml 的子資料夾, 已排序)."""
     try:
         entries = sorted(os.listdir(root))
     except OSError:
@@ -1045,7 +943,6 @@ def folder_template_names(folder):
 
 
 def folder_template_bytes(folder, name):
-    """流程資料夾裡某張範本的圖檔內容; 讀不到回 None."""
     try:
         with open(os.path.join(folder, TEMPLATES_DIR, name + ".png"), "rb") as f:
             return f.read()

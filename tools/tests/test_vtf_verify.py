@@ -1,8 +1,3 @@
-"""自我驗證與`待重拍` (拾取檢查三項; 不唯一標待重拍、流程照寫).
-
-用真引擎 (比照引擎端以合成影像跑真引擎的既有測試做法), 只打組裝入口;
-斷言存檔裡的範本名與步驟引用、組裝結果的驗證摘要與報告文字。
-"""
 import pytest
 
 import flowfile
@@ -26,7 +21,6 @@ def saved(res):
 
 
 def images(res):
-    """流程資料夾 templates/ 裡的範本名."""
     import os
     return {fn[:-4] for fn in os.listdir(os.path.join(res["flow_path"], "templates"))}
 
@@ -70,7 +64,6 @@ def test_框到空白處的範本標待重拍_名稱不加前綴只列在報告(
 
 def test_在該點的那一幀找不到的範本標待重拍(demo, engine):
     video, profile = demo
-    # 「確定」只在幀 15-29 出現; 這一步卻說它在第 40 幀 (畫面 C) 點了它
     steps = [find("開始"), find("確定", frame=40), find("下一步")]
 
     res = run(demo_plan(video, profile, steps=steps), engine)
@@ -83,7 +76,7 @@ def test_在該點的那一幀找不到的範本標待重拍(demo, engine):
 def test_在該找不到的幀也匹配到的範本標待重拍原因寫出現前就匹配(demo, engine):
     video, profile = demo
     templates = demo_templates()
-    templates["開始"]["absent"] = [2]     # 幀 2 其實已經有「開始」了
+    templates["開始"]["absent"] = [2]
 
     res = run(demo_plan(video, profile, templates=templates), engine)
 
@@ -95,7 +88,7 @@ def test_在該找不到的幀也匹配到的範本標待重拍原因寫出現�
 def test_該找不到的幀確實沒有時驗證通過(demo, engine):
     video, profile = demo
     templates = demo_templates()
-    templates["確定"]["absent"] = [5, 10]   # 畫面 A 還沒有「確定」
+    templates["確定"]["absent"] = [5, 10]
 
     res = run(demo_plan(video, profile, templates=templates), engine)
 
@@ -103,7 +96,6 @@ def test_該找不到的幀確實沒有時驗證通過(demo, engine):
 
 
 def moving_video(tmp_path):
-    """「開始」先在 (60, 40), 第 10 幀起移到 (200, 180)."""
     btn = BUTTONS["開始"]
     frames = timeline((screen([(btn, 60, 40)], title=True), 10),
                       (screen([(btn, 200, 180)], title=True), 10))
@@ -159,7 +151,6 @@ def test_驗證結果帶每張範本在參考幀實際找到的框(demo, engine)
 
 @pytest.fixture
 def coarse_engine(monkeypatch):
-    """深度驗證模型載不起來的引擎 (降級只剩粗篩)."""
     import subject_detection.verification as verification
     from subject_detection import Engine
 
@@ -199,7 +190,6 @@ def test_只能粗篩時命令列輸出明說驗證不完整(demo, coarse_engine
 
 
 def test_該點的那一幀找到的是別處的同款圖時標待重拍原因寫位置不符(tmp_path, engine):
-    # 第 15 幀起「開始」搬到 (200, 180); 步驟卻說在第 15 幀點了原位置
     video = moving_video(tmp_path)
     profile = make_out(tmp_path)
     templates = {"開始": {"frame": 5, "box": box("開始")}}
@@ -211,10 +201,7 @@ def test_該點的那一幀找到的是別處的同款圖時標待重拍原因�
     assert any("位置不符" in why for why in res["retake"]["開始"])
 
 
-# ---------- `拾取檢查`: 縮放餘裕與唯一 (照固定矩形查) ----------
-
 def twin_video(tmp_path, dx=150):
-    """每一幀都有兩個一模一樣的「開始」(第二個在右邊 dx 處, 同一列)."""
     from vtf_synth import POS
     x, y = POS["開始"]
     frames = [screen([(BUTTONS["開始"], x, y), (BUTTONS["開始"], x + dx, y)],
@@ -234,7 +221,7 @@ def test_同款在固定矩形內_沒設挑選規則_標待重拍原因寫唯一
     video = twin_video(tmp_path)
     out = make_out(tmp_path)
     templates = {"開始": {"frame": 5, "box": box("開始")}}
-    steps = [find("開始", scroll="horizontal")]     # 橫向捲動軸: 框拉到影片兩端, 兩個都在框裡
+    steps = [find("開始", scroll="horizontal")]
     res = run(demo_plan(video, out, steps=steps, templates=templates), engine)
     assert list(res["retake"]) == ["開始"]
     why = res["retake"]["開始"]
@@ -273,7 +260,6 @@ def test_縮放餘裕沒過_標待重拍並寫原因與分數(demo, engine, monk
 
 
 def test_合成按鈕的縮放餘裕本身通過(demo, engine):
-    """真的跑拾取檢查 (沒有樁): 清楚的按鈕縮到 ×0.85 / ×1.15 都還找得到."""
     video, profile = demo
     res = run(demo_plan(video, profile), engine)
     assert res["retake"] == {}

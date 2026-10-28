@@ -1,8 +1,3 @@
-"""`共用矩形` (shared-rect 01–04): 一組同類找圖目標共用一個固定矩形.
-
-只打組裝與補充兩個公開入口; 斷言經 app 讀回的各步 `within`、結果的待確認清單、
-交付報告文字、報錯訊息與「資料夾不變」。合成的「商店」: 容器 SHOP 裡有幾個商品格。
-"""
 import math
 import os
 import shutil
@@ -18,7 +13,7 @@ from vtf_synth import (ANCHOR, VIDEO_H, VIDEO_W, demo_plan, make_button, make_ou
 GOODS = {"甲": make_button(seed=51), "乙": make_button(w=64, h=48, seed=52),
          "丙": make_button(seed=53), "忙": make_button(w=40, h=24, seed=54)}
 GPOS = {"甲": (100, 50), "乙": (220, 130), "丙": (160, 50), "忙": (240, 60)}
-SHOP = [80, 30, 220, 150]           # 容器: x 80–300, y 30–180 (甲、乙、丙、忙都在裡面)
+SHOP = [80, 30, 220, 150]
 WHY = "商品每天換格子，兩排都可能出現"
 
 
@@ -82,7 +77,6 @@ def saved(res):
 
 
 def want_rect(container, boxes, scroll=None, size=(VIDEO_W, VIDEO_H), anchor=ANCHOR):
-    """共用矩形的期望值: 容器每邊外推最大成員框寬高的一半 (進位), 捲動軸拉到兩端, 裁到影片."""
     x, y, w, h = container
     mx = math.ceil(max(b[2] for b in boxes) / 2)
     my = math.ceil(max(b[3] for b in boxes) / 2)
@@ -103,8 +97,6 @@ def report(res, name):
     with open(os.path.join(res["report_path"], name), encoding="utf-8") as f:
         return f.read()
 
-
-# ================= 01 找圖步驟 =================
 
 def test_兩個成員共用一個框_逐字相同_等於容器外推最大成員框一半(tmp_path, engine):
     res = run(tmp_path, engine, [g("甲"), g("乙")])
@@ -127,7 +119,7 @@ def test_共用矩形宣告捲動軸_那一軸到影片兩端(tmp_path, engine):
 
 
 def test_容器貼邊被裁_裁過的一側不報錯(tmp_path, engine):
-    edge = [60, 0, 420, 190]    # 上緣與右緣貼影片邊
+    edge = [60, 0, 420, 190]
     res = run(tmp_path, engine, [g("甲"), g("乙")], rects=shared(box=edge))
     w = saved(res)["steps"][0]["target"]["within"]
     assert w == want_rect(edge, found(res, "甲", "乙"))
@@ -135,7 +127,7 @@ def test_容器貼邊被裁_裁過的一側不報錯(tmp_path, engine):
 
 
 def test_成員挑中的框超出容器_報錯且不產生資料夾(tmp_path, engine):
-    small = [80, 30, 160, 120]   # 乙 (220–284, 130–178) 一部分在外
+    small = [80, 30, 160, 120]
     refused(tmp_path, engine, [g("甲"), g("乙")], r"共用矩形「區」.*「乙」.*第 5 幀.*容器",
             rects=shared(box=small))
 
@@ -160,7 +152,6 @@ def test_計畫寫錯就報錯(tmp_path, engine, steps, rects, match):
 
 
 def test_套上共用矩形後照跑唯一檢查_有挑選規則的略過(tmp_path, engine):
-    # 容器裡有兩個甲 (上排與下排); 單一目標的固定矩形只包得到上排那個
     img = screen([(GOODS["甲"], *GPOS["甲"]), (GOODS["甲"], 100, 130)], title=True)
     video = write_video(tmp_path / "two.mp4", [img] * 20)
     res = run(tmp_path, engine, [g("甲")], names=("甲",), video=video)
@@ -176,8 +167,6 @@ def test_成員不列進捲動待確認_同段沒宣告的照舊列(tmp_path, en
     assert [t for _, t in res["scroll_confirm"]] == ["找圖點擊「乙」"]
     assert [i for i, _ in res["scroll_confirm"]] == [2]
 
-
-# ================= 02 確認圖與忙碌指示 =================
 
 def test_確認圖引用共用矩形_外推量照最大的成員(tmp_path, engine):
     steps = [g("甲", confirm={"appear": "乙", "rect": "區"})]
@@ -202,7 +191,7 @@ def test_確認圖超出容器就報錯(tmp_path, engine):
 
 
 def test_忙碌指示超出容器就報錯(tmp_path, engine):
-    small = [80, 30, 100, 80]    # 忙 (240–280) 在外
+    small = [80, 30, 100, 80]
     refused(tmp_path, engine, [g("甲")], r"共用矩形「區」.*忙碌指示「忙」.*容器",
             rects=shared(box=small), names=("甲", "忙"),
             busy={"template": "忙", "rect": "區"})
@@ -214,8 +203,6 @@ def test_gone與next確認寫rect就報錯(tmp_path, engine, confirm):
     refused(tmp_path, engine, [g("甲", confirm=confirm)], "rect 只用在 appear",
             names=("甲",))
 
-
-# ================= 03 交付報告 =================
 
 def test_區段報告與總覽列出共用矩形(tmp_path, engine):
     res = run(tmp_path, engine, [g("甲"), g("乙", confirm={"appear": "甲", "rect": "區"})])
@@ -251,9 +238,7 @@ def test_忙碌指示成員也列在成員裡(tmp_path, engine):
     assert "忙碌指示「忙」" in report(res, "步驟-甲.md").split("## 共用矩形")[1]
 
 
-# ================= 04 補充 =================
-
-BASE_STEPS = [g("甲"), g("乙"), {"click": [150, 200]}]       # 1 2 3
+BASE_STEPS = [g("甲"), g("乙"), {"click": [150, 200]}]
 
 
 @pytest.fixture(scope="module")

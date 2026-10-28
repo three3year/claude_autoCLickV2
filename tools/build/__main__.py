@@ -1,4 +1,3 @@
-"""`python tools/build [--dry-run]` 的進入點."""
 import sys
 from pathlib import Path
 

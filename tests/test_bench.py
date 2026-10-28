@@ -1,12 +1,3 @@
-"""Ticket 02 — bench tool: given a known case set, the numbers are right.
-
-Case contract: every case carries its own `template.png`, so the bench needs
-no template library at all (ADR 0006) — these tests write nothing but case
-folders. benchmark-rebuild 01: the bench is handed the benchmark folder
-itself (default: the repo's `benchmark/`), queries with the case's expected
-scale, uses the engine's built-in defaults only, and reports known failures
-apart from the rest.
-"""
 from __future__ import annotations
 
 import io
@@ -45,21 +36,16 @@ def test_bench_counts_correct_miss_and_false_alarm(tmp_path):
     th, tw = tpl.shape[:2]
     bench_dir = tmp_path / "benchmark"
 
-    # correct: subject pasted where expected
     scene1 = paste(make_scene(seed=60), tpl, 200, 100)
     _write_case(bench_dir, "case_correct", scene1, tpl, "present",
                 center=(200 + tw / 2, 100 + th / 2))
-    # miss: expected present but subject not in scene
     scene2 = make_scene(seed=61)
     _write_case(bench_dir, "case_miss", scene2, tpl, "present",
                 center=(320, 180))
-    # correct absent: clean negative
     scene3 = make_scene(seed=62)
     _write_case(bench_dir, "case_absent_ok", scene3, tpl, "absent")
-    # false alarm: declared absent but the subject actually sits in the scene
     scene4 = paste(make_scene(seed=63), tpl, 50, 50)
     _write_case(bench_dir, "case_false_alarm", scene4, tpl, "absent")
-    # false alarm (wrong position): present far from the expected center
     scene5 = paste(make_scene(seed=64), tpl, 400, 250)
     _write_case(bench_dir, "case_wrong_pos", scene5, tpl, "present",
                 center=(50, 50))
@@ -110,7 +96,6 @@ def test_沒有案例_結束碼失敗_不能把打錯路徑當成沒退步(tmp_p
 
 
 def test_underscore_folders_are_assets_not_cases(tmp_path):
-    """登錄產物與素材都住在 _ 開頭的資料夾裡, 不能被當成 case."""
     tpl = make_template(seed=13)
     bench_dir = tmp_path / "benchmark"
     _write_case(bench_dir, "real_case", paste(make_scene(seed=66), tpl, 5, 5),
@@ -121,7 +106,6 @@ def test_underscore_folders_are_assets_not_cases(tmp_path):
 
 
 def test_case_may_name_its_own_template_and_screenshot_files(tmp_path):
-    """檔名可自訂 (預設 template.png / screenshot.png), 加 case 仍是丟檔案."""
     tpl = make_template(seed=14)
     case = tmp_path / "benchmark" / "custom"
     imwrite(case / "shot.png", paste(make_scene(seed=68), tpl, 30, 40))
@@ -137,7 +121,6 @@ def test_case_may_name_its_own_template_and_screenshot_files(tmp_path):
 
 
 def test_centers列出每個同款_全部匹配到且沒有多的才算對(tmp_path):
-    """同款多張的 case: expect 的 centers 列出每一個, 查詢要剛好回報這些匹配."""
     tpl = make_template(seed=15)
     th, tw = tpl.shape[:2]
     bench_dir = tmp_path / "benchmark"
@@ -162,7 +145,6 @@ def test_centers列出每個同款_全部匹配到且沒有多的才算對(tmp_p
 
 
 class _SpyEngine:
-    """Records what the bench hands the engine; queries go to the real one."""
 
     def __init__(self, engine):
         self._engine = engine
@@ -191,7 +173,6 @@ def _present_case(bench_dir, name, seed, **extra):
 
 
 def _missed_case(bench_dir, name, seed, **extra):
-    """expected present, but the subject is not in the scene → miss."""
     tpl = make_template(seed=seed)
     _write_case(bench_dir, name, make_scene(seed=seed + 50), tpl, "present",
                 center=(320, 180), **extra)
@@ -223,7 +204,6 @@ def test_預期尺度_案例寫了就傳它_沒寫傳1(engine, tmp_path):
 def test_資料夾裡的設定檔不讀_只用引擎內建預設(engine, tmp_path):
     bench_dir = tmp_path / "benchmark"
     _present_case(bench_dir, "case", seed=23)
-    # 讀了它的話門檻高到什麼都找不到
     (bench_dir / "config.yaml").write_text(yaml.safe_dump(
         {"match_threshold": 0.999, "verify_threshold": 0.999}),
         encoding="utf-8")
@@ -257,7 +237,6 @@ def test_已知失敗沒過_不算其他案例的失敗_列在已知失敗區(en
 
 
 def test_已知失敗沒寫原因也算已知失敗(engine, tmp_path):
-    """`known_failure:` 後面空著 (YAML 讀成 None) 仍是已知失敗, 不算其他案例的失敗."""
     bench_dir = tmp_path / "benchmark"
     _missed_case(bench_dir, "weak", seed=35, known_failure=None)
 
@@ -322,7 +301,6 @@ def test_來源欄位讀得進來_不影響判定(engine, tmp_path):
 
 
 def test_輸出被導向到代碼頁編碼_簡中案例名照樣印出(monkeypatch, tmp_path):
-    # 管線／檔案的預設編碼是系統代碼頁 (cp950), 編不出簡中字
     bench_dir = tmp_path / "benchmark"
     _present_case(bench_dir, "multi05_cn_访问基建", seed=37)
     raw = io.BytesIO()
@@ -335,7 +313,6 @@ def test_輸出被導向到代碼頁編碼_簡中案例名照樣印出(monkeypat
 
 def test_不帶參數就跑repo的benchmark資料夾(monkeypatch, tmp_path):
     assert bench.DEFAULT_BENCH_DIR == REPO / "benchmark"
-    # 預設資料夾換成一個只有沒過案例的: 不帶參數跑的就是它
     default = tmp_path / "benchmark"
     _missed_case(default, "bad", seed=36)
     monkeypatch.setattr(bench, "DEFAULT_BENCH_DIR", default)

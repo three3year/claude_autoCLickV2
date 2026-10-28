@@ -1,27 +1,3 @@
-"""無頭測試用的假畫面／假輸入, 讓執行器可以跑完整份流程而不碰真實螢幕與滑鼠.
-
-用法::
-
-    def test_something(harness):
-        harness.vision.plan("a.png", [None, (500, 400)])  # 第一次沒找到, 第二次起找到
-        harness.run([find("a.png")])
-        assert harness.clicks() == [(500, 400)]
-
-設計要點:
-
-- 偵測查詢走 runner 的偵測接縫 (建構時注入的 detector), 假件形狀＝引擎的
-  query(範本名, 搜尋區域) → QueryResult——這是全 repo 唯一的假件點。
-- 其餘作業系統邊界 (螢幕擷取、滑鼠鍵盤) 以模組屬性替換, 沿用專案既有手法
-  (見 app/CLAUDE.md「測 runner 點擊邏輯時 monkeypatch
-  automation.runner.win.click」)。
-- 時間用虛擬時鐘, `等待` 不真的睡, 整份測試在數秒內跑完。
-- 每次執行開頭都會`校準` (ADR 0009、0012): `run()` 預設交一對校準圖 (CAL_PAIR) 給
-  執行器, 並在畫面上擺好讓量出來的`畫面倍率`剛好是 `scale` (預設 1)、`座標基準點`
-  剛好在搜尋範圍左上角 (預設範圍 (0,0) 起 → 基準點 (0,0), 絕對座標的數字就是
-  螢幕座標)——不在意校準的測試照舊寫; 要測校準本身就自己給 `calibration=` 與 plan,
-  要測基準點就用 `anchor=` 指定它的螢幕位置。
-- 斷言對象是「事件序列」——誰在什麼順序做了什麼——不是內部欄位。
-"""
 import os
 import sys
 import threading
@@ -150,21 +126,6 @@ def miss(stage, score):
 
 
 class Vision:
-    """假的螢幕擷取與偵測查詢 (形狀＝引擎的 query, 回 QueryResult).
-
-    每個`範本`名稱可安排一串逐次結果, 一次查詢消耗一項, 最後一項無限重複:
-
-        plan("a.png", [None, None, (500, 400)])  # 前兩次沒找到, 第三次起找到
-        plan("card", [[(100, 50), (300, 50, 0.95)]])  # 一次查詢兩個匹配
-
-    None = 沒找到; (x, y) = 在該絕對座標 (框中心) 找到; 一串位置 = 畫面上同時
-    有這幾個匹配 (可帶第三個值當分數, 預設 0.99; 第四個值當比色分數, 預設
-    0.99——要求比色時低於 COLOR_THRESHOLD 的不算匹配, 同引擎)。只有中心落在這次查詢的
-    畫面 (含`限定範圍`裁切) 內的匹配才會被回報。未安排的`範本`一律在 default
-    座標找到。`miss("verify", 0.72)` = 沒找到、卡在那一關、該關最高分 (同引擎的
-    failed/score)。
-    """
-
     def __init__(self, default=(1000, 500), size=(40, 20), clock=None):
         self.default = default
         self.size = size
@@ -424,12 +385,6 @@ class Inline:
 
 
 class Held:
-    """扣住背景段, release() 才放行 (一路做到這件辨識的最後一段): 斷言`辨識中`當下的樣子.
-
-    用法: `app.recognition.executor = Held()`; 操作 → 斷言反灰、「辨識中…」→
-    `executor.release()` → 斷言結果。
-    """
-
     def __init__(self):
         self.held = []
 

@@ -1,9 +1,3 @@
-"""find-target 票 02 — 一次查詢回報所有匹配 (公開 API: Engine.query).
-
-查詢的結果是主體在搜尋區域中的**所有**匹配 (零到多個), 每個帶邊界框與分數;
-多個匹配時取哪一個是呼叫端的事 (ADR 0007)。`found/box/score` 保留為「分數
-最高的那個匹配」, 既有呼叫端不必改。
-"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -89,13 +83,11 @@ def test_有匹配時沒有未過的關卡(engine, tmp_path):
 
 
 def real_case(name):
-    """基準測試集 (repo 的 benchmark/) 裡的真實影格 case: (模板圖, 截圖, expect)."""
     case = next(c for c in load_cases(BENCH) if c.name == name)
     return case.template_path, imread(case.screenshot_path), case.expect
 
 
 def test_真實影格_小圖示不被別的尺度的雜訊峰擠出候選(engine, tmp_path):
-    """範本取自在用流程, 一定要找到: 每個尺度收多個峰值後, 單一實例的最佳峰仍要在候選裡."""
     for name in ("pos02_cn_待办铃铛_demo5f416", "pos08_tw_生產面板箭頭_demo2f705",
                  "conf08_tw_標題列圖示_demo2f1152"):
         tpl, scene, expect = real_case(name)
@@ -106,7 +98,6 @@ def test_真實影格_小圖示不被別的尺度的雜訊峰擠出候選(engine
 
 
 def test_真實影格_商店同款多格全部回報(engine, tmp_path):
-    """同款多格全部是匹配 (不開比色時售罄的同款也會進來——那是比色的事)."""
     for name in ("multi01_cn_採購_聚酸酯_demo5f3300", "multi03_cn_採購_聚酸酯_demo5f3820",
                  "multi07_tw_採購_初級作戰記錄_demo2f2880"):
         tpl, scene, expect = real_case(name)
@@ -118,11 +109,6 @@ def test_真實影格_商店同款多格全部回報(engine, tmp_path):
 
 
 def test_真實影格_預期尺度1_開比色仍找到且框與全掃一致(engine, tmp_path):
-    """flow-scale 票 01: 流程尺度下執行 (倍率 1) 時引擎只掃 1.0 附近; 網格對準 1.0,
-    框不偏、比色照樣過門檻 (沒對準時框偏 2～4px, 比色會掉到門檻下).
-
-    範本取自在用流程 (同一客戶端、同一倍率), 所以對準 1.0 的框就是範本原尺寸;
-    全掃的網格沒有一格落在 1.0, 框可能差 1px——位置與全掃一致即可."""
     for name in ("color04_cn_採購_聚酸酯_demo6f3532", "color10_tw_採購_初級作戰記錄_demo2f3020",
                  "color01_cn_全部收取_demo5f1096"):
         tpl, scene, expect = real_case(name)

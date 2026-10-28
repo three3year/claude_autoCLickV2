@@ -1,5 +1,3 @@
-"""Windows 滑鼠 / 鍵盤 / 螢幕資訊
-(ctypes, DPI-aware, 支援多螢幕虛擬桌面座標)"""
 import ctypes
 import os
 import threading
@@ -13,7 +11,7 @@ kernel32 = ctypes.windll.kernel32
 def set_dpi_aware():
     """讓本程序以實體像素運作, 使 mss 截圖座標與 SetCursorPos 座標一致"""
     try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PER_MONITOR_DPI_AWARE
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
     except Exception:
         try:
             user32.SetProcessDPIAware()
@@ -88,7 +86,7 @@ user32.WindowFromPoint.restype = wintypes.HWND
 user32.MonitorFromPoint.argtypes = [_POINT, ctypes.c_ulong]
 user32.MonitorFromPoint.restype = wintypes.HMONITOR
 # 回傳視窗代號的函式一律宣告 restype: 預設的 c_int 會把代號截斷/符號延伸,
-# 比對就會失準 (被遮蓋偵測的 top == hwnd 比對因此恆判失敗)
+# 比對就會失準
 user32.GetAncestor.restype = wintypes.HWND
 
 
@@ -121,8 +119,6 @@ def is_window_covered(tk_winfo_id):
                 return False
     return True
 
-
-# ---- 視窗變動事件掛勾 (供「被遮蓋」偵測, 免定時掃描) ----
 
 EVENT_SYSTEM_FOREGROUND = 0x0003
 EVENT_SYSTEM_MINIMIZESTART = 0x0016
@@ -198,7 +194,6 @@ _BUTTON_FLAGS = {
 }
 MOUSEEVENTF_MOVE = 0x0001
 
-# ---- SendInput 滑鼠注入 (取代 legacy mouse_event) ----
 INPUT_MOUSE = 0
 _ULONG_PTR = ctypes.c_size_t
 
@@ -221,7 +216,6 @@ user32.SendInput.restype = ctypes.c_uint
 
 
 def _send_button(flag):
-    """送出一個滑鼠按鍵事件 (按下或放開) 於目前游標位置."""
     inp = _INPUT()
     inp.type = INPUT_MOUSE
     inp.mi = _MOUSEINPUT(0, 0, 0, flag, 0, 0)
@@ -271,8 +265,6 @@ def park(x, y):
 # 滑鼠按鍵「放開後」的預設保險停留秒數: 點擊事件送出後若立刻移動游標
 # (下一個座標點擊的 move、找圖前的移開游標等), 目標程式或輸入防護層
 # 可能還沒消化完點擊就看到位移, 把點擊當成滑動或直接丟棄。
-# 所有點擊/拖曳功能結束前一律預設停留這段時間;
-# 要調整點擊時序改這裡或傳 post 參數覆寫, 不要在 runner 加 sleep。
 POST_CLICK_DELAY = 0.4
 
 
@@ -282,8 +274,8 @@ def click(x, y, button="left", clicks=1, interval=0.06, settle=0.15,
     post: 放開後的保險停留秒數, 避免下一動作 (找圖移開游標等)
     來得太快, 目標程式還沒收到完整點擊."""
     down, up = _BUTTON_FLAGS.get(button, _BUTTON_FLAGS["left"])
-    move(x, y)         # 移到目標並確認到位, 按鍵才不會落在舊位置
-    _send_hover()      # 瞬移不產生輸入事件, 補一個讓 hover 狀態生效
+    move(x, y)
+    _send_hover()
     time.sleep(settle)
     for i in range(max(1, int(clicks))):
         _send_button(down)
@@ -308,7 +300,7 @@ def drag(x1, y1, x2, y2, button="left", duration_ms=300, hold_ms=0,
     time.sleep(0.15)
     _send_button(down)
     time.sleep(0.05)
-    n = max(2, int(duration_ms / 15))  # 約每 15ms 一步
+    n = max(2, int(duration_ms / 15))
     for i in range(1, n + 1):
         move(x1 + (x2 - x1) * i / n, y1 + (y2 - y1) * i / n)
         time.sleep(duration_ms / 1000.0 / n)

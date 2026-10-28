@@ -167,8 +167,6 @@ def test_收合的新增選單列出全部九項_點了新增對應種類(main_a
     assert list(items) == [label_of(t) for t in (
         "find_click", "click", "drag", "wait", "repeat_start", "repeat_end",
         "branch_start", "branch_or", "branch_end")]
-    # 直接執行該項的命令: menu.invoke 在 Windows 會留下選單訊息, 下一個測試的選單
-    # 用到同一個命令編號時被誤觸發 (開出步驟對話框卡住)
     menu.tk.call(menu.entrycget(items[label_of("branch_or")], "command"))
     assert [s["type"] for s in a.steps] == ["branch_or"]
     monkeypatch.setattr(ui_dialogs, "edit_step", lambda app, s: dict(s))

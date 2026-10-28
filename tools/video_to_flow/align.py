@@ -1,14 +1,3 @@
-"""`對齊圖`: 補充影片裡清單捲在別處時, 量出`對齊位移`並套到插入段 (詞彙見 app/GLOSSARY.md).
-
-全部在`流程尺度` (計畫已 ÷影片倍率), 在原點推算之前::
-
-    何時必填 (require) → 核對參考步驟 (reference)、插入段的區段 (check_segment) → 量位移 (measure_shift) →
-    套用 (apply: 第一次拖曳之前平移、第一次拖曳吸收、之後照影片)
-
-執行時位置＝參考步驟`固定矩形`的中心; 影片位置＝align.frame 那一幀上離 at 最近的匹配;
-位移＝執行時 − 影片。套用後的計畫位置是執行時的位置, 但找圖仍在影片影格上挑框——每步的
-位移交給 `Checker.locate_target(shift=)` 換回影片位置去挑, 挑中的框再加回位移。
-"""
 from __future__ import annotations
 
 import math
@@ -20,7 +9,7 @@ from .errors import ToolError
 from .geom import center
 from .plan import scroll_of
 
-MAX_RATIO = 6   # 參考步驟的框在捲動軸上最多是範本該軸的幾倍 (中心才代表位置)
+MAX_RATIO = 6
 _AXIS = {"vertical": 1, "horizontal": 0}
 _AXIS_ZH = {"vertical": "直向", "horizontal": "橫向"}
 
@@ -30,12 +19,10 @@ def _err(msg):
 
 
 def first_drag(steps):
-    """插入段 (平面, 含巢狀區段) 第一個拖曳的索引; 沒有＝None."""
     return next((i for i, s in enumerate(steps) if s["type"] == "drag"), None)
 
 
 def scroll_axis(p):
-    """捲動軸: 第一次拖曳的主要方向; 沒有拖曳時取找圖宣告的捲動軸; 都沒有＝None."""
     i = first_drag(p.steps)
     if i is not None:
         s = p.steps[i]
@@ -45,7 +32,6 @@ def scroll_axis(p):
 
 
 def require(p):
-    """插入段有拖曳、或有找圖宣告了捲動軸, 計畫就得寫 align (刻意不對齊寫 align: null)."""
     if p.align_set:
         return
     if first_drag(p.steps) is not None:
@@ -61,7 +47,6 @@ def require(p):
 
 
 def reference(p, old, pos, existing, label):
-    """核對 align.step: 插入點之前、找這張既有範本、有固定矩形 → 參考步驟的找圖目標."""
     a = p.align
     n = a["step"]
     if a["find"] not in existing:
@@ -83,9 +68,6 @@ def reference(p, old, pos, existing, label):
 
 
 def check_segment(p):
-    """「第一次拖曳之前／之後」要對每一條執行路徑都成立: 插進重複區段 (into)、第一次拖曳在
-    重複區段裡 (每一輪都會拖縮短後的距離)、第一次拖曳所在的分岔後面還有別的分支 (那些分支
-    沒拖, 卻會被當成拖完) 都不支援 → 報錯."""
     if p.into is not None:
         _err("into（插進重複區段）不能對齊：每一輪開始時清單捲的位置不同——插在區段外，或寫 "
              "align: null 並請使用者從插入點的畫面錄")
@@ -101,7 +83,7 @@ def check_segment(p):
     if "repeat_start" in stack:
         _err("插入段的第一次拖曳在重複區段裡：每一輪都會拖同一段縮短後的距離——把這段拆成"
              "區段外先拖一次，或寫 align: null 並請使用者從插入點的畫面錄")
-    if stack:   # 拖曳所在的分岔 (最內層): 拖曳之後同一層還有「或」＝還有別的分支
+    if stack:
         depth = 0
         for s in p.steps[fd + 1:]:
             t = s["type"]
@@ -118,14 +100,13 @@ def check_segment(p):
 
 @dataclass
 class Shift:
-    d: tuple            # 對齊位移 (執行時 − 影片), 流程尺度
-    video: tuple        # 對齊圖在影片裡的中心 (流程尺度的影格座標)
-    runtime: tuple      # 對齊圖執行時的位置 (參考步驟固定矩形的中心, 同一座標)
-    axis: str | None    # 捲動軸
+    d: tuple
+    video: tuple
+    runtime: tuple
+    axis: str | None
 
 
 def measure_shift(p, tgt, tpl_size, frames, detector, anchor):
-    """量對齊位移 (p 已是流程尺度; tpl_size: 對齊圖範本的 (寬, 高))."""
     a = p.align
     w, h = tpl_size
     ax = scroll_axis(p)
@@ -171,11 +152,6 @@ def _add(v, d):
 
 
 def apply(p, d):
-    """位移套到插入段 → (新計畫, 每步的位移 [(dx, dy)], 第一次拖曳 (舊距離, 新距離) 或 None).
-
-    第一次拖曳之前的位置 (點擊、找圖的 at、pick near) 加位移; 第一次拖曳起點加位移, 距離減掉
-    位移在拖曳方向上的分量 (清單停到影片裡拖完的狀態); 之後照影片。沒有拖曳＝整段平移。
-    """
     fd = first_drag(p.steps)
     end = len(p.steps) if fd is None else fd
     steps, evidence, shifts = [], [], []

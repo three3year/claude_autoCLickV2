@@ -81,7 +81,6 @@ class Case:
 
     @property
     def known_failure(self) -> str | None:
-        """The reason text; a `known_failure:` key left empty still marks one."""
         if "known_failure" not in self.expect:
             return None
         return str(self.expect["known_failure"] or "(沒寫原因)")
@@ -90,14 +89,14 @@ class Case:
 @dataclass
 class CaseResult:
     name: str
-    expected: str            # 'present' | 'absent'
-    verdict: str             # 'correct' | 'miss' | 'false_alarm'
+    expected: str
+    verdict: str
     found: bool
     score: float
     box: tuple | None
     elapsed_ms: float
     debug: dict = field(default_factory=dict)
-    known_failure: str | None = None   # why it is a known engine weakness
+    known_failure: str | None = None
 
     @property
     def is_known_failure(self) -> bool:
@@ -134,7 +133,6 @@ class BenchReport:
 
     @property
     def regular(self) -> list[CaseResult]:
-        """Cases that are not known failures (the ones that decide `ok`)."""
         return [c for c in self.cases if not c.is_known_failure]
 
     @property
@@ -143,7 +141,6 @@ class BenchReport:
 
     @property
     def ok(self) -> bool:
-        """Every case that is not a known failure is correct."""
         return all(c.verdict == "correct" for c in self.regular)
 
 
@@ -177,7 +174,6 @@ def run_case(engine: Engine, library, case: Case) -> CaseResult:
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     if expected == "present" and "centers" in expect:
-        # 同款多張: 每個列出的中心都要有匹配對上, 且沒有沒列的匹配
         got = [(x + w / 2, y + h / 2) for x, y, w, h in
                (m.box for m in res.matches)]
 
@@ -216,8 +212,6 @@ def run_bench(bench_dir: str | Path | None = None,
     bench_dir = Path(bench_dir) if bench_dir is not None else DEFAULT_BENCH_DIR
     engine = engine or Engine()
     cases = load_cases(bench_dir)
-    # 每個 case 自帶模板圖 → 範本清單就是「case 名 → 該 case 的模板圖」;
-    # 引擎參數只用內建預設 (量的是 app 出廠的行為)
     library = engine.load_templates(
         {c.name: c.template_path for c in cases},
         config=load_default_config(),
@@ -276,7 +270,6 @@ def main(argv: list[str] | None = None) -> int:
     if not sys.stdout.isatty() and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     if not report.cases:
-        # 空集合不能算「沒退步」: 多半是路徑打錯
         print(f"沒有案例: {bench_dir}")
         return 1
     print(format_report(report, verbose=args.verbose))

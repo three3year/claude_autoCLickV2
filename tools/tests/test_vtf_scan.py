@@ -1,8 +1,3 @@
-"""票 06 — 掃描: 示範影片 → 候選點擊 + 縮圖.
-
-只打掃描入口 (`video_to_flow.scan` 與命令列); 輸入是 OpenCV 合成的影片
-(假按鈕、假游標、在指定幀畫假點擊特效), 斷言候選清單、輸出檔案。
-"""
 import json
 import subprocess
 import sys
@@ -37,7 +32,6 @@ def clicks_video(tmp_path):
 
 @pytest.fixture
 def quiet_video(tmp_path):
-    """游標照樣移動、畫面照樣切換, 但沒有任何點擊特效."""
     return scan_video(tmp_path / "quiet.mp4", clicks=CLICKS, effect=False)
 
 

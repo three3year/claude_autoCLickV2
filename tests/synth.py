@@ -1,16 +1,5 @@
-"""Shared test helpers: build tiny synthetic template folders on disk.
-
-Tests exercise the engine only through its public API (load_templates +
-query), so these helpers create real folders (templates/ + config.yaml) in
-tmp_path, then play the caller's part: scan the folder into a **template
-list**, merge the folder's config.yaml over the engine defaults, and hand both
-to the engine (`load_library`). The engine itself never scans or reads a
-config file — `template_list` / `load_config` here are the test's stand-in
-for whatever the real caller does (the app hands over its flow's templates
-and `engine:` overrides; bench uses per-case images and the defaults).
-
-(Lives outside conftest.py so the name stays unique: app/tests/ has its own
-conftest.py, and `from conftest import ...` would resolve ambiguously.)
+"""Lives outside conftest.py so the name stays unique: app/tests/ has its own
+conftest.py, and `from conftest import ...` would resolve ambiguously.
 """
 from __future__ import annotations
 
@@ -20,15 +9,13 @@ import cv2
 import numpy as np
 import yaml
 
-from subject_detection.imio import imwrite  # noqa: F401  (shared helper)
+from subject_detection.imio import imwrite
 from subject_detection.library import load_default_config
 
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
 
 def load_config(folder: Path | None) -> dict:
-    """Engine defaults overlaid by `<folder>/config.yaml` when present — the
-    caller's job (the engine reads no config file, ADR 0015)."""
     config = load_default_config()
     if folder is None:
         return config
@@ -41,7 +28,6 @@ rng = np.random.default_rng(1234)
 
 
 def make_template(w: int = 48, h: int = 36, seed: int = 0) -> np.ndarray:
-    """A distinctive little UI-like crop: colored panel, border, glyph strokes."""
     r = np.random.default_rng(seed)
     img = np.full((h, w, 3), r.integers(30, 90, 3, dtype=np.uint8), dtype=np.uint8)
     cv2.rectangle(img, (1, 1), (w - 2, h - 2), tuple(int(c) for c in r.integers(150, 255, 3)), 2)
@@ -55,7 +41,6 @@ def make_template(w: int = 48, h: int = 36, seed: int = 0) -> np.ndarray:
 
 
 def make_scene(w: int = 640, h: int = 360, seed: int = 99) -> np.ndarray:
-    """A busy background so false matches are plausible but wrong."""
     r = np.random.default_rng(seed)
     img = r.integers(0, 120, (h, w, 3), dtype=np.uint8)
     img = cv2.GaussianBlur(img, (0, 0), 3)
@@ -75,8 +60,6 @@ def paste(scene: np.ndarray, patch: np.ndarray, x: int, y: int) -> np.ndarray:
 
 def write_profile(root: Path, templates: dict[str, np.ndarray],
                   config: dict | None = None) -> Path:
-    """Create a template folder (templates/ + config.yaml): one image per
-    template (ADR 0016)."""
     profile = root / "profile"
     tdir = profile / "templates"
     tdir.mkdir(parents=True, exist_ok=True)
@@ -88,11 +71,6 @@ def write_profile(root: Path, templates: dict[str, np.ndarray],
 
 
 def template_list(templates_dir: Path) -> dict[str, Path]:
-    """Scan an image folder into a template list: {name: path}.
-
-    Name = relative path without extension. This is the caller's job, not
-    the engine's.
-    """
     templates_dir = Path(templates_dir)
     found: dict[str, Path] = {}
     if templates_dir.is_dir():
@@ -104,7 +82,6 @@ def template_list(templates_dir: Path) -> dict[str, Path]:
 
 
 def load_library(engine, profile_dir: Path):
-    """Play the caller: hand the engine this folder's template list and config."""
     profile_dir = Path(profile_dir)
     return engine.load_templates(template_list(profile_dir / "templates"),
                                  config=load_config(profile_dir),

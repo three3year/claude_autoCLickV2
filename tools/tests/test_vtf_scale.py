@@ -1,8 +1,4 @@
-"""影片尺度就是流程尺度 (ADR 0009); 新流程必須有校準對 (v2f-rules-agent-docs 05).
-
-`校準對`由計畫指名, `基準距離`在影片影格上量; 沒寫或量不到主對＝報錯、不組裝,
-備用對量不到只是不帶備用對。只打組裝入口; 斷言流程裡的偏移、校準資料與報告文字。
-"""
+"""影片尺度就是流程尺度 (ADR 0009)."""
 import os
 
 import cv2
@@ -22,7 +18,6 @@ def title_center(name):
 
 
 def off(name, dx, dy):
-    """點在按鈕中心旁 (dx, dy) 的找圖點擊."""
     cx, cy = center(name)
     return find(name, at=[cx + dx, cy + dy])
 
@@ -76,7 +71,7 @@ def test_沒有指定校準對_報錯不組裝(tmp_path, engine):
 
 
 def test_校準對量不到_報錯不組裝(tmp_path, engine):
-    p = plan(tmp_path, calibration={"pair": ["開始", "關閉"], "frame": 35})  # 第 35 幀沒有「開始」
+    p = plan(tmp_path, calibration={"pair": ["開始", "關閉"], "frame": 35})
     before = snapshot(p["out"])
     with pytest.raises(video_to_flow.ToolError, match="校準對量不到.*開始"):
         video_to_flow.assemble(p, engine=engine)
@@ -85,7 +80,6 @@ def test_校準對量不到_報錯不組裝(tmp_path, engine):
 
 def test_自我驗證的查詢帶預期尺度1_縮放餘裕查兩端_量校準對用全範圍(tmp_path, engine):
     class Spy:
-        """真引擎外面包一層, 記下每次查詢收到的預期尺度."""
 
         def __init__(self, inner):
             self.inner, self.seen = inner, []
@@ -106,10 +100,7 @@ def test_自我驗證的查詢帶預期尺度1_縮放餘裕查兩端_量校準�
     assert None in cal, "量基準距離與執行開頭的校準一樣用全範圍查"
 
 
-# ---------- 備用校準對 ----------
-
 def test_計畫寫備用組_同一幀量兩組_偏移對齊座標基準點(tmp_path, engine):
-    """主對＝畫面內的「開始」＋「關閉」, 備用＝「圖示」＋「關閉」."""
     p = plan(tmp_path, calibration={"pair": ["開始", "關閉"],
                                     "fallback": {"pair": ["圖示", "關閉"]}})
     res = video_to_flow.assemble(p, engine=engine)

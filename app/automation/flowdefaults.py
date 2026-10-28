@@ -1,18 +1,15 @@
 """流程的「沒寫＝」表: flow.yaml 省略的欄位在記憶體裡是什麼值 (唯一的一份預設).
 
 讀檔與新增步驟時用 `complete` 補成完整步驟, 存檔時用 `strip` 把等於預設的拿掉;
-執行器、編輯器、影片轉流程工具都讀完整步驟, 不各自帶預設 (ADR 0014; 給寫流程的人看的
-欄位表在 docs/flow-format.md, app/tests/test_flow_format_doc.py 對照——改這裡要同步它)。
+執行器、編輯器、影片轉流程工具都讀完整步驟, 不各自帶預設 (ADR 0014)。
 
 `timeout` / `interval` / `on_fail` 只屬於有等待的步驟: 找圖三態, 以及設了`生效確認`的
 座標點擊與拖曳。沒有等待的步驟不補、也不留這三個欄位。
 """
 from .findtarget import FIND_TYPES, POINTER_TYPES
 
-# 有等待的步驟: 逾時 (秒)、輪詢間隔 (秒)、`找不到時`
 WAIT = {"timeout": 5, "interval": 0.3, "on_fail": "stop"}
 
-# 各種步驟的其餘欄位 (不含 WAIT); 沒列的種類 (wait、repeat_start、分岔開頭與或) 沒有預設
 STEP = {
     "find_click": {"offset": [0, 0], "confirm": "none", "busy_check": False,
                    "update_origin": True},
@@ -24,10 +21,8 @@ STEP = {
     "branch_end": {"on_break": "continue"},
 }
 
-# 流程層級: 沒寫的 scan_region (全螢幕)、calibration、busy 是沒有, template_pos、engine 是空
 FLOW = {"run": 1}
 
-# 各種步驟可以帶的欄位 (記憶體模型; 讀檔驗證與編輯器換種類時用)
 _CONFIRM_KEYS = {"confirm", "confirm_target", "timeout", "interval", "on_fail",
                  "busy_check"}
 _FIND_KEYS = {"type", "target", "offset", "timeout", "interval", "on_fail",

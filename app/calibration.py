@@ -1,25 +1,3 @@
-"""`校準`與`畫面倍率`、`座標基準點`: 純邏輯集中地 (GUI 無關; 詞彙見 app/GLOSSARY.md
-「尺度與畫面倍率」「座標與原點」).
-
-一份流程一個尺度 (ADR 0009): `校準對`與`基準距離`住在流程裡 (flow.yaml 的
-`calibration` 段), 別處不存任何校準資料。一次`校準`量出兩個值 (ADR 0012):
-中心距離 ÷ 基準距離＝`畫面倍率`, 第一張圖的中心＝`座標基準點`的螢幕位置。兩者都只屬於
-一次執行 (執行器開頭自動量) 或一次拾取 (編輯器每次拾取當下量), 不落地::
-
-    calibration   {"pair": [兩個範本名], "baseline": 基準距離 (流程尺度, px)}
-
-`備用校準對` (可不設): 主對任一張找不到 (彈窗蓋住、不在主畫面) 時改量的第二組, 住在
-校準資料的 `fallback` 鍵::
-
-    calibration   {"pair": [...], "baseline": ...,
-                   "fallback": {"pair": [兩個範本名], "baseline": 它自己的基準距離,
-                                "offset": [dx, dy]}}   備用第一張中心 → 座標基準點 (流程尺度)
-
-用備用對量時基準點＝備用第一張的中心 + 偏移×倍率, 所以存下的座標一律仍相對同一個
-`座標基準點`, 不因用了哪一組而改變; 倍率是備用對量出來的 (同樣貼齊 1)。
-
-執行器、編輯器、影片轉流程三處量測都走這裡的 `measure` / `calibrate`, 行為一致由此保證。
-"""
 import math
 
 from automation import flowfmt
@@ -39,18 +17,13 @@ def valid(cal):
         return False
 
 
-# 量測抖動 (匹配框 1-2px 級) 視同倍率 1 的容差: 在建立流程時的視窗大小下執行,
-# 倍率要剛好是 1——座標原樣使用沒有捨入誤差, 引擎的預期尺度網格也對準 1.0
 IDENTITY_EPS = 0.005
 
 
 def snap_identity(scale):
-    """量測抖動內的`畫面倍率`貼齊為 1."""
     return 1.0 if abs(scale - 1.0) < IDENTITY_EPS else scale
 
 
-# `支援倍率範圍`兩端 (閉區間; ADR 0013): 執行開頭量到區間外＝不執行, 編輯器量到只警告;
-# 拾取檢查的縮放餘裕也以這兩端模擬。改動它們要改 ADR 0013
 SCALE_LOW, SCALE_HIGH = 0.85, 1.15
 SCALE_RANGE_LABEL = f"×{SCALE_LOW:.2f}–{SCALE_HIGH:.2f}"
 
@@ -61,17 +34,13 @@ def in_supported_range(scale):
 
 
 def out_of_range_text(scale):
-    """區間外的一句說明: 倍率、支援倍率範圍、遊戲視窗該調大或調小."""
     way = "調大" if scale < SCALE_LOW else "調小"
     return (f"畫面倍率 ×{scale:.3f} 不在支援倍率範圍 {SCALE_RANGE_LABEL}，"
             f"請把遊戲視窗{way}")
 
 
-# 兩張圖中心距離小於這個值 (px) 就不能當比例尺 (重疊在同一處)
 MIN_DISTANCE = 1.0
 
-# 流程層級的校準資料鍵 (flow.json, flowFormat 4 起; ADR 0009):
-# {"pair": [兩個範本名], "baseline": 基準距離}——兩張都是這份流程自己的範本
 FLOW_KEY = "calibration"
 
 
@@ -82,11 +51,8 @@ def flow_pair(data):
 
 
 def make(pair, baseline):
-    """組一份流程層級的校準資料."""
     return {"pair": [str(pair[0]), str(pair[1])], "baseline": float(baseline)}
 
-
-# ---------- `備用校準對` ----------
 
 FALLBACK_KEY = "fallback"
 
@@ -113,7 +79,6 @@ def fallback_pair(cal):
 
 
 def fallback_problem(cal):
-    """備用組不成形時的說明 (讀檔時警告用); 沒設或成形回傳 None."""
     if not isinstance(cal, dict) or FALLBACK_KEY not in cal:
         return None
     if _fallback_valid(cal[FALLBACK_KEY]):
@@ -132,7 +97,6 @@ def fallback_anchor(fb_first, offset, k):
 
 
 def fallback_first(anchor, offset, k):
-    """反過來: 由座標基準點與偏移推回備用第一張的中心 (換主校準對時重算偏移用)."""
     return flowfmt.to_screen((-int(offset[0]), -int(offset[1])), anchor, k)
 
 
@@ -164,7 +128,6 @@ class Measurement:
 
     @property
     def too_close(self):
-        """兩張都找到、但中心幾乎重疊 (不能當比例尺)."""
         d = self.distance
         return d is not None and d < MIN_DISTANCE
 
@@ -215,11 +178,6 @@ def measure(query, screen, pair, origin=(0, 0)):
 
 
 def measure_fallback(query, screen, origin, cal):
-    """只用`備用校準對`量一次 (流程設定的「測試」: 主對看得到時也確認備用對真的量得到).
-
-    回傳 (Measurement, 畫面倍率, 座標基準點); 量不到時後兩個是 None。基準點＝備用第一張
-    中心＋偏移×倍率 (與 calibrate 用備用對時同一個算法)。
-    """
     fb = fallback_pair(cal)
     m = measure(query, screen, fb["pair"], origin)
     if not m.ok:
@@ -267,7 +225,6 @@ class Calibrated:
         return self.ok and in_supported_range(self.scale)
 
     def describe(self):
-        """量不到的原因一句話; 用到備用對仍失敗時兩組各說一遍."""
         if self.fallback is None:
             return self.main.describe()
         if self.ok:

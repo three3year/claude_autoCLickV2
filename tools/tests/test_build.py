@@ -1,8 +1,4 @@
-"""打包工具: 餵一組環境事實, 斷言排出來的步驟清單 (哪幾步、順序、argv 關鍵片段、失敗處置).
-
-不真的建 venv、下載或打包; 唯一接縫是純函式 `build.plan`。另一條靜態防線: `app\\build.bat`
-全為 ASCII (cmd 用錯 codepage 解析 UTF-8 批次檔會把行當指令跑掉)。
-"""
+"""`app\\build.bat` 全為 ASCII (cmd 用錯 codepage 解析 UTF-8 批次檔會把行當指令跑掉)。"""
 import os
 import sys
 
@@ -33,8 +29,6 @@ def step(steps, key):
     [s] = [s for s in steps if key in s.what]
     return s
 
-
-# ---------- 乾淨機器 ----------
 
 def test_乾淨機器六步全有且順序固定():
     steps = build.plan(facts())
@@ -98,8 +92,6 @@ def test_確認交付物看_exe_存在且失敗停止():
     assert s.on_fail == build.STOP
 
 
-# ---------- venv 與快取都在 ----------
-
 def test_venv_與快取都在_跳過建_venv_與下載_pip_仍每次跑():
     steps = build.plan(facts(venv_python=VENV_PY, hub_cache=True, dist_exists=True))
     assert whats(steps) == [build.WHAT_DEPS, build.WHAT_TORCH, build.WHAT_PACK, build.WHAT_CONFIRM]
@@ -117,8 +109,6 @@ def test_只缺快取():
                             build.WHAT_PACK, build.WHAT_CONFIRM]
 
 
-# ---------- 拒絕 ----------
-
 def test_找不到_Python_拒絕並有訊息():
     got = build.plan(facts(system_python=None, system_version=None))
     assert isinstance(got, build.Refusal)
@@ -135,8 +125,6 @@ def test_版本_3_11_可以():
     assert isinstance(build.plan(facts(system_version=(3, 11))), list)
 
 
-# ---------- build.bat 靜態防線 ----------
-
 def test_build_bat_全為_ASCII():
     data = (ROOT / "app" / "build.bat").read_bytes()
     bad = [(i + 1, line) for i, line in enumerate(data.splitlines()) if any(b > 127 for b in line)]
@@ -150,8 +138,6 @@ def test_build_bat_轉交給工具():
     assert "pause" in code
     assert "PyInstaller" not in code and ".venv" not in code
 
-
-# ---------- 執行器 (用假步驟, 不碰環境) ----------
 
 def test_執行器照清單跑_警告繼續_停止就停(capsys, tmp_path):
     py = sys.executable

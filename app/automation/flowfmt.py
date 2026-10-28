@@ -6,8 +6,6 @@
 
     存檔座標 → 螢幕:  基準點 + 偏移 ×畫面倍率   (to_screen / rect_to_screen)
     螢幕 → 存檔座標:  (螢幕 − 基準點) ÷ 倍率     (from_screen / rect_from_screen)
-
-flow.yaml 只有這一套座標空間 (舊的 zip 存檔由一次性轉換腳本轉過來, 程式不讀)。
 """
 import math
 
@@ -21,8 +19,6 @@ def scale_px(v, k):
     r = int(math.floor(abs(x) + 0.5))
     return r if x >= 0 else -r
 
-
-# ================= 存檔座標 ⇄ 螢幕座標 =================
 
 def to_screen(xy, anchor, k=1.0):
     """存檔座標 (相對基準點的偏移, 流程尺度) → 螢幕座標."""
@@ -51,8 +47,6 @@ def rect_from_screen(box, anchor, k=1.0):
     x, y = from_screen(box[:2], anchor, k)
     return [x, y, scale_px(box[2], 1.0 / k), scale_px(box[3], 1.0 / k)]
 
-
-# ================= 流程裡相對基準點的矩形 =================
 
 def remap_flow(data, rect_fn):
     """整份流程資料裡相對座標基準點的矩形逐個重算 (就地); 回傳改動筆數.

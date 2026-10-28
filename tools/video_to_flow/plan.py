@@ -1,20 +1,3 @@
-"""`轉換計畫`: Claude 寫、組裝與補充讀的 JSON 介面 (不是領域詞彙; 格式見
-.claude/skills/video-measure/plan-format.md).
-
-步驟的鍵跟 flow.yaml 一樣 (開頭鍵即動作、秒、`on_fail`、`busy_check`、`repeat`/`branch`
-巢狀, 見 docs/flow-format.md), 由 app 的 `flowfile.parse_steps` 驗證與補齊——工具不帶
-自己的鍵表與預設。跟 flow.yaml 只差兩樣:
-
-- 位置是**影片像素的畫面位置**: `click` 的值、`drag` 的值與 `to`、找圖的 `at`、
-  `pick: {near: [x, y]}`; 偏移由工具依`原點`規則算, 不寫 `offset`。
-- 影片證據: 步驟的 `frame`、找圖的 `scroll` (捲動軸)、`drift` (`停點差`)、`shift`
-  (`遞補方向`)、`confirm: {appear, frame}`; `within` 不寫 (`固定矩形`由工具從影格上挑中的框算)。
-- `共用矩形`: 最外層 `shared_rects` 宣告, 找圖的 `rect`、`confirm: {appear, rect}`、
-  `busy: {rect}` 引用 (組裝時展開成各成員的 `within`; flow.yaml 不記組別)。
-
-`load` 回傳 `Plan`: steps 是記憶體的完整步驟 (平面標記, 位置仍是影片像素), evidence 是
-同一索引的影片證據。任何錯誤丟 `ToolError`, 都在寫檔之前。
-"""
 from __future__ import annotations
 
 import json
@@ -36,7 +19,6 @@ TEMPLATE_FIELDS = {"frame", "box", "present", "absent", "clean"}
 SCROLL = ("vertical", "horizontal")
 DRIFT = ("vertical", "horizontal")
 SHIFT = ("left", "right", "up", "down")
-# 找圖的固定矩形從哪來, 一步只能寫一個 (報錯時照這個順序指名)
 RECT_KEYS = ("rect", "scroll", "drift", "shift")
 _RECT_WHAT = {"scroll": "scroll（捲動軸）", "drift": "drift（停點差）", "shift": "shift（遞補方向）"}
 
@@ -84,21 +66,19 @@ class Plan:
     mode: str
     video: str
     templates: dict
-    steps: list                 # 記憶體的完整步驟 (平面), 位置是影片像素
-    evidence: list              # 與 steps 同索引: {frame, at, scroll, rect, drift, shift,
-                                #                   confirm_frame, confirm_rect} 或 None
+    steps: list
+    evidence: list
     report: dict
     name: str = ""
     out: str | None = None
     calibration: dict | None = None
-    busy: dict | None = None    # 記憶體的找圖目標 (無 within) ＋ "frame" (＋ "rect")
+    busy: dict | None = None
     after: int | None = None
     into: int | None = None
     expect: dict | None = None
     scale_image: str | None = None
-    align: dict | None = None   # `對齊圖` {find, frame, at (影片像素), step}
-    align_set: bool = False     # 計畫寫了 align (含 align: null＝刻意不對齊)
-    # `共用矩形` {名: {frame, box (影片像素), scroll, why}} 或 (補充) {same_as, expect, why}
+    align: dict | None = None
+    align_set: bool = False
     shared_rects: dict = field(default_factory=dict)
     base: str = field(default_factory=os.getcwd)
 
@@ -130,7 +110,6 @@ def _frame(where, v):
 
 
 def read(plan):
-    """計畫 (dict 或 JSON 檔路徑) → (dict, 相對路徑的基準目錄)."""
     if isinstance(plan, dict):
         return plan, os.getcwd()
     path = str(plan)
@@ -147,7 +126,6 @@ def read(plan):
 
 
 def load(plan, mode=ASSEMBLE):
-    """讀計畫並驗證; 回傳 `Plan`. 相對路徑以計畫檔所在目錄為準."""
     raw, base = read(plan)
     for k, why in _RETIRED_TOP.items():
         if k in raw:
@@ -237,8 +215,6 @@ def _templates(raw):
     return out
 
 
-# ---------- 步驟 ----------
-
 def _retired(no, item):
     where = f"步驟 {no}"
     for k in item:
@@ -251,7 +227,6 @@ def _retired(no, item):
 
 
 def _strip(no, head, item):
-    """拿掉計畫專用的影片證據欄位; 回傳 (證據, 給 flowfile 驗證的一步)."""
     where = f"步驟 {no}"
     item = dict(item)
     ev = {"frame": None, "at": None, "scroll": None, "rect": None, "drift": None,
@@ -308,7 +283,7 @@ def _strip(no, head, item):
         if k in item:
             item[k] = _xy(f"{where} {k}", item[k])
     pick = item.get("pick")
-    if isinstance(pick, dict) and list(pick) == ["near"]:   # 其他寫法交給 flowfile 報錯
+    if isinstance(pick, dict) and list(pick) == ["near"]:
         item["pick"] = {"near": _xy(where + " pick.near", pick["near"])}
     if isinstance(c, dict) and isinstance(c.get("pick"), dict) and list(c["pick"]) == ["near"]:
         c["pick"] = {"near": _xy(where + " confirm.pick.near", c["pick"]["near"])}
@@ -316,8 +291,6 @@ def _strip(no, head, item):
 
 
 def _walk(items, ev):
-    """計畫的巢狀步驟 → (去掉證據的巢狀步驟, 平面證據清單); 平面順序跟
-    flowfile 的平面標記一致 (repeat: 開頭/內容/結尾; branch: 開頭/各分支以「或」隔開/結尾)."""
     if not isinstance(items, list):
         return items
     out = []
@@ -329,7 +302,7 @@ def _walk(items, ev):
         _retired(no, item)
         heads = [k for k in item if k in flowfile.HEADS]
         if len(heads) != 1:
-            out.append(item)   # flowfile 會指名報錯
+            out.append(item)
             continue
         head = heads[0]
         if head == "repeat":
@@ -371,13 +344,12 @@ def _steps(raw):
         steps = flowfile.parse_steps(stripped)
     except flowfile.FlowError as e:
         raise ToolError(f"轉換計畫有誤：{e}") from None
-    if len(steps) != len(ev):   # 防呆: 兩邊攤平的順序不一致＝工具的 bug
+    if len(steps) != len(ev):
         raise ToolError(f"工具錯誤：計畫攤平後 {len(ev)} 步，flowfile 讀成 {len(steps)} 步")
     return steps, ev
 
 
 def _references(p, known):
-    """步驟與確認圖引用的範本都要在 known 裡 (組裝: 計畫的範本; 補充: 加上既有流程的)."""
     for i, s in enumerate(p.steps):
         if findtarget.is_find(s) and findtarget.template(s) not in known:
             _err(f"步驟 {i + 1}", f"引用的範本「{findtarget.template(s)}」不在計畫的範本清單裡")
@@ -386,8 +358,6 @@ def _references(p, known):
 
 
 def precheck(steps, busy):
-    """app 執行前一定會擋、而且只看步驟種類的那幾項 (找圖相連、原點的圖離開的原點、忙碌檢查
-    沒有忙碌指示), 在任何量測之前先擋; 相對座標前有沒有原點由原點推算擋 (懂區段)."""
     errs = []
     bad = flowcheck.confirm_next_bad(steps)
     if bad:
@@ -405,7 +375,6 @@ def precheck(steps, busy):
 
 
 def check_drift(p, before=()):
-    """宣告`停點差`的找圖, 結果流程裡它之前要有拖曳 (before: 補充時插入點前的既有步驟)."""
     dragged = any(s["type"] == "drag" for s in before)
     for i, (s, ev) in enumerate(zip(p.steps, p.evidence)):
         if ev and ev.get("drift") and not dragged:
@@ -416,11 +385,8 @@ def check_drift(p, before=()):
 
 
 def check_references(p, existing=()):
-    """補充: 引用的範本要在計畫的範本或既有流程裡."""
     _references(p, set(p.templates) | set(existing))
 
-
-# ---------- 流程層級 ----------
 
 def _pair(where, pair, templates, what):
     if (not isinstance(pair, list) or len(pair) != 2
@@ -433,7 +399,6 @@ def _pair(where, pair, templates, what):
 
 
 def _calibration(raw, templates):
-    """`校準對`（新流程必填）: {"pair": [兩個範本名], "frame": 量測幀, "fallback": {"pair"}}."""
     if raw is None:
         _err("calibration", "新流程必須有校準對：{\"pair\": [兩張相距夠遠的固定圖], "
              "\"frame\": 兩張都在的那一幀, \"fallback\": {\"pair\": [另一組]}}"
@@ -457,7 +422,6 @@ def _calibration(raw, templates):
 
 
 def _busy(raw, templates):
-    """`忙碌指示`: {template, color, pick, frame}; frame＝它出現的證據影格 (預設＝取材幀)."""
     if raw is None:
         return None
     where = "busy"
@@ -482,8 +446,6 @@ def _busy(raw, templates):
     return tgt
 
 
-# ---------- 共用矩形 ----------
-
 _SHARED_VIDEO = {"frame", "box", "scroll", "why"}
 _SHARED_SAME = {"same_as", "expect", "why"}
 
@@ -495,8 +457,6 @@ def _rect_name(where, v):
 
 
 def _shared_rects(raw, mode):
-    """`共用矩形`的宣告: 影片像素宣告 {frame, box, scroll, why}; 補充另可
-    {same_as: N, expect, why} (照抄既有流程第 N 步的固定矩形)."""
     if raw is None:
         return {}
     if not isinstance(raw, dict):
@@ -539,7 +499,6 @@ def _shared_rects(raw, mode):
 
 
 def shared_refs(p):
-    """引用共用矩形的成員 → {名: [(步驟索引或 None (忙碌指示), "step"/"confirm"/"busy")]}."""
     refs = {}
     for i, ev in enumerate(p.evidence):
         for key, kind in (("rect", "step"), ("confirm_rect", "confirm")):
@@ -564,7 +523,6 @@ def _shared_refs(p):
 
 
 def scroll_of(p, ev):
-    """這一步的找圖實際生效的捲動軸: 自己宣告的, 或它引用的共用矩形宣告的."""
     if not ev:
         return None
     return ev.get("scroll") or (p.shared_rects.get(ev.get("rect")) or {}).get("scroll")
@@ -589,8 +547,6 @@ def _report(raw):
     return out
 
 
-# ---------- 補充的插入點 ----------
-
 def _insert_point(p, raw):
     has_after, has_into = "after" in raw, "into" in raw
     if has_after == has_into:
@@ -605,7 +561,6 @@ def _insert_point(p, raw):
 
 
 def _expect(where, exp):
-    """核對步驟編號用的 expect: 第 N 步的開頭鍵＋值 (插入點與 same_as 同一套)."""
     if (not isinstance(exp, dict) or len(exp) != 1
             or next(iter(exp)) not in flowfile.HEADS):
         _err(where, "要寫第 N 步的開頭鍵＋值（例 {\"find\": \"标题_办公室\"}），工具拿它核對"
@@ -614,7 +569,6 @@ def _expect(where, exp):
 
 
 def _align(raw):
-    """`對齊圖`: {"find": 範本名, "frame": 影片幀, "at": [x, y], "step": N} 或 null."""
     if raw is None:
         return None
     where = "align"

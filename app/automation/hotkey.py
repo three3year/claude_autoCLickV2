@@ -1,4 +1,3 @@
-"""全域 F12 急停熱鍵 (pynput)."""
 import threading
 
 

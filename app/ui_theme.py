@@ -1,4 +1,3 @@
-"""深色 ttk 主題設定."""
 import ctypes
 from tkinter import ttk
 
@@ -23,10 +22,10 @@ def disable_transitions(wnd):
     """
     try:
         wnd.update_idletasks()
-        hwnd = ctypes.windll.user32.GetAncestor(wnd.winfo_id(), 2)  # GA_ROOT
+        hwnd = ctypes.windll.user32.GetAncestor(wnd.winfo_id(), 2)
         val = ctypes.c_int(1)
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 3, ctypes.byref(val), 4)  # DWMWA_TRANSITIONS_FORCEDISABLED
+            hwnd, 3, ctypes.byref(val), 4)
     except Exception:
         pass
 
@@ -43,7 +42,7 @@ C = {
     "warn": "#F59E0B",
     "info": "#38BDF8",
     "sel": "#2E4057",
-    "tip": "#0B1220",   # ⓘ 說明提示框的底色 (比背景再深一點, 浮在面板上看得出邊界)
+    "tip": "#0B1220",
 }
 
 FONT = ("Microsoft JhengHei UI", 10)
@@ -51,7 +50,7 @@ FONT_BOLD = ("Microsoft JhengHei UI", 10, "bold")
 FONT_MONO = ("Consolas", 9)
 
 
-HOVER = "#31405A"  # 所有互動元件統一的 hover 反白色
+HOVER = "#31405A"
 
 
 def apply(root):
@@ -103,7 +102,6 @@ def apply(root):
               background=[("active", "#1C4F35")],
               focuscolor=[("active", "#1C4F35")])
 
-    # 小型按鈕 (存檔/讀檔/清除等次要操作): 縮小內距與字級, 省空間
     # width=0 覆蓋 clam 預設的 -11 最小寬度, 讓按鈕貼合文字不佔空間
     style.configure("Small.TButton", background=C["panel2"], foreground=C["muted"],
                     bordercolor=C["border"], focuscolor=C["panel2"],
@@ -113,7 +111,6 @@ def apply(root):
               focuscolor=[("active", HOVER), ("disabled", C["panel"])],
               foreground=[("active", C["text"]), ("disabled", "#5B6B80")])
 
-    # Menubutton (新增步驟下拉鈕) — 未設定時 clam 預設 hover 會反白成淺灰
     style.configure("TMenubutton", background=C["panel2"], foreground=C["text"],
                     bordercolor=C["border"], arrowcolor=C["muted"], padding=(10, 4))
     style.map("TMenubutton",
@@ -149,7 +146,6 @@ def apply(root):
               background=[("active", HOVER)],
               arrowcolor=[("active", C["text"])])
 
-    # 樹狀清單 (選範本對話框: 來源可展開、每列帶縮圖)
     style.configure("Treeview", background=C["bg"], fieldbackground=C["bg"],
                     foreground=C["text"], bordercolor=C["border"],
                     rowheight=40, borderwidth=0)
@@ -158,7 +154,7 @@ def apply(root):
               foreground=[("selected", C["text"])])
     style.configure("Treeview.Heading", background=C["panel2"],
                     foreground=C["muted"], relief="flat")
-    style.layout("Flat.Treeview",  # 不要欄位標題列
+    style.layout("Flat.Treeview",
                  [("Treeview.treearea", {"sticky": "nswe"})])
     style.configure("Flat.Treeview", background=C["bg"],
                     fieldbackground=C["bg"], foreground=C["text"],
@@ -167,7 +163,6 @@ def apply(root):
               background=[("selected", C["sel"])],
               foreground=[("selected", C["text"])])
 
-    # Combobox 下拉清單顏色
     root.option_add("*TCombobox*Listbox.background", C["panel"])
     root.option_add("*TCombobox*Listbox.foreground", C["text"])
     root.option_add("*TCombobox*Listbox.selectBackground", C["sel"])

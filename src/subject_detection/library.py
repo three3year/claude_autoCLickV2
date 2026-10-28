@@ -17,8 +17,6 @@ from typing import TYPE_CHECKING
 import yaml
 
 _DEFAULT_CONFIG_PATH = Path(__file__).parent / "default_config.yaml"
-# engine parameters that no longer exist: a caller still handing one over has
-# a stale config, which must surface rather than be silently ignored
 _RETIRED_CONFIG_KEYS = ("mask_strategy",)
 
 if TYPE_CHECKING:
@@ -32,10 +30,9 @@ def load_default_config() -> dict:
 
 @dataclass
 class Template:
-    """One registered template: name + its single image path."""
     name: str
     image_path: Path
-    artifacts: "Artifacts | None" = None  # filled in by Engine.register
+    artifacts: "Artifacts | None" = None
 
 
 @dataclass

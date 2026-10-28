@@ -1,9 +1,3 @@
-"""遊戲自繪游標的點擊特效: 學游標樣本 (learn_cursor) → 帶樣本掃描.
-
-錄影程式畫不出點擊特效 (遊戲把系統游標換成自己畫的), 但遊戲的游標本身在
-點擊當下會抖一下 (換一兩幀不同的樣子)。只打入口: `learn_cursor`、`scan`
-與命令列; 輸入是 OpenCV 合成的影片 (遊戲自繪游標停在忙碌的畫面上)。
-"""
 import json
 import subprocess
 import sys
@@ -19,7 +13,6 @@ from vtf_synth import (ROOT, VIDEO_H, VIDEO_W, cursor_sprite,
 CLICKS = [(30, (100, 80)), (70, (300, 160)), (115, (200, 200))]
 FRAME_TOL = 2
 POS_TOL = 4
-# 游標停在不同背景上的幾幀與它的熱點位置 (Claude 從格線圖讀出來的)
 LEARN_AT = [(10, (20, 20)), (40, (100, 80)), (60, (100, 80)), (80, (300, 160)),
             (100, (300, 160)), (125, (200, 200))]
 SCENES = ((0, 1), (50, 2), (90, 3))
@@ -54,14 +47,12 @@ def test_學到的游標樣本是游標本身而且熱點在尖端(sample):
     assert data["kind"] == "cursor"
     png = sample.parent / data["template"]
     tpl = cv2.imdecode(np.fromfile(str(png), np.uint8), cv2.IMREAD_UNCHANGED)
-    assert tpl.shape[2] == 4                       # alpha＝游標的不透明處
+    assert tpl.shape[2] == 4
     sprite = cursor_sprite()
     h, w = sprite.shape[:2]
-    # 背景被濾掉: 樣本大小貼近游標本身, 不是整個裁切窗
     assert h - 6 <= tpl.shape[0] <= h + 6 and w - 6 <= tpl.shape[1] <= w + 6
     assert tpl[..., 3].mean() / 255 < 0.8
     hx, hy = data["hotspot"]
-    # 樣本左上角相對游標圖可能差幾 px; 熱點必須落在樣本裡游標尖端那一點
     alpha = tpl[..., 3] > 0
     ys, xs = np.nonzero(alpha)
     tip = min(zip(xs + ys, xs, ys))[1:]
@@ -86,14 +77,12 @@ def test_沒有點擊只有畫面切換時沒有高信心候選(sample, tmp_path
 
 
 def test_畫面切換前沒看到特效時仍列為低信心候選(sample, tmp_path):
-    # 游標停著、畫面切換, 但沒有特效 (可能是按鍵或特效被漏掉): 寧可多報
     video = cursor_video(tmp_path / "miss.mp4", clicks=[(48, (150, 120))],
                          press_frames=0, scenes=((0, 1), (50, 2)))
     res = video_to_flow.scan(video, tmp_path / "out", sample=str(sample))
 
     low = [c for c in res["candidates"] if c["cue"] == "screen"]
     assert low and all(c["confidence"] < res["highConfidence"] for c in low)
-    # 位置＝切換前游標停的地方; 幀＝停留期間 (切換在第 50 幀)
     assert any(abs(c["x"] - 150) <= POS_TOL and abs(c["y"] - 120) <= POS_TOL
                and 40 <= c["frame"] <= 50 for c in low)
 
@@ -120,7 +109,7 @@ def test_學樣本的幀背景都一樣時清楚報錯(clicks_video, tmp_path):
 
 
 def test_學樣本給的位置不是游標時指名是哪幾幀(clicks_video, tmp_path):
-    pts = LEARN_AT[:5] + [(125, (400, 40))]          # 最後一幀那裡沒有游標
+    pts = LEARN_AT[:5] + [(125, (400, 40))]
     with pytest.raises(video_to_flow.ToolError, match="125"):
         video_to_flow.learn_cursor(clicks_video, pts, tmp_path / "s.json")
 
@@ -154,7 +143,6 @@ def test_學樣本給的位置超出畫面時指名是哪一幀(clicks_video, tm
 
 
 def test_熱點落在游標圖外時提醒(clicks_video, tmp_path):
-    # 每幀都指在尖端左上 8px 的空白處: 學得出游標, 但熱點不在游標上
     off = [(f, (x - 8, y - 8)) for f, (x, y) in LEARN_AT]
     res = video_to_flow.learn_cursor(clicks_video, off, tmp_path / "s.json")
     assert any("熱點" in w for w in res["warnings"])

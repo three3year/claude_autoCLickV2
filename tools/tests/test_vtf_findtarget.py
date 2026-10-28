@@ -1,9 +1,3 @@
-"""計畫的找圖步驟與確認圖可寫比色、挑選規則 (位置寫影片像素).
-
-用真引擎跑合成示範影片, 只打組裝入口; 斷言存檔裡的找圖目標、待重拍結果、
-組裝拒絕時輸出位置一個檔案都沒多。自我驗證與執行時走同一個找圖目標模組
-(裁範圍 → 查詢 → 比色 → 挑選), 驗證通過就代表執行時會挑到同一個。
-"""
 import cv2
 import numpy as np
 import pytest
@@ -27,10 +21,8 @@ def without_within(tgt):
     return {k: v for k, v in tgt.items() if k != "within"}
 
 
-# ---------- 同款多張: 挑選規則 ----------
-
 CARD = make_button(w=44, h=32, seed=21)
-CARDS = [(200, 40), (200, 110), (200, 180)]     # 一欄三張同款 (左上角)
+CARDS = [(200, 40), (200, 110), (200, 180)]
 
 
 def card_center(i):
@@ -42,7 +34,7 @@ def card_center(i):
 def cards(tmp_path):
     frames = timeline((screen([(CARD, x, y) for x, y in CARDS], title=True), 10))
     video = write_video(tmp_path / "cards.mp4", frames)
-    templates = {"卡": {"frame": 5, "box": [*CARDS[1], 44, 32]}}   # 取材自第二張
+    templates = {"卡": {"frame": 5, "box": [*CARDS[1], 44, 32]}}
     return video, make_out(tmp_path), templates
 
 
@@ -67,10 +59,7 @@ def test_挑選規則設錯被標待重拍(cards, engine):
     assert any("位置不符" in why for why in res["retake"]["卡"])
 
 
-# ---------- 指定點: 影片像素 → 相對原點 ----------
-
 def located_plan(video, out, second):
-    """開始 (定位, 更新原點) → 確定 (帶指定點)."""
     return demo_plan(video, out, steps=[
         find("開始", head="find"), dict(find("確定"), **second), find("下一步")])
 
@@ -114,8 +103,6 @@ def test_確認圖的找圖目標用點擊後的原點換算(tmp_path, engine):
         "template": "確定", "color": True, "pick": {"near": [bx - at[0], by - at[1]]}}
 
 
-# ---------- 比色: 只差顏色的 absent 幀 ----------
-
 def orange_button():
     img = np.full((36, 60, 3), (20, 20, 20), np.uint8)
     cv2.rectangle(img, (2, 2), (57, 33), (0, 140, 255), -1)
@@ -152,8 +139,6 @@ def test_只差顏色的absent幀_開比色後不再被匹配(greyed, engine):
     assert res["retake"] == {}
     assert saved_steps(res)[0]["target"]["color"] is True
 
-
-# ---------- 組裝拒絕不完整設定 ----------
 
 @pytest.mark.parametrize("bad, why", [
     ({"limit": {"kind": "origin", "rect": [10, 10, 50, 50]}}, "已退場"),

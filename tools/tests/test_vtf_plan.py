@@ -1,9 +1,3 @@
-"""轉換計畫用 flow.yaml 的鍵 (v2f-rules-agent-docs 03).
-
-計畫的步驟鍵跟 flow.yaml 一樣 (開頭鍵即動作、秒、on_fail、busy_check、repeat/branch 巢狀),
-只差影片像素位置與證據欄位; 舊鍵、按鍵、within、offset 一律報錯且輸出位置不多任何檔;
-預設照 app 的「沒寫＝」表, 等於預設的不寫出。只打組裝入口。
-"""
 import os
 
 import pytest
@@ -38,10 +32,8 @@ def refused(demo, engine, steps, match, **extra):
     before = snapshot(out)
     with pytest.raises(video_to_flow.ToolError, match=match):
         run(demo, engine, steps, **extra)
-    assert snapshot(out) == before   # 輸出位置沒有新檔
+    assert snapshot(out) == before
 
-
-# ---------- 新鍵照 flow.yaml ----------
 
 def test_計畫的鍵與區段寫法跟flow_yaml相同(demo, engine):
     steps = [find("開始", confirm="gone", timeout=5, on_fail="skip", busy_check=False),
@@ -91,8 +83,6 @@ def test_確認圖寫成confirm_appear(demo, engine):
     assert s[0]["confirm_target"]["template"] == "確定"
     assert s[0]["confirm_target"]["color"] is True
 
-
-# ---------- 舊鍵、退場寫法 ----------
 
 @pytest.mark.parametrize("bad, match", [
     ({"type": "find_click", "template": "確定"}, "type.*開頭鍵"),
@@ -151,8 +141,6 @@ def test_確認圖不在範本清單裡也報錯(demo, engine):
     refused(demo, engine, [find("開始", confirm={"appear": "不存在"})], "不存在")
 
 
-# ---------- app 執行前會擋的 (照 flowcheck) ----------
-
 def test_點到下一步的圖出現但不找圖相連就報錯(demo, engine):
     refused(demo, engine, [find("開始", confirm="next"), click(40, 220)], "找圖步驟")
 
@@ -175,8 +163,6 @@ def test_分岔的分支開頭要是找圖(demo, engine):
     refused(demo, engine, [{"branch": [{"if": click(1, 2)}]}], "if 必須是找圖步驟")
 
 
-# ---------- 報告說明 ----------
-
 def test_交付報告收進計畫寫的分岔建議與畫面變化(demo, engine):
     notes = {"branches": ["關掉結算之後可能跳出「每日簽到」彈窗"],
              "unexplained": ["12.4s：畫面整個變暗又恢復"],
@@ -189,8 +175,6 @@ def test_交付報告收進計畫寫的分岔建議與畫面變化(demo, engine)
     assert "流程不支援按鍵，請改用點擊" in text
     assert "口頭補充的按鍵" not in text
 
-
-# ---------- 校準對 (新流程必填) ----------
 
 STEPS3 = [find("開始"), find("確定"), find("下一步")]
 

@@ -577,7 +577,6 @@ def test_匯出與profile入口都不存在(tkroot, monkeypatch):
 
 
 def _engine_app(tkroot, monkeypatch, engine, load=True):
-    from test_enginehub import RegEngine
     a = _app(tkroot, monkeypatch)
     a.hub = enginehub.EngineHub(engine_factory=lambda: engine)
     if load:

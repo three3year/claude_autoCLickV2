@@ -1,8 +1,3 @@
-"""find-target 票 04 — 比色: 查詢可要求的額外一關 (公開 API: Engine.query).
-
-候選通過梯度比對與嵌入驗證後, 以彩色、候選自身的尺度、整張模板 (不套遮罩)
-再比一次, 未達引擎參數的 `color_threshold` 就不算匹配 (ADR 0007)。
-"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,7 +15,6 @@ BENCH = Path(__file__).resolve().parent.parent / "benchmark"
 
 
 def orange_button(w=64, h=40):
-    """有形狀的橘色按鈕 (形狀與灰色版完全相同, 只差顏色)."""
     img = np.full((h, w, 3), (20, 20, 20), np.uint8)
     cv2.rectangle(img, (2, 2), (w - 3, h - 3), (0, 140, 255), -1)
     cv2.rectangle(img, (2, 2), (w - 3, h - 3), (255, 255, 255), 2)
@@ -31,7 +25,6 @@ def orange_button(w=64, h=40):
 
 
 def grey(img):
-    """停用狀態: 同樣的亮度結構, 顏色全部褪成灰."""
     return cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY),
                         cv2.COLOR_GRAY2BGR)
 
@@ -45,8 +38,8 @@ def _center(box):
 def scene_and_lib(engine, tmp_path):
     btn = orange_button()
     scene = make_scene(w=800, h=360, seed=91)
-    scene = paste(scene, grey(btn), 100, 150)    # 灰色 (停用) 在左
-    scene = paste(scene, btn, 500, 150)          # 橘色 (可按) 在右
+    scene = paste(scene, grey(btn), 100, 150)
+    scene = paste(scene, btn, 500, 150)
     lib = load_library(engine, write_profile(tmp_path, {"btn": btn}))
     return scene, lib
 
@@ -95,7 +88,7 @@ def test_比色門檻在引擎參數改了不必重新登錄(engine, tmp_path):
     meta = Path(lib.artifacts_dir) / "btn" / "meta.json"
     stamp = meta.stat().st_mtime_ns
 
-    lib.config["color_threshold"] = 0.0           # 調參: 只在查詢時讀
+    lib.config["color_threshold"] = 0.0
     engine.register(lib, "btn")
     assert len(engine.query(lib, "btn", scene, color_check=True).matches) == 1
     lib2 = load_library(engine, write_profile(
@@ -108,8 +101,6 @@ def test_內建預設有比色門檻():
     assert load_default_config()["color_threshold"] == 0.95
 
 
-# 基準測試集 (repo 的 benchmark/) 裡開比色、不是已知失敗的案例: 售罄的商店格、
-# 灰掉的解锁线索／快速置入、暗掉的全部收取都要被比色擋下, 亮的照樣找到
 REAL = ["color01_cn_全部收取_demo5f1096", "color03_cn_採購_固源岩_demo6f3532",
         "color04_cn_採購_聚酸酯_demo6f3532", "color05_cn_解锁线索_demo5f1200",
         "color06_cn_解锁线索_demo6f856", "color07_tw_全部收取_add2f80",

@@ -1,4 +1,3 @@
-"""`python tools/video_to_flow scan|assemble ...` 的進入點 (見 cli.py)."""
 import sys
 from pathlib import Path
 

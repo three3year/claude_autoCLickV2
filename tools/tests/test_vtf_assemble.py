@@ -1,8 +1,3 @@
-"""組裝骨架: 轉換計畫 → app 開得起來的流程資料夾 + 交付報告/.
-
-只打組裝入口 (`video_to_flow.assemble` 與命令列); 斷言的是流程資料夾的內容 (經 app 的
-讀檔函式打開)、輸出位置的檔案狀態與報告文字, 不斷言內部怎麼切。
-"""
 import json
 import os
 import subprocess
@@ -101,7 +96,7 @@ def test_組裝失敗不留半成品且修好計畫後可重跑(demo, engine):
     video, out = demo
     before = snapshot(out)
     bad = demo_plan(video, out)
-    bad["templates"]["開始"]["frame"] = 999   # 影片只有 45 幀
+    bad["templates"]["開始"]["frame"] = 999
 
     with pytest.raises(video_to_flow.ToolError, match="999"):
         run(bad, engine)
@@ -124,7 +119,7 @@ def test_輸出位置可由參數指定_優先於計畫(demo, engine, tmp_path):
 
 
 def test_沒指定輸出位置時建在流程存放區(demo, engine):
-    import apppaths  # conftest 已把流程存放區換成暫存目錄
+    import apppaths
     video, out = demo
     plan = demo_plan(video, out)
     del plan["out"]

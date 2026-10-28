@@ -1,8 +1,3 @@
-"""Ticket 06 — verification stage: false positives die, recall survives.
-
-Runs on CPU (no GPU dependency); the DINOv2-S model is loaded once by the
-session-scoped engine fixture.
-"""
 from __future__ import annotations
 
 import numpy as np
@@ -20,15 +15,13 @@ def test_positive_still_found_with_verification(engine, tmp_path):
 
 
 def test_coarse_false_positive_is_killed_by_verification(engine, tmp_path):
-    # with a very loose coarse threshold the coarse stage alone WOULD accept
-    # some background patch; verification must reject it
     tpl = make_template(seed=62)
-    scene = make_scene(seed=96)  # subject truly absent
+    scene = make_scene(seed=96)
     profile = load_library(engine, write_profile(
         tmp_path, {"btn": tpl}, config={"match_threshold": 0.15}))
     res = engine.query(profile, "btn", scene)
-    assert res.debug["match_score"] >= 0.15      # coarse stage did accept
-    assert res.found is False                    # verification killed it
+    assert res.debug["match_score"] >= 0.15
+    assert res.found is False
     assert res.debug["verify_score"] < 0.8
 
 

@@ -1,8 +1,3 @@
-"""影片轉流程的產出規則 (v2f-rules-agent-docs 04–06): 固定矩形、忙碌檢查、交付報告資料夾.
-
-只打組裝入口 (與報告的區段切法這個純函式); 斷言經 app 讀回的流程、結果裡的清單、
-報告資料夾的檔案與文字。
-"""
 import os
 import re
 
@@ -42,8 +37,6 @@ def found(res, name, frame):
     return res["found"][name][frame]
 
 
-# ================= 04 固定矩形 =================
-
 def test_每個找圖目標的固定矩形是挑中的框外推50_中心不變(demo, engine):
     res = run(demo, engine, [find("開始"), find("確定"), find("下一步")])
     for s, (name, frame) in zip(saved(res)["steps"], (("開始", 5), ("確定", 20),
@@ -55,7 +48,6 @@ def test_每個找圖目標的固定矩形是挑中的框外推50_中心不變(d
 
 
 def moving_video(tmp_path):
-    """「開始」先在 (60, 40), 第 10 幀起移到 (200, 160)."""
     btn = BUTTONS["開始"]
     frames = timeline((screen([(btn, 60, 40)], title=True), 10),
                       (screen([(btn, 200, 160)], title=True), 10))
@@ -87,7 +79,6 @@ def test_宣告捲動軸_那一軸到影片兩端_另一軸照50(demo, engine):
 
 
 def test_框超出畫面裁到影片邊_裁過的一側不標待重拍(demo, engine):
-    # 「圖示」在 (418, 100) 48×36: 右邊外推 24px 會超出 480 寬的影片
     res = run(demo, engine, [{"find_click": "圖示", "frame": 5,
                               "at": list(center_of(title_box("圖示")))}, find("確定")])
     w = saved(res)["steps"][0]["target"]["within"]
@@ -135,14 +126,11 @@ def test_矩形餘裕沒過是工具錯誤(demo, engine, monkeypatch):
         run(demo, engine, [find("開始")])
 
 
-# ================= 05 忙碌檢查 =================
-
 BUSY = make_button(w=60, h=24, seed=31)
 BUSY_POS = (150, 200)
 
 
 def busy_video(tmp_path):
-    """開始 (0–9) → 點了之後忙碌指示出現 (10–19, 確定已在) → 只剩確定 (20–39)."""
     a = screen([(BUTTONS["開始"], *POS["開始"])], title=True)
     b = screen([(BUTTONS["確定"], *POS["確定"]), (BUSY, *BUSY_POS)], title=True)
     c = screen([(BUTTONS["確定"], *POS["確定"])], title=True)
@@ -181,8 +169,6 @@ def test_有忙碌指示時座標點擊要寫frame(tmp_path, engine):
     with pytest.raises(video_to_flow.ToolError, match="frame"):
         video_to_flow.assemble(busy_plan(tmp_path, steps), engine=engine)
 
-
-# ================= 06 交付報告資料夾 =================
 
 def test_每個頂層區段一份_檔名取開頭找圖的範本名_撞名加序號(demo, engine):
     steps = [{"branch": [{"if": find("開始", head="find", on_fail="skip", timeout=1)}]},

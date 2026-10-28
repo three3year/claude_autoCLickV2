@@ -32,7 +32,6 @@ def _frames(text):
 
 
 def _points(text):
-    """「幀:x,y;幀:x,y」→ [(幀, (x, y)), ...]."""
     out = []
     try:
         for part in text.split(";"):

@@ -1,9 +1,3 @@
-"""固定矩形的`停點差`與`遞補方向`、補充引用既有範本的待確認、交付報告的三個程式錯
-(rect-drift-shift 01–04).
-
-只打組裝與補充兩個公開入口; 斷言經 app 讀回的各步 `within`、結果的待重拍與待確認、交付報告文字、
-報錯訊息與「資料夾不變」。標準示範影片: 畫面 A「開始」、B「確定」(300,150)、C「下一步」。
-"""
 import math
 import re
 import shutil
@@ -17,13 +11,11 @@ from automation import pickcheck
 from vtf_synth import (ANCHOR, BUTTONS, POS, VIDEO_H, VIDEO_W, box, center, demo_plan,
                        demo_video, find, make_button, make_out, screen, snapshot, write_video)
 
-DRIFT = 80        # 停點差: 沿宣告方向每邊至少外推這麼多 (流程尺度)
+DRIFT = 80
 DRAG = {"drag": [240, 200], "to": [240, 100], "frame": 10}
 
 
 def want(b, drift=None, toward=None, size=(VIDEO_W, VIDEO_H), anchor=ANCHOR):
-    """固定矩形的期望值: 每邊外推一半; 停點差那一軸取一半與 80 的較大值; 遞補方向那一端拉到
-    影片邊; 裁到影片、相對基準點."""
     x, y, w, h = b
     mx, my = math.ceil(w / 2), math.ceil(h / 2)
     if drift == "vertical":
@@ -70,11 +62,8 @@ def report(folder, name):
 
 
 def section(text, heading):
-    """報告裡 `heading` 這一節 (到下一個 ## 為止)."""
     return text.split(heading + "\n", 1)[1].split("\n## ")[0]
 
-
-# ================= 02 停點差 (組裝) =================
 
 def test_停點差_沿宣告方向每邊80_另一軸外推一半(tmp_path, engine):
     steps = [find("開始"), DRAG, find("確定", head="find", drift="vertical")]
@@ -104,7 +93,7 @@ def test_停點差_範本該軸一半超過80時照外推一半(tmp_path, engine
 
 def test_停點差_放寬後框到同款_列出唯一不過(tmp_path, engine):
     a = make_button(seed=71)
-    img = screen([(a, 200, 100), (a, 200, 170)], title=True)   # 上下相距 70
+    img = screen([(a, 200, 100), (a, 200, 170)], title=True)
     video = write_video(tmp_path / "two.mp4", [img] * 20)
     tpl = {"甲": {"frame": 5, "box": [200, 100, 48, 36]}}
     plain = [{"find": "圖示", "frame": 5}, DRAG,
@@ -160,8 +149,6 @@ def test_段落報告列出停點差與遞補方向的步驟(tmp_path, engine):
     assert res["loosened"] == [(2, "drift", "vertical"), (3, "shift", "left")]
 
 
-# ================= 03 遞補方向 (組裝) =================
-
 @pytest.mark.parametrize("toward", ["left", "right", "up", "down"])
 def test_遞補方向_只朝那一端拉到影片邊緣_另一軸外推一半(tmp_path, engine, toward):
     res = assemble(tmp_path, engine, [find("確定", shift=toward)])
@@ -189,11 +176,6 @@ def test_遞補方向跟共用矩形同寫就報錯(tmp_path, engine):
                      r"步驟 1.*rect 跟 shift 不能同寫", shared_rects=rects)
 
 
-# ================= 補充 =================
-# 既有流程: 開始 → 拖曳 → 定位確定 (停點差) → 點擊 → 重複 2 次 [找確定 → 點擊]
-#   1 找圖點擊開始  2 拖曳  3 找確定  4 點擊  5 重複開頭  6 找確定  7 點擊  8 重複結尾
-# 段落報告: 步驟-開始 (1–4)、重複-確定 (5–8)。
-
 BASE_STEPS = [find("開始"), DRAG, find("確定", head="find", drift="vertical"),
               {"click": [330, 220]},
               {"repeat": 2, "steps": [find("確定", head="find"), {"click": [330, 220]}]}]
@@ -201,7 +183,7 @@ NEW = make_button(seed=41)
 NEW_POS = (120, 120)
 NEW_BOX = [*NEW_POS, 48, 36]
 NEW_C = [NEW_POS[0] + 24, NEW_POS[1] + 18]
-DY = 40     # 補充影片開錄時清單停在別處: 確定與新鈕整批往下 DY
+DY = 40
 OK_V = (POS["確定"][0], POS["確定"][1] + DY)
 
 
@@ -220,7 +202,6 @@ def flow(base_flow, tmp_path):
 
 
 def add_video(path, r=1.0):
-    """0–14 幀: 確定＋新鈕整批偏 DY; 15–29 幀: 清單往上拖了 100 之後 (新鈕在 NEW_POS)."""
     a = screen([(BUTTONS["確定"], *OK_V), (NEW, NEW_POS[0], NEW_POS[1] + DY)], title=True)
     b = screen([(NEW, *NEW_POS)], title=True)
     frames = [a] * 15 + [b] * 15
@@ -280,7 +261,6 @@ ALIGN = {"find": "確定", "frame": 5, "at": [OK_V[0] + 24, OK_V[1] + 18], "step
 
 
 def aligned_steps():
-    """定位確定 (第一次拖曳前, 停點差) → 往上拖 100 → 找新鈕 (停點差) → 點新鈕."""
     return [{"find": "確定", "frame": 5, "drift": "vertical"},
             {"drag": [300, 230], "to": [300, 130], "frame": 6},
             {"find": "新鈕", "frame": 20, "at": NEW_C, "drift": "vertical"},
@@ -335,11 +315,8 @@ def test_補充_遞補方向寫錯就報錯(flow, tmp_path, engine):
                    "drift 跟 shift 不能同寫", engine)
 
 
-# ================= 04 補充引用的既有範本 =================
-
 @pytest.fixture
 def scale_fails(monkeypatch):
-    """既有範本「確定」的縮放餘裕不過 (其他範本照真的查)."""
     real = pickcheck.scale_margin
 
     def fake(detector, screen_, origin, tgt, **kw):
@@ -374,7 +351,6 @@ def test_既有範本沒過縮放餘裕_列待確認不列待重拍(flow, tmp_pa
 
 
 def test_既有範本在那一幀找不到_也列待確認(flow, tmp_path, engine):
-    # 確認圖用既有的「確定」, 但第 20 幀上沒有它
     steps = [{"find_click": "新鈕", "frame": 20, "at": NEW_C, "update_origin": False,
               "confirm": {"appear": "確定", "frame": 20}}]
     res = insert(flow, add_plan(add_video(tmp_path / "add.mp4"), steps), engine)
@@ -391,8 +367,6 @@ def test_新裁範本沒過照舊列待重拍(flow, tmp_path, engine):
     assert "新鈕" in res["retake"] and res["existing"] == {}
     assert "新鈕" in section(report(flow, "總覽.md"), "## 待重拍")
 
-
-# ================= 01 交付報告的程式錯 =================
 
 def branch_steps():
     return [{"branch": [{"if": {"find": "新鈕", "frame": 20, "timeout": 3, "on_fail": "skip"},
@@ -417,7 +391,7 @@ def test_兩次補充的條目接成同一個清單(flow, tmp_path, engine):
     video = add_video(tmp_path / "add.mp4")
     steps = [{"find": "新鈕", "frame": 20, "update_origin": False}]
     insert(flow, add_plan(video, steps), engine)
-    insert(flow, add_plan(video, steps, templates={}), engine)   # 第二次引用已插入的範本
+    insert(flow, add_plan(video, steps, templates={}), engine)
     body = section(report(flow, "總覽.md"), "## 補充").strip()
     rows = body.split("\n")
     assert len(rows) == 2 and all(r.startswith("- ") for r in rows), body

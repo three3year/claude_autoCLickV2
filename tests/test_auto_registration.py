@@ -1,8 +1,3 @@
-"""Ticket 05 — auto-registration: drop a file, reload, query. No manual steps.
-
-All tests operate the template folder and its config.yaml like a user would, then
-assert query behavior and whether registration artifacts were (re)built.
-"""
 from __future__ import annotations
 
 import hashlib
@@ -30,7 +25,7 @@ def test_new_template_dropped_into_folder_is_usable(engine, tmp_path):
     load_library(engine, profile_dir)
 
     new_tpl = make_template(seed=42)
-    imwrite(profile_dir / "templates" / "new.png", new_tpl)  # just drop a file
+    imwrite(profile_dir / "templates" / "new.png", new_tpl)
 
     profile = load_library(engine, profile_dir)
     scene = paste(make_scene(seed=90), new_tpl, 220, 140)
@@ -47,12 +42,12 @@ def test_changed_template_content_reregisters_only_that_template(engine, tmp_pat
     reg_b = profile_dir / "registered" / "b"
     before_a, before_b = _mtimes(reg_a), _mtimes(reg_b)
 
-    replacement = make_template(seed=45)  # same filename, new content
+    replacement = make_template(seed=45)
     imwrite(profile_dir / "templates" / "b.png", replacement)
     profile = load_library(engine, profile_dir)
 
-    assert _mtimes(reg_a) == before_a          # untouched
-    assert _mtimes(reg_b) != before_b          # rebuilt
+    assert _mtimes(reg_a) == before_a
+    assert _mtimes(reg_b) != before_b
     scene = paste(make_scene(seed=91), replacement, 100, 100)
     assert engine.query(profile, "b", scene).found is True
 
@@ -73,7 +68,6 @@ def test_刪路徑前的舊快取_比對資訊帶遮罩策略_失效重建一次
     profile_dir = write_profile(tmp_path, {"a": tpl})
     load_library(engine, profile_dir)
     reg = profile_dir / "registered" / "a"
-    # 引擎刪多張圖路徑之前寫下的比對資訊 (ADR 0016 之前的格式)
     png = profile_dir / "templates" / "a.png"
     (reg / "meta.json").write_text(json.dumps({
         "version": 2,
@@ -84,12 +78,12 @@ def test_刪路徑前的舊快取_比對資訊帶遮罩策略_失效重建一次
 
     profile = load_library(engine, profile_dir)
     rebuilt = _mtimes(reg)
-    assert rebuilt != before                       # 失效, 重建
+    assert rebuilt != before
     scene = paste(make_scene(seed=94), tpl, 120, 80)
     assert engine.query(profile, "a", scene).found is True
 
     load_library(engine, profile_dir)
-    assert _mtimes(reg) == rebuilt                 # 只重建一次
+    assert _mtimes(reg) == rebuilt
 
 
 def test_threshold_change_applies_immediately_without_rebuild(engine, tmp_path):
@@ -104,8 +98,8 @@ def test_threshold_change_applies_immediately_without_rebuild(engine, tmp_path):
 
     _set_config(profile_dir, match_threshold=1.01)
     profile = load_library(engine, profile_dir)
-    assert _mtimes(reg) == before              # thresholds never re-register
-    assert engine.query(profile, "a", scene).found is False  # yet take effect
+    assert _mtimes(reg) == before
+    assert engine.query(profile, "a", scene).found is False
 
 
 def test_corrupt_artifacts_are_rebuilt_not_fatal(engine, tmp_path):

@@ -1,15 +1,3 @@
-"""Registration: turn a template's image into query-time artifacts.
-
-Artifacts per template: a reference grayscale image plus a valid-pixel mask
-from the gradient-stability heuristic on that one image — structure stays,
-flat areas leave. A template is exactly one image (ADR 0016: the multi-capture
-alignment and stability mask are gone).
-
-Artifacts are persisted under <artifacts_dir>/<template_name>/ (the caller
-picks the directory) together with the image's content hash and the
-registration-relevant config subset, so loads reuse them and any relevant
-change re-registers (see ticket 05).
-"""
 from __future__ import annotations
 
 import hashlib
@@ -23,20 +11,19 @@ import numpy as np
 from .imio import imread, imwrite
 from .matching import gradient_map
 
-_REG_VERSION = 3   # 3: one image per template, no mask strategy (ADR 0016)
-# config keys that change registration artifacts (threshold-type keys do not)
+_REG_VERSION = 3
 _REG_CONFIG_KEYS = ("scale_range",)
 
 _EDGE_PERCENTILE = 99.0
-_EDGE_FLOOR = 0.12       # relative gradient below this = no structure
+_EDGE_FLOOR = 0.12
 
 
 @dataclass
 class Artifacts:
-    ref_bgr: np.ndarray           # the template image, color uint8
-    ref_gray: np.ndarray          # the template image, grayscale uint8
-    mask: np.ndarray | None       # float32 [0,1], ref-sized; None = all valid
-    embedding: np.ndarray | None = None   # subject embedding, L2-normalized
+    ref_bgr: np.ndarray
+    ref_gray: np.ndarray
+    mask: np.ndarray | None
+    embedding: np.ndarray | None = None
 
 
 def _norm_grad(gray: np.ndarray) -> np.ndarray:
@@ -61,8 +48,6 @@ def compute_artifacts(image: np.ndarray) -> Artifacts:
     ref = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     return Artifacts(ref_bgr=image, ref_gray=ref, mask=_single_mask(ref))
 
-
-# --- persistence ------------------------------------------------------------
 
 def _sha1(path: Path) -> str:
     return hashlib.sha1(path.read_bytes()).hexdigest()
@@ -93,7 +78,7 @@ def _load_artifacts(reg_dir: Path, meta: dict) -> Artifacts | None:
         return Artifacts(ref_bgr=ref_bgr, ref_gray=ref,
                          mask=mask.astype(np.float32) / 255.0)
     except Exception:
-        return None  # missing/corrupt artifacts are rebuilt, never fatal
+        return None
 
 
 def _store_artifacts(reg_dir: Path, art: Artifacts, meta: dict) -> None:
@@ -109,9 +94,6 @@ def _store_artifacts(reg_dir: Path, art: Artifacts, meta: dict) -> None:
 def load_or_register(artifacts_dir: Path, name: str,
                      image_path: Path, config: dict,
                      embed_fn=None) -> Artifacts:
-    """embed_fn(Artifacts) -> np.ndarray computes the subject embedding when
-    the engine has a verifier; the embedding is persisted next to the other
-    artifacts and reloaded with them."""
     reg_dir = Path(artifacts_dir) / name
     meta = expected_meta(image_path, config)
     art = _load_artifacts(reg_dir, meta)
