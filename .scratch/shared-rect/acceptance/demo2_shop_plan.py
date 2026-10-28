@@ -1,11 +1,3 @@
-"""shared-rect 票 06 驗收: demo2 計畫的商店改用一個共用矩形「商品區」.
-
-    .venv/Scripts/python .scratch/shared-rect/acceptance/demo2_shop_plan.py <輸出 plan.json>
-
-沿用 v2f-rules-agent-docs 驗收② 的計畫 (demo2_plan.py), 只改商店: 五個購買分支的條件引用
-「商品區」、拿掉各自的 horizontal; 容器框在第 2784 幀量 (十張商品卡兩排全在、沒有彈窗):
-卡片 x 22–1560、y 270–874。
-"""
 import copy
 import json
 import sys

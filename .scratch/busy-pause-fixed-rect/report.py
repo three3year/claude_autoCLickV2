@@ -1,10 +1,3 @@
-"""票 05 的交付報告: 四份流程的 .md 加「拿掉忙碌等待步驟」一節、重產步驟清單.
-
-    .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/report.py [--flows 目錄]
-
-先跑 remove_busy_waits.py、sim_busy.py (結果從 results/*.json 讀)。可以重跑: 本節與
-步驟清單整段換掉; 報告其他段落不動。步驟清單的文字用 app 自己的 step_desc。
-"""
 from __future__ import annotations
 
 import argparse
@@ -23,7 +16,7 @@ STEPS_HEADING = f"## 步驟清單（{DATE} 忙碌暫停後更新）"
 
 
 def step_table(steps):
-    import app   # 步驟描述與編輯器同一套 (app.step_desc)
+    import app
     lines = [STEPS_HEADING, "", "| # | 步驟 | 內容 |", "|---|---|---|"]
     for i, s in enumerate(steps, 1):
         lines.append(f"| {i} | {s['type']} | {app.step_desc(s)} |")
@@ -76,10 +69,6 @@ def section(name, rec, sims):
 
 
 def replace_section(text, heading_re, new_lines, before_first_h2=False):
-    """把 heading_re 那一節 (到下一個 `## ` 為止) 換成 new_lines; 沒有就插入.
-
-    插入位置: before_first_h2＝第一個 `## ` 之前; 否則檔尾。
-    """
     lines = text.split("\n")
     idx = next((i for i, l in enumerate(lines) if re.match(heading_re, l)), None)
     if idx is not None:

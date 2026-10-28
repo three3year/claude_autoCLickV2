@@ -1,17 +1,3 @@
-"""票 09: 四份在用流程一次性換算 (見 spec.md「四份流程的其他改動」).
-
-    .venv/Scripts/python .scratch/scale-range/convert.py [--lang cn|tw]
-
-對每份流程 (早_繁中、晚_繁中、早_簡中、晚_簡中):
-1. 主校準對換成 pick_pair.py 選定的遊戲內兩張圖 (主畫面設定鈕 × 倉庫): 在主畫面影格上用舊對
-   (標題列) 量倍率 k 與舊基準點, 量新對得新基準點與距離, 新基準距離＝距離 ÷ k; 所有存下的座標
-   (絕對座標、固定矩形、範本拍攝位置) 用 app 的 flowfmt.shift_flow 平移 (落點不變); 舊標題列對
-   登記為備用校準對 (自己的基準距離 + 「備用第一張中心 → 新基準點」的偏移)。
-2. 固定矩形: 每邊不足範本 20% 的以中心不動外擴到 pickcheck.min_rect (流程尺度)。
-3. 早_簡中 第 2 步「忙碌指示等待消失」刪除。
-產物寫到 converted/arknights/flows/ (不動 dist 的正本; 放回在票 11); 原始數字 results/convert_<lang>.json。
-改前先備份 profiles 到 BACKUP (只做一次, 已在就不動)。重放驗證在 replay.py。
-"""
 from __future__ import annotations
 
 import argparse
@@ -27,7 +13,7 @@ import flowfile  # noqa: E402
 from automation import findtarget, flowfmt, pickcheck  # noqa: E402
 from pick_pair import PAIRS  # noqa: E402
 
-BUSY_WAIT_STEP = {"早_簡中": 2}   # 要刪的「忙碌指示等待消失」步驟 (1-based, 改前編號)
+BUSY_WAIT_STEP = {"早_簡中": 2}
 
 
 def backup_once():
@@ -38,7 +24,6 @@ def backup_once():
 
 
 def targets_of(data):
-    """[(位置描述, 找圖目標 dict)]: 步驟的 target / confirmTarget 與流程層級的忙碌指示."""
     out = []
     for i, s in enumerate(data.get("steps") or []):
         for key, t in findtarget.step_targets(s):
@@ -50,7 +35,6 @@ def targets_of(data):
 
 
 def expand_rects(data, sizes):
-    """固定矩形每邊不足 20% 的以中心不動外擴到 min_rect; 回傳改動清單."""
     changes = []
     for where, t in targets_of(data):
         lim = t.get("limit") or {}
@@ -73,7 +57,6 @@ def expand_rects(data, sizes):
 
 
 def swap_pair(lang, name, data, images, pos, hub, canvas, org):
-    """主校準對換成新對、舊對登記為備用; 回傳換算紀錄."""
     old = calibration.flow_pair(data)
     assert old, f"{name}: 沒有校準對"
     c = calibration.calibrate(hub.query, canvas, org, calibration.make(old["pair"], old["baseline"]))
@@ -90,7 +73,6 @@ def swap_pair(lang, name, data, images, pos, hub, canvas, org):
     cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
         old["pair"], old["baseline"], calibration.fallback_offset(new_anchor, old_anchor, k))
     data[calibration.FLOW_KEY] = cal
-    # 新範本的拍攝位置 (相對新基準點)
     for n in new_names:
         f = findtarget.find({"template": n}, hub, canvas, org, scale=1.0)
         new_pos[n] = list(flowfmt.from_screen(sr.center(f.picked.box), new_anchor, k))
@@ -103,12 +85,10 @@ def convert(lang, name):
     data, images, pos = r["data"], dict(r["images"]), dict(r["pos"])
     before_steps = len(data["steps"])
     sizes = {n: bp.decode(b).shape[1::-1] for n, b in images.items()}
-    # 新校準對的圖 (pick_pair.py 裁好的)
     for n in PAIRS[lang]["names"]:
         with open(os.path.join(sr.TEMPLATES, lang, n + ".png"), "rb") as f:
             images[n] = f.read()
         sizes[n] = bp.decode(images[n]).shape[1::-1]
-    # 主畫面影格 → 實機畫布
     video, fn = sr.LANGS[lang]["menu"]
     region = data["scanRegion"]
     canvas, org = sr.place(lang, region)(sr.frame(video, fn))

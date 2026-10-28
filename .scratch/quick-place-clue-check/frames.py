@@ -1,21 +1,3 @@
-"""接縫一: 真引擎＋影片影格, 驗證新範本與固定矩形 (見 spec.md「接縫一」).
-
-    .venv/Scripts/python.exe .scratch/quick-place-clue-check/frames.py --lang cn|tw [--flows 目錄]
-
-用 app 的真實偵測路徑 (enginehub, arknights profile 的門檻); 影格貼到實機搜尋範圍大小的畫布上
-(同 evening-notice-close/frames.py), 找圖目標照改好的存檔 (含固定矩形) 各找一次。影格逐幀順序讀。
-
-- 面板關著 (開面板前、關面板後): 開面板鈕、快速置入找得到; 面板標記找不到。
-- 面板開著選 all: 面板標記找得到; 選中的 1–7 號鈕都找不到。
-- 選中 N 號 (clue.picked_frames): 面板標記找得到; 選中的 N 號鈕找得到、其他號找不到;
-  卡片標籤 N 號有卡片時找得到 (在第一格的固定矩形內)、「暂无线索」時找不到。
-- 換號那一刻: 點 N 號前一幀選中的 N 號鈕找不到; 選中 N 的頭兩幀卡片標籤已經照 N 號判
-  (清單跟篩選鈕同一幀換好, 確認選中之後馬上看卡片不會看到上一號的)。
-找得到的要整個在固定矩形內、中心離影片上的位置 (換成螢幕座標) 在容許值內。
-游標壓在那張圖上的影格 (clue.occluded) 上「該找得到」的照實列出、不算數——實跑找圖前會先把
-游標移開; 「該找不到」的照算 (游標只會讓圖找不到, 不會變出匹配)。
-結果寫 results/frames_<lang>.json; 任一不符時結束碼 1。
-"""
 from __future__ import annotations
 
 import argparse
@@ -34,7 +16,6 @@ from video_to_flow import verify as vtf_verify  # noqa: E402
 
 
 def flow_targets(steps, lang):
-    """改好的存檔裡各個找圖目標 (role → 目標) 與它在影片上該在的框."""
     cfg = clue.LANGS[lang]
     lay = clue.new_layout(steps, lang)
     a, b = lay["check"]
@@ -62,7 +43,6 @@ def _inside(box, lim):
 
 
 def probe(lang, hub, tgt, box, canvas, org, want):
-    """找一次; want＝該找得到嗎. 回傳一筆紀錄 (ok 已判)."""
     f = findtarget.find(tgt, hub, canvas, org, origin=None, scale=1.0)
     p = f.picked
     rec = {"template": tgt["template"], "want": want, "found": p is not None,
@@ -84,7 +64,6 @@ def probe(lang, hub, tgt, box, canvas, org, want):
 
 
 def plan(lang):
-    """[(幀, 情境, {role: 該找得到嗎})]; 情境＝closed / all / N."""
     cfg = clue.LANGS[lang]
     out = [(f, "closed", {"open": True, "quick": True, "marker": False}) for f in cfg["closed"]]
     out += [(f, "all", {"marker": True, **{n: False for n in clue.NUMS}}) for f in cfg["all"]]
@@ -92,8 +71,6 @@ def plan(lang):
         want = {"marker": True, "label": cfg["has"][n]}
         want.update({m: m == n for m in clue.NUMS})
         out.append((f, n, want))
-    # 換號那一刻: 點下前一幀還沒選中 N; 選中 N 的頭兩幀清單已經是 N 號的
-    # (不會有「N 號已亮、清單還是上一號」的幀——那幀會把空號誤判成有)
     for n, (a, _) in cfg["picked"].items():
         out.append((a - 1, f"switch{n}", {n: False}))
         out += [(f, f"switch{n}", {"label": cfg["has"][n]}) for f in (a, a + 1)]
@@ -109,7 +86,6 @@ def run_lang(lang, flows):
     tgts, boxes = flow_targets(steps, lang)
     items = plan(lang)
     frames = clue.read_frames(cfg["video"], {f for f, _, _ in items})
-    # 每個情境裡游標壓住各張圖的幀
     hidden = {}
     for scene in {s for _, s, _ in items}:
         group = {f: frames[f] for f, s, _ in items if s == scene}
@@ -126,7 +102,6 @@ def run_lang(lang, flows):
             canvas, org = place(frames[f])
             for role, w in want.items():
                 rec = probe(lang, hub, tgts[role], boxes[role], canvas, org, w)
-                # 游標只會讓圖找不到, 不會變出匹配: 只有「該找得到」的才因游標不算數
                 rec.update(frame=f, scene=scene, role=role,
                            cursor=w and f in hidden.get((scene, role), ()))
                 rows.append(rec)
@@ -139,7 +114,6 @@ def run_lang(lang, flows):
 
 
 def tally(rep):
-    """每張範本一行: 「名：該找到 x/y（分數範圍）；該找不到 x/y（最高）」(游標壓住的不算). 報告也用."""
     rows = [x for x in rep["rows"] if not x["cursor"]]
     out = []
     for name in dict.fromkeys(x["template"] for x in rep["rows"]):

@@ -1,8 +1,3 @@
-"""子程序探針 (票 06): 建 App 到視窗完成首次映射, 印出已載入的重量級模組.
-
-由 test_import_slim.py 以子程序執行——importlib 狀態乾淨, 量到的就是
-真實開窗關鍵路徑。引擎工廠換成假件, 背景載入不碰 torch/cv2。
-"""
 import os
 import sys
 import tempfile
@@ -20,7 +15,7 @@ import enginehub  # noqa: E402
 applog.set_path(os.path.join(tempfile.gettempdir(), "slim_probe.log"))
 import apppaths  # noqa: E402
 
-_local = tempfile.mkdtemp(prefix="slim_probe_")   # 不讀寫 repo 的 .local/
+_local = tempfile.mkdtemp(prefix="slim_probe_")
 apppaths.state_dir = lambda: os.path.join(_local, "state")
 apppaths.flows_root = lambda: os.path.join(_local, "flows")
 enginehub._default_engine_factory = lambda: SimpleNamespace(
@@ -34,7 +29,7 @@ from automation import win  # noqa: E402
 win.set_dpi_aware()
 root = tk.Tk()
 a = app_mod.App(root)
-root.update()  # 主視窗完成首次映射
+root.update()
 heavy = [m for m in ("cv2", "mss", "torch", "numpy") if m in sys.modules]
 print("HEAVY=" + (",".join(heavy) or "none"), flush=True)
 deadline = time.monotonic() + 5

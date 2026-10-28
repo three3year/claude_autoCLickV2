@@ -1,19 +1,14 @@
-"""`備用校準對`的編輯器接線 (scale-range 票 08): 設定備用對、流程設定的測試顯示用的是哪一組、
-換主對時偏移重算、拾取當下主對找不到改用備用對、讀檔不成形的警告.
-
-量測純邏輯在 test_fallback_calibration.py; 這裡沿用 test_calibration_ui 的最小 App。
-"""
 from types import SimpleNamespace
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import app as app_mod
 import calibration
 import ui_dialogs
 from test_calibration_ui import OLD, _Btn, _editor, _flow_with_coords, _warnings
-from test_editor_scale import make_app  # noqa: F401  (拾取當下的量測用它的最小 App)
+from test_editor_scale import make_app  # noqa: F401
 
-MAIN = OLD                       # {"pair": ["舊圖示", "舊關閉"], "baseline": 1000.0}
+MAIN = OLD
 FB = ("標題列圖示", "關閉鈕")
 
 
@@ -23,7 +18,6 @@ def _place(vision, names, a, b):
 
 
 def _fb_editor(tkroot, monkeypatch, tmp_path, cal=None, pick=FB):
-    """最小編輯器: 挑備用對的對話框直接回 pick (接受 fallback= 參數)."""
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=cal)
     monkeypatch.setattr(ui_dialogs, "pick_cal_pair", lambda app, **kw: pick)
     for n in (pick or ()):
@@ -33,8 +27,8 @@ def _fb_editor(tkroot, monkeypatch, tmp_path, cal=None, pick=FB):
 
 def test_設定備用校準對_量兩組_存基準距離與偏移(tkroot, monkeypatch, tmp_path):
     a, vision = _fb_editor(tkroot, monkeypatch, tmp_path, cal=dict(MAIN))
-    _place(vision, MAIN["pair"], (300, 200), (1200, 200))   # 900 ÷ 1000 → ×0.9
-    _place(vision, FB, (30, 20), (1710, 20))                 # 距離 1680 → 基準 1866.7
+    _place(vision, MAIN["pair"], (300, 200), (1200, 200))
+    _place(vision, FB, (30, 20), (1710, 20))
     a.designate_fallback_pair()
     fb = calibration.fallback_pair(a.flow_cal)
     assert fb["pair"] == list(FB)
@@ -43,7 +37,6 @@ def test_設定備用校準對_量兩組_存基準距離與偏移(tkroot, monkey
     assert a.flow_cal["pair"] == MAIN["pair"] and a.flow_cal["baseline"] == 1000.0
     assert a.autosaved == 1
     assert any("備用校準對" in m and "標題列圖示" in m for m in a.logged)
-    # 用備用對量回來是同一個基準點
     assert calibration.fallback_anchor((30, 20), fb["offset"], 0.9) == (300, 200)
 
 
@@ -101,7 +94,7 @@ def test_流程設定顯示備用對(tkroot, monkeypatch, tmp_path):
 def test_測試校準對_主對找不到時寫明用的是備用對(tkroot, monkeypatch, tmp_path):
     a, vision = _fb_editor(tkroot, monkeypatch, tmp_path, cal=_with_fb())
     _place(vision, MAIN["pair"], None, (1200, 200))
-    _place(vision, FB, (20, 20), (1514, 20))     # ×0.8 → 基準點 (100,60)
+    _place(vision, FB, (20, 20), (1514, 20))
     a.test_calibration()
     assert any("備用校準對" in m and "×0.800" in m and "(100, 60)" in m
                for m in a.logged)
@@ -118,7 +111,7 @@ def test_測試校準對_主對找得到時不提備用(tkroot, monkeypatch, tmp
 def test_測試備用校準對_主對看得到也只用備用對量(tkroot, monkeypatch, tmp_path):
     a, vision = _fb_editor(tkroot, monkeypatch, tmp_path, cal=_with_fb())
     _place(vision, MAIN["pair"], (100, 50), (1300, 50))
-    _place(vision, FB, (20, 20), (1514, 20))     # ×0.8 → 基準點 (20,20)+(100,50)×0.8
+    _place(vision, FB, (20, 20), (1514, 20))
     a.test_fallback_calibration()
     assert any("×0.800" in m and "(100, 60)" in m for m in a.logged)
     assert set(vision.lookups) == set(FB), "主對不量"
@@ -135,14 +128,13 @@ def test_換主校準對_備用對的偏移跟著重算(tkroot, monkeypatch, tmp
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=_with_fb((100, 50)),
                         pick=("圖示", "關閉"))
     _flow_with_coords(a)
-    _place(vision, MAIN["pair"], (100, 50), (1000, 50))   # ×0.9, 舊基準點 (100,50)
-    _place(vision, ("圖示", "關閉"), (190, 95), (640, 95))  # 新基準點差 (90,45) → 流程尺度 (100,50)
+    _place(vision, MAIN["pair"], (100, 50), (1000, 50))
+    _place(vision, ("圖示", "關閉"), (190, 95), (640, 95))
     a.designate_pair()
     assert a.flow_cal["pair"] == ["圖示", "關閉"]
     fb = calibration.fallback_pair(a.flow_cal)
     assert fb["pair"] == list(FB) and fb["baseline"] == 1868.0
     assert fb["offset"] == [200, 100], "舊偏移 (100,50) + 新舊基準點差 (100,50)"
-    # 備用第一張中心不動 (舊基準點 − 舊偏移×0.9 = (10,5)), 用新偏移量回來＝新基準點
     assert calibration.fallback_anchor((10, 5), fb["offset"], 0.9) == (190, 95)
 
 
@@ -155,20 +147,17 @@ def test_換成與備用對相同的主對_拒絕(tkroot, monkeypatch, tmp_path)
 
 
 def test_拾取當下主對找不到_改用備用對並提示(make_app, monkeypatch):
-    """沿用 test_editor_scale 的截範本: 拍攝位置相對備用對換回的基準點."""
     from harness import CAL_PAIR
     from test_editor_scale import _shot
-    app = make_app(1.0)                      # 主對本來擺在基準點 (150,230)
+    app = make_app(1.0)
     app.flow_cal[calibration.FALLBACK_KEY] = calibration.make_fallback(FB, 100.0, (50, 30))
     for n in FB:
         app.store.add(n, b"F")
-    app.vision.plan(CAL_PAIR[0], [None])     # 主對第一張被蓋住
-    app.vision.plan(FB[0], [(100, 200)])     # 備用: 距離 100 → ×1.0, 基準點 (100,200)+(50,30)
+    app.vision.plan(CAL_PAIR[0], [None])
+    app.vision.plan(FB[0], [(100, 200)])
     app.vision.plan(FB[1], [(200, 200)])
-    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", lambda root, mode, prompt, **kw: _shot(40, 20, 280, 390))   # 中心 (300,400)
+    monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", lambda root, mode, prompt, **kw: _shot(40, 20, 280, 390))
     app.capture_template()
     [name] = [n for n in app.store.names() if n.startswith("tmpl_")]
     assert app.store.pos_of(name) == [150, 170], "基準點仍是 (150,230) (備用對換回)"
     assert any("備用校準對" in m for _, m in app.logged)
-
-

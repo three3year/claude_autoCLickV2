@@ -9,18 +9,11 @@ import applog
 
 @pytest.fixture(autouse=True, scope="session")
 def _applog_to_tmp(tmp_path_factory):
-    """整個測試 session 的檔案日誌改寫進暫存目錄.
-
-    個別測試的 monkeypatch 還原後, 殘留視窗的 <Destroy> 事件仍可能觸發
-    applog——沒有這層兜底就會把測試雜訊寫進 repo 根目錄的 autoclick.log。
-    """
     applog.set_path(str(tmp_path_factory.mktemp("applog") / "autoclick.log"))
 
 
 @pytest.fixture(autouse=True)
 def local_paths(tmp_path_factory, monkeypatch):
-    """本機狀態資料夾與流程存放區改到暫存目錄: 測試不讀寫 repo 的 .local/ 與
-    使用者真的流程 (上次開的流程、未存檔快取都不能互相污染)."""
     import apppaths
     base = tmp_path_factory.mktemp("local")
     monkeypatch.setattr(apppaths, "state_dir", lambda: str(base / "state"))
@@ -30,16 +23,6 @@ def local_paths(tmp_path_factory, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def no_real_dialogs(monkeypatch):
-    """任何測試都不准彈出真的 modal 對話框.
-
-    測試跑在使用者的桌面上: 真的彈出來會卡住測試程序 (modal 等人來按), 還會
-    蓋在使用者畫面上——這種打擾等同於測試失敗。全部換成記錄; 詢問類一律回
-    「否」(最保守的那條路), 需要「是」的測試自己在測試裡 monkeypatch 覆蓋
-    (測試本體的 setattr 比 autouse fixture 晚套用, 會贏)。實作在 `nodialogs.py`,
-    一次性 GUI 冒煙腳本也用同一個。
-
-    回傳 {"warning": [...], "info": [...], "error": [...]}, 想斷言就拿去用。
-    """
     from nodialogs import stub_dialogs
 
     return stub_dialogs(monkeypatch.setattr)
@@ -108,7 +91,7 @@ def main_app(tkroot, monkeypatch):
     top.geometry("+40+40")
     top.update()
     yield a
-    a.hub.state = enginehub.FAILED   # 等引擎就緒的背景預載執行緒就此結束
+    a.hub.state = enginehub.FAILED
     # 還沒到期的 after 一起取消: 它們的命令名跟著視窗釋出後可能被下一個測試重用 (見上)
     for pending in tkroot.tk.splitlist(tkroot.tk.call("after", "info")):
         tkroot.after_cancel(pending)

@@ -1,16 +1,3 @@
-"""接縫三: 讀回檢查早班存檔與草稿 (見 spec.md「接縫三」).
-
-    .venv/Scripts/python.exe .scratch/quick-place-clue-check/check.py --lang cn|tw [--flows 目錄] [--orig 目錄]
-
---orig: 改動前的流程資料夾 (預設本功能的備份)。存檔要符合:
-- 會客室段 (領取之後到線索入口) 正好是: 接收分岔 (跟改前一字不差) → 開面板 → 檢查區段 → 補關分岔
-  → 解鎖分岔 (一字不差) → 線索入口 (一字不差); 新步驟跟 clue.check_steps 算出來的一樣
-  (設定照規格: 時限、找不到時、不更新原點、固定矩形、相對座標)。
-- 交流中分岔已刪; 其他步驟依序原封不動; 流程層級設定不變; 區段完整。
-- 新範本都在存檔裡、跟 templates/<lang>/ 的一樣; 舊範本除了交流中都還在、一字不差。
-草稿屬於這份存檔時: 草稿的步驟與設定和存檔相同, 工作區的範本和存檔相同。
-結果寫 results/check_<lang>.json; 有任何一項不符時結束碼 1。
-"""
 from __future__ import annotations
 
 import argparse
@@ -31,19 +18,17 @@ def _settings(data):
 
 
 def _same_settings(a, b):
-    """流程層級設定相同 (含補做間隔): (是否相同, 說明)."""
     same = (_settings(a) == _settings(b)
             and flowfile.retry_interval_ms(a) == flowfile.retry_interval_ms(b))
     return same, "相同" if same else "不同"
 
 
 def spec_checks(lang, steps, lay, quick_before):
-    """規格「新步驟的形狀」逐條直接看欄位 (不經 clue.check_steps, 免得自己驗自己)."""
     cfg = clue.LANGS[lang]
     a, b = lay["check"]
     la, lb = lay["leftover"]
     opn, cond = steps[lay["open"]], steps[a + 1]
-    body = steps[a + 2:b]                       # 每號 (點篩選鈕, 卡片標籤) + 關面板 + 快速置入
+    body = steps[a + 2:b]
     pairs = [(body[2 * k], body[2 * k + 1]) for k in range(len(clue.NUMS))]
     close, quick = body[-2], body[-1]
     lcond, lclose = steps[la + 1], steps[la + 2]

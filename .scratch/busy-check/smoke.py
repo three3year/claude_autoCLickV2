@@ -1,11 +1,3 @@
-"""票 04 打包版冒煙: 啟動 AutoClick-noUAC.exe → 等主視窗 → PrintWindow 截圖 → 關閉.
-
-    .venv/Scripts/python.exe .scratch/busy-check/smoke.py
-
-只做「啟動＋渲染驗證」(使用者在用電腦時不送真實輸入, 見 memory packaged-smoke-user-present);
-主視窗截圖存到 results/smoke_main.png, 由人 (agent) 看圖確認第三列有「忙碌出現等候」欄位。
-同標題有兩個 TkTopLevel (另一個是可點穿的覆蓋層), 取 ex style 沒有 WS_EX_TRANSPARENT 的那個。
-"""
 from __future__ import annotations
 
 import ctypes
@@ -40,7 +32,6 @@ def idle_seconds():
 
 
 def find_main():
-    """主視窗 hwnd (同標題、不是點穿覆蓋層的那個); 沒有回 None."""
     found = []
     EnumProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 
@@ -110,7 +101,7 @@ def main():
         p.kill()
         raise SystemExit("60 秒內沒看到主視窗")
     print(f"主視窗出現: {time.time() - t0:.1f}s, hwnd={hwnd}")
-    time.sleep(3)   # 等引擎載入列與第三列畫完
+    time.sleep(3)
     out = os.path.join(RESULTS, "smoke_main.png")
     ok, size = print_window(hwnd, out)
     print(f"PrintWindow ok={ok} size={size} → {out}")

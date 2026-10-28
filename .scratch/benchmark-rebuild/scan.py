@@ -1,14 +1,3 @@
-"""掃描: 每個客戶端兩份流程現在的範本, 在該客戶端每支示範影片上每 STRIDE 幀配對一次 (順序讀)。
-
-    .venv/Scripts/python.exe .scratch/benchmark-rebuild/scan.py [--lang cn|tw] [--stride 8]
-
-半解析度粗找, ≥ COARSE 的峰回全解析度精修。結果 tmp/scan_<lang>.json:
-  templates: {key: {"names": [[流程, 名]...], "size": [w, h]}}
-  videos: {影片: {"frames": [幀...], "size": [w, h],
-                  "max": {key: [每幀粗找最高分×100]},
-                  "peaks": {key: {幀: [[分數, x, y]...]}}}}   (全解析度, 分數 ≥ KEEP)
-低優先權、少執行緒 (使用者可能在玩遊戲)。
-"""
 from __future__ import annotations
 
 import argparse
@@ -24,8 +13,8 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bcommon as bc  # noqa: E402
 
-COARSE = 0.5   # 半解析度粗找的門檻
-KEEP = 0.6     # 全解析度精修後留下的門檻
+COARSE = 0.5
+KEEP = 0.6
 
 
 def low_priority():
@@ -66,7 +55,6 @@ def scan_video(args):
                 if v < COARSE:
                     break
                 r[max(0, y - th // 2):y + th // 2 + 1, max(0, x - tw // 2):x + tw // 2 + 1] = -1
-                # 全解析度精修: 粗找位置 ×2 附近 ±4px
                 T = gt[k]
                 H, W = T.shape
                 x0, y0 = max(0, 2 * x - 4), max(0, 2 * y - 4)

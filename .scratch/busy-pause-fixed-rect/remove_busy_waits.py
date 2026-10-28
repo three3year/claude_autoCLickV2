@@ -1,15 +1,3 @@
-"""票 05: 把四份流程裡「忙碌指示 → 等待消失」的步驟全部拿掉 (ADR 0010 決策 3).
-
-    .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/remove_busy_waits.py [--dry-run]
-
-可以重跑: 已拿掉的流程再跑一次＝沒有可拿的步驟, 存檔不動。
-- 以內容認步驟, 不靠編號: 找圖、動作＝等待消失、範本＝流程層級的忙碌指示。
-- 拿掉後區段完整性照執行前檢查 (同 App._flow_error) 再驗一次。
-- 改正式流程前檢查 AutoClick 已關、備份已在 (common.preflight)。
-- 草稿 (_autosave.json) 屬於改到的那份存檔時, 改寫成讀回的內容。
-- 結果 (每份拿掉哪幾步、前後步驟) 寫 results/remove_busy_waits.json, 交付報告用。
-流程存檔只經 app/flowfile.py 讀寫。
-"""
 from __future__ import annotations
 
 import argparse
@@ -33,12 +21,10 @@ def describe(step):
 
 
 def strip(steps, busy):
-    """回傳 (新 steps, 拿掉的 [{no, before, after}]); no 是改動前的 1-based 編號."""
     kept, removed = [], []
     for i, s in enumerate(steps):
         if common.is_busy_wait(s, busy):
             if s.get("updateOrigin", True):
-                # 它會更新原點: 拿掉會讓後面的相對座標改變基準, 不認得的寫法
                 raise SystemExit(f"第 {i + 1} 步的忙碌等待會更新原點, 不能直接拿掉")
             removed.append({"no": i + 1, "before": describe(steps[i - 1]),
                             "after": describe(steps[i + 1])
@@ -83,7 +69,7 @@ def main(argv=None):
         os.makedirs(common.RESULTS, exist_ok=True)
         out = os.path.join(common.RESULTS, "remove_busy_waits.json")
         old = {}
-        if os.path.isfile(out):   # 重跑時保留第一次的紀錄 (重跑已沒有可拿的步驟)
+        if os.path.isfile(out):
             with open(out, encoding="utf-8") as f:
                 old = json.load(f)
         for name, rec in report.items():

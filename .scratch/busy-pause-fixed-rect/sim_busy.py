@@ -1,19 +1,3 @@
-"""票 05 驗證: 無頭執行器跑「拿掉忙碌等待之後」的換班片段, 看事件序列.
-
-    .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/sim_busy.py [--flows 目錄]
-
-每個拿掉的位置切一段: 從它前面最近一個會更新原點、本身不需要原點的找圖步驟, 到它後面第一個
-找圖步驟 (下一步＝改由`忙碌暫停`接手的那一步)。交給 app 測試用的無頭 harness
-(app/tests/harness.py: 假畫面、假輸入、虛擬時鐘) 跑兩個劇本:
-
-- 有忙碌: 片段最後一次點擊之後, 忙碌指示出現 BUSY_SECS 秒 (比下一步的逾時長),
-  這段時間下一步的圖不出現。預期下一步等到忙碌結束才找到 (`忙碌暫停`), 流程照常走完。
-- 沒忙碌: 圖一直都在。預期一路直接走, 一次都不查忙碌指示。
-兩個劇本的事件序列 (點到哪裡、依什麼順序) 必須完全相同——忙碌只改變時間。
-
-另外記下片段裡「點擊後緊接點擊」的地方: 那裡現在不等忙碌 (座標點擊沒有找圖等待)。
-結果寫 results/sim_busy.json; 任一劇本不符預期時結束碼 1。
-"""
 from __future__ import annotations
 
 import argparse
@@ -23,20 +7,18 @@ import sys
 
 import common
 
-import pytest  # noqa: E402  (只借 MonkeyPatch 給 harness 用)
+import pytest  # noqa: E402
 
 import flowfile  # noqa: E402
 import harness as hz  # noqa: E402
 from automation import findtarget  # noqa: E402
 from automation import runner as runner_mod  # noqa: E402
 
-BUSY_AT = (1300, 1000)   # 搜尋範圍 (0,0,1920,1080) 的九宮格 8、9 之內
+BUSY_AT = (1300, 1000)
 BUSY_SECS = 15.0
 
 
 class Net(hz.Vision):
-    """片段最後一次點擊之後忙碌 busy_secs 秒; 這段時間 target 不出現."""
-
     def __init__(self, clock, events, busy_name, target, n_clicks, busy_secs):
         super().__init__(clock=clock)
         self.events, self.busy_name, self.target = events, busy_name, target
@@ -60,11 +42,9 @@ class Net(hz.Vision):
 
 
 def windows(steps, removed_nos):
-    """每個拿掉的位置 → (片段起, 片段迄(含), 下一步索引); 索引是改後的 steps."""
     out = []
     for k, no in enumerate(sorted(removed_nos)):
-        site = no - 1 - k              # 改後的位置: 前面每拿掉一步就往前一格
-        # 起點不能以原點為基準 (片段開頭沒有原點, 那一步會被跳過)
+        site = no - 1 - k
         start = max(j for j in range(site) if steps[j].get("type") == "find_click"
                     and steps[j].get("updateOrigin", True)
                     and not findtarget.needs_origin(findtarget.target(steps[j])))

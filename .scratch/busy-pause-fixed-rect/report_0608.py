@@ -1,12 +1,3 @@
-"""票 06–08 的交付報告: 早_簡中、早_繁中的 .md 各加一節、重產步驟清單.
-
-晚_繁中的忙碌指示也換了 (使用者 10/07 決定) 時, 它的 .md 也加票 06 那一節。
-
-    .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/report_0608.py [--flows 目錄]
-
-先跑 tw_busy.py、quick_place.py、fixed_rects.py (結果從 results/*.json 讀)。可以重跑:
-各節與步驟清單整段換掉, 報告其他段落不動。新的一節放在最前面 (由舊到新插入, 08 在最上面)。
-"""
 from __future__ import annotations
 
 import argparse
@@ -44,7 +35,6 @@ def backup_name(ticket):
 
 
 def evening_replaced(flows):
-    """晚_繁中的忙碌指示是不是已經換成早_繁中的新圖 (使用者 10/07 決定一起換)."""
     def busy_img(name):
         r = flowfile.read(common.flow_path(name, flows))
         return r["images"].get(flowfile.busy_target(r["data"])["template"])
@@ -81,11 +71,10 @@ def section06(res, evening):
             "- 腳本：`.scratch/busy-pause-fixed-rect/tw_busy.py`（可重跑；`--apply` 才寫回）", ""]
 
 
-COLOR_GATE = 0.95     # arknights profile 的比色門檻
+COLOR_GATE = 0.95
 
 
 def color_note(summ):
-    """沒在交流時靠比色擋下的程度; 交流中比色離門檻不到 0.03 才提醒餘裕不大."""
     cmin = (summ["exchange"]["color"] or [None])[0]
     text = (f"- 沒在交流的線索板上，交流中的形狀分數最高到 {summ['board_idle']['best_when_not_found']}，"
             f"是靠比色擋下的；交流中時比色最低 {cmin}（門檻 {COLOR_GATE}）")
@@ -243,7 +232,7 @@ def main(argv=None):
         with open(md, "w", encoding="utf-8") as f:
             f.write(text.rstrip("\n") + "\n")
         print(f"已更新 {md}")
-    if evening:   # 晚_繁中也換了忙碌指示: 它的報告加同一節 (步驟沒變, 步驟清單不動)
+    if evening:
         md = os.path.splitext(common.flow_path("晚_繁中", args.flows))[0] + ".md"
         with open(md, encoding="utf-8") as f:
             text = f.read()

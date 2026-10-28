@@ -1,15 +1,3 @@
-"""接縫三: 讀回檢查兩份晚班存檔與草稿 (見 spec.md「接縫三」).
-
-    .venv/Scripts/python.exe .scratch/evening-notice-close/check.py [--flows 目錄] [--orig 目錄]
-
---orig: 改動前的流程資料夾 (預設本功能的備份), 原本的步驟從那裡讀。
-每份存檔 (與屬於它的草稿) 要符合:
-- 共 原本+1 步, 第 1 步＝規格寫定的設定 (notice.expected_first_step)。
-- 第 2 步起跟原本的第 1 步起逐一相同。
-- 第 1 步用到的範本在存檔裡, 位元組跟早班那張相同; 草稿的話工作區也要有。
-- 晚_繁中: 忙碌指示的圖跟早_繁中相同, 限定範圍不變 (九宮格 [8, 9])。
-結果寫 results/check.json; 有任何一項不符時結束碼 1。
-"""
 from __future__ import annotations
 
 import argparse
@@ -32,7 +20,6 @@ def _ws_images(profile):
 
 
 def check_one(lang, data, images, orig, src):
-    """一份 (存檔或草稿) 的檢查: [(項目, 是否通過, 說明)]."""
     cfg = notice.LANGS[lang]
     steps, before = data["steps"], orig["data"]["steps"]
     want = notice.expected_first_step(lang)

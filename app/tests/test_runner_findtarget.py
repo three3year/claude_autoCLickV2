@@ -1,11 +1,6 @@
-"""執行器的找圖點都照`找圖目標`判定 (find-target 票 03).
-
-假偵測器可安排一次查詢有多個匹配 (harness.Vision.plan 的「一串位置」);
-斷言點在哪、是否算消失、走哪個分支。框一律 40×20, 中心即安排的座標。
-"""
 from harness import branch_end, branch_or, branch_start, click, find, tgt
 
-CARDS = [(200, 300), (400, 300), (600, 300), (800, 300)]   # 一排四張同款
+CARDS = [(200, 300), (400, 300), (600, 300), (800, 300)]
 TOP = {"pick": {"top": 3}}
 
 
@@ -70,7 +65,6 @@ def test_點到下一步的圖出現套用下一步的挑選規則(harness):
     harness.vision.plan("card", [CARDS[:2], CARDS])
     harness.run(retry_interval=0, steps=[find("a", confirm="next", interval=0.1),
                  find("card", target=TOP, interval=0.1)])
-    # 下一步要第三張: 只有兩張時還不算出現 → 補點 a; 四張到齊才生效
     assert harness.clicks() == [(100, 100), (100, 100), (600, 300)]
 
 
@@ -78,7 +72,6 @@ def test_點到下一步的圖出現用點擊後的原點(harness):
     near = {"pick": {"near": [0, 0]}}
     harness.vision.plan("a", [(100, 100)])
     harness.vision.plan("card", [CARDS])
-    # a 不更新原點, 之前也沒有任何原點 → 下一步的找圖目標無從判定
     r = harness.run([find("a", confirm="next", update_origin=False,
                           interval=0.1),
                      find("card", target=near, interval=0.1)])
@@ -88,7 +81,6 @@ def test_點到下一步的圖出現用點擊後的原點(harness):
                       find("card", target=near, interval=0.1)]
     harness.events.clear()
     harness.run(harness2_steps)
-    # 點擊後原點＝(100,100) → 最接近的是 (200,300)
     assert harness.clicks() == [(100, 100), (200, 300)]
 
 
@@ -123,8 +115,6 @@ def test_以原點為基準卻沒有原點_步驟無法執行而跳過(harness):
     assert "尚無原點" in harness.log_text()
 
 
-# ---------- 比色 (票 04) ----------
-
 def test_開比色的點擊步驟_按鈕變灰就判定目標圖消失(harness):
     orange, grey = (500, 400, 0.99, 0.99), (500, 400, 0.99, 0.88)
     harness.vision.plan("btn", [[orange], [grey]])
@@ -149,9 +139,6 @@ def test_灰色按鈕開比色時不會被點(harness):
     assert harness.clicks() == []
 
 
-# ---------- 限定範圍 (票 05) ----------
-# harness 的搜尋範圍預設 (0, 0, 1920, 1080)、座標基準點 (0, 0)
-
 BOTTOM_RIGHT = {"within": [1280, 720, 640, 360]}
 
 
@@ -168,9 +155,6 @@ def test_目標不在限定範圍內時逾時走找不到時(harness):
     assert harness.clicks() == []
     assert r.ended == "error"
 
-
-# ---------- 固定矩形 (busy-pause-fixed-rect 票 03; coord-anchor 票 04 改相對基準點) ----------
-# harness 的搜尋範圍預設 (0, 0, 1920, 1080)、座標基準點預設 (0, 0)
 
 FIXED = {"within": [960, 540, 480, 270]}
 

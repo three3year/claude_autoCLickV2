@@ -1,25 +1,3 @@
-"""票 05: 四份流程 (早_簡中、早_繁中、晚_簡中、晚_繁中) 在會讓遊戲忙的步驟勾`忙碌檢查` (見 spec.md).
-
-    .venv/Scripts/python.exe .scratch/busy-check/build.py            # 只算、印出要勾的步驟
-    .venv/Scripts/python.exe .scratch/busy-check/build.py --apply    # 寫回存檔與草稿, 讀回驗證
-    .venv/Scripts/python.exe .scratch/busy-check/build.py --check    # 只做讀回驗證 (對備份比)
-
-要勾的步驟以內容定位、不靠編號 (該流程沒有的就略過):
-
-- ADR 0010 拿掉「忙碌指示 → 等待消失」的位置＝換班段 (「非工作區 → 僅等待出現」到
-  「非工作區 → 點擊」之間) 的每一個相對座標點擊 (點 ⇄; busy-pause-fixed-rect
-  `results/remove_busy_waits.json` 記的「緊接在前」那一步)。
-- 換班段的每一個拖曳。
-- 開頭清彈窗 (基建入口之前) 的關閉點擊: 簽到、活動、公告 (晚班開頭新加的公告也算)、
-  獲得物資 (繁中是找圖點擊; 簡中是「找圖 获得物资 僅等待 → 相對點擊」, 勾那個點擊)。
-- 傳遞線索的點擊。
-- 可收獲、幹員信賴、確定 (找圖點擊)。
-
-忙碌出現等候不寫鍵 (預設 1000ms)。其餘步驟一字不改。可以重跑 (已勾的不再變)。
-寫回前: AutoClick 要關著、備份 profiles 到 app/dist/profiles-backup-2026-10-08-busy-check/
-(不在才複製); 寫回後讀回驗證 (勾選集合＝預期、其他內容與備份相同、流程有忙碌指示),
-草稿屬於這份存檔時連草稿一起同步。
-"""
 from __future__ import annotations
 
 import argparse
@@ -30,20 +8,20 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "busy-pause-fixed-rect"))
-import common  # noqa: E402  (busy-pause-fixed-rect/common.py: 路徑、preflight、write_flow、sync_draft)
+import common  # noqa: E402
 
 import flowfile  # noqa: E402
 from automation import findtarget  # noqa: E402
 from automation.runner import BUSY_CHECK_KEY, has_busy_check  # noqa: E402
-import app  # noqa: E402  (步驟描述與編輯器同一套: app.step_desc)
+import app  # noqa: E402
 
 BACKUP = os.path.join(common.APP, "dist", "profiles-backup-2026-10-08-busy-check")
 RESULTS = os.path.join(HERE, "results")
 
-SHIFT_ANCHOR = {"非工作区", "非工作區"}           # 換班段的頭尾: 僅等待出現 … 點擊
-BASE_ENTRY = {"基建入口", "基建BASE", "基建图标"}  # 開頭清彈窗到此為止
-POPUP_CLOSE = {"签到关闭", "活动关闭", "公告关闭", "圓形叉叉", "獲得物資"}   # 找圖點擊
-POPUP_WAIT_THEN_CLICK = {"获得物资"}   # 簡中: 找圖僅等待 → 相對點擊 (勾那個點擊)
+SHIFT_ANCHOR = {"非工作区", "非工作區"}
+BASE_ENTRY = {"基建入口", "基建BASE", "基建图标"}
+POPUP_CLOSE = {"签到关闭", "活动关闭", "公告关闭", "圓形叉叉", "獲得物資"}
+POPUP_WAIT_THEN_CLICK = {"获得物资"}
 CLUE_PASS = {"传递线索", "傳遞線索"}
 BUSY_CLICKS = {"可收获", "可收穫", "干员信赖", "幹員信賴", "确定", "確定"}
 
@@ -61,7 +39,6 @@ def _find_wait(s):
 
 
 def shift_range(steps):
-    """換班段 (索引區間, 含頭尾): 「非工作區 僅等待出現」到「非工作區 點擊」."""
     start = next((i for i, s in enumerate(steps)
                   if _find_wait(s) and _tmpl(s) in SHIFT_ANCHOR), None)
     end = next((i for i, s in enumerate(steps)
@@ -72,7 +49,6 @@ def shift_range(steps):
 
 
 def plan(steps):
-    """回傳 {索引: 理由} (0-based)."""
     out = {}
     lo, hi = shift_range(steps)
     for i in range(lo, hi):
@@ -108,7 +84,6 @@ def apply_plan(steps, picks):
 
 
 def check_flow(name, data, images, expect, base):
-    """讀回驗證: 勾選集合＝預期、其他內容與 base (備份) 相同、忙碌指示在、沒寫出現等候鍵."""
     errs = []
     steps = data["steps"]
     got = [i for i, s in enumerate(steps) if has_busy_check(s)]

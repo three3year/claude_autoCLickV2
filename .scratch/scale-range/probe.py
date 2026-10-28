@@ -1,7 +1,3 @@
-"""票 09 逐案探針: 基建BASE 重截候選、好友列表不比色的唯一性、解鎖線索/快速置入的他者顏色分數.
-
-    .venv/Scripts/python .scratch/scale-range/probe.py
-"""
 from __future__ import annotations
 
 import os
@@ -23,7 +19,6 @@ def run_tw():
     region = r["data"]["scanRegion"]
     place = sr.place("tw", region)
     images = dict(r["images"])
-    # 基建BASE 重截候選 (demo3 f0 最大化主畫面)
     new_base = sr.crop(sr.frame("demo3", 0), (1465, 813, 84, 94))
     images["基建BASE_新"] = bp.encode(new_base)
     d = os.path.join(sr.TEMPLATES, "tw")

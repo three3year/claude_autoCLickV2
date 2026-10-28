@@ -1,39 +1,3 @@
-"""決定框、驗證 (接縫一)、寫回: 四份流程剩下的九宮格與全畫面換成固定矩形 (見 spec.md).
-
-    .venv/Scripts/python.exe .scratch/fixed-rect-sweep/sweep.py [--lang cn|tw] [--apply]
-
-先跑 positions.py (results/positions_<lang>.json)。
-
-改前的流程從備份讀 (shared.BACKUP; 還沒備份＝還沒寫回過, 就讀現在的), 所以可以重跑。
-框 (規格「Implementation Decisions」):
-- 忙碌指示 (四份的流程層級設定, 與早_簡中「忙碌指示 → 等待消失」那一步): shared.LANGS 的
-  busy_box 外擴 MARGIN。
-- 晚班位置固定的圖 (shared.FIXED_STEPS) 與第 3 步確認圖: 10/08 晚實跑日誌該步、該角色找到的
-  位置 (同一步有多筆就取聯集) 外擴 MARGIN。shared.WIDEN_STEPS (待辦鈴鐺) 再併上同一天早班實跑
-  同一張圖 (同尺寸) 的位置——同一天兩次實機就不在同一處, 只照晚班那次框下次很可能逾時
-  (偏離規格「以今晚日誌為準」, 見票 02、03)。
-- 換班列名 (shared.LIST_STEPS): 左右＝這次實跑日誌裡該範本所有出現位置 (matches＋rejected)
-  的左右範圍外擴 MARGIN; 上下＝換班清單顯示區 (positions.py 在晚班影片上量的清單切線與畫面底,
-  換成實機座標)。日誌裡列名的所有出現位置都要在清單區裡, 不然中止。
-改前的設定要跟規格寫的一樣 (晚班這些步驟全畫面、確認圖九宮格 7、忙碌指示九宮格 8、9)——
-不一樣就中止 (步驟編號變了, 不要改錯步)。
-
-驗證 (真引擎、arknights 門檻, 影格換成實機搜尋範圍的畫布, 同 busy-pause-fixed-rect 票 08;
-影格逐幀順序讀, 見 shared.SeqFrames):
-- 每個改過的找圖目標, 在晚班影片上這張範本出現的影格挑最多 PER 張, 改前、改後各找一次:
-  改前找得到的 (有效影格) 改後也要找得到、挑到的位置一樣 (容許值內); 兩次的找圖時間都記下。
-  改前挑到的在新框外的影格＝「不一致」(影片位置新框裝不下): 照實列出, 框仍以日誌為準, 不算失敗。
-  影片上沒出現＝「影片無對應」; 出現了但都在新框外＝「影片上都在框外」; 都不擋。
-- 另外把 opencv 量到的影片位置 (positions.py) 依位置分群, 新框裝不下的群也列成不一致
-  (引擎驗證只抽樣, 這裡看全部)。
-- 忙碌指示: 有忙碌字樣的影格 (positions.py 的 busy) 上新框找得到、位置跟改前一樣;
-  沒忙碌的影格上改前、改後都找不到。沒忙碌＝晚班影片每 NEG_STRIDE 幀、離有忙碌的影格超過
-  NEAR_BUSY 幀, 且畫面下半部跟範本的 opencv 相關 < IDLE (淡入淡出、疊在別的提示字上的忙碌字樣
-  不算反例, 照實列出)。
-- demo1 (低位元率) 的不符照實列出、不算失敗 (同票 08)。
-結果寫 results/sweep_<lang>.json; --apply 驗證全過才寫回 (AutoClick 要關著; 先整個 profiles
-備份到 shared.BACKUP, 讀回驗證只有規劃的限定範圍不同, 草稿屬於它就同步)。
-"""
 from __future__ import annotations
 
 import argparse
@@ -50,14 +14,13 @@ from shared import bp
 import flowfile  # noqa: E402
 from automation import findtarget  # noqa: E402
 from video_to_flow import verify as vtf_verify  # noqa: E402
-import fixed_rects as fr  # noqa: E402  (busy-pause-fixed-rect 票 08 的框與驗證小工具)
+import fixed_rects as fr  # noqa: E402
 
 PER = 6
 NEG_STRIDE = 25
 NEAR_BUSY = 15
-IDLE = 0.5           # 反例: 畫面下半部 opencv 灰階相關 < IDLE 才算沒忙碌 (沒忙碌的背景約 0.31–0.39,
-                     # 看得到忙碌字 ≥0.74; 中間是淡入淡出、疊在別的提示字上的)
-SPREAD = 8           # 影片位置分群: 中心差不超過 (px)
+IDLE = 0.5
+SPREAD = 8
 LOW_BITRATE = {"demo1"}
 
 
@@ -70,16 +33,12 @@ def orig_flows():
     return shared.BACKUP_FLOWS if os.path.isdir(shared.BACKUP_FLOWS) else bp.FLOWS
 
 
-# ================= 決定框 =================
-
 def list_area(lang, positions):
-    """換班清單顯示區的上下緣 (實機螢幕 y)."""
     clip, oy = positions["list_clip"], shared.offset(lang)[1]
     return (clip["top"] + oy, clip["bottom"] + oy)
 
 
 def list_rect(boxes, lang, region, area):
-    """換班列名: 左右＝出現位置外擴 MARGIN, 上下＝清單顯示區; 回傳 (固定矩形, 實機框)."""
     y0, y1 = area
     out = [b for b in boxes if b[1] < y0 or b[1] + b[3] > y1]
     _need(not out, f"[{lang}] 日誌裡的列名在清單區 y {y0}–{y1} 外: {out}")
@@ -97,10 +56,6 @@ def _change(name, where, step, role, template, old, new, box, kind):
 
 
 def plan(lang, which, r, positions):
-    """[{"flow", "where", "step", "role", "template", "old", "new", "box", "kind"}]: 要改的地方.
-
-    where: "busy"(流程層級)、"target"、"confirm"。box＝新框的實機螢幕座標 (外擴後、裁前)。
-    """
     data = r["data"]
     region = tuple(data["scanRegion"])
     name = shared.LANGS[lang][which]
@@ -153,7 +108,6 @@ def plan(lang, which, r, positions):
 
 
 def rebuild(data, changes):
-    """改前的 data → 改後的 data (只換 changes 指定的限定範圍)."""
     data = json.loads(json.dumps(data))
     for c in changes:
         shared.target_of(data, c)["limit"] = dict(c["new"])
@@ -161,7 +115,6 @@ def rebuild(data, changes):
 
 
 def diff_limits(a, b):
-    """兩份 data 的差異: 只允許限定範圍不同; 回傳不同的地方 [(where, step, key)] 或中止."""
     out = []
     ka, kb = dict(a), dict(b)
     ba, bb = ka.pop(flowfile.BUSY_KEY, None), kb.pop(flowfile.BUSY_KEY, None)
@@ -186,17 +139,13 @@ def diff_limits(a, b):
 
 
 def _where(c):
-    """改動 c 在 diff_limits 結果裡的寫法."""
     if c["where"] == "busy":
         return ("busy", None, "limit")
     key = findtarget.TARGET if c["where"] == "target" else findtarget.CONFIRM_TARGET
     return ("step", c["step"], key)
 
 
-# ================= 驗證 (真引擎) =================
-
 def spread(items, k):
-    """均勻挑 k 個 (依影片分開、各自依時間均分)."""
     by = {}
     for v in items:
         by.setdefault(v[0], []).append(v)
@@ -210,7 +159,6 @@ def spread(items, k):
 
 
 def clusters(lang, vids):
-    """影片位置 (換成實機座標) 依中心分群 (±SPREAD)."""
     ox, oy = shared.offset(lang)
     groups = []
     for v in vids:
@@ -227,7 +175,6 @@ def clusters(lang, vids):
 
 
 def compare(hub, old_t, new_t, frame_list, frames, place):
-    """改前 / 改後各找一次: 每張影格一列."""
     rows = []
     for v in frame_list:
         video, n, _x, _y, w, h = v[:6]
@@ -262,7 +209,6 @@ def frame_count(video):
 
 
 def frame_plan(lang, c, positions):
-    """這個改動要驗的影格: (有出現的 [[影片, 幀, x, y, w, h, …]], 反例候選 [(影片, 幀)])."""
     if c["kind"] != "busy":
         return spread(positions["video"].get(c["template"], []), PER), []
     busy = positions["busy"]
@@ -273,7 +219,6 @@ def frame_plan(lang, c, positions):
 
 
 def _result(c, lim, rows, vids, lang):
-    """一個改動的驗證結果 (verify_change / verify_busy 共用的欄位)."""
     valid = [x for x in rows if x["valid"]]
 
     def avg(key):
@@ -287,7 +232,6 @@ def _result(c, lim, rows, vids, lang):
                                 for g in clusters(lang, vids)
                                 if not all(fr._inside(b, lim) for b in g["boxes"])],
             "outside": [[x["video"], x["frame"], x["old"]] for x in rows if x["outside"]],
-            # 影片無對應: 影片上沒出現; 都在框外: 出現了但沒有一張在新框裡 (框只靠日誌)
             "no_video": not vids, "all_outside": bool(vids) and not valid,
             "ms_old": avg("ms_old"), "ms_new": avg("ms_new"),
             "ok": all(x["ok"] or x["low_bitrate"] for x in rows)}
@@ -303,7 +247,6 @@ def verify_change(lang, c, hub, r, positions, frames, place):
 
 
 def verify_busy(lang, c, hub, r, positions, frames, place):
-    """忙碌指示: 有忙碌的影格找得到 (位置跟改前一樣), 沒忙碌的影格改前改後都找不到."""
     import cv2
     old_t = c["target_obj"]
     new_t = dict(old_t, limit=c["new"])
@@ -350,7 +293,6 @@ def run_lang(lang):
         _need(sorted(got, key=str) == sorted(map(_where, changes), key=str),
               f"{name}: 改動的地方跟規劃不同")
         built.append((name, r, new, changes))
-    # 驗證用晚班流程的範本 (早班的忙碌指示圖、搜尋範圍跟晚班同版相同才共用驗證)
     mo, ev = built[0][1], built[1][1]
     _need(mo["images"][shared.BUSY] == ev["images"][shared.BUSY],
           f"[{lang}] 早晚兩份的忙碌指示圖不同: 不能共用一個驗證")
@@ -372,7 +314,6 @@ def run_lang(lang):
         hub = bp.make_hub(ev["images"], [n for n in names if n in ev["images"]], tmp)
         for name, r, new, changes in built:
             for c in changes:
-                # 忙碌指示: 早晚同版同一張圖、同一個框, 第一筆驗過的共用
                 src = next((x for x in checks if c["kind"] == "busy" and x["kind"] == "busy"
                             and x["new"] == c["new"] and x["old"] == c["old"]), None)
                 if src is not None:
@@ -407,7 +348,6 @@ def apply(built):
         if cur["data"] == new:
             print(f"{name}: 已是新版, 不動")
         else:
-            # 現在的存檔只能是改前的 (備份), 或只差規劃要改的限定範圍 (上一版寫回的框)
             planned = set(map(_where, changes))
             _need(cur["data"] == r["data"] or set(diff_limits(r["data"], cur["data"])) <= planned,
                   f"{name}: 現在的存檔除了這次要改的限定範圍還有別的不同 (有別人改過?), 不動")

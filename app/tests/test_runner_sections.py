@@ -1,19 +1,10 @@
-"""區段 (`重複區段`、`分岔`) 與`跳出`的回歸網.
-
-區段是平面標記步驟, 由執行器用堆疊與跳轉解譯 (見 ADR-0001)。
-"""
-
-
 from harness import (branch_end, branch_or, branch_start, click, find, here,
                      repeat, repeat_end)
 
 
 def tap(x, y):
-    """不更新原點的座標點擊: 跟在 here() 後面, 每次都點在 (x, y)."""
     return click(x, y, update_origin=False)
 
-
-# ---------- 重複區段 ----------
 
 def test_重複區段執行指定次數(harness):
     harness.run([here(), repeat(3), tap(1, 1), repeat_end()])
@@ -30,8 +21,6 @@ def test_多輪從頭再跑一次(harness):
     assert harness.clicks() == [(1, 1)] * 3
 
 
-# ---------- 分岔 ----------
-
 def test_分岔走第一個成立的分支(harness):
     harness.vision.plan("a.png", [None])
     harness.vision.plan("b.png", [(500, 400)])
@@ -42,7 +31,6 @@ def test_分岔走第一個成立的分支(harness):
         find("b.png", type="find", interval=0.1), tap(2, 2),
         branch_end(),
     ])
-    # 條件找到的位置成為原點
     assert harness.clicks() == [(502, 402)], "應該走條件成立的那一支"
 
 
@@ -76,8 +64,6 @@ def test_分岔全部逾時時可停止整份流程(harness):
     assert harness.clicks() == []
     assert "停止執行" in harness.log_text()
 
-
-# ---------- 跳出 ----------
 
 def test_跳出重複區段會放棄剩餘次數(harness):
     harness.vision.plan("a.png", [None])

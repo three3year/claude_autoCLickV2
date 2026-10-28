@@ -1,13 +1,7 @@
-"""格式規範對照: docs/flow-format.md 的欄位表 ⇄ app 讀檔認得的鍵與「沒寫＝」表.
-
-改了 flowfile / flowdefaults 卻沒同步規範 (或反過來) 就紅, 訊息指出是哪一格。
-比三件事: 每個「適用」的鍵集合＝讀檔認得的鍵; 「沒寫＝」欄有反引號的值＝app 的預設;
-沒有反引號的＝app 沒有預設。
-"""
 import os
 import re
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 import yaml
 
 import flowfile
@@ -15,12 +9,10 @@ from automation import findtarget, flowdefaults
 
 DOC = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "flow-format.md")
 TOP = "頂層"
-# yaml 的區段開頭鍵 → 記憶體裡帶 on_break 的結尾標記
 _SECTION_END = {"repeat": "repeat_end", "branch": "branch_end"}
 
 
 def expected_keys():
-    """每個「適用」位置讀檔認得的鍵."""
     keys = {TOP: set(flowfile.TOP_KEYS),
             "calibration": set(flowfile.CALIBRATION_KEYS),
             "calibration.fallback": set(flowfile.FALLBACK_KEYS),
@@ -37,7 +29,6 @@ _MISSING = object()
 
 
 def expected_default(where, key):
-    """app 對 (適用, 鍵) 的「沒寫＝」; 沒有預設回 _MISSING."""
     if where == TOP:
         return flowdefaults.FLOW.get(key, _MISSING)
     if where in _SECTION_END:
@@ -45,7 +36,7 @@ def expected_default(where, key):
     if where in flowdefaults.STEP or where in flowdefaults.KEYS:
         d = dict(flowdefaults.STEP.get(where, {}))
         waits = where in findtarget.FIND_TYPES or where in findtarget.POINTER_TYPES
-        if waits:   # 座標點擊/拖曳要設了生效確認才有等待欄位, 預設值相同
+        if waits:
             d.update(flowdefaults.WAIT)
         return d.get(key, _MISSING)
     return _MISSING
@@ -60,7 +51,6 @@ def _ticks(cell):
 
 
 def read_table(text):
-    """欄位表 → [(列號, 適用清單, 鍵, 沒寫＝原文)]; 找表頭「適用 | 鍵 | … | 沒寫＝」."""
     lines = text.splitlines()
     for i, line in enumerate(lines):
         if line.startswith("|") and "適用" in line and "沒寫＝" in line:
@@ -88,7 +78,6 @@ def _same(a, b):
 
 
 def problems(text):
-    """欄位表跟 app 對不上的地方 (一則一行; 空＝一致)."""
     rows = read_table(text)
     want = expected_keys()
     seen = {w: set() for w in want}

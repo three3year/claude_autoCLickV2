@@ -1,11 +1,6 @@
-"""流程層級的`忙碌指示` (effect-confirm 票 01): 存檔往返、被引用的範本、編輯器設定、
-執行時交給執行器。`補做間隔`與`忙碌出現等候`是固定行為 (不進存檔、主視窗沒有欄位).
-
-存檔照 test_flowfile 的手法真檔案測; 編輯器沿用最小 App 子類 + 對話框樁。
-"""
 from types import SimpleNamespace
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import app as app_mod
 import flowfile
@@ -21,8 +16,6 @@ def _flow(**extra):
     data.update(extra)
     return data
 
-
-# ---------- 存檔 ----------
 
 def test_忙碌指示存檔往返(tmp_path):
     flowfile.write_flow(tmp_path, _flow(busy=dict(BUSY)), {"a": b"A", "提交中": b"B"})
@@ -45,8 +38,6 @@ def test_改名跟著改忙碌指示():
     assert flowfile.rename_template_refs(data, "提交中", "忙碌") == 1
     assert data["busy"]["template"] == "忙碌"
 
-
-# ---------- 編輯器 ----------
 
 class _SetApp(_CalApp):
     def __init__(self, root, base_dir, names=("a", "提交中")):
@@ -152,7 +143,6 @@ def test_忙碌指示的範本不在本流程_不執行(tkroot, monkeypatch, tmp
 
 
 def test_範本預載也載忙碌指示(harness):
-    """執行器的範本預載名單含忙碌指示 (補做判斷要查)."""
     from harness import find
     harness.run([find("a")], busy=dict(BUSY))
     assert "提交中" in harness.vision.preloads[0]

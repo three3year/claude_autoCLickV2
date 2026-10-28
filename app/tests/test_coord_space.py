@@ -1,10 +1,3 @@
-"""存下的座標以`座標基準點`為原點 (coord-anchor 票 03/04, ADR 0012).
-
-基準點＝開頭校準時`校準對`第一張圖的中心。`固定矩形`的查詢矩形＝基準點 +
-偏移×倍率再裁到搜尋範圍內, 與搜尋範圍框在哪裡、框得鬆緊無關——視窗挪位置、
-重框範圍後落點不變 (絕對座標已退場, ADR 0014)。
-斷言對象: 送出的落點、每次查詢實際裁的矩形 (假偵測器收到的搜尋區域)。
-"""
 from harness import click, find, tgt
 
 
@@ -12,8 +5,6 @@ def test_執行紀錄寫出座標基準點位置(harness):
     r = harness.run([find("a")], anchor=(115, 76))
     assert "座標基準點 (115, 76)" in harness.log_text(r)
 
-
-# ---------- 固定矩形 ----------
 
 RECT = {"within": [100, 50, 300, 120]}
 
@@ -51,7 +42,6 @@ def test_固定矩形隨倍率縮放(harness):
 
 
 def test_固定矩形落在搜尋範圍外的部分照裁_裁掉那塊裡的圖找不到(harness):
-    # 基準點 (900,60) → 矩形 (1000,110) 300×120; 範圍右緣 1150 裁掉右半
     harness.vision.plan("a", [(1050, 160)])
     harness.run([find("a", target=RECT, timeout=0.3, interval=0.1)],
                 scan_region=[0, 0, 1150, 1000], anchor=(900, 60))
@@ -82,7 +72,6 @@ def test_確認圖與忙碌指示的固定矩形同樣以基準點為準(harness
 
 
 def test_校準只在搜尋範圍內找_範圍內找不到就一個輸入都不送(harness):
-    """校準對在螢幕上, 但使用者忘了重框、範圍沒框到它 → 不執行、說明原因."""
     r = harness.run([click(1, 1), find("a")], scan_region=[600, 500, 800, 400],
                     anchor=(50, 60))
     assert r.ended == "error"

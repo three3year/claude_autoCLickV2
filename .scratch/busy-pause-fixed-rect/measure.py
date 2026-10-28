@@ -1,16 +1,3 @@
-"""票 08 前置: 量每張範本在參考影片上出現的位置 (影片座標), 給 fixed_rects.py 用.
-
-    .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/measure.py [--lang cn|tw]
-
-- 影片: common.LANGS 的參考影片 (簡中 demo6/demo5/demo1、繁中 demo2/demo3), 每 STRIDE 幀一張。
-- 每張範本: 半解析度灰階相關找最高點 (≥0.80) → 全解析度在附近 ±8px 精修, ≥0.90 才記。
-  一張影格每張範本只記最高的那一處 (列名這種同畫面多個的, 跨影格自然會量到整段範圍)。
-- 另外解析實跑日誌 (autoclick.log) 每次執行的 find.target picked 框: 依執行開頭校準的
-  基準距離分版本 (簡中 1650、繁中 1868), 螢幕座標扣掉偏移換回影片座標。
-結果寫 results/positions_<lang>.json: {範本: {"video": [[影片, 幀, x, y, w, h, 分數]...],
-"log": [[時間, x, y, w, h]...]}}。純 opencv, 不經引擎 (只是量位置; 判定用真引擎的驗證在
-fixed_rects.py)。
-"""
 from __future__ import annotations
 
 import argparse
@@ -30,7 +17,7 @@ STRIDE = 3
 COARSE, FINE = 0.80, 0.90
 LOG = os.path.join(common.APP, "dist", "AutoClick", "autoclick.log")
 BASELINE = {1650.0: "cn", 1868.0: "tw"}
-SKIP = {"標題列圖示", "標題列關閉鈕"}     # 校準對: 不在搜尋範圍裡找
+SKIP = {"標題列圖示", "標題列關閉鈕"}
 
 
 def templates(lang):
@@ -94,14 +81,12 @@ CAL = re.compile(r"^\S+ \S+ calibrate result=ok .*?baseline=([\d.]+)")
 
 
 def scan_log(lang, names, found):
-    """實跑日誌裡這個版本的 picked 框 (換回影片座標)."""
     if not os.path.isfile(LOG):
         return 0
     ox, oy = common.LANGS[lang]["offset"]
     cur, k = None, 0
     with open(LOG, encoding="utf-8", errors="replace") as f:
         for line in f:
-            # 每次執行開頭校準一次: 校準成功的基準距離決定版本; 校準失敗或 app 重開＝不認得
             if " calibrate " in line or " engine.load.start" in line:
                 m = CAL.match(line)
                 cur = BASELINE.get(float(m.group(1))) if m else None

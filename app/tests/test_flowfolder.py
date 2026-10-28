@@ -1,8 +1,3 @@
-"""流程資料夾 (flow.yaml＋templates/) 的讀寫 (flow-folder-format 票 07).
-
-照 test_flowfile 的手法: 用暫存資料夾真的讀寫檔案, 斷言檔案內容與讀回來的流程
-(記憶體模型), 不看內部函式。定案樣本 (晚_簡中, 票 02) 就是排版的規格。
-"""
 import os
 
 import pytest
@@ -19,7 +14,6 @@ SAMPLE = os.path.join(os.path.dirname(__file__), "..", "..", ".scratch",
 
 
 def sample_text():
-    """定案樣本去掉開頭那行原型註解."""
     with open(SAMPLE, encoding="utf-8") as f:
         return f.read().split("\n", 1)[1]
 
@@ -37,10 +31,7 @@ def parse_error(text):
     return str(e.value)
 
 
-# ---------- 往返 ----------
-
 def test_定案樣本讀進來再寫回_文字完全相同(monkeypatch):
-    # 樣本是逾時預設還是 10 秒時寫的 (等於預設的不寫): 照它寫成時的預設往返
     monkeypatch.setitem(flowdefaults.WAIT, "timeout", 10)
     text = sample_text()
     assert flowfile.dump_flow(flowfile.parse_flow(text)) == text
@@ -105,8 +96,6 @@ def test_拍攝位置只寫被引用的範本():
     assert "a: [1, 2]" in text and "沒人用" not in text
 
 
-# ---------- 讀檔報錯 ----------
-
 def test_yaml語法錯_指出第幾行():
     msg = parse_error("format: 1\nsteps:\n  - {find_click: a]\n  - {wait: 1}\n")
     assert "第 3 行" in msg, msg
@@ -167,8 +156,6 @@ def test_沒有flow_yaml_明確報錯(tmp_path):
     assert "flow.yaml" in str(e.value)
 
 
-# ---------- 寫檔: templates/ 等於引用集合 ----------
-
 def test_寫檔_templates只留被引用的範本_缺圖回報(tmp_path):
     (tmp_path / "templates").mkdir()
     (tmp_path / "templates" / "舊的.png").write_bytes(b"OLD")
@@ -211,12 +198,9 @@ def test_開檔列出缺圖(tmp_path):
 
 
 def test_完整步驟與預設表一致():
-    """讀進來的每一步都是「沒寫＝」表補齊後的完整步驟."""
     f = flowfile.parse_flow(sample_text())
     assert all(s == flowdefaults.complete(s) for s in f["steps"])
 
-
-# ---------- 逾時預設 5 秒 (ui-slim 票 02) ----------
 
 def test_沒寫逾時讀成5秒():
     flow_ = flowfile.parse_flow("format: 1\nsteps:\n  - {find: 甲}\n"

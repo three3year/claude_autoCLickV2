@@ -1,13 +1,3 @@
-"""票 09: 影格重放——換好的四份流程, 所有找圖目標 (含確認圖、忙碌指示、校準對、備用對; 換班段除外)
-在對應客戶端的影格上以 ×0.85、×0.883、×1.0、×1.13、×1.15 重放, 全部要找得到且挑對.
-
-    .venv/Scripts/python .scratch/scale-range/replay.py [--lang cn|tw] [--per 3]
-
-影格來源: 既有結果量過位置的 (影片, 幀) (srcommon.known_frames) + 採購範本的素材影格
-(credit-store-templates/annotations.json)。「挑對」＝縮放後挑中的中心 ÷ s 與 ×1 挑中的中心差不超過
-容差 (6px 或範本短邊 1/4)。開比色的目標另記本尊 (挑中的) 與他者 (比色不符的) 的顏色分數,
-算餘裕 (本尊最低 − 他者最高)。結果 results/replay_<lang>.json, 摘要印出。
-"""
 from __future__ import annotations
 
 import argparse
@@ -22,7 +12,6 @@ import calibration  # noqa: E402
 import flowfile  # noqa: E402
 from automation import findtarget  # noqa: E402
 
-# 換班段 (換算後的步驟編號, 含首尾): 票 10 重建, 這裡不重放
 SHIFT = {"早_繁中": (90, 116), "晚_繁中": (31, 59), "早_簡中": (100, 126), "晚_簡中": (31, 59)}
 CREDIT = os.path.join(sr.HERE, "..", "credit-store-templates")
 
@@ -32,7 +21,6 @@ def tol_of(size):
 
 
 def credit_frames(lang):
-    """採購範本的素材影格: {範本名: [(影格檔, 本尊中心 (影片座標))]} (只取沒售完的卡)."""
     ann = sr.load(os.path.join(CREDIT, "annotations.json"))
     out = {}
     for fr in ann["frames"]:
@@ -49,7 +37,6 @@ def credit_frames(lang):
 
 
 def flow_targets(name, data):
-    """要重放的找圖目標: [(描述, 目標, 需要原點?)], 換班段除外; 加校準對與備用對."""
     lo, hi = SHIFT[name]
     out = []
     for i, s in enumerate(data["steps"]):
@@ -72,11 +59,10 @@ def flow_targets(name, data):
     return out
 
 
-LOW_BITRATE = {"demo1"}   # 低位元率錄影 (credit-store annotations 標的): 影格模糊, 有別的影片就不用它
+LOW_BITRATE = {"demo1"}
 
 
 def pick_frames(name, have, credit, per):
-    """每張範本最多 per 張影格 (平均散開); 低位元率影片的幀只在沒有別的時才用."""
     rows = have.get(name, [])
     good = [r for r in rows if r[0] not in LOW_BITRATE]
     if good:
@@ -156,8 +142,6 @@ def replay(lang, per):
                             e["drift"] = round(d, 1)
                             if d > tol:
                                 ok = False
-                    # 分類: ×1 就找不到＝影格與範本對不上 (素材問題, 不算縮放失敗);
-                    # ×1 找得到、別的倍率找不到或漂走＝縮放餘裕不足
                     at1 = rec["scales"]["1.0"]["found"]
                     rec["kind"] = "ok" if ok else ("material" if not at1 else "scale")
                     rec["ok"] = ok
@@ -176,7 +160,6 @@ def replay(lang, per):
             print(f"    ✘ {x['where']} {x['template']} {x['frame']}: " + ", ".join(
                 f"×{s}:{'找到' if e['found'] else '找不到'}/{e.get('failed')}/{e.get('best')}/漂{e.get('drift')}"
                 for s, e in x["scales"].items()))
-        # 比色餘裕
         margins = {}
         for x in rows:
             if not x["color"]:

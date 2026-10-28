@@ -1,9 +1,4 @@
-"""基準集重製 (benchmark-rebuild 票 02–04) 一次性建構腳本共用: 路徑、流程範本、順序讀影格、配對、游標。
-
-不進 tools/: 依賴 repo 外的示範影片 (oCam Video), 跑完產物在 tmp/ (不進版控)。
-幀號一律從頭順序讀 (demo4、demo6 幀率不固定, 跳轉讀幀不準)。
-配對工具＝OpenCV 灰階 TM_CCOEFF_NORMED (跟受測的引擎無關, 答案不是引擎自己給的)。
-"""
+"""幀號一律從頭順序讀 (demo4、demo6 幀率不固定, 跳轉讀幀不準)。"""
 from __future__ import annotations
 
 import hashlib
@@ -16,25 +11,21 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 TMP = os.path.join(HERE, "tmp")
-FRAMES = os.path.join(TMP, "frames")          # 用到的影格 (無損 PNG 快取)
-CANDIDATES = os.path.join(TMP, "candidates")  # 候選案例資料夾
+FRAMES = os.path.join(TMP, "frames")
+CANDIDATES = os.path.join(TMP, "candidates")
 VIDEO_DIR = r"C:\Users\three\我的電腦\oCam Video"
 FLOWS_DIR = os.path.join(ROOT, "flows")
 SCRATCH = os.path.dirname(HERE)
 
 FLOWS = {"早_簡中": "cn", "晚_簡中": "cn", "早_繁中": "tw", "晚_繁中": "tw"}
-# 各客戶端的示範影片 (demo1 位元率太低, 已知比不到, 不用)
 VIDEOS = {"cn": ["demo6", "demo5", "demo4", "add1", "add3", "add5"],
           "tw": ["demo2", "demo3", "add2", "add4"]}
-# 遊戲游標 (oCam 錄進去的自訂游標) 在兩個客戶端錄影裡的大小
 CURSOR_SCALES = {"cn": (1.0,), "tw": (1.1, 1.13)}
 
 
 def lang_of_video(video):
     return next(lang for lang, vs in VIDEOS.items() if video in vs)
 
-
-# ---------------------------------------------------------------- 讀寫
 
 def imread(path, flags=cv2.IMREAD_COLOR):
     return cv2.imdecode(np.fromfile(path, np.uint8), flags)
@@ -43,7 +34,6 @@ def imread(path, flags=cv2.IMREAD_COLOR):
 def imwrite(path, img):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     ext = os.path.splitext(path)[1] or ".png"
-    # PNG 用最高壓縮 (無損; 案例要進版控, 整張影格預設壓縮每張 1.4MB)
     params = [cv2.IMWRITE_PNG_COMPRESSION, 9] if ext.lower() == ".png" else []
     cv2.imencode(ext, img, params)[1].tofile(path)
 
@@ -59,10 +49,7 @@ def load(path):
         return json.load(f)
 
 
-# ---------------------------------------------------------------- 範本
-
 def flow_templates(flow):
-    """{範本名: 圖 (BGR)}——流程資料夾 templates/ 現在的圖."""
     d = os.path.join(FLOWS_DIR, flow, "templates")
     return {os.path.splitext(n)[0]: imread(os.path.join(d, n))
             for n in sorted(os.listdir(d)) if n.lower().endswith(".png")}
@@ -73,7 +60,6 @@ def template_path(flow, name):
 
 
 def lang_templates(lang):
-    """一個客戶端兩份流程的範本, 同一張圖只留一份: {key: (圖, [(流程, 名)])}; key＝圖的 md5."""
     out = {}
     for flow, lg in FLOWS.items():
         if lg != lang:
@@ -86,14 +72,11 @@ def lang_templates(lang):
     return out
 
 
-# ---------------------------------------------------------------- 影格
-
 def frame_path(video, n):
     return os.path.join(FRAMES, f"{video}_{n:05d}.png")
 
 
 def read_frames(video, wanted):
-    """{幀號: 影格}——從頭順序讀; 讀過的存成 PNG, 下次直接讀檔."""
     wanted = set(wanted)
     out = {}
     for n in list(wanted):
@@ -125,7 +108,6 @@ def frame(video, n):
 
 
 def iter_frames(video, stride=1):
-    """(幀號, 影格) 從頭順序讀, 每 stride 幀一張."""
     cap = cv2.VideoCapture(os.path.join(VIDEO_DIR, video + ".mp4"))
     n = 0
     while cap.grab():
@@ -136,8 +118,6 @@ def iter_frames(video, stride=1):
         n += 1
     cap.release()
 
-
-# ---------------------------------------------------------------- 配對工具
 
 def gray(img):
     return img if img.ndim == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -150,7 +130,6 @@ def match_map(scene, tpl):
 
 
 def peaks(scene, tpl, thr=0.6, top=12):
-    """所有 ≥ thr 的峰值 (NMS: 半個範本內只留最高): [(分數, x, y, w, h)]，高到低."""
     r = match_map(scene, tpl)
     th, tw = tpl.shape[:2]
     out = []
@@ -178,15 +157,12 @@ def center(box):
 
 
 def color_diff(scene, box, tpl):
-    """框內與範本的平均 BGR 差 (0–255): 比色案例判斷同形不同色用."""
     x, y, w, h = box
     patch = scene[y:y + h, x:x + w].astype(np.float32)
     if patch.shape[:2] != tpl.shape[:2]:
         return 255.0
     return float(np.abs(patch - tpl.astype(np.float32)).mean())
 
-
-# ---------------------------------------------------------------- 游標
 
 _cursor = {}
 
@@ -211,7 +187,6 @@ CURSOR_THRESHOLD = 0.62
 
 
 def find_cursor(img, lang):
-    """遊戲游標在影格上的框 (x, y, w, h); 看不到 (分數不到門檻) 回 None."""
     g = gray(img)
     found = None
     for spr, m, (bx, by, bw, bh) in _cursor_sprites(lang):
@@ -231,13 +206,11 @@ def overlaps(a, b, pad=0):
 
 
 def cursor_touches(img, lang, boxes, pad=4):
-    """游標碰到任一個框 (外擴 pad)."""
     c = find_cursor(img, lang)
     return c is not None and any(overlaps(c, b, pad) for b in boxes)
 
 
 def unstable(video, n, boxes, k=2, thr=6.0):
-    """框內跟前後 k 幀比平均灰階差超過 thr＝轉場、淡入淡出、捲動中 (不乾淨)."""
     fr = read_frames(video, [m for m in (n - k, n, n + k) if m >= 0])
     if n - k < 0:
         return False
@@ -254,11 +227,10 @@ def unstable(video, n, boxes, k=2, thr=6.0):
 
 _busy_tpls = {}
 
-BUSY_ON = 0.6   # 忙碌指示範本配對到這麼高＝畫面上有忙碌字樣 (淡的也算)
+BUSY_ON = 0.6
 
 
 def busy_on(img, lang):
-    """畫面上有忙碌字樣嗎 (實跑時開了忙碌檢查的步驟會先等它消失, app 不會在這種畫面找別的範本)."""
     if lang not in _busy_tpls:
         _busy_tpls[lang] = {cv2.imencode(".png", t)[1].tobytes(): t
                             for f, lg in FLOWS.items() if lg == lang
@@ -267,7 +239,6 @@ def busy_on(img, lang):
 
 
 def scene_quality(video, n):
-    """(整張畫面跟前後 2 幀的最大平均灰階差, 清晰度 (Laplacian 變異數)), 半解析度算."""
     m = max(n, 2)
     fr = read_frames(video, [m - 2, m, m + 2])
     g = [cv2.resize(gray(fr[k]), None, fx=0.5, fy=0.5).astype(np.float32) for k in (m - 2, m, m + 2)]
@@ -276,6 +247,5 @@ def scene_quality(video, n):
 
 
 def calm_scene(video, n, max_diff=10.0, min_sharp=800.0):
-    """整張畫面沒在轉場 (淡入淡出、換頁) 且不糊 (載入畫面、模糊背景)."""
     d, sharp = scene_quality(video, n)
     return d <= max_diff and sharp >= min_sharp

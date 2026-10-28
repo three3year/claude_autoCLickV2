@@ -1,22 +1,3 @@
-"""票 10 階段 B/C: 每站換成參考點 (類別標題) 並改寫 converted/ 裡的四份流程 (見 rebuild_shift.py).
-
-    .venv/Scripts/python .scratch/scale-range/shift_build.py [--lang cn|tw]
-
-**實測 (rebuild_shift.py headers): 類別標題在梯度域不唯一**——「標題_製造站」會匹配「製造站1…4」
-列名、甚至「發電站」列 (0.93–0.99), 這正是 memory `engine-cannot-tell-row-labels-apart` 記的引擎
-限制; 進駐總覽裡沒有一張畫面上唯一、又與目標列位置固定的圖。改走規格允許的路:
-
-  參考點＝類別標題 + 固定矩形窄帶 (期望位置 ±BAND, 只框清單欄) + 挑選規則「由上到下第 1 個」
-  (設了挑選規則的找圖目標不查唯一)。窄帶的寬度由版面決定: 前一類最後一列的列名在標題上方 184px,
-  BAND < 92 時標題在帶內就不會把前一列挑進來; 標題被捲出帶外時挑到的是本類第 1 列 (在標題下方
-  60px), 落點仍在同一列的 ⇌ 長條 (約 ±80px) 內。捲動少超過約 100px 會挑到前一類的列: 已知限制。
-
-做法: 版面是靜態的——用相鄰取樣幀的清單欄做 NCC 疊圖得每一幀的捲動量 (scroll), 任一元素在「清單
-頂端狀態」的位置＝幀上位置 + scroll。每站的期望標題位置＝頂端位置 − 之前拖曳的累計距離 (舊流程
-的拖曳量照搬); 舊流程「列名/首列 → 相對座標點 ⇌」改成「標題 → 相對座標」: 相對座標加上
-(舊原點 − 標題中心) 的常數偏移 (同一幀量)。自我驗證: 每站在捲動量最接近的影格上, 帶內找標題
-(×0.85/×1.0/×1.15) 要挑到標題本身, 落點各離一個 ⇌ 中心 ≤ SWAP_TOL。
-"""
 from __future__ import annotations
 
 import argparse
@@ -43,14 +24,13 @@ CATEGORY = {
 }
 SHIFT = {"早_繁中": (90, 116), "晚_繁中": (31, 59), "早_簡中": (100, 126), "晚_簡中": (31, 59)}
 OFFICE_ROW = {"tw": "辦公室列", "cn": "办公室列"}
-SWAP_TOL = 30      # 落點離 ⇌ 中心最多幾 px (⇌ 長條約 140px 高, 30px 內仍在同一列上)
-BAND = 80          # 窄帶: 期望標題位置上下各多少 px (流程尺度)
-HEADER_TOL = 14    # 帶內挑到的要是標題本身: 與該幀標題中心差幾 px 內
-ROW_LABEL_DY = {"tw": 52, "cn": 46}   # 列名中心在該列 ⇌ 中心上方幾 px (辨認「標題」用)
-LIST_TOP = {"tw": 490, "cn": 390}     # 進駐總覽已開、清單在頂端的第一個取樣幀
+SWAP_TOL = 30
+BAND = 80
+HEADER_TOL = 14
+ROW_LABEL_DY = {"tw": 52, "cn": 46}
+LIST_TOP = {"tw": 490, "cn": 390}
 
 
-# 進駐總覽的版面模型 (影片座標, 列表在頂端時): 類別標題中心 y、標題→列名中心、列名→下一個標題、列距、各類列數
 LAYOUT = {
     "tw": {"first": 157, "label_dy": 61, "gap": 184, "pitch": 196, "header_x": 922,
            "order": ["標題_控制中樞", "標題_會客室", "標題_製造站", "標題_貿易站", "標題_發電站", "標題_辦公室"],
@@ -62,7 +42,6 @@ LAYOUT = {
 
 
 def header_tops(lang):
-    """每個類別標題在清單頂端狀態的中心 y (影片座標)."""
     L = LAYOUT[lang]
     y, out = L["first"], {}
     for name, n in zip(L["order"], L["rows"]):
@@ -72,12 +51,9 @@ def header_tops(lang):
 
 
 class Geometry:
-    """進駐總覽的靜態版面: 每幀捲動量 (標題匹配對版面模型投票)、標題中心、舊範本與標題的偏移、⇌ 位置."""
-
     def __init__(self, lang, hub, place, anchor, region):
         self.lang, self.hub, self.place, self.anchor = lang, hub, place, anchor
         self.cfg = HEADERS[lang]
-        # 影格鍵＝(影片, 幀): 晚班影片的取樣幀 + 早班影片裡「辦公室列」出現的幀 (晚班影片沒捲到辦公室)
         self.frames = [(self.cfg["video"], f) for f in self.cfg["frames"] if f >= LIST_TOP[lang]]
         extra = [k for k in sr.known_frames(lang).get(OFFICE_ROW[lang], [])
                  if k[0] != self.cfg["video"]]
@@ -85,8 +61,8 @@ class Geometry:
         x0, x1 = self.cfg["list_x"]
         ox, oy = sr.offset(lang)
         self.oy = oy
-        self.col = (x0 + ox, region[1], x1 - x0, region[3])      # 清單欄 (螢幕座標)
-        self.tops = {h: y + oy for h, y in header_tops(lang).items()}   # 螢幕座標
+        self.col = (x0 + ox, region[1], x1 - x0, region[3])
+        self.tops = {h: y + oy for h, y in header_tops(lang).items()}
         self._canvas, self._swaps, self._matches = {}, {}, {}
         self.scroll, prev = {}, None
         for fn in self.frames:
@@ -119,7 +95,6 @@ class Geometry:
         return self._matches[key]
 
     def layout_points(self):
-        """版面上所有「標題文字會匹配到的位置」(螢幕 y): 各標題 + 各列的列名."""
         L = LAYOUT[self.lang]
         pts = []
         for h, n in zip(L["order"], L["rows"]):
@@ -129,8 +104,6 @@ class Geometry:
         return pts
 
     def scroll_of(self, fn, prev=None):
-        """這一幀的捲動量: 所有標題範本的匹配 (標題與列名都會匹配) 對版面點投票——
-        取最多匹配落在 ±8px 內的 s, 同票取離上一幀最近的; 畫面上沒有任何匹配回 None."""
         ys = []
         for h in LAYOUT[self.lang]["order"]:
             for c in self.header_matches(fn, h):
@@ -151,7 +124,6 @@ class Geometry:
                     best = (key, s)
         return best[1]
     def header_center(self, fn, header, scrolled=None):
-        """該幀上標題本身的中心: 最接近版面模型預測位置 (±25px) 的匹配."""
         s = self.scroll[fn] if scrolled is None else scrolled
         if s is None:
             return None
@@ -160,14 +132,12 @@ class Geometry:
         return min(near, key=lambda c: abs(c[1] - y)) if near else None
 
     def band_rect(self, header, scrolled):
-        """窄帶固定矩形 (流程尺度): 清單欄 × (期望標題 y ± BAND)."""
         y = self.tops[header] - scrolled
         hh = 44
         scr = (self.col[0], int(round(y - BAND - hh / 2)), self.col[2], int(2 * BAND + hh))
         return findtarget.fixed_rect_from_screen(scr, self.anchor, 1.0)
 
     def offsets(self, header, old_name, old_tgt, origin=None):
-        """舊範本中心 − 標題中心 (同一幀); 回傳 (偏移, 幀)."""
         for fn in self.frames:
             h = self.header_center(fn, header)
             if h is None:
@@ -176,7 +146,6 @@ class Geometry:
             if f is None or f.picked is None:
                 continue
             c = sr.center(f.picked.box)
-            # 舊列名 (top:1) 挑到的可能不是第 1 列: 它要在標題下方一列內才算
             if origin is None and not (0 < c[1] - h[1] < LAYOUT[self.lang]["pitch"]):
                 continue
             return (c[0] - h[0], c[1] - h[1]), fn
@@ -257,7 +226,6 @@ def rebuild_flow(lang, name, geo, header_images):
             pending = None
             continue
         new_seg.append(dict(s))
-    # ---- 自我驗證: 捲動量最接近的影格, 帶內挑到標題本身, 落點在 ⇌ 上 ----
     checks = []
     for st in stations:
         rows = []

@@ -1,8 +1,4 @@
-"""區段結構檢查 (`automation.flowcheck.section_error`): app 執行前與檢查指令共用.
-
-輸入平面標記步驟 (yaml 寫不出交錯, 但記憶體裡拖曳排序做得出來), 斷言回傳的訊息。
-"""
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 from automation import flowcheck, flowdefaults
 

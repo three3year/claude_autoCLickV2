@@ -1,20 +1,13 @@
-"""`找圖目標`模組 (find-target 票 03/05): 解析並執行一個找圖目標.
-
-直接用假偵測器 (harness.Vision) 驅動: 給定畫面上有哪些匹配與找圖目標的設定,
-斷言回報的匹配 (螢幕座標)、挑中哪一個、沒挑到的原因、位置是否仍有匹配。
-假偵測器的匹配框一律 40×20 (中心即安排的座標)。
-"""
 from harness import Vision
 
 from automation import findtarget
 
-REGION = (100, 50, 1200, 900)   # 搜尋範圍 (螢幕座標 x, y, w, h)
-ANCHOR = (300, 150)             # `座標基準點` (螢幕座標)
+REGION = (100, 50, 1200, 900)
+ANCHOR = (300, 150)
 
 
 def run(hits, target=None, origin=None, scale=1.0, region=REGION,
         anchor=ANCHOR):
-    """畫面上同時有 hits 這幾個匹配 (螢幕座標的框中心), 執行一次找圖目標."""
     vision = Vision()
     vision.plan("t", [list(hits)] if hits else [None])
     screen, org = vision.grab(region)
@@ -52,7 +45,6 @@ def test_由上到下第N_先排列再排同列由左到右():
 
 
 def test_中心高度差不到半個框高視為同一列():
-    # 框高 20: 差 8 → 同列, 照左右排; 差 12 → 不同列, 高的先
     assert picked([(600, 292), (400, 300)],
                   target={"pick": {"top": 1}}) == (400, 300)
     assert picked([(600, 288), (400, 300)],
@@ -60,7 +52,6 @@ def test_中心高度差不到半個框高視為同一列():
 
 
 def test_由左到右第N_同欄再由上到下():
-    # 框寬 40: x 差 15 → 同欄
     hits = [(800, 200), (300, 600), (315, 200), (550, 400)]
     left = {"pick": {"left": 1}}
     assert picked(hits, target=left) == (315, 200)
@@ -80,8 +71,6 @@ def test_沒有匹配就是沒挑到():
     r, _ = run([])
     assert r.picked is None and r.reason == "none"
 
-
-# ---------- 最接近指定點: 只以`原點`為基準 (coord-anchor 票 06) ----------
 
 def test_最接近指定點_原點加偏移():
     near = {"pick": {"near": [-100, 0]}}
@@ -123,13 +112,11 @@ def test_以原點為基準卻沒有原點_無法執行且不查詢():
 def test_位置是否仍有匹配_容差約半個框():
     r, _ = run([(300, 200), (700, 600)])
     box = next(m.box for m in r.matches if center(m) == (300, 200))
-    moved, _ = run([(315, 205), (700, 600)])      # 偏 15/5 < 半框 20/10
+    moved, _ = run([(315, 205), (700, 600)])
     assert center(findtarget.still_there(box, moved.matches)) == (315, 205)
-    gone, _ = run([(330, 200), (700, 600)])       # 偏 30 > 半框寬 20
+    gone, _ = run([(330, 200), (700, 600)])
     assert findtarget.still_there(box, gone.matches) is None
 
-
-# ---------- 比色 (票 04) ----------
 
 def test_比色開關傳到偵測器():
     _, vision = run([(300, 200)], target={"color": True})
@@ -139,7 +126,6 @@ def test_比色開關傳到偵測器():
 
 
 def test_比色不符的不算進第N個():
-    # 第三個值是分數, 第四個是比色分數 (假偵測器以 0.95 為門檻)
     hits = [(200, 300, 0.99, 0.99), (400, 300, 0.99, 0.80),
             (600, 300, 0.99, 0.98), (800, 300, 0.99, 0.97)]
     second = {"pick": {"left": 2}, "color": True}
@@ -149,8 +135,6 @@ def test_比色不符的不算進第N個():
     assert all(m.color >= 0.95 for m in r.matches)
 
 
-# ---------- 限定範圍 (票 05) ----------
-
 def test_沒設限定範圍就是整個搜尋範圍():
     r, _ = run([(300, 200)])
     assert r.limit is None
@@ -159,12 +143,9 @@ def test_沒設限定範圍就是整個搜尋範圍():
 def test_最接近指定點不受限定範圍裁切影響():
     tgt = {"within": [600, 600, 400, 200],
            "pick": {"near": [300, 200]}}
-    # 固定矩形 (900,750) 400×200 裁到搜尋範圍底 → (900,750,400,200); 指定點 (1200,900)
     r, _ = run([(1000, 800), (1250, 900)], target=tgt, origin=(900, 700))
     assert center(r.picked) == (1250, 900)
 
-
-# ---------- 編輯器用的純邏輯 (票 07) ----------
 
 def test_組找圖目標_預設值不寫進存檔():
     assert findtarget.make_target("a") == {"template": "a"}
@@ -177,7 +158,6 @@ def test_組找圖目標_預設值不寫進存檔():
 
 
 def test_拾取的螢幕位置反除畫面倍率存成基準尺度():
-    # 與相對座標拾取一致: (螢幕位置 − 基準點) ÷ 倍率
     assert findtarget.offset_from_screen((650, 280), (500, 300), 1.0) == (150, -20)
     assert findtarget.offset_from_screen((650, 280), (500, 300), 2.0) == (75, -10)
 
@@ -208,13 +188,9 @@ def test_設定摘要():
 
 
 def test_畫面倍率同時當預期尺度交給偵測器():
-    """flow-scale: 一個倍率兩個用途——像素設定 ×它, 查詢時當`預期尺度`."""
     _, vision = run([(300, 200)], scale=0.9)
     assert vision.expected_scales == [("t", 0.9)]
 
-
-# ---------- 固定矩形: 相對`座標基準點` (coord-anchor 票 04) ----------
-# 存的是相對基準點的偏移與寬高 (流程尺度); ANCHOR＝(300, 150), REGION＝(100, 50, 1200, 900)
 
 def rect(x, y, w, h):
     return {"within": [x, y, w, h]}

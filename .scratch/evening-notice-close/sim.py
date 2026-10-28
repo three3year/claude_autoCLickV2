@@ -1,17 +1,3 @@
-"""接縫二: 無頭執行器跑晚班開頭 (新的第 1 步到找基建入口), 看事件序列 (見 spec.md「接縫二」).
-
-    .venv/Scripts/python.exe .scratch/evening-notice-close/sim.py [--flows 目錄]
-
-從改好的存檔切出第 1–2 步 (關公告 → 找基建入口), 照存檔的搜尋範圍、忙碌指示、補做間隔,
-交給 app 測試用的無頭 harness (app/tests/harness.py: 假畫面、假輸入、虛擬時鐘) 跑兩個劇本:
-
-- 公告在: 公告 X 在影片上量到的位置 (固定矩形內), 點一下之後消失。
-  預期: 點 X 一次 → 確認消失 → 找到基建入口並點擊 → 確認消失, 流程跑完。
-- 公告不在: 公告 X 一直找不到。
-  預期: 約 2 秒 (虛擬時間) 逾時、跳過 → 找到基建入口並點擊, 流程跑完; 點基建前沒有任何點擊。
-兩個劇本從「點基建入口」起的事件序列要相同。忙碌指示兩個劇本都不出現。
-結果寫 results/sim.json; 任一劇本不符預期時結束碼 1。
-"""
 from __future__ import annotations
 
 import argparse
@@ -22,19 +8,17 @@ import sys
 import notice
 from notice import bp
 
-import pytest  # noqa: E402  (只借 MonkeyPatch 給 harness 用)
+import pytest  # noqa: E402
 
 import flowfile  # noqa: E402
 import harness as hz  # noqa: E402
 from automation import findtarget  # noqa: E402
 from automation import runner as runner_mod  # noqa: E402
 
-BASE_AT = (1000, 500)    # 基建入口 (不限定範圍; 搜尋範圍內任一處)
+BASE_AT = (1000, 500)
 
 
 class Screen(hz.Vision):
-    """依劇本回答查詢; 每次查詢記下 (虛擬時間, 範本名)."""
-
     def __init__(self, clock):
         super().__init__(clock=clock)
         self.timeline = []
@@ -45,7 +29,6 @@ class Screen(hz.Vision):
 
 
 def notice_at(lang):
-    """公告 X 在實機螢幕上的中心: 有公告的影格上量到的框 + 影片偏移."""
     _video, _n, (x, y, w, h) = notice.LANGS[lang]["positive"][0]
     ox, oy = bp.LANGS[lang]["offset"]
     return (x + ox + w // 2, y + oy + h // 2)

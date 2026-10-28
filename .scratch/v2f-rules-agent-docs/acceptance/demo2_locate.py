@@ -1,10 +1,3 @@
-"""驗收②輔助: 在 demo2 指定的影格區間裡找每張參考範本 (在用早_繁中的圖), 列出分數最高的那幀與框.
-
-    .venv/Scripts/python .scratch/v2f-rules-agent-docs/acceptance/demo2_locate.py <清單.json> <輸出.json>
-
-清單: [[鍵, 範本名, 起幀, 迄幀], ...]。輸出 {鍵: {frame, box, score, n}}——n 是那一幀的匹配數。
-框是影片像素; 計畫的範本由組裝從 demo2 影格重裁, 這裡只是幫忙量位置。
-"""
 import json
 import os
 import sys

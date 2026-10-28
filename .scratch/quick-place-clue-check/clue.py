@@ -1,11 +1,4 @@
-"""快速置入前先查 1–7 號線索: 裁範本、建構、驗證、報告腳本共用的設定 (見 spec.md).
-
-路徑、流程存檔讀寫、preflight、草稿同步、引擎與影格的換算沿用 busy-pause-fixed-rect/common.py
-(匯入成 bp); 影格一律逐幀順序讀 (示範影片跳轉讀幀不準)。
-
-座標都是影片像素; 換成實機螢幕座標靠 bp.LANGS 的偏移 (簡中 (95,57)、繁中 (0,0))。
-add3 跟 demo6 一樣是 1696x912 的簡中視窗錄影, 沿用同一個偏移。
-"""
+"""影格一律逐幀順序讀 (示範影片跳轉讀幀不準)。"""
 from __future__ import annotations
 
 import copy
@@ -18,7 +11,7 @@ RESULTS = os.path.join(HERE, "results")
 TEMPLATES = os.path.join(HERE, "templates")
 sys.path.insert(0, os.path.join(SCRATCH, "busy-pause-fixed-rect"))
 
-import common as bp  # noqa: E402  (busy-pause-fixed-rect 的共用; 也把 app 放進 sys.path)
+import common as bp  # noqa: E402
 
 from automation import findtarget  # noqa: E402
 
@@ -27,23 +20,18 @@ BACKUP_FLOWS = os.path.join(BACKUP, "arknights", "flows")
 
 NUMS = range(1, 8)
 
-# ---- 新步驟的時限 (秒) ----
-OPEN_TIMEOUT = 5        # 開面板: 點到面板標記出現
-COND_TIMEOUT = 2        # 檢查區段的條件 (面板標記); 開面板那步已確認過, 正常第一輪就找到
-PICK_TIMEOUT = 3        # 點 N 號篩選鈕, 點到選中的 N 號鈕出現 (補做間隔 1 秒 → 約補 2 次)
-CARD_TIMEOUT = 1        # 卡片標籤: 「有」第一輪就找到, 「沒有」等滿這段就跳出
-CLOSE_TIMEOUT = 3       # 關面板: 點到面板標記離開原位
-LEFTOVER_TIMEOUT = 1    # 跳出後補關面板的分岔條件
+OPEN_TIMEOUT = 5
+COND_TIMEOUT = 2
+PICK_TIMEOUT = 3
+CARD_TIMEOUT = 1
+CLOSE_TIMEOUT = 3
+LEFTOVER_TIMEOUT = 1
 INTERVAL = 0.3
 
-# 每版的影片、範本、影片座標 (x, y, w, h) 與各種影格。
-# crop: 範本名 → (幀, 框); 框外擴 margin 成固定矩形。
-# 選中的 N 號鈕從「點下一號之前」那幾幀裁 (游標停在下一號上, 不壓到這一號);
-# 7 號從點關面板之前裁。卡片標籤兩個候選都裁, 由 crop.py 在影格上比過分數後挑 LABEL。
 LANGS = {
     "cn": {
         "flow": "早_簡中", "video": "add3",
-        "steps": 247, "receive_no": 54,          # 改前步驟數、領取的編號 (只拿來核對)
+        "steps": 247, "receive_no": 54,
         "open": "CONFIDENTIAL线索", "marker": "全部分页",
         "labels": ("相关搜集者", "来自"), "selected": "选中{}",
         "quick": "快速置入", "receive": "接收线索", "chat": "交流中",
@@ -56,10 +44,9 @@ LANGS = {
         },
         "buttons": [1326 + 56 * k for k in range(7)], "button_y": 133, "button_r": 23,
         "selected_frames": {1: 90, 2: 116, 3: 146, 4: 174, 5: 204, 6: 235, 7: 288},
-        "quick_box": (1512, 818, 160, 48),       # 現有的快速置入範本在影片上的位置 (只拿來驗證)
-        "close_at": (1095, 215),                 # 點面板外的線索板空白處 (影片裡的位置)
-        "panel_left": 1232,                      # 面板左緣 (關面板的點要在它左邊)
-        # 影格: 面板關著、開著選 all、選中各號 (區間 [首, 尾])、每號有沒有卡片
+        "quick_box": (1512, 818, 160, 48),
+        "close_at": (1095, 215),
+        "panel_left": 1232,
         "closed": [0, 10, 20, 300, 330, 360],
         "all": [40, 50, 60],
         "picked": {1: (62, 92), 2: (93, 118), 3: (119, 148), 4: (149, 176),
@@ -92,10 +79,8 @@ LANGS = {
     },
 }
 
-# crop.py 在 add3/add4 影格上比過兩個候選後挑的卡片標籤 (見 results/labels_<lang>.json)
 LABEL = {"cn": "来自", "tw": "來自"}
 
-# 固定矩形的外擴 (影片像素): 篩選鈕只外擴一點, 不碰到隔壁那顆
 MARGIN = {"open": 20, "marker": 20, "label": 24, "selected": 4}
 
 
@@ -104,14 +89,12 @@ def selected_name(lang, n):
 
 
 def button_box(lang, n):
-    """N 號篩選鈕在影片上的框 (x, y, w, h)."""
     cfg = LANGS[lang]
     x, y, r = cfg["buttons"][n - 1], cfg["button_y"], cfg["button_r"]
     return (x - r, y - r, 2 * r, 2 * r)
 
 
 def crops(lang):
-    """要裁的範本: 名 → (幀, 影片框). 含兩個卡片標籤候選."""
     cfg = LANGS[lang]
     out = dict(cfg["boxes"])
     for n in NUMS:
@@ -120,7 +103,6 @@ def crops(lang):
 
 
 def new_template_names(lang):
-    """新流程用到的新範本 (卡片標籤只用挑中的那個)."""
     cfg = LANGS[lang]
     return [cfg["open"], cfg["marker"], LABEL[lang]] + [selected_name(lang, n) for n in NUMS]
 
@@ -131,7 +113,6 @@ def center(box):
 
 
 def screen_xy(lang, xy):
-    """影片座標 → 實機螢幕座標."""
     ox, oy = bp.LANGS[lang]["offset"]
     return (xy[0] + ox, xy[1] + oy)
 
@@ -141,7 +122,6 @@ def template_path(lang, name):
 
 
 def load_templates(lang, names=None):
-    """templates/<lang>/ 底下裁好的範本 (PNG 位元組); crop.py 產的."""
     out = {}
     for n in names or new_template_names(lang):
         p = template_path(lang, n)
@@ -152,17 +132,15 @@ def load_templates(lang, names=None):
     return out
 
 
-STRIDE = 3    # 驗證用的影格: 各號選中區間每幾幀取一張
+STRIDE = 3
 
 
 def picked_frames(lang):
-    """[(幀, 號碼)]: 各號選中區間每 STRIDE 幀 (前 2 幀游標還壓在剛點的鈕上, 跳過)."""
     return [(f, n) for n, (a, b) in LANGS[lang]["picked"].items()
             for f in range(a + 2, b + 1, STRIDE)]
 
 
 def read_frames(video, wanted):
-    """逐幀順序讀 (不跳轉), 回傳 {幀號: 影像}."""
     import cv2
     wanted = set(wanted)
     cap = cv2.VideoCapture(os.path.join(bp.VIDEO_DIR, video + ".mp4"))
@@ -183,15 +161,10 @@ def read_frames(video, wanted):
     return out
 
 
-OCCLUDE_DIFF = 8.0    # 框內平均灰階差 (0–255) 超過它＝游標壓在上面
+OCCLUDE_DIFF = 8.0
 
 
 def occluded(frames, box, pad=6):
-    """同一個畫面狀態的一組影格裡, 游標壓在 box 上的那些幀.
-
-    影格之間只差游標 (面板靜止), 所以取這組在框內的中位數當乾淨的底, 跟它差很多的幀
-    就是游標經過。實跑前會避開游標, 這些幀不拿來驗證範本 (列出來, 不算數)。
-    """
     import cv2
     import numpy as np
     if len(frames) < 3:
@@ -204,14 +177,11 @@ def occluded(frames, box, pad=6):
     return {n for n, c in crops.items() if float(np.abs(c - med).mean()) > OCCLUDE_DIFF}
 
 
-# ================= 新步驟 =================
-
 def rect(lang, region, box, margin):
     return bp.video_box_to_rect(box, lang, region, margin)
 
 
 def targets(lang, region):
-    """新步驟用的找圖目標 (範本 + 固定矩形)."""
     cfg = LANGS[lang]
     boxes = cfg["boxes"]
     label = LABEL[lang]
@@ -230,7 +200,6 @@ def targets(lang, region):
 
 
 def offsets(lang):
-    """相對面板標記中心的座標: N 號篩選鈕與關面板的點 (影片上量; 倍率 1 時與實機相同)."""
     cfg = LANGS[lang]
     mx, my = center(cfg["boxes"][cfg["marker"]][1])
     out = {n: (cfg["buttons"][n - 1] - mx, cfg["button_y"] - my) for n in NUMS}
@@ -257,7 +226,6 @@ def _rel_click(xy, timeout, on_nf, confirm, confirm_target=None):
 
 
 def check_steps(lang, region, quick_step):
-    """開面板 → 檢查區段 → 跳出後補關面板 (spec「新步驟的形狀」)."""
     t = targets(lang, region)
     off = offsets(lang)
     out = [_find(t["open"], OPEN_TIMEOUT, "skip", confirm="appear", confirmTarget=t["marker"]),
@@ -276,14 +244,11 @@ def check_steps(lang, region, quick_step):
     return out
 
 
-# ================= 以內容定位 =================
-
 def template_of(step):
     return findtarget.template(step) if step.get("type") == "find_click" else ""
 
 
 def branch_of(steps, i):
-    """steps[i] 是分岔第一個分支的條件時, 回傳 (分岔開頭, 分岔結尾) 索引."""
     from automation.runner import branch_layout
     if i == 0 or steps[i - 1].get("type") != "branch_start":
         return None
@@ -299,11 +264,6 @@ def one_step(steps, name, flow):
 
 
 def locate(steps, lang):
-    """改前存檔各段的位置 (0 起算): 領取、交流中分岔、快速置入、解鎖分岔、線索入口、接收分岔.
-
-    核對順序是「領取 → 交流中分岔 → 解鎖分岔 → 線索入口 → 接收分岔」緊接著,
-    以及改前的編號與步驟數; 不符就中止 (存檔被別的改動動過)。
-    """
     cfg = LANGS[lang]
     flow = cfg["flow"]
     get = one_step(steps, "領取", flow)
@@ -328,12 +288,10 @@ def locate(steps, lang):
 
 
 def is_new(steps, lang):
-    """已經是新版了嗎 (有開面板那步)."""
     return any(template_of(s) == LANGS[lang]["open"] for s in steps)
 
 
 def new_layout(steps, lang):
-    """新版存檔各段的位置 (0 起算): 領取、接收分岔、開面板、檢查區段、補關分岔、解鎖分岔."""
     cfg = LANGS[lang]
     flow = cfg["flow"]
     get = one_step(steps, "領取", flow)
@@ -349,7 +307,6 @@ def new_layout(steps, lang):
 
 
 def rebuild(steps, lang, region):
-    """改前步驟 → 新步驟 (list). 其餘步驟原封不動 (同一個 dict 的深拷貝)."""
     a = locate(steps, lang)
     s = [copy.deepcopy(x) for x in steps]
     rb, re_ = a["recv"]

@@ -1,17 +1,10 @@
-"""編輯器每次拾取當下量`座標基準點`與`畫面倍率` (coord-anchor 票 02–06, ADR 0012).
-
-編輯器從螢幕取得的東西都在拾取的那張截圖上校準後再存: 固定矩形相對當下的基準點;
-相對座標、指定點除以當下倍率; 截下的範本圖以 1/倍率縮放、拍攝位置相對基準點。量不到＝不存並提示; 沒有校準對＝需要基準點的拾取擋下、只依原點的照常。
-拾取覆蓋層與清場以樁取代, 校準用的截圖走假偵測器 (harness.Vision), 對話框照常用
-`_Driver` 真的按按鈕。
-"""
 import contextlib
 import os
 
 import numpy as np
 import pytest
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 from harness import CAL_PAIR, Screen, Vision
 
 import app as app_mod
@@ -22,22 +15,17 @@ from automation import findtarget, flowdefaults, imgio
 from test_template_picker import TITLE, _Driver, _open, _PickApp
 
 REGION = [100, 200, 800, 600]
-ANCHOR = (150, 230)     # 校準對第一張的中心 (搜尋範圍內)
+ANCHOR = (150, 230)
 
 
 class _EditApp(_PickApp):
-    """步驟對話框需要的欄位 (沿用選範本對話框的最小 App).
-
-    scale: 校準對擺出來的`畫面倍率`; pair=False＝流程沒有校準對。
-    """
-
     def __init__(self, root, base_dir, scale=1.0, anchor=ANCHOR, pair=True):
         super().__init__(root, base_dir)
         self.scan_region = REGION
         self.vision = Vision()
         self.detector = self.vision
         self.flow_cal = harness.cal() if pair else None
-        self.hub.ensure_template = lambda name: None   # 登錄產物載入 (背景) 是樁
+        self.hub.ensure_template = lambda name: None
         if pair:
             for n in CAL_PAIR:
                 self.store.add(n, b"P")
@@ -51,7 +39,6 @@ class _EditApp(_PickApp):
     def calibration_ready(self, title, names=None, parent=None):
         return True
 
-    # 選範本對話框的最小 App 把它換成直接回假截圖; 這裡要走真的 (量校準那段)
     pick_region_measured = app_mod.App.pick_region_measured
 
 
@@ -63,7 +50,7 @@ def make_app(tkroot, tmp_path, monkeypatch):
     monkeypatch.setattr(ui_dialogs.ui_overlay, "screen_clear",
                         lambda root, extra=(): contextlib.nullcontext())
     def grab(region=None):
-        if region is None:      # 清場中截整個虛擬桌面 (覆蓋層顯示它, 校準裁搜尋範圍)
+        if region is None:
             return Screen((0, 0), (1920, 1080)), (0, 0)
         return Screen((region[0], region[1]), (region[2], region[3])), (region[0], region[1])
     monkeypatch.setattr(app_mod.capture, "grab", grab)
@@ -83,10 +70,6 @@ def _overlay(monkeypatch, result):
 
 
 def _edit(app, step, *actions, title):
-    """開步驟對話框, 依序做 actions, 回傳對話框的結果 step.
-
-    app 交給對話框的一律是完整步驟 (照「沒寫＝」表補齊), 這裡也先補齊。
-    """
     d = _Driver(app.root, title)
     d.run(*actions)
     got = ui_dialogs.edit_step(app, flowdefaults.complete(step))
@@ -99,15 +82,13 @@ def _press(text):
     return lambda dr: dr.press(text)
 
 
-# ---------- 座標類拾取 ----------
-
 def test_拖曳兩端點_相對原點_除以當下倍率(make_app, monkeypatch):
     app = make_app(0.5)
     calls = []
 
     def pick(root, mode, prompt, **kw):
         calls.append(mode)
-        if mode == "point":      # 推算不出原點: 先點一下原點
+        if mode == "point":
             return {"screenX": 150, "screenY": 230}
         return {"startX": 160, "startY": 240, "endX": 180, "endY": 290}
     monkeypatch.setattr(ui_dialogs.ui_overlay, "pick", pick)
@@ -119,10 +100,10 @@ def test_拖曳兩端點_相對原點_除以當下倍率(make_app, monkeypatch):
 
 def test_相對座標_預設原點推算用當下基準點與倍率_拾取值除以倍率(make_app, monkeypatch):
     app = make_app(2.0)
-    app.store.add("a", b"A", pos=[30, 40])      # 拍攝位置相對基準點
+    app.store.add("a", b"A", pos=[30, 40])
     app.steps = [flowdefaults.complete({"type": "find_click", "target": {"template": "a"}})]
     monkeypatch.setattr(ui_dialogs, "_find_template_now",
-                        lambda *a, **k: None)   # 圖此刻不在畫面上 → 退用拍攝位置
+                        lambda *a, **k: None)
     calls = _overlay(monkeypatch, {"dx": 50, "dy": -30})
     got = _edit(app, {"type": "click", "click": [0, 0], "_index": 1},
                 _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
@@ -185,8 +166,6 @@ def test_指定點沒有基準下拉_限定範圍只有不限定與固定矩形(
     assert not any("搜尋範圍左上" in v for v in values)
     assert ui_dialogs.LIMIT_ZH.keys() == {"none", "rect"}
 
-
-# ---------- 截範本 ----------
 
 def _shot(w=40, h=20, x=10, y=20):
     img = np.zeros((h, w, 3), np.uint8)
@@ -261,15 +240,13 @@ def test_從磁碟挑的範本不縮放(make_app, monkeypatch, tmp_path):
     assert imgio.imread(app.store.path_of(got)).shape[:2] == (20, 40)
 
 
-# ---------- 預設原點: ◎ 退用拍攝位置 ----------
-
 def test_預設原點退用拍攝位置_依當下基準點換到螢幕(make_app, monkeypatch):
-    app = make_app(1.0, anchor=(550, 330))    # 視窗挪過了
-    app.store.add("a", b"A", pos=[100, 50])      # 拍的時候相對基準點 (+100,+50)
+    app = make_app(1.0, anchor=(550, 330))
+    app.store.add("a", b"A", pos=[100, 50])
     app.steps = [flowdefaults.complete({"type": "find_click", "target": {"template": "a"}}),
                  flowdefaults.complete({"type": "click", "click": [0, 0]})]
     monkeypatch.setattr(ui_dialogs, "_find_template_now",
-                        lambda *a, **k: None)   # 圖此刻不在畫面上
+                        lambda *a, **k: None)
     calls = _overlay(monkeypatch, {"dx": 5, "dy": 5})
     _edit(app, {"type": "click", "click": [0, 0], "_index": 2},
           _press("截圖拾取"), _press("確定"), title="新增：座標點擊")
@@ -286,8 +263,6 @@ def test_預設原點推算_相對點擊累積偏移乘倍率_找圖退用拍攝
     assert ui_dialogs._resolve_prev_origin(app, {"_index": 2}, None, 1.5, None) \
         is None, "沒有基準點: 拍攝位置無從換到螢幕"
 
-
-# ---------- 比對測試 ----------
 
 def _match_test_app(make_app, monkeypatch, scale, **kw):
     app = make_app(scale, **kw)
@@ -306,7 +281,6 @@ def _match_test_app(make_app, monkeypatch, scale, **kw):
     monkeypatch.setattr(ui_dialogs, "_annotate_find",
                         lambda screen, org, f, origin=None, anchor=None:
                         np.zeros((60, 80, 3), np.uint8))
-    # 比對測試順帶跑`拾取檢查`的縮放餘裕, 要縮假畫面 (不是 numpy 陣列)
     from automation import pickcheck
     monkeypatch.setattr(pickcheck, "resize_image", lambda img, s: img.resized(s))
     return app, seen
@@ -345,8 +319,6 @@ def test_比對測試補記的拍攝位置相對基準點(make_app, monkeypatch)
     _close_result(app)
     assert app.store.pos_of("a") == [50, 35], "((250-150)/2, (300-230)/2)"
 
-
-# ---------- `支援倍率範圍`外只警告 (scale-out-of-range 票 02) ----------
 
 def test_範圍外拾取座標_照存_另印一行警告(make_app, monkeypatch, no_real_dialogs):
     app = make_app(0.7)

@@ -1,9 +1,3 @@
-"""`原點的圖離開` (effect-confirm 票 04, ADR 0008).
-
-座標點擊與拖曳的生效確認之一: 產生目前`原點`的那個找圖步驟, 它的找圖目標在它
-當時挑中的框不再有匹配＝生效 (例: 找「發電站1列」→ 拖曳捲動, 1 列離開原本的框
-＝有捲動)。不必另選確認圖, 操作前不多查一次。原點不是來自找圖＝無法執行。
-"""
 from harness import click, drag, find, here
 
 ROW1 = (500, 400)
@@ -15,7 +9,6 @@ def recs(harness):
 
 
 def test_來源框仍有匹配就在補做間隔後重拖_框不見就生效_原點變終點(harness):
-    # 找圖 1 次 + 輪詢: 0.2..1.0 還在原框 (1.0 那次重拖), 之後捲走了
     harness.vision.plan("row1", [ROW1] * 6 + [(500, 100)])
     harness.run([find("row1", type="find"),
                  drag(0, 100, 0, -200, **LEAVES),
@@ -34,11 +27,10 @@ def test_操作前不多查一次(harness):
 
 
 def test_沿用來源找圖目標的限定範圍與比色_同款圖顏色不符不算還在(harness):
-    """捲動後舊框位置換成別類 (形狀同、顏色不同) 的列: 開了比色就不算還在."""
     orange, other = (500, 400, 0.99, 0.99), (500, 400, 0.99, 0.60)
     harness.vision.plan("anchor", [ROW1])
     harness.vision.plan("row1", [[orange], [other]])
-    lim = [400, 300, 200, 200]   # 基準點 (0,0)
+    lim = [400, 300, 200, 200]
     harness.run([find("anchor", type="find"),
                  find("row1", target={"color": True, "within": lim},
                       type="find"),

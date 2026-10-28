@@ -1,23 +1,4 @@
-"""票 02: 早班兩版的接收線索改成真的按「全部收取」(見 issues/02-tw-receive-clues.md).
-
-    .venv/Scripts/python.exe .scratch/run-1007-fixes/build_clues.py            # 只驗證
-    .venv/Scripts/python.exe .scratch/run-1007-fixes/build_clues.py --apply    # 驗證全過才寫回
-
-範本從使用者 10/07 錄的 add1.mp4 (簡中)、add2.mp4 (繁中) 裁 (影片座標, 與流程同尺度):
-- 接收線索 (繁中): add2 f160 (1790,350,58,58)——收完、沒有 NEW 標籤的那格; 有 NEW 時也找得到。
-  簡中沿用原本的 接收线索 範本與固定矩形。
-- 全部收取: 繁中 add2 f80 (1554,958,192,52)、簡中 add1 f100 (1378,852,170,46), 可按的藍色版
-  (簡中原本的範本是收完後的暗色版)。比色分不出藍色與暗色 (暗色比色仍 0.98), 所以不比色。
-- 暫未收到新的線索: 繁中 add2 f125 (1557,518,194,27)、簡中 add1 f170 (1381,463,171,24)。
-  收完、或本來就沒有線索時面板中間的字樣; 當「全部收取」的確認圖。
-
-分岔 (簡中換掉原本第 64–69 步那個分岔; 繁中插在「線索面板」之後、「傳遞線索」之前):
-  接收線索 → 點擊, 點到確認圖 (全部收取) 出現 (逾時5s→跳出)
-  全部收取 → 點擊, 點到確認圖 (暫未收到新的線索) 出現 (逾時8s→跳過)
-  座標點擊 上一步 (面板外的線索板空白處) → 點到確認圖 (傳遞線索) 出現 (逾時5s→跳過)
-面板開著時會蓋住右側那排圖示, 傳遞線索重新出現＝面板關了。
-固定矩形照票 08 (busy-pause-fixed-rect) 的做法: 影片座標的框外擴 40px 換成搜尋範圍的比例。
-"""
+"""面板開著時會蓋住右側那排圖示, 傳遞線索重新出現＝面板關了。"""
 from __future__ import annotations
 
 import argparse
@@ -30,7 +11,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "busy-pause-fixed-rect"))
 
-import common as bp  # noqa: E402  (busy-pause-fixed-rect 的共用: 路徑、換算、寫檔、草稿同步)
+import common as bp  # noqa: E402
 
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
@@ -49,7 +30,6 @@ LANGS = {
         "crops": {"全部收取": (100, (1378, 852, 170, 46)),
                   "暂未收到新的线索": (170, (1381, 463, 171, 24))},
         "close": (-429, -184),
-        # 驗證影格: 範本 → (該找得到的, 不該找到的)
         "frames": {"接收线索": ((0, 30, 190, 220), (80, 160)),
                    "全部收取": ((80, 100, 160, 180), (0, 190)),
                    "暂未收到新的线索": ((160, 170, 180), (0, 80, 100, 190)),
@@ -62,7 +42,6 @@ LANGS = {
         "crops": {"接收線索": (160, (1790, 350, 58, 58)),
                   "全部收取": (80, (1554, 958, 192, 52)),
                   "暫未收到新的線索": (125, (1557, 518, 194, 27))},
-        # 簡中的 (-429,-184) 換成繁中尺度 (基準距離 1868 / 1650)
         "close": (-486, -208),
         "frames": {"接收線索": ((0, 40, 160, 180), (80, 115)),
                    "全部收取": ((80, 115, 125), (0, 160)),
@@ -119,7 +98,6 @@ def _tmpl(s):
 
 
 def rebuild(lang, data, boxes):
-    """回傳 (新 steps, 被換掉/插入的位置說明)."""
     cfg = LANGS[lang]
     steps = data["steps"]
     region = data["scanRegion"]
@@ -129,19 +107,16 @@ def rebuild(lang, data, boxes):
     empty_tgt = {"template": cfg["empty"], "limit": rect(lang, boxes[cfg["empty"]], region)}
     recv_i = next((i for i, s in enumerate(steps) if _tmpl(s) == cfg["recv"]), None)
     if recv_i is not None:
-        # 簡中: 換掉原本整個分岔 (接收线索 的上一步是 branch_start)
         start = recv_i - 1
         if steps[start].get("type") != "branch_start":
             raise SystemExit(f"{cfg['flow']}: 接收线索不在分岔開頭, 不認得的寫法")
         end = next(j for j in range(recv_i, len(steps)) if steps[j].get("type") == "branch_end")
-        # 傳遞線索緊接在分岔後 (繁中重跑), 或包在下一個分岔裡 (簡中)
         if _tmpl(steps[start - 1]) != cfg["after"] or end + 1 not in (relay_i - 1, relay_i):
             raise SystemExit(f"{cfg['flow']}: 接收线索分岔前後不是預期的步驟")
         recv_tgt = findtarget.target(steps[recv_i])
         new = block(cfg, recv_tgt, all_tgt, empty_tgt, relay_tgt)
         where = f"第 {start + 1}–{end + 1} 步換成第 {start + 1}–{start + len(new)} 步"
         return steps[:start] + new + steps[end + 1:], where, start
-    # 繁中: 插在「線索面板」與「傳遞線索」之間
     if _tmpl(steps[relay_i - 1]) != cfg["after"]:
         raise SystemExit(f"{cfg['flow']}: 傳遞線索的上一步不是 {cfg['after']}")
     recv_tgt = {"template": cfg["recv"], "limit": rect(lang, boxes[cfg["recv"]], region)}
@@ -151,7 +126,6 @@ def rebuild(lang, data, boxes):
 
 
 def verify(lang, steps, at, images):
-    """真引擎: 新分岔裡每個找圖目標/確認圖, 在影格 (貼到實機搜尋範圍畫布) 上該找到的找到、不該的找不到."""
     cfg = LANGS[lang]
     region = None
     tgts = {}

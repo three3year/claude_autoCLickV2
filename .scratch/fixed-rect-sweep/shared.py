@@ -1,7 +1,3 @@
-"""剩下的九宮格與全畫面換成固定矩形: 量位置、驗證、寫回、報告腳本共用的設定 (見 spec.md).
-
-路徑、流程存檔讀寫、引擎與影格的共用沿用 busy-pause-fixed-rect/common.py (匯入成 bp)。
-"""
 from __future__ import annotations
 
 import functools
@@ -12,26 +8,20 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "busy-pause-fixed-rect"))
 
-import common as bp  # noqa: E402  (busy-pause-fixed-rect 的共用)
+import common as bp  # noqa: E402
 
 BACKUP = os.path.join(bp.APP, "dist", "profiles-backup-2026-10-09-fixed-rect-sweep")
 BACKUP_FLOWS = os.path.join(BACKUP, "arknights", "flows")
 RESULTS = os.path.join(HERE, "results")
 LOG = os.path.join(bp.APP, "dist", "AutoClick", "autoclick.log")
 
-MARGIN = 40          # 外擴 (實機螢幕像素)
+MARGIN = 40
 
-# 晚班兩版要加框的步驟 (2026-10-08 存檔的編號, 規格「改的範圍」)。
 FIXED_STEPS = [2, 3, 6, 8, 10, 13, 16, 19, 20, 22, 23, 25, 27, 28, 29, 60, 61, 63, 64]
 LIST_STEPS = [32, 34, 37, 42, 44, 47, 53, 56]
-CONFIRM_STEP = 3     # 第 3 步的確認圖「待辦事項」(九宮格 7)
-# 同一天兩次實機位置不同的步驟: 框＝晚班與早班實跑 (同客戶端、同一張圖、同尺寸) 位置的聯集。
-# 待辦鈴鐺 10/08 簡中早班 y=179、晚班 y=232; 繁中早班 y=129、晚班 y=189 (其他步驟早晚一致)。
+CONFIRM_STEP = 3
 WIDEN_STEPS = {3}
 
-# 每版: 早晚兩份流程、晚班參考影片、10/08 晚實跑在日誌裡的開頭 (校準那一行的時間)、
-# 同一天早班實跑的開頭 (WIDEN_STEPS 用)、忙碌指示的位置 (實機螢幕座標) 與它的來源、
-# 晚班的票、10/08 晚班總秒數 (報告用)。影片 → 實機的偏移照 bp.LANGS (busy-pause-fixed-rect 的量法)。
 LANGS = {
     "cn": {"morning": "早_簡中", "evening": "晚_簡中", "video": "demo4",
            "run": "2026-10-08 23:19:14", "morning_run": "2026-10-08 08:48:34",
@@ -49,11 +39,8 @@ FIND_ROLES = ("find", "branch")
 
 
 class SeqFrames:
-    """影片影格, 從頭逐幀順序讀 (同 positions.py 量位置的讀法).
-
-    bp.Frames 用跳轉 (CAP_PROP_POS_FRAMES): demo4 (變動幀率, 13.6fps) 約第 400 幀以後跳到的
-    不是那一幀, demo6 也有幾格偏差——量到的幀號跟驗證讀的影格會對不上。要用的影格先
-    prefetch (每支影片順序讀一次, 存成無損 PNG), get 時解回來; 沒預讀的就單獨順序讀一次。
+    """bp.Frames 用跳轉 (CAP_PROP_POS_FRAMES): demo4 (變動幀率, 13.6fps) 約第 400 幀以後跳到的
+    不是那一幀, demo6 也有幾格偏差。
     """
 
     def __init__(self):
@@ -100,7 +87,6 @@ def grow(box, m=MARGIN):
 
 
 def screen_rect(box, region, m=MARGIN):
-    """實機螢幕座標的框外擴 m → `固定矩形` (搜尋範圍 region 的比例; 編輯器框選的同一套換算)."""
     from automation import findtarget
     r = findtarget.ratio_rect_from_screen(grow(box, m), tuple(region))
     if r is None:
@@ -113,7 +99,6 @@ def busy_rect(lang, region):
 
 
 def target_of(data, c):
-    """改動 c 指的找圖目標 (data 裡的那個 dict): 流程層級忙碌指示、步驟的找圖目標或確認圖."""
     from automation import findtarget
     import flowfile
     if c["where"] == "busy":
@@ -122,15 +107,11 @@ def target_of(data, c):
     return data["steps"][c["step"] - 1][key]
 
 
-# ================= 10/08 晚實跑日誌 =================
-
 _BOX = re.compile(r"\((\d+),(\d+),(\d+),(\d+)\)")
 _PICKED = re.compile(r"picked=\((\d+),(\d+),(\d+),(\d+)\)")
 
 
 def run_lines(lang, log=LOG, which="run"):
-    """10/08 這一版實跑 (which: 晚班 "run" / 早班 "morning_run") 的日誌行: 從校準那一行起,
-    到下一次校準 (或 app 重開) 為止."""
     start = LANGS[lang][which]
     out, on = [], False
     with open(log, encoding="utf-8", errors="replace") as f:
@@ -149,10 +130,6 @@ def run_lines(lang, log=LOG, which="run"):
 
 @functools.lru_cache(maxsize=None)
 def run_finds(lang, log=LOG, which="run"):
-    """[{step, role, template, result, picked, boxes}]: 這次實跑每一筆 find.target (唯讀, 有快取).
-
-    boxes＝matches 與 rejected 裡所有的框 (列名「日誌所有出現位置」用)。
-    """
     rows = []
     for line in run_lines(lang, log, which):
         if " find.target " not in line:
@@ -182,11 +159,6 @@ def _picks(finds, step, roles, template):
 
 
 def step_positions(lang, step, template, roles=FIND_ROLES):
-    """這一步在日誌裡找到的位置 (實機螢幕座標): {"晚": [...], "早": [...]}.
-
-    "早" 只有 WIDEN_STEPS 的找圖目標才有: 同一天早班實跑同一張圖 (同尺寸) 找到的位置
-    (早班步驟編號不同, 只認範本)。晚班沒有紀錄、或該有早班卻沒有就中止。
-    """
     eve = sorted(set(_picks(run_finds(lang), step, roles, template)))
     if not eve:
         raise SystemExit(f"[{lang}] 日誌第 {step} 步沒有 {template} ({'/'.join(roles)}) 的位置")

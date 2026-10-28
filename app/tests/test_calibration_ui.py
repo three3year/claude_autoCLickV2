@@ -1,13 +1,7 @@
-"""校準的 UI 薄殼接線 (ADR 0009、0012): 執行時交校準資料、編輯器的校準對與「校準」按鈕、
-換校準對平移座標.
-
-量測本身是 calibration 模組純函式 (test_calibration.py); 拾取當下的量測在
-test_editor_scale.py。這裡只驗 UI 薄殼接對——沿用 test_engine_gating 的最小 App 子類手法。
-"""
 from types import SimpleNamespace
 
 import os
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import app as app_mod
 import calibration
@@ -18,7 +12,7 @@ import ui_dialogs
 
 class _FakeRunner:
     def __init__(self):
-        self.started = []  # (steps, kwargs)
+        self.started = []
 
     def status(self):
         return {"running": False, "round": 0, "totalRounds": 1,
@@ -29,8 +23,6 @@ class _FakeRunner:
 
 
 class _CalApp(app_mod.App):
-    """只建 start_run 需要的欄位 (引擎一律就緒)."""
-
     def __init__(self, root, base_dir, cal=None, names=None):
         self.root = root
         self.hub = enginehub.EngineHub()
@@ -107,10 +99,7 @@ def test_校準對的範本不在本流程_不執行(tkroot, monkeypatch, tmp_pa
     assert any("關閉（校準對）" in m for m in rec)
 
 
-# ---------- 拾取換算的純邏輯 ----------
-
 def _full(*steps):
-    """記憶體裡的步驟一律是完整步驟 (照「沒寫＝」表補齊)."""
     from automation import flowdefaults
     return [flowdefaults.complete(s) for s in steps]
 
@@ -146,11 +135,7 @@ def test_範本拍攝位置相對基準點():
     assert ui_dialogs.template_pos_from_shot(shot, None, 1.0) is None
 
 
-# ---------- 編輯器: 校準對與「校準」按鈕 ----------
-
 class _Btn:
-    """記下 configure(text=...) 的按鈕/標籤樁."""
-
     def __init__(self):
         self.text = ""
 
@@ -159,8 +144,6 @@ class _Btn:
 
 
 class _EditorApp(app_mod.App):
-    """只建校準對/校準按鈕需要的欄位; 清場與擷取以樁取代."""
-
     def __init__(self, root, base_dir, vision, cal=None):
         self.root = root
         self.store = flowfile.FlowTemplates.new(os.path.join(str(base_dir), "unsaved"))
@@ -175,7 +158,7 @@ class _EditorApp(app_mod.App):
         self.autosaved = 0
         self.rendered = 0
         self.flow_cal = cal
-        self.settings_lbl = _Btn()     # 主視窗第一列的流程設定摘要
+        self.settings_lbl = _Btn()
         for n in (cal["pair"] if cal else ()):
             self.store.add(n, b"P")
 
@@ -257,9 +240,9 @@ def test_更換校準對_先用舊對量倍率與舊基準點_所有座標改成
                         pick=("圖示", "關閉"))
     _flow_with_coords(a)
     vision.plan("舊圖示", [(100, 50)])
-    vision.plan("舊關閉", [(1000, 50)])   # 900 ÷ 1000 → 倍率 0.9, 舊基準點 (100,50)
-    vision.plan("圖示", [(190, 95)])      # 新基準點: 螢幕上差 (90,45) → 流程尺度 (100,50)
-    vision.plan("關閉", [(640, 95)])      # 450 ÷ 0.9 = 500
+    vision.plan("舊關閉", [(1000, 50)])
+    vision.plan("圖示", [(190, 95)])
+    vision.plan("關閉", [(640, 95)])
     a.designate_pair()
     assert a.flow_cal == {"pair": ["圖示", "關閉"], "baseline": 500.0}
     s = a.steps
@@ -271,7 +254,6 @@ def test_更換校準對_先用舊對量倍率與舊基準點_所有座標改成
     assert a.store.pos_of("a") == [100, 50], "拍攝位置也平移"
     assert a.autosaved == 1 and a.rendered == 1
     assert any("換算" in m and "落點不變" in m for m in a.logged)
-    # 落點不變: 舊 (100,50) + 100×0.9 = 190; 新 (190,95) + 0×0.9 = 190
     from automation import flowfmt
     assert flowfmt.rect_to_screen([100, 50, 30, 20], (100, 50), 0.9) == \
         flowfmt.rect_to_screen(s[2]["target"]["within"], (190, 95), 0.9)
@@ -342,8 +324,6 @@ def test_按校準失敗只寫紀錄(tkroot, monkeypatch, tmp_path):
 
 
 def test_按校準主對找不到退備用對_備用對的範本也先載入(tkroot, monkeypatch, tmp_path):
-    # 2026-10-10 實跑前按「校準」踩到: 主對被彈窗蓋住 → calibrate() 改量備用對,
-    # 但 calibration_ready 只載入主對的範本, 備用對查詢踩到空的登錄產物 (AttributeError)
     cal = dict(OLD)
     cal[calibration.FALLBACK_KEY] = calibration.make_fallback(
         ["標題左", "標題右"], 500.0, (0, 0))
@@ -360,7 +340,6 @@ def test_按校準主對找不到退備用對_備用對的範本也先載入(tkr
 
 
 def test_拾取檢查的安靜量測_備用對的範本也先確認載得起來(tkroot, monkeypatch):
-    # 同上一個案例的漏洞, 另一條路: measured_pick(quiet=True) 只檢查主對兩張
     import contextlib
 
     import recognition
@@ -410,7 +389,7 @@ def test_校準只在搜尋範圍內截圖(tkroot, monkeypatch, tmp_path):
                                                      (region[2], region[3])),
                                               (region[0], region[1])))[1])
     vision.plan("舊圖示", [(100, 100)])
-    vision.plan("舊關閉", [(700, 100)])    # 都在範圍 (50,60) 700×500 內
+    vision.plan("舊關閉", [(700, 100)])
     a.test_calibration()
     assert grabs == [[50, 60, 700, 500]]
     assert any("(100, 100)" in m for m in a.logged), "中心是螢幕座標"
@@ -439,14 +418,12 @@ def test_開流程或切換流程時流程設定摘要跟著換(tkroot, monkeypa
     assert a.settings_lbl.text == "校準對 ✓　忙碌指示 —"
 
 
-# ---------- `支援倍率範圍`外只警告 (scale-out-of-range 票 02, ADR 0013 決策 1) ----------
-
 def test_按校準量到支援倍率範圍外_照常顯示倍率_另印一行警告(tkroot, monkeypatch, tmp_path):
     rec = _warnings(monkeypatch)
     a, vision = _editor(tkroot, monkeypatch, tmp_path, cal=dict(OLD))
     _flow_with_coords(a)
     vision.plan("舊圖示", [(100, 50)])
-    vision.plan("舊關閉", [(800, 50)])            # 700 ÷ 1000 = ×0.70
+    vision.plan("舊關閉", [(800, 50)])
     a.test_calibration()
     assert any("×0.700" in m and "(100, 50)" in m for m in a.logged)
     assert any("×0.700" in m and "×0.85–1.15" in m and "調大" in m

@@ -1,15 +1,3 @@
-"""接縫一: 真引擎＋影片影格, 驗證晚班新的第 1 步 (見 spec.md「接縫一」).
-
-    .venv/Scripts/python.exe .scratch/evening-notice-close/frames.py [--flows 目錄] [--lang cn|tw]
-
-用 app 的真實偵測路徑 (enginehub, arknights profile 的門檻); 影格貼到實機搜尋範圍大小的畫布上
-(同 busy-pause-fixed-rect 票 08 的 fixed_rects.py), 找圖目標照存檔裡的設定 (含固定矩形) 找一次。
-- 正例: 有公告的影格 (notice.LANGS 的 positive) 上要找得到, 挑到的框整個在固定矩形裡,
-  中心離影片上的位置 (換成螢幕座標) 在容許值內。demo1 (低位元率) 照實列出、不算數。
-- 反例: 晚班示範影片每 STRIDE 幀一張, 晚班「找基建入口」那一步 (新的第 2 步) 的找圖目標
-  找得到的＝主畫面影格; 這些影格上公告 X 都要找不到。主畫面影格至少要有 MIN_HOME 張。
-結果寫 results/frames_<lang>.json; 任一不符時結束碼 1。
-"""
 from __future__ import annotations
 
 import argparse

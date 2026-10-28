@@ -1,9 +1,3 @@
-"""執行紀錄說清楚哪一關沒過 (scale-range 票 02).
-
-找圖逾時的執行紀錄寫沒過的那一關與該關分數 (粗篩/驗證/比色), 不再只印「最高相似度」;
-生效確認逾時的 `input.confirm` 檔案紀錄帶最高分與沒過的那一關; 手動停止落在找圖或
-生效確認的輪詢裡時, 先寫一筆結果為 stopped 的檔案紀錄再停止。
-"""
 from harness import click, drag, find, here, miss, tgt
 
 
@@ -11,8 +5,6 @@ def records(harness, event="find.target", role=None):
     out = harness.filelog.of(event)
     return [r for r in out if role is None or r.get("role") == role]
 
-
-# ---------- 找圖逾時: 哪一關沒過 ----------
 
 def test_粗篩沒過_訊息印粗篩最高分(harness):
     harness.vision.plan("a", [miss("match", 0.59)])
@@ -60,8 +52,6 @@ def test_等待消失從未出現也印哪一關(harness):
     msg = next(m for m in harness.logs(r) if "從未出現" in m)
     assert "驗證最高 0.660" in msg
 
-
-# ---------- 生效確認逾時的檔案紀錄 ----------
 
 def test_座標點擊確認圖逾時_紀錄帶最高分與沒過的那一關(harness):
     harness.vision.plan("ok", [miss("verify", 0.71)])
@@ -118,11 +108,7 @@ def test_找圖點擊目標圖沒消失_紀錄帶still_there(harness):
     assert (rec["result"], rec["failed"]) == ("not_gone", "still_there")
 
 
-# ---------- 手動停止也寫最後一筆 ----------
-
 def _stop_at(harness, n_sleep):
-    """第 n_sleep 次 time.sleep 之後按下停止 (可中斷等待每 0.05s 睡一次: 0.5s 的
-    輪詢間隔＝10 次)."""
     def interrupt(n):
         if n >= n_sleep:
             harness.runner.stop()

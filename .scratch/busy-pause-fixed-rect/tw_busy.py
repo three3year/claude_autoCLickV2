@@ -1,21 +1,3 @@
-"""票 06: 繁中忙碌指示重截 (見 issues/06-tw-busy-template.md).
-
-    .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/tw_busy.py [--apply]
-
-舊範本是從 demo3 第 852 幀附近裁的: 那幾幀忙碌字樣底下疊著另一段淡出中的提示字,
-裁下來的圖是兩層字 (殘影), 實機上永遠比不到 (10/07 日誌 best 約 0.19)。
-新範本從 demo2 (繁中、最大化 1920×1024) 好友訪問時的忙碌字樣裁: 底下是純暗帶,
-裁法照簡中 (10/05): 只框字 (灰階 >120 的外框 +1px)。
-
-驗證走 app 的真實偵測路徑 (arknights 門檻), 影格換成實機搜尋範圍的畫布 (common.frame_region),
-執行流程層級的忙碌指示找圖目標 (限定範圍照流程裡的設定, 畫面倍率 1):
-- 有忙碌的影格 (opencv 灰階相關 ≥0.9, 抽樣) 要找得到; demo3 那幾幀疊字的也列出。
-- 沒有忙碌的影格 (相關 <0.3, demo2/demo3 每 25 幀抽一張) 要找不到。
-- 淡入淡出中間 (0.3–0.9) 的影格不算。
-結果寫 results/tw_busy.json。--apply: 換掉早_繁中的忙碌指示範本 (名稱、限定範圍不變),
-先備份、讀回驗證、草稿同步。晚_繁中 (規格不含晚班) 只在加 --evening 時一起換 (使用者 10/07
-看過新舊對照後決定換); 它的忙碌指示設定與搜尋範圍必須跟早_繁中一樣, 驗證才適用。
-"""
 from __future__ import annotations
 
 import argparse
@@ -37,7 +19,7 @@ from automation import findtarget  # noqa: E402
 FLOW = "早_繁中"
 EVENING = "晚_繁中"
 SOURCE = ("demo2", 2000)
-CROP = (1069, 944, 272, 25)          # x, y, w, h (影片 1:1 = 流程尺度)
+CROP = (1069, 944, 272, 25)
 VIDEOS = {"demo2": 3284, "demo3": 913}
 POS_STRIDE, NEG_STRIDE = 10, 25
 
@@ -47,20 +29,18 @@ def cut(frames):
     img = frames.get(*SOURCE)[y:y + h, x:x + w].copy()
     g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     ys, xs = np.where(g > 120)
-    # 裁切框＝字的外框 +1px (確認來源影格上沒裁到字)
     if xs.min() < 1 or ys.min() < 1 or xs.max() > w - 2 or ys.max() > h - 2:
         raise SystemExit("裁切框切到字了: 重量 CROP")
     return img
 
 
 def label(frames, tmpl):
-    """依 opencv 灰階相關把影格分成有忙碌 / 沒忙碌 (抽樣), 回傳 [(video, n, kind, corr)]."""
     t = cv2.cvtColor(tmpl, cv2.COLOR_BGR2GRAY)
     out = []
     for video, total in VIDEOS.items():
         pos = 0
         for n in range(total):
-            if n % 5:          # 先每 5 幀看一次, 再各自抽樣
+            if n % 5:
                 continue
             img = frames.get(video, n)
             g = cv2.cvtColor(img[660:1024, 640:1920], cv2.COLOR_BGR2GRAY)
@@ -71,7 +51,6 @@ def label(frames, tmpl):
                 pos += 1
             elif corr < 0.3 and n % NEG_STRIDE == 0:
                 out.append((video, n, "idle", corr))
-    # demo3 疊字那幾幀 (舊範本的來源; 字被別的提示字蓋住一半)
     out += [("demo3", n, "busy_overlap", None) for n in range(850, 859, 2)]
     return out
 
@@ -115,10 +94,6 @@ def summarize(rows, tag):
 
 
 def original_image(name, flows):
-    """換掉之前的舊範本: 已經 --apply 過時現在的存檔裡是新圖, 舊圖從票 06 的備份讀.
-
-    改的不是正式流程目錄 (試跑), 或備份還沒做 (還沒套用過) 時回 None。
-    """
     if os.path.normcase(os.path.abspath(flows)) != os.path.normcase(common.FLOWS):
         return None
     p = os.path.join(common.ticket_backup("06"), "arknights", "flows", FLOW + flowfile.EXT)
@@ -183,8 +158,6 @@ def main(argv=None):
     common.preflight(args.flows, common.ticket_backup("06"))
     replace(path, name, blob, args.flows)
     if args.evening:
-        # 使用者 10/07 決定晚班也換: 晚_繁中的忙碌指示設定與搜尋範圍要跟早_繁中一樣,
-        # 上面的驗證才適用
         ev_path = common.flow_path(EVENING, args.flows)
         if (ev_busy != busy
                 or ev["data"]["scanRegion"] != r["data"]["scanRegion"]):
@@ -195,7 +168,6 @@ def main(argv=None):
 
 
 def replace(path, name, blob, flows):
-    """把存檔裡的忙碌指示範本換成 blob (名稱、限定範圍不變); 已是新圖就不動."""
     label = os.path.splitext(os.path.basename(path))[0]
     r = flowfile.read(path)
     if r["images"][name] == blob:
@@ -203,7 +175,7 @@ def replace(path, name, blob, flows):
         return
     r["images"][name] = blob
     x, y, w, h = CROP
-    ox, oy = common.LANGS["tw"]["offset"]   # pos 是螢幕座標
+    ox, oy = common.LANGS["tw"]["offset"]
     r["pos"][name] = [x + ox + w // 2, y + oy + h // 2]
     back = common.write_flow(path, r["data"], r["images"], r["pos"])
     if back["images"][name] != blob or back["data"]["steps"] != r["data"]["steps"]:

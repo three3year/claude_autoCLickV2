@@ -1,8 +1,3 @@
-"""`拾取檢查`純模組 (scale-range 票 03/04/05): 矩形餘裕、縮放餘裕、唯一.
-
-用假偵測器排好每次查詢的回答 (匹配、各關分數), 驗三項各自何時警告、何時沉默、
-警告裡的分數與建議尺寸; 縮放餘裕要驗它真的以 ×0.85 與 ×1.15 的預期尺度各查了一次。
-"""
 import os
 import sys
 
@@ -14,8 +9,8 @@ from subject_detection.engine import Match, QueryResult  # noqa: E402
 
 from automation import pickcheck  # noqa: E402
 
-ORG = (100, 200)         # 截圖左上角的螢幕座標
-ANCHOR = (150, 230)      # 座標基準點
+ORG = (100, 200)
+ANCHOR = (150, 230)
 
 
 def screen(w=800, h=600):
@@ -23,18 +18,9 @@ def screen(w=800, h=600):
 
 
 class Detector:
-    """假偵測器: 依收到的`預期尺度` (四捨五入到 3 位) 回答; 記下每次查詢.
-
-    answer(expected_scale) 可以是:
-    - None: 找不到 (failed=match, score=0.4)
-    - ("miss", 關卡, 分數): 找不到, 卡在那一關
-    - [(cx, cy), ...] (查詢影像內的中心) 加上可選的分數: 找到這幾個;
-      kw match/verify 指定 debug 裡的粗篩/驗證最高分 (預設都很高)
-    """
-
     def __init__(self):
         self.answers = {}
-        self.calls = []   # (範本名, 預期尺度, 影像大小 (w, h), 比色)
+        self.calls = []
 
     def plan(self, scale, answer, match=0.9, verify=0.95):
         self.answers[round(scale, 3)] = (answer, match, verify)
@@ -62,8 +48,6 @@ class Detector:
         return QueryResult(found=True, box=matches[0].box, score=matches[0].score,
                            matches=matches, debug=debug)
 
-
-# ---------- 矩形餘裕 ----------
 
 def _rect(w, h):
     return {"template": "t", "within": [0, 0, w, h]}
@@ -93,10 +77,8 @@ def test_沒範本不警告_不是固定矩形不警告():
 
 def test_最小矩形的算法_向上取整():
     assert pickcheck.min_rect((50, 50)) == (70, 70)
-    assert pickcheck.min_rect((55, 23)) == (77, 33)   # 11×2, 4.6→5×2
+    assert pickcheck.min_rect((55, 23)) == (77, 33)
 
-
-# ---------- 縮放餘裕 ----------
 
 def test_縮放餘裕_真的以兩個預期尺度各查一次_影像跟著縮():
     d = Detector()
@@ -169,7 +151,6 @@ def test_縮放餘裕照限定範圍裁_固定矩形跟著縮():
     tgt = {"template": "t", "within": [100, 50, 200, 100]}
     pickcheck.scale_margin(d, screen(800, 600), ORG, tgt, ANCHOR, 1.0)
     sizes = [size for _, _, size, _ in d.calls]
-    # 矩形 200×100 ×0.85 / ×1.15 (兩角各自捨入, 差 1px 內)
     for got, want in zip(sizes, [(170, 85), (230, 115)]):
         assert abs(got[0] - want[0]) <= 1 and abs(got[1] - want[1]) <= 1, sizes
 
@@ -188,8 +169,6 @@ def test_固定矩形但沒有基準點_無法查就沉默():
     assert pickcheck.scale_margin(d, screen(), ORG, tgt, None, 1.0) == []
     assert d.calls == []
 
-
-# ---------- 唯一 ----------
 
 def test_兩個匹配_警告並列出位置():
     d = Detector()
@@ -229,8 +208,6 @@ def test_唯一照限定範圍查_並帶比色():
     assert (s, size, color) == (1.0, (200, 100), True)
     assert "限定範圍內" in w.text
 
-
-# ---------- 一次全查 ----------
 
 def test_check_三項一起_可指定只查哪幾項():
     d = Detector()

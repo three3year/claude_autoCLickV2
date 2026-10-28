@@ -1,13 +1,3 @@
-"""基準集候選案例建構 (benchmark-rebuild 票 02–04)。
-
-    .venv/Scripts/python.exe .scratch/benchmark-rebuild/scan.py      # 先掃 (一次, 約 25 分鐘)
-    .venv/Scripts/python.exe .scratch/benchmark-rebuild/build.py     # 挑候選 → tmp/candidates/ + tmp/cards.html
-
-答案來源優先序: 人工判定過的資料 (quick-place 線索判定、商店標註與預期挑選、demo2／add5 轉換計畫)
-→ 用現在的範本在影格上配對 (bcommon 的 OpenCV 配對工具, 不是受測的引擎)。
-每個候選都過: 游標碰到答案框不收、答案框前後幾幀在變 (轉場、淡入淡出) 不收。
-agent 目視審核的結論寫在 review.yaml (drop／doubt／note), 這裡讀進來。
-"""
 from __future__ import annotations
 
 import argparse
@@ -21,19 +11,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bcommon as bc  # noqa: E402
 import cases  # noqa: E402
 
-# 每份流程主要的示範影片 (範本就是從這些截的); 跨影片案例用別支
 FLOW_VIDEOS = {"早_簡中": ["demo6", "demo5", "add1", "add3", "add5"],
                "晚_簡中": ["demo4"],
                "早_繁中": ["demo2", "add2", "add4"],
                "晚_繁中": ["demo3"]}
 BUSY = "忙碌指示"
-# 一般正例／負樣本不挑的範本 (有專屬類型的)
 SPECIAL_PREFIX = ("採購_", "选中", "選中", "标题_", "標題_")
 SPECIAL = {BUSY, "来自", "來自", "CONFIDENTIAL线索", "CONFIDENTIAL線索", "全部分页", "全部分頁",
            "快速置入", "解锁线索", "解鎖線索", "線索面板", "標題列圖示", "標題列關閉鈕"}
-POS = 0.93      # 一般正例: 配對分數至少
-UNIQUE = 0.72   # 一般正例: 第二高 (別處) 不到它
-NEG = 0.72      # 負樣本: 全畫面最高不到它
+POS = 0.93
+UNIQUE = 0.72
+NEG = 0.72
 
 REVIEW = os.path.join(bc.HERE, "review.yaml")
 
@@ -56,17 +44,13 @@ def rkey(name, video, n):
 
 
 def dropped(name, video, n):
-    """agent 審過、不收的 (review.yaml 的 drop): 挑的時候跳過, 換下一個."""
     drops = review().get("drop") or {}
-    # 「範本@影片f*」＝那支影片裡這張範本的幀都不收
     return rkey(name, video, n) in drops or f"{name}@{video}f*" in drops
 
 
 def special(name):
     return name in SPECIAL or name.startswith(SPECIAL_PREFIX)
 
-
-# ---------------------------------------------------------------- 掃描結果
 
 class Scan:
     def __init__(self, lang):
@@ -94,12 +78,10 @@ class Scan:
         return dict(zip(v["frames"], v["max"][key]))
 
     def present(self, key, video, thr=POS):
-        """[(幀, 峰值們)] 最高峰 ≥ thr 的取樣幀."""
         pk = self.videos[video]["peaks"].get(key, {})
         return sorted((int(n), p) for n, p in pk.items() if p and p[0][0] >= thr)
 
     def runs(self, frames):
-        """連續取樣幀分組 (相鄰差一個 stride)."""
         out, cur = [], []
         for n in frames:
             if cur and n - cur[-1] > self.stride:
@@ -111,10 +93,7 @@ class Scan:
         return out
 
 
-# ---------------------------------------------------------------- 共用檢查
-
 def exact(scene, tpl, thr=0.6):
-    """全解析度配對: (最高 (分數, 框), 別處第二高分數)."""
     ps = bc.peaks(scene, tpl, thr=min(thr, 0.5), top=6)
     if not ps:
         s, box = bc.best(scene, tpl)
@@ -124,10 +103,6 @@ def exact(scene, tpl, thr=0.6):
 
 
 def clean(lang, video, n, boxes, allow_busy=False):
-    """(乾淨嗎, 原因)——游標碰到框、框在變、畫面上有忙碌字樣都不乾淨.
-
-    忙碌字樣: 實跑時流程會先等它消失才找別的範本 (使用者 10/20 審卡片 #15), 所以除了忙碌指示類
-    (allow_busy) 都不收。"""
     img = bc.frame(video, n)
     if not allow_busy and bc.busy_on(img, lang):
         return False, "忙碌"
@@ -146,10 +121,7 @@ def base(kind, lang, flow, name, video, n, scene, tpl_img, **kw):
     return c
 
 
-# ---------------------------------------------------------------- 一般正例
-
 def human_frames(flow):
-    """人工判定過的取材幀: {範本名: [(影片, 幀)]} (demo2 轉換計畫→早_繁中; add5 計畫→早_簡中)."""
     out = {}
     acc = os.path.join(bc.SCRATCH, "v2f-rules-agent-docs", "acceptance")
     plans = {"早_繁中": ["demo2_plan.json"], "早_簡中": ["add5_plan.json"]}.get(flow, [])
@@ -162,7 +134,6 @@ def human_frames(flow):
 
 
 def positive_pool(scan, flow, used):
-    """這份流程每張 (非專屬) 範本最好的一個取樣: [(分數, 名, 影片, 幀, 人工?)]."""
     human = human_frames(flow)
     pool = []
     for name in scan.names(flow):
@@ -185,7 +156,7 @@ def positive_pool(scan, flow, used):
         if name in human:
             for video, n in human[name]:
                 if video in FLOW_VIDEOS[flow]:
-                    best = (1.0, name, video, n, True)   # 人工判定的優先
+                    best = (1.0, name, video, n, True)
                     break
         if best:
             pool.append(best)
@@ -193,7 +164,6 @@ def positive_pool(scan, flow, used):
 
 
 def pick_positive(scan, flow, k, used, kind="一般正例", frame_ok=None):
-    """一份流程挑 k 個一般正例 (大小錯開: 照範本面積排序後平均取)."""
     lang = bc.FLOWS[flow]
     pool = positive_pool(scan, flow, used)
     pool.sort(key=lambda r: (scan.tpl(scan.key_of(flow, r[1])).size, r[1]))
@@ -216,7 +186,6 @@ def pick_positive(scan, flow, k, used, kind="一般正例", frame_ok=None):
 
 
 def positive_at(scan, flow, name, video, n, tpl, kind, human=False):
-    """在 (影片, 幀) 附近 (同一段出現的取樣幀) 找一個乾淨的幀做正例; 都不乾淨回 None."""
     lang = bc.FLOWS[flow]
     key = scan.key_of(flow, name)
     if human:
@@ -246,8 +215,6 @@ def positive_at(scan, flow, name, video, n, tpl, kind, human=False):
     return None
 
 
-# ---------------------------------------------------------------- 易誤判負樣本
-
 def usual_box(scan, key, video):
     pres = scan.present(key, video)
     if not pres:
@@ -258,7 +225,6 @@ def usual_box(scan, key, video):
 
 
 def negative_after(scan, flow, name):
-    """同畫面的前後狀態: 範本剛消失、畫面其他地方大致沒變的幀. [(全畫面差, 影片, 幀, 框)]."""
     import numpy as np
     key = scan.key_of(flow, name)
     out = []
@@ -284,7 +250,6 @@ def negative_after(scan, flow, name):
 
 
 def negative_lookalike(scan, flow, name):
-    """長得像: 範本不在、但全畫面最高分最高的取樣幀. [(-粗找分, 影片, 幀)]."""
     key = scan.key_of(flow, name)
     out = []
     for video in FLOW_VIDEOS[flow]:
@@ -306,7 +271,6 @@ def negative_at(scan, flow, name, video, g, box, how):
     if s >= NEG:
         return None
     if how == "前後狀態" and box is not None:
-        # 原位要真的空了 (不是淡掉、變暗)
         x, y, w, h = box
         H, W = scene.shape[:2]
         win = scene[max(0, y - 8):min(H, y + h + 8), max(0, x - 8):min(W, x + w + 8)]
@@ -329,7 +293,6 @@ def negative_at(scan, flow, name, video, g, box, how):
 def pick_negative(scan, flow, k, used):
     out = []
     names = [n for n in scan.names(flow) if not special(n) and n not in used]
-    # 前後狀態: 跟消失前比全畫面差最小的 (畫面沒換頁、只少了那個東西)
     after = []
     for name in names:
         for diff, video, g, box in negative_after(scan, flow, name)[:2]:
@@ -364,17 +327,11 @@ def pick_negative(scan, flow, k, used):
     return out
 
 
-# ---------------------------------------------------------------- 商店 (人工標註)
-
 CREDIT = os.path.join(bc.SCRATCH, "credit-store-templates")
 SHOP_FLOW = {"cn": "早_簡中", "tw": "早_繁中"}
 
 
 def shop_frames(lang):
-    """商店標註: [(標註 id, 影片, 順序讀的幀號, 畫面, 卡片們)]; demo1 (糊) 與非影片的 pic 不用.
-
-    標註影格當初是跳轉讀的: 在順序讀的前後 12 幀裡找跟存檔 PNG 最像的那幀當幀號
-    (畫面用順序讀的那幀, 卡片位置照標註)。"""
     import numpy as np
     ann = bc.load(os.path.join(CREDIT, "annotations.json"))
     out = []
@@ -392,7 +349,6 @@ def shop_frames(lang):
 
 
 def card_boxes(scene, tpl, cards):
-    """每張卡片附近 (卡片中心 ±160px) 範本配對到的框: [(分數, 框)] (順序同 cards)."""
     th, tw = tpl.shape[:2]
     H, W = scene.shape[:2]
     out = []
@@ -409,7 +365,6 @@ def card_boxes(scene, tpl, cards):
 
 
 def shop_cases(lang, want_color):
-    """商店案例: 同款多個 (不開比色, 同款全部沒售罄) 與比色 (開比色: 混著售罄的、全部售罄的)."""
     flow = SHOP_FLOW[lang]
     tpls = bc.flow_templates(flow)
     out = []
@@ -458,10 +413,7 @@ def shop_cases(lang, want_color):
     return out
 
 
-# ---------------------------------------------------------------- 同款多個 (配對工具)
-
 def multi_from_scan(scan, flow, k, used):
-    """同一幀裡同一張範本有 ≥2 個強峰 (≥POS) 的: centers 列出每一個."""
     lang = bc.FLOWS[flow]
     pool = []
     for name in scan.names(flow):
@@ -504,16 +456,11 @@ def multi_from_scan(scan, flow, k, used):
     return out
 
 
-# ---------------------------------------------------------------- 比色 (同形不同色)
-
-COLOR_SAME = 18.0    # 框內跟範本平均 BGR 差 ≤ 它＝同色
-COLOR_OTHER = 30.0   # ≥ 它＝明顯不同色 (灰掉、變暗)
+COLOR_SAME = 18.0
+COLOR_OTHER = 30.0
 
 
 def color_states(scan, flow, name):
-    """同形 (形狀配對 ≥0.8) 的取樣幀分兩群: 同色 [(影片, 幀, 框, 色差)] 與不同色.
-
-    每段出現從中間往外排, 段內每個取樣幀都列 (中間那幀不乾淨時換旁邊的)。"""
     key = scan.key_of(flow, name)
     tpl = scan.tpl(key)
     same, other = [], []
@@ -532,7 +479,6 @@ def color_states(scan, flow, name):
 
 
 def color_pair(scan, flow, name, label_same, label_other):
-    """一張範本一正 (同色, 開比色要找到) 一負 (不同色, 開比色應該沒有)."""
     lang = bc.FLOWS[flow]
     tpl = scan.tpl(scan.key_of(flow, name))
     same, other = color_states(scan, flow, name)
@@ -557,20 +503,14 @@ def color_pair(scan, flow, name, label_same, label_other):
     return out
 
 
-# ---------------------------------------------------------------- 忙碌指示
-
 def busy_cases(scan, lang):
-    """忙碌指示: 在場 (乾淨的、疊字的、淡入淡出的) 要找到, 剛消失的要找不到.
-
-    在場段用寬門檻 (配對 ≥0.6) 切: 段中間配對掉到 0.6–0.88、前後都還在的取樣幀＝字樣上疊著別的字;
-    段頭往前、段尾往後逐幀讀 (stride 1): 配對 0.75–0.9 的是淡入／淡出中, 段尾 <0.4 的是剛消失。"""
     flows = [f for f, lg in bc.FLOWS.items() if lg == lang]
     out = []
     done_keys = set()
     for flow in flows:
         key = scan.key_of(flow, BUSY)
         if key in done_keys:
-            continue   # 早晚同一張圖只做一次
+            continue
         done_keys.add(key)
         tpl = scan.tpl(key)
         want = {"clean": 2, "fade": 2, "overlay": 1, "gone": 2}
@@ -589,7 +529,6 @@ def busy_cases(scan, lang):
                 if len(run) < 3:
                     continue
                 score = {n: scan.peaks(key, video, n)[0][0] for n in run}
-                # 乾淨的在場幀
                 strong = [n for n in run if score[n] >= POS]
                 if got["clean"] < want["clean"] and strong:
                     n = strong[len(strong) // 2]
@@ -599,7 +538,6 @@ def busy_cases(scan, lang):
                         if s_ >= POS and clean(lang, video, n, [box], allow_busy=True)[0]:
                             add("clean", video, n, img, box, "present",
                                 f"忙碌字樣在場（配對 {s_:.2f}）")
-                # 疊字: 段中間掉下去、前後取樣幀都還很清楚
                 if got["overlay"] < want["overlay"]:
                     for a, n, b in zip(run, run[1:], run[2:]):
                         if not (0.6 <= score[n] < 0.88 and score[a] >= 0.9 and score[b] >= 0.9):
@@ -614,7 +552,6 @@ def busy_cases(scan, lang):
                             f"忙碌字樣上疊著別的字或特效（配對 {s_:.2f}；前後幀都 ≥0.9）",
                             f"配對 {s_:.2f}：請確認字樣還在、只是被疊字蓋到")
                         break
-                # 段頭往前逐幀: 淡入
                 first, last = run[0], run[-1]
                 edges = [("淡入", range(max(0, first - scan.stride), first + 1)),
                          ("淡出", range(last, last + scan.stride * 3))]
@@ -642,8 +579,6 @@ def busy_cases(scan, lang):
     return out
 
 
-# ---------------------------------------------------------------- 線索背景 (quick-place 人工判定)
-
 QP = os.path.join(bc.SCRATCH, "quick-place-clue-check")
 
 
@@ -652,7 +587,6 @@ def clue_cfg(lang):
     import importlib.util
     spec = importlib.util.spec_from_file_location("qp_clue_cfg", os.path.join(QP, "clue.py"))
     src = open(os.path.join(QP, "clue.py"), encoding="utf-8").read()
-    # clue.py 開頭會 import app 的模組; 這裡只要它的 LANGS 表
     start = src.index("LANGS = {")
     end = src.index("\n}\n", start) + 3
     ns = {}
@@ -661,7 +595,6 @@ def clue_cfg(lang):
 
 
 def near_box(scene, tpl, xy, r=40):
-    """在 xy (影片座標) 附近 ±r 配對: (分數, 框)."""
     th, tw = tpl.shape[:2]
     H, W = scene.shape[:2]
     x0, y0 = max(0, int(xy[0] - tw / 2 - r)), max(0, int(xy[1] - th / 2 - r))
@@ -671,8 +604,6 @@ def near_box(scene, tpl, xy, r=40):
 
 
 def cluebg_cases(lang):
-    """線索面板上的小圖 (add3／add4): 情境來自 quick-place 票的人工判定 (面板關著／選 all／選中 N 號、
-    N 號有沒有卡片)."""
     cfg = clue_cfg(lang)
     flow, video = cfg["flow"], cfg["video"]
     tpls = bc.flow_templates(flow)
@@ -684,18 +615,15 @@ def cluebg_cases(lang):
     nums_has = [n for n in sorted(has) if has[n]]
     nums_none = [n for n in sorted(has) if not has[n]]
     plan = []
-    # 選中 N 號: 那顆鈕找得到
     n = nums_has[1]
     a, b = picked[n]
     plan.append(("present", sel.format(n), (a + b) // 2,
                  (cfg["buttons"][n - 1], cfg["button_y"]), f"選中 {n} 號，篩選鈕 {n} 是選中狀態"))
-    # 選中 M 號時, N 號鈕是沒選中的樣子 → 選中 N 的範本應該沒有
     m = nums_has[-1]
     a, b = picked[m]
     plan.append(("absent", sel.format(n), (a + b) // 2, None,
                  f"選中的是 {m} 號；{n} 號鈕是沒選中的樣子（形狀一樣、底色不同）"))
-    # 卡片標籤: 有卡片的號找得到、暂无线索的號找不到
-    f_label = cfg["boxes"][label][0]   # 人工框過卡片標籤的那幀
+    f_label = cfg["boxes"][label][0]
     n_label = next(k for k, (a, b) in picked.items() if a <= f_label <= b)
     plan.append(("present", label, f_label, None, f"{n_label} 號有線索卡，卡片上有「{label}」"))
     if nums_none:
@@ -704,7 +632,6 @@ def cluebg_cases(lang):
     out = []
     for expected, name, n0, xy, note in plan:
         tpl = tpls[name]
-        # 同一情境 (選中同一號) 裡從 n0 往外找游標沒碰框、框沒在變的幀
         rng = next(((a, b) for a, b in picked.values() if a <= n0 <= b), (n0, n0))
         n = next((m for m in sorted(range(rng[0] + 1, rng[1]), key=lambda m: abs(m - n0))
                   if _clue_clean(lang, video, m, tpl, xy, cfg, name, expected)), None)
@@ -717,7 +644,6 @@ def cluebg_cases(lang):
                 xy = (bx[0] + bx[2] / 2, bx[1] + bx[3] / 2)
             s, box = near_box(scene, tpl, xy, r=60)
             boxes = [box]
-            # 卡片標籤每張卡都有: 同款全部列出 (centers)
             more = [tuple(q[1:]) for q in bc.peaks(scene, tpl, thr=0.9)
                     if not bc.overlaps(tuple(q[1:]), box)]
             boxes += more
@@ -737,7 +663,6 @@ def cluebg_cases(lang):
 
 
 def _clue_clean(lang, video, n, tpl, xy, cfg, name, expected):
-    """線索面板情境裡這幀能不能用: 該找到的框 (與畫面最像的地方) 游標沒碰、沒在變."""
     if dropped(name, video, n):
         return False
     scene = bc.frame(video, n)
@@ -752,14 +677,13 @@ def _clue_clean(lang, video, n, tpl, xy, cfg, name, expected):
 
 
 def cluebg_board(scan, flow, used):
-    """線索板 (好友線索板／自家線索板) 上的 CONFIDENTIAL 線索: 配對工具挑一個乾淨的正例."""
     name = "CONFIDENTIAL线索" if bc.FLOWS[flow] == "cn" else "CONFIDENTIAL線索"
     key = scan.key_of(flow, name)
     tpl = scan.tpl(key)
     lang = bc.FLOWS[flow]
     for video in FLOW_VIDEOS[flow]:
         if video.startswith("add"):
-            continue   # add3／add4 已經用在面板案例
+            continue
         for run in scan.runs([n for n, _ in scan.present(key, video)]):
             c = positive_at(scan, flow, name, video, run[len(run) // 2], tpl, "線索背景")
             if c:
@@ -768,10 +692,7 @@ def cluebg_board(scan, flow, used):
     return []
 
 
-# ---------------------------------------------------------------- 混淆
-
 def confuser_present(scan, flow, k, used, names=None):
-    """範本在 (≥0.95), 畫面別處有長得像的 (0.72–0.92): 要挑對那一個."""
     lang = bc.FLOWS[flow]
     pool = []
     for name in (names or scan.names(flow)):
@@ -808,7 +729,6 @@ def confuser_present(scan, flow, k, used, names=None):
 
 
 def confuser_absent(scan, flow, k, used, names=None):
-    """範本不在, 但畫面上有長得很像的 (配對 0.72–0.88): 應該沒有."""
     lang = bc.FLOWS[flow]
     busy_key = scan.key_of(flow, BUSY)
     pool = []
@@ -850,13 +770,10 @@ def confuser_absent(scan, flow, k, used, names=None):
     return out
 
 
-# ---------------------------------------------------------------- 縮放、跨影片
-
-SCALES = (0.85, 1.15)   # 支援倍率範圍兩端
+SCALES = (0.85, 1.15)
 
 
 def scaled_case(c, s):
-    """真實影格等比縮 s 倍: 答案框跟著乘 s, 預期尺度寫 s; 範本不動."""
     import cv2
     scene = c["scene"]
     H, W = scene.shape[:2]
@@ -869,14 +786,12 @@ def scaled_case(c, s):
     return c
 
 
-# 錄影日期 (跨影片＝別天錄的)
 VIDEO_DAY = {"demo2": "10/03", "demo3": "10/04", "demo4": "10/04", "demo5": "10/04",
              "demo6": "10/06", "add1": "10/07", "add2": "10/07", "add3": "10/09",
              "add4": "10/09", "add5": "10/10"}
 
 
 def source_video(scan, key):
-    """範本取材的影片＝整支影片裡配對分數最高的那支."""
     best = (-1, None)
     for video, v in scan.videos.items():
         m = max(v["max"][key]) if v["max"][key] else 0
@@ -886,7 +801,6 @@ def source_video(scan, key):
 
 
 def cross_cases(scan, lang, k, used):
-    """範本在取材影片以外、別天錄的影片上找 (同一客戶端、同一倍率)."""
     pool = []
     for flow in (f for f, lg in bc.FLOWS.items() if lg == lang):
         for name in scan.names(flow):
@@ -905,7 +819,6 @@ def cross_cases(scan, lang, k, used):
                     if len(p) > 1 and p[1][0] >= UNIQUE:
                         continue
                     pool.append((p[0][0], flow, name, src, video, n))
-    # 分數低的 (畫面細節變了的) 優先, 但每張範本、每份流程平均分
     pool.sort()
     out, seen = [], set()
     flows = [f for f, lg in bc.FLOWS.items() if lg == lang]
@@ -939,8 +852,6 @@ def cross_cases(scan, lang, k, used):
     return out
 
 
-# ---------------------------------------------------------------- 主程式
-
 KINDS = {}
 
 
@@ -966,7 +877,6 @@ def negatives(scans, used):
 
 
 def _spread(cands, k):
-    """平均取 k 個 (照原順序)."""
     if len(cands) <= k:
         return cands
     return [cands[int(i * len(cands) / k)] for i in range(k)]
@@ -977,11 +887,9 @@ def multi(scans, used):
     out = []
     for lang in ("cn", "tw"):
         shop = shop_cases(lang, want_color=False)
-        # 不同畫面各取一個
         by_frame = {}
         for c in shop:
             by_frame.setdefault(c["shop"], c)
-        # 聚酸酯 3 格那種格數多的優先, 再平均取
         shops = sorted(by_frame.values(), key=lambda c: -len(c["boxes"]))
         out += shops[:1] + _spread(shops[1:], 2)
         for flow in (f for f, lg in bc.FLOWS.items() if lg == lang):
@@ -996,7 +904,6 @@ def color(scans, used):
         shop = shop_cases(lang, want_color=True)
         pos = [c for c in shop if c["expected"] == "present"]
         neg = [c for c in shop if c["expected"] == "absent"]
-        # 售罄那格形狀還配得上的優先 (比色才是唯一分得開的地方)
         pos.sort(key=lambda c: -c["sold_best"])
         neg.sort(key=lambda c: -c["sold_best"])
         got = pos[:1] + neg[:1]
@@ -1005,7 +912,7 @@ def color(scans, used):
         got += color_pair(scans[lang], flow, "全部收取", "全部收取藍色（可以收）", "全部收取暗的")
         got += color_pair(scans[lang], flow, unlock, "解鎖線索亮著（可以點）", "解鎖線索灰的")
         got += color_pair(scans[lang], flow, "快速置入", "快速置入亮著", "快速置入灰的")
-        out += got[:6]   # 每個客戶端 6 個 (配額每類 6–12)
+        out += got[:6]
     return out
 
 
@@ -1068,7 +975,6 @@ def name_cases(cands):
 
 
 def apply_review(cands):
-    """review.yaml 的 doubt／note (鍵＝範本@影片f幀) 蓋過自動產生的; drop 的挑的時候已跳過."""
     rv = review()
     for c in cands:
         k = rkey(c["template"], c["video"], c["frame"])
@@ -1095,7 +1001,6 @@ def main():
     ap.add_argument("--seen", action="store_true", help="這次的候選全部記成 agent 看過")
     a = ap.parse_args()
     scans = {lang: Scan(lang) for lang in ("cn", "tw")}
-    # 同一客戶端兩份流程共用: 一張範本名在整個客戶端只挑一次 (早晚同名的不重複)
     per_lang = {"cn": set(), "tw": set()}
     used = {flow: per_lang[lg] for flow, lg in bc.FLOWS.items()}
     cands = []
@@ -1111,7 +1016,6 @@ def main():
         cases.write_case(c)
     numbered = cases.card_page(cands, os.path.join(bc.TMP, "cards.html"))
     cases.review_sheets(numbered, os.path.join(bc.TMP, "review"))
-    # agent 還沒看過的 (換掉、新挑的) 另外拼一份; --seen 把這次全部記成看過
     seen_path = os.path.join(bc.TMP, "seen.json")
     seen = set(bc.load(seen_path)) if os.path.isfile(seen_path) else set()
     def sig(c):

@@ -1,11 +1,3 @@
-"""交付報告: 四份流程的 .md 加「剩下的全畫面與九宮格換成固定矩形」一節、重產步驟清單.
-
-    .venv/Scripts/python.exe .scratch/fixed-rect-sweep/report_sweep.py
-
-先跑 sweep.py --apply (結果從 results/sweep_<lang>.json 讀)。可以重跑: 本節與步驟清單整段
-換掉, 報告其他段落不動。步驟清單照前例 (busy-pause-fixed-rect report.py) 整段重產——限定範圍
-變了, 步驟描述多了〔限定〕; 文字用 app 自己的 step_desc (同編輯器的步驟清單)。
-"""
 from __future__ import annotations
 
 import json
@@ -17,7 +9,7 @@ import shared
 from shared import bp
 
 import flowfile  # noqa: E402
-import report as bpr  # noqa: E402  (busy-pause-fixed-rect 的 replace_section)
+import report as bpr  # noqa: E402
 import sweep  # noqa: E402
 
 DATE = "2026-10-09"
@@ -26,8 +18,7 @@ STEPS_HEADING = f"## 步驟清單（{DATE} 固定矩形後更新）"
 BACKUP_REL = f"app/dist/{os.path.basename(shared.BACKUP)}/"
 M = shared.MARGIN
 
-TODO_STEPS = {6, 8, 10}    # 待辦三項: 影片上排在第 2、3 格的位置 (前一項點掉後才補位到第一格)
-# 看過影格確認的不一致 (語言, 步驟) → 說明
+TODO_STEPS = {6, 8, 10}
 SEEN = {
     ("cn", 64): "導航選單滑入途中，下一格就到定位",
     ("tw", 64): "導航選單滑入途中，之後幾格就到定位",
@@ -37,7 +28,7 @@ SEEN = {
 
 
 def step_table(steps):
-    import app   # 步驟描述與編輯器同一套 (app.step_desc)
+    import app
     lines = [STEPS_HEADING, "", "| # | 步驟 | 內容 |", "|---|---|---|"]
     for i, s in enumerate(steps, 1):
         lines.append(f"| {i} | {s['type']} | {app.step_desc(s)} |")
@@ -77,8 +68,6 @@ def _note(lang, step):
 
 
 def mismatch_lines(lang, checks):
-    """新框裝不下的位置: 兩次實機不同的 (WIDEN_STEPS)、影片位置依位置分群各一行; 引擎抽樣挑到
-    框外、但不在任何一群裡的另列."""
     out = []
     for x in checks:
         if x.get("shared_with"):
@@ -101,7 +90,6 @@ def mismatch_lines(lang, checks):
 
 
 def log_positions(lang, x):
-    """這一步日誌裡的位置 (實機螢幕座標) 文字; WIDEN_STEPS 早晚兩次分列."""
     roles = ("confirm_appear",) if x["where"] == "confirm" else shared.FIND_ROLES
     pos = shared.step_positions(lang, x["step"], x["template"], roles)
     if len(pos) == 1:

@@ -1,17 +1,3 @@
-"""票 01、02: 早班會客室改成先接收线索、再開面板逐號查 1–7, 都有才按快速置入 (見 spec.md).
-
-    .venv/Scripts/python.exe .scratch/quick-place-clue-check/build.py --lang cn            # 只算、印出
-    .venv/Scripts/python.exe .scratch/quick-place-clue-check/build.py --lang cn --apply    # 寫回存檔與草稿
-    .venv/Scripts/python.exe .scratch/quick-place-clue-check/build.py --lang cn --apply --flows <試跑目錄>
-
-- 以內容定位 (clue.locate): 「領取 → 交流中分岔 → 解鎖分岔 → 線索入口 → 接收分岔」, 編號與步驟數
-  只拿來核對。改成「領取 → 接收分岔 → 開面板 → 檢查區段 → 補關面板分岔 → 解鎖分岔 → 線索入口」,
-  其餘步驟一字不改 (clue.rebuild)。新範本從 templates/<lang>/ 讀 (crop.py 裁的); 交流中範本
-  沒人引用了, 寫存檔時自然不帶。
-- 可以重跑: 已是新版時從改前的備份重建, 結果相同就不寫。
-- 寫回前: AutoClick 要關著、profiles 備份到本功能的備份目錄 (不在才複製)。寫回後讀回驗證,
-  草稿屬於這份存檔時連草稿與工作區一起同步。之後跑 check.py、frames.py、sim.py。
-"""
 from __future__ import annotations
 
 import argparse
@@ -22,12 +8,11 @@ import sys
 import clue
 from clue import bp
 
-import app  # noqa: E402  (步驟描述同編輯器: app.step_desc)
+import app  # noqa: E402
 import flowfile  # noqa: E402
 
 
 def source(lang, flows):
-    """改前的存檔內容: 目前的還沒改就用它, 已改過就用本功能的備份."""
     cfg = clue.LANGS[lang]
     cur = flowfile.read(bp.flow_path(cfg["flow"], flows))
     if not clue.is_new(cur["data"]["steps"], lang):
@@ -38,7 +23,6 @@ def source(lang, flows):
 
 
 def build(lang, orig):
-    """回傳 (新 data, 新 images)."""
     data = orig["data"]
     steps = clue.rebuild(data["steps"], lang, data["scanRegion"])
     images = dict(orig["images"])

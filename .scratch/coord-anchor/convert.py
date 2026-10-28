@@ -1,32 +1,3 @@
-"""coord-anchor 票 08: 四份在用流程一次性換成「座標相對`座標基準點`」的新格式 (見 spec.md).
-
-    .venv/Scripts/python.exe .scratch/coord-anchor/convert.py [--lang cn|tw] [--no-video]
-
-輸入: dist 裡的四份存檔 (早_簡中、早_繁中、晚_簡中、晚_繁中; 舊格式 4, 固定矩形是搜尋範圍
-的比例、範本拍攝位置是螢幕座標) 與 profile 的步驟草稿 (屬於其中一份)。基準點用 10/08
-執行紀錄量到的校準位置 (ANCHORS; 倍率都是 1):
-- 簡中兩份: 搜尋範圍 [87,57,1718,920]、基準點 (115,76)
-- 繁中兩份: 搜尋範圍 [0,0,1920,1024]、基準點 (20,19)
-
-換算 (用 app 的共用換算函式 flowfmt.rect_from_screen / from_screen):
-- 固定矩形: 比例 → 依**存檔裡**的搜尋範圍還原成螢幕矩形 (舊 limit_rect 的公式) → 減基準點
-- 範本拍攝位置: 減基準點
-- 絕對座標步驟: 相對搜尋範圍左上 → 相對基準點 (四份目前都沒有)
-- 九宮格、以搜尋範圍為基準的指定點: 列出來不換 (四份目前都沒有); 有的話中止
-產物寫到 converted/arknights/flows/ (不動 dist 的正本; 放回在票 09 重新打包時做),
-存檔經 flowfile.write 蓋新版本與新座標空間標記, 草稿經 flowfile.write_draft。
-
-自我驗證:
-1. 每個固定矩形: 新格式換回的螢幕矩形 (flowfmt.rect_to_screen, 倍率 1) 與舊比例換回的
-   相差 ≤1 px (四邊各算), 報告列最大差。
-2. 影片影格 (沿用 fixed-rect-sweep 的手法): 晚班影片上該範本出現的影格最多 PER 張, 影格擺回
-   實機搜尋範圍位置 (busy-pause-fixed-rect common.frame_region), 真引擎、arknights 門檻:
-   舊＝舊公式算出的螢幕矩形 (當作基準點 (0,0) 的固定矩形交給同一個 findtarget.find),
-   新＝換算後的目標 + 基準點; 兩邊挑中的位置要一樣 (差 ≤1 px)。同一份流程裡 (範本, 舊比例)
-   相同的找圖目標只驗一次。影片上沒出現的範本記「影片無對應」。
-3. 換好的存檔用新版 flowfile.read 開得起來; dist 的原檔被 flowfile.read 拒絕。
-報告: report.md; 原始數字 results/convert_<lang>.json。
-"""
 from __future__ import annotations
 
 import argparse
@@ -41,8 +12,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "fixed-rect-sweep"))
 sys.path.insert(0, os.path.join(HERE, "..", "busy-pause-fixed-rect"))
 
-import shared  # noqa: E402  (fixed-rect-sweep 的共用: SeqFrames、LANGS、offset)
-from shared import bp  # noqa: E402  (busy-pause-fixed-rect 的共用: 路徑、引擎、影格擺放)
+import shared  # noqa: E402
+from shared import bp  # noqa: E402
 
 import flowfile  # noqa: E402
 from automation import findtarget, flowfmt  # noqa: E402
@@ -52,10 +23,9 @@ OUT = os.path.join(HERE, "converted", "arknights")
 OUT_FLOWS = os.path.join(OUT, "flows")
 RESULTS = os.path.join(HERE, "results")
 BACKUP = os.path.join(bp.APP, "dist", "profiles-backup-2026-10-09-coord-anchor")
-SCRATCH_BACKUP = os.path.join(HERE, "backup")   # 四份存檔與草稿改前的副本 (規格: 先備份到 .scratch)
+SCRATCH_BACKUP = os.path.join(HERE, "backup")
 PER = 3
 
-# 10/08 執行紀錄的校準位置 (calibrate 那一行的 centers 第一個) 與各存檔應有的搜尋範圍
 ANCHORS = {"cn": {"region": [87, 57, 1718, 920], "anchor": (115, 76)},
            "tw": {"region": [0, 0, 1920, 1024], "anchor": (20, 19)}}
 FLOWS = {"cn": ["早_簡中", "晚_簡中"], "tw": ["早_繁中", "晚_繁中"]}
@@ -65,8 +35,6 @@ def _need(cond, msg):
     if not cond:
         raise SystemExit(msg)
 
-
-# ================= 讀舊格式 (不經 flowfile.read: 它拒絕舊格式) =================
 
 def read_old(path):
     with zipfile.ZipFile(path) as z:
@@ -87,17 +55,13 @@ def read_old(path):
 
 
 def old_rect_px(lim, region):
-    """舊 findtarget.limit_rect 的固定矩形公式: 比例 × 搜尋範圍 (裁前)."""
     rx, ry, rw, rh = region
     x0, x1 = rx + round(rw * lim["x"]), rx + round(rw * (lim["x"] + lim["w"]))
     y0, y1 = ry + round(rh * lim["y"]), ry + round(rh * (lim["y"] + lim["h"]))
     return (x0, y0, x1 - x0, y1 - y0)
 
 
-# ================= 換算 =================
-
 def targets_of(data):
-    """[(位置描述, 找圖目標 dict)]: 步驟的 target / confirmTarget 與流程層級的忙碌指示."""
     out = []
     for i, s in enumerate(data.get("steps") or []):
         for key in ("target", "confirmTarget"):
@@ -111,11 +75,6 @@ def targets_of(data):
 
 
 def convert(data, pos, lang, region=None):
-    """就地換算; 回傳 (換算紀錄, 不能換的清單, 換好的拍攝位置).
-
-    region: 固定矩形比例所依據的搜尋範圍 (None＝存檔自己的, 且必須是 10/08 那次的);
-    草稿的步驟與存檔相同、但搜尋範圍是使用者後來重框的, 要用存檔的範圍算。
-    """
     anchor = ANCHORS[lang]["anchor"]
     if region is None:
         region = ANCHORS[lang]["region"]
@@ -130,7 +89,7 @@ def convert(data, pos, lang, region=None):
         if pick.get("kind") == "near" and pick.get("base", "region") != "origin":
             bad.append(f"{where}: 以搜尋範圍為基準的指定點 {pick}")
         elif pick.get("kind") == "near":
-            pick.pop("base", None)   # 新格式只剩相對原點的偏移
+            pick.pop("base", None)
         if lim.get("kind") == "rect":
             px = old_rect_px(lim, region)
             new = findtarget.fixed_rect_from_screen(px, anchor, 1.0)
@@ -141,7 +100,6 @@ def convert(data, pos, lang, region=None):
             t["limit"] = new
     abs_steps = [no for no, _ in flowfmt.abs_steps(data.get("steps") or [])]
     rx, ry = region[0], region[1]
-    # 舊絕對座標相對搜尋範圍左上 → 螢幕 → 相對基準點 (固定矩形上面已換過, 這裡不動)
     flowfmt.remap_flow(data, lambda xy: flowfmt.from_screen((rx + xy[0], ry + xy[1]),
                                                              anchor, 1.0))
     new_pos = {n: list(flowfmt.from_screen(xy, anchor, 1.0)) for n, xy in pos.items()}
@@ -150,8 +108,6 @@ def convert(data, pos, lang, region=None):
     return {"rects": rects, "abs_steps": abs_steps, "pos": len(new_pos),
             "max_diff": max([r["diff"] for r in rects], default=0)}, bad, new_pos
 
-
-# ================= 影片影格比對 =================
 
 def video_check(lang, name, old_data, new_data, images, frames):
     region, anchor = ANCHORS[lang]["region"], ANCHORS[lang]["anchor"]
@@ -178,7 +134,6 @@ def video_check(lang, name, old_data, new_data, images, frames):
         hub = bp.make_hub(images, names, tmp)
         for where, old_t, new_t, vids in jobs:
             px = old_rect_px(old_t["limit"], region)
-            # 舊: 舊公式的螢幕矩形, 當作基準點 (0,0) 的固定矩形交給同一個 find
             old_equiv = dict(old_t, limit={"kind": "rect", "x": px[0], "y": px[1],
                                            "w": px[2], "h": px[3]})
             for v in vids:
@@ -205,14 +160,11 @@ def video_check(lang, name, old_data, new_data, images, frames):
 
 
 def fr_spread(items, k):
-    """平均抽 k 張 (同 fixed-rect-sweep 的 spread)."""
     if len(items) <= k:
         return list(items)
     step = len(items) / k
     return [items[int(i * step)] for i in range(k)]
 
-
-# ================= 主流程 =================
 
 def backup():
     _need(not bp.autoclick_running(), "AutoClick 正在執行: 請先關掉")
@@ -271,15 +223,12 @@ def run(langs, with_video):
                 "mismatch": bad_rows, "dest": dest,
             }
             rep["ok"] = rep["ok"] and info["max_diff"] <= 1 and not bad_rows
-            # 草稿屬於這份: 同步換算 (獨立換, 保留草稿裡可能未存檔的改動)
             if draft_of and os.path.normcase(os.path.abspath(src)) == draft_of:
                 with open(draft_src, encoding="utf-8") as f:
                     draft = json.load(f)
                 _need(draft.get("coordSpace") == "region", "草稿不是舊格式")
                 _need(draft["steps"] == old_data["steps"],
                       "草稿的步驟與存檔不同 (有未存檔的改動), 不能照存檔的搜尋範圍換")
-                # 草稿的搜尋範圍是使用者最後一次框的 (10/09 12:49 重框過), 保留它;
-                # 比例是在存檔的範圍下框的, 換算用存檔的範圍
                 dinfo, dbad, _ = convert(draft, {}, lang, region=ANCHORS[lang]["region"])
                 _need(not dbad, "草稿有不能換的設定")
                 draft.pop("flowFormat", None)
@@ -297,7 +246,6 @@ def run(langs, with_video):
         report[lang] = rep
     if frames:
         frames.close()
-    # 工作區 state.json: 草稿屬於哪份 (放回 dist 時路徑照舊)
     return report
 
 

@@ -1,19 +1,3 @@
-"""候選案例: 寫成案例資料夾 (新格式)、卡片頁、agent 審核用的拼圖。
-
-一個候選 (dict):
-  name        案例資料夾名
-  kind        案例類型 (一般正例、易誤判負樣本、同款多個、比色、忙碌指示、線索背景、混淆、縮放、跨影片)
-  lang, flow, template, video, frame    來源
-  template_video   (跨影片) 範本取材的影片
-  expected    present | absent
-  boxes       答案框 [(x, y, w, h)] (畫面座標, 已套用縮放); present 至少一個
-  multi       True＝centers (同款多個要全中且不能多); 否則 center
-  color_check, expected_scale, tolerance
-  scene       畫面 (BGR)
-  tpl         範本圖 (BGR); tpl_path 有給就直接複製那個檔
-  doubt       agent 有疑問的原因 (None＝沒疑問)
-  note        卡片上給人看的一句說明
-"""
 from __future__ import annotations
 
 import html
@@ -71,8 +55,6 @@ def write_case(c, root=None):
     return d
 
 
-# ---------------------------------------------------------------- 圖
-
 def _fit(img, w):
     s = w / img.shape[1]
     return cv2.resize(img, (w, max(1, round(img.shape[0] * s))),
@@ -80,7 +62,6 @@ def _fit(img, w):
 
 
 def annotated(c, width=900):
-    """縮到 width 寬的畫面, present 畫紅框 (同款多個每個都畫)."""
     img, s = _fit(c["scene"], width)
     if c.get("lookalike") is not None:
         x, y, w, h = c["lookalike"]
@@ -94,7 +75,6 @@ def annotated(c, width=900):
 
 
 def zoom_crop(c, size=220):
-    """答案框 (第一個) 附近放大: 紅框對到哪裡一眼看得到; absent 回 None."""
     if c["expected"] == "present":
         box, color = c["boxes"][0], (0, 0, 255)
     elif c.get("lookalike") is not None:
@@ -118,22 +98,17 @@ def tpl_view(c, size=220):
     return cv2.resize(t, None, fx=s, fy=s, interpolation=cv2.INTER_NEAREST)
 
 
-# ---------------------------------------------------------------- 卡片頁
-
 def order(cands):
-    """有疑問的排前面, 其餘照類型、名字."""
     return sorted(cands, key=lambda c: (c.get("doubt") is None,
                                         KIND_ORDER.index(c["kind"]), c["name"]))
 
 
 def card_page(cands, path, title="基準集候選案例"):
-    """本機 HTML 卡片頁 (圖檔放旁邊的 cards/, 不上傳). 回傳 [(編號, 候選)]."""
     out_dir = os.path.dirname(path)
     img_dir = os.path.join(out_dir, "cards")
     if os.path.isdir(img_dir):
         shutil.rmtree(img_dir)
     os.makedirs(img_dir)
-    # card_no: 小卡片頁沿用大卡片頁的編號
     numbered = [(c.get("card_no", i), c) for i, c in enumerate(order(cands), 1)]
     counts = {}
     for _, c in numbered:
@@ -230,7 +205,6 @@ img.scene {{ width:100%; image-rendering:auto; border:1px solid var(--line); }}
 
 
 def review_sheets(numbered, out_dir, per=4):
-    """agent 審核用的拼圖: 每張 per 個案例 (範本、放大、縮小的畫面)."""
     os.makedirs(out_dir, exist_ok=True)
     for f in os.listdir(out_dir):
         os.remove(os.path.join(out_dir, f))

@@ -1,10 +1,3 @@
-"""票 05 的交付報告: 四份流程的 .md 最上面加「勾忙碌檢查」一節、重產步驟清單 (標出〔忙碌檢查〕).
-
-    .venv/Scripts/python.exe .scratch/busy-check/report_busy.py [--flows 目錄]
-
-先跑 build.py --apply (勾了哪些從 results/build.json 讀)。可以重跑: 本節與步驟清單整段換掉;
-報告其他段落不動。節與步驟清單的換法沿用 busy-pause-fixed-rect/report.py。
-"""
 from __future__ import annotations
 
 import argparse
@@ -16,7 +9,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "busy-pause-fixed-rect"))
 import common  # noqa: E402
-import report as r05  # noqa: E402  (replace_section)
+import report as r05  # noqa: E402
 
 import build  # noqa: E402
 
@@ -31,7 +24,7 @@ OLD_NOTE = ("（**{date} 註**：下面說的忙碌暫停已經拿掉，換成�
 
 
 def step_table(steps):
-    import app   # 步驟描述與編輯器同一套 (app.step_desc, 勾了的尾端有〔忙碌檢查〕)
+    import app
     lines = [STEPS_HEADING, "", "| # | 步驟 | 內容 |", "|---|---|---|"]
     for i, s in enumerate(steps, 1):
         lines.append(f"| {i} | {s['type']} | {app.step_desc(s)} |")
@@ -102,7 +95,6 @@ def section(name, rec, n_steps, tw):
 
 
 def annotate_old(text):
-    """舊的「拿掉忙碌等待步驟（改由忙碌暫停接手）」一節標題下加一句註 (重跑不重複加)."""
     note = OLD_NOTE.format(date=DATE)
     if OLD_HEADING not in text or note in text:
         return text

@@ -1,9 +1,3 @@
-"""票 09: 挑主校準對——從主畫面影格裁兩張遊戲內固定圖, 以拾取檢查驗唯一與縮放餘裕, 看五個倍率的中心抖動.
-
-    .venv/Scripts/python .scratch/scale-range/pick_pair.py
-
-產物: templates/<lang>/<名>.png、results/pick_pair.json。
-"""
 from __future__ import annotations
 
 import os
@@ -15,7 +9,6 @@ from srcommon import bp
 
 from automation import findtarget, pickcheck  # noqa: E402
 
-# 候選 (影片座標的框): 設定齒輪 (左上) × 倉庫圖示 (右下), 兩版都是主畫面固定元件
 PAIRS = {
     "tw": {"names": ("主畫面設定鈕", "主畫面倉庫"),
            "boxes": {"主畫面設定鈕": (30, 58, 60, 56), "主畫面倉庫": (1770, 858, 100, 104)}},
@@ -48,14 +41,12 @@ def check(lang):
            "region": region, "checks": {}, "jitter": {}, "ok": True}
     try:
         hub = bp.make_hub(images, names, tmp)
-        # 拾取檢查: 唯一 + 縮放餘裕 (×1 畫布上以倍率 1 查; 縮放餘裕內部再縮 0.85/1.15)
         for name in names:
             warns = pickcheck.check(hub, canvas, org, {"template": name}, anchor=None,
                                     scale=1.0, kinds=(pickcheck.SCALE, pickcheck.UNIQUE))
             res["checks"][name] = [str(w) for w in warns]
             if warns:
                 res["ok"] = False
-        # 五個倍率的中心抖動: 縮放後找到的中心 ÷ s 與 ×1 的中心差幾 px
         for name in names:
             base = None
             rows = []
@@ -79,7 +70,6 @@ def check(lang):
                     if r["jitter"] > 3:
                         res["ok"] = False
             res["jitter"][name] = rows
-        # 距離 (螢幕座標, 倍率 1) ＝ 新基準距離
         f1 = sr.find_scaled(hub, {"template": names[0]}, canvas, org, None, 1.0)
         f2 = sr.find_scaled(hub, {"template": names[1]}, canvas, org, None, 1.0)
         if f1.picked and f2.picked:

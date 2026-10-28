@@ -1,33 +1,3 @@
-"""票 08: 早班兩版加固定矩形 (見 issues/08-morning-fixed-rects.md).
-
-    .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/fixed_rects.py [--lang cn|tw] [--apply]
-
-先跑 measure.py (results/positions_<lang>.json: 每張範本在參考影片與實跑日誌上的位置)。
-
-每張範本的框 (影片座標, 再換成搜尋範圍的比例, common.video_box_to_rect):
-- 位置固定 (fixed): 影格與實跑日誌的出現位置依中心分群 (±SPREAD px)。以實機日誌的位置為主
-  (沒有日誌就用影片上最大的那群), 再加上離主位置 NEAR px 內、影片上至少 MIN_HITS 次的群
-  (例如別的彈窗的叉叉、待辦項目點掉一個後往左移之前的位置); 框＝這些位置的聯集外擴 MARGIN。
-  太遠的群 (別的畫面上長得像的東西, 例如商店頁的收取) 照列出來、不框。日誌只算跟範本同尺寸的框
-  (晚班流程有同名但不同圖的範本)。沒有任何出現紀錄就不加。
-- 換班清單的列名與訪問基建 (LIST): 會隨捲動上下移, 左右不動 → 一整欄: 左右＝出現位置的聯集
-  外擴 MARGIN, 上下＝整個搜尋範圍; 原本限定九宮格上 2/3 的 (別點到畫面最底下) 上下照舊。
-- 採購的 23 個商品 (PRODUCT): 共用一個商品區框＝標註影格的卡片圓心範圍外擴 (採購中心範本的
-  annotations.json)。
-- 不加 (EXCLUDE): 位置隨基建地圖縮放平移的 (會客室、製造站卡片)、以原點為基準的首列、
-  忙碌指示、已有固定矩形的交流中、校準對。
-步驟上的套法: 找圖目標與確認圖都套; 以原點為基準的限定範圍不動; 其他 (不限定、九宮格) 換成框。
-
-驗證 (接縫三, 真引擎、arknights 門檻, 影格換成實機搜尋範圍的畫布):
-- 每張加框的範本挑最多 PER_TEMPLATE 張出現在框裡的影格, 加框前、加框後的找圖目標各執行一次:
-  加框前找得到的影格 (有效影格), 加框後也要找得到、挑到的位置跟加框前一樣 (容許值內);
-  加框前就找不到的 (轉場、比色擋掉的別列…) 不算數; 加框前挑到的位置在框外的 (例如線索板滑到一半)
-  另列出來, 也不算數。兩次的查詢時間都記下 (平均只算有效影格)。
-  沒有任何有效影格的範本照實列出。
-- 商品: 採購中心標註影格上, 23 個分支依序判定, 加框前後走的分支與挑到的位置要一樣。
-- demo1 (低位元率) 影格上的不符照實列出、不算失敗 (同採購分岔的驗證)。
-結果寫 results/fixed_rects_<lang>.json; --apply 驗證全過才寫回 (先備份、讀回驗證、草稿同步)。
-"""
 from __future__ import annotations
 
 import argparse
@@ -45,12 +15,12 @@ from automation import findtarget  # noqa: E402
 from automation.runner import branch_layout  # noqa: E402
 from video_to_flow import verify as vtf_verify  # noqa: E402
 
-MARGIN = 40            # 外擴 (影片像素)
-SPREAD = 8             # 位置固定: 中心彼此差不超過 (px)
-NEAR = 450            # 離主位置多遠以內的群算同一個步驟會出現的位置 (px)
-MIN_HITS = 3           # 只在影片上出現的群至少幾次才算 (轉場中途的零星匹配不算)
+MARGIN = 40
+SPREAD = 8
+NEAR = 450
+MIN_HITS = 3
 PER_TEMPLATE = 6
-LOW_BITRATE = {"demo1"}   # 0.5 Mbps: 範本分數本來就壓在門檻邊上, 不符照實列出、不算失敗 (同採購分岔的驗證)
+LOW_BITRATE = {"demo1"}
 
 EXCLUDE = {
     "cn": {"会客室", "制造中", "制造站首列", "贸易站首列", "忙碌指示", "交流中",
@@ -66,10 +36,8 @@ PRODUCT_PREFIX = "採購_"
 ANNOTATIONS = os.path.join(common.ROOT, ".scratch", "credit-store-templates",
                            "annotations.json")
 FRAMES_DIR = os.path.join(common.ROOT, ".scratch", "credit-store-templates", "frames")
-CARD_PAD = (130, 140, 130, 120)    # 卡片圓心範圍外擴: 左、上、右、下 (影片像素)
+CARD_PAD = (130, 140, 130, 120)
 
-
-# ================= 決定框 =================
 
 def _center(b):
     return (b[0] + b[2] / 2, b[1] + b[3] / 2)
@@ -84,7 +52,6 @@ def _union(boxes):
 
 
 def clusters(entries):
-    """把出現紀錄依中心分群 (±SPREAD): [{"boxes", "video", "log", "center"}], 大的在前."""
     groups = []
     for box, src in entries:
         c = _center(box)
@@ -99,8 +66,6 @@ def clusters(entries):
 
 
 def entries_of(rec, size):
-    """影格與日誌的出現紀錄 [(box, "video"|"log")]; 日誌只算跟範本差不多大的框 (±12%:
-    引擎估的尺度會讓框差幾 px; 晚班流程有同名但不同圖的範本, 尺寸差很多)."""
     out = [(tuple(v[2:6]), "video") for v in rec.get("video", [])]
     for v in rec.get("log", []):
         box = tuple(v[1:5])
@@ -111,8 +76,6 @@ def entries_of(rec, size):
 
 
 def kept_clusters(groups):
-    """框進去的群: 主位置 (有實機日誌的群; 沒有就影片上最大的那群), 加上離主位置 NEAR px 內、
-    影片上至少 MIN_HITS 次的群。其他的 (別的畫面上長得像的東西) 回傳在第二個值。"""
     main = [g for g in groups if g["log"]] or groups[:1]
     keep, drop = [], []
     for g in groups:
@@ -130,7 +93,6 @@ def _desc(groups):
 
 
 def decide_fixed(rec, size):
-    """位置固定的框 (影片座標) 或 None, 不加的原因, 統計."""
     ent = entries_of(rec, size)
     stats = {"video": sum(1 for e in ent if e[1] == "video"),
              "log": sum(1 for e in ent if e[1] == "log")}
@@ -166,11 +128,9 @@ def product_box(lang):
 
 
 def list_rect(box, lang, region, grid=None):
-    """一整欄: 左右照 box 外擴, 上下＝整個搜尋範圍 (原本九宮格限定的就照九宮格的上下)."""
     r = common.video_box_to_rect(box, lang, region, MARGIN)
     if not grid:
         return dict(r, y=0.0, h=1.0)
-    # 九宮格的上下照 findtarget 的換算 (限定範圍的唯一實作), 再換成比例
     cell = findtarget.limit_rect({"limit": {"kind": "grid", "cells": grid}},
                                  tuple(region), None)
     g = findtarget.ratio_rect_from_screen(cell, tuple(region))
@@ -178,7 +138,6 @@ def list_rect(box, lang, region, grid=None):
 
 
 def plan(lang, r, positions):
-    """{範本: {"rect": 固定矩形 或 None, "kind", "box", "why", "stats"}}."""
     region = r["data"]["scanRegion"]
     names = findtarget.referenced_templates(r["data"]["steps"])
     pbox, _frames = product_box(lang)
@@ -209,7 +168,6 @@ def plan(lang, r, positions):
 
 
 def new_limit(tgt, p, lang, region):
-    """這個找圖目標加框後的限定範圍; 不改回 None."""
     lim = tgt.get("limit") or {}
     if p is None or p["rect"] is None or lim.get("kind") == "origin":
         return None
@@ -217,19 +175,16 @@ def new_limit(tgt, p, lang, region):
         col = list_rect(p["box"], lang, region,
                         lim.get("cells") if lim.get("kind") == "grid" else None)
         if lim.get("kind") == "rect":
-            # 重跑: 上次寫回的一整欄已經不是九宮格了, 上下照它原本的 (別把「只看上 2/3」放寬)
             col.update(y=lim["y"], h=lim["h"])
         return col
     return dict(p["rect"])
 
 
 def rebuild(steps, plans, lang, region):
-    """回傳 (新 steps, 改了哪些 [(步驟號, 角色, 範本, 舊限定, 新限定)])."""
     out, changes = [], []
     for i, s in enumerate(steps):
         s = json.loads(json.dumps(s))
         for key, tgt in findtarget.step_targets(s):
-            # 沒生效的確認圖 (生效確認不是「確認圖出現」) 不動
             if key == findtarget.CONFIRM_TARGET and not findtarget.uses_confirm_target(s):
                 continue
             role = "target" if key == findtarget.TARGET else "confirm"
@@ -242,14 +197,11 @@ def rebuild(steps, plans, lang, region):
     return out, changes
 
 
-# ================= 驗證 (真引擎) =================
-
 def _dist(a, b):
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 
 def pick_frames(rec, k, box):
-    """出現在框裡的影格挑 k 張: 盡量分散到不同影片、不同時間."""
     x0, y0, w, h = box
     vids = [v for v in rec.get("video", [])
             if x0 <= v[2] and v[2] + v[4] <= x0 + w and y0 <= v[3] and v[3] + v[5] <= y0 + h]
@@ -270,7 +222,6 @@ def pick_frames(rec, k, box):
 
 
 def _inside(box, lim):
-    """box 整個在限定矩形 lim 裡 (lim 是 None＝整個搜尋範圍)."""
     if lim is None:
         return True
     return (lim[0] <= box[0] and box[0] + box[2] <= lim[0] + lim[2]
@@ -284,7 +235,6 @@ def timed_find(tgt, hub, canvas, org):
 
 
 def verify_templates(lang, hub, steps, new_steps, positions, plans, frames, place):
-    """每張加了框的範本 (以步驟上的找圖目標為準, 一種設定驗一次)."""
     rows = []
     done = set()
     for s_old, s_new in zip(steps, new_steps):
@@ -300,7 +250,7 @@ def verify_templates(lang, hub, steps, new_steps, positions, plans, frames, plac
                 continue
             picks = pick_frames(positions.get(b["template"], {}), PER_TEMPLATE,
                                 plans[b["template"]]["box"])
-            if not picks:    # 只有實機日誌的紀錄, 影片上沒有 (照實列出)
+            if not picks:
                 rows.append({"template": b["template"], "limit": b["limit"],
                              "no_frames": True, "ok": True})
             for v in picks:
@@ -313,8 +263,6 @@ def verify_templates(lang, hub, steps, new_steps, positions, plans, frames, plac
                         else (x + ox + w // 2, y + oy + h // 2))
                 tol = vtf_verify.position_tolerance((0, 0, w, h))
                 d = _dist(after.picked.center, want) if after.picked is not None else None
-                # 加框前就找不到 (轉場、比色擋掉的別列…) 的影格不算數;
-                # 加框前挑到的在框外 (轉場中途的位置) 另列
                 inside = before.picked is not None and _inside(before.picked.box, after.limit)
                 rows.append({"template": b["template"], "limit": b["limit"],
                              "video": video, "frame": n,

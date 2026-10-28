@@ -1,12 +1,3 @@
-"""一次性: 四份在用流程的 `交付報告.md` 拆成 `交付報告/` (v2f-rules-agent-docs 票 10).
-
-    .venv/Scripts/python .scratch/v2f-rules-agent-docs/split_reports.py [流程名 ...] [--apply]
-
-區段切法與檔名用工具的 `report.sections` (跟影片轉流程產出的同一個函式); 每段「這段做什麼」由
-現在的 flow.yaml 產 (report.outline), 「為什麼這樣做／已知風險／待確認」是讀舊報告後手寫的現況
-(下面的 TEXT)。舊 `交付報告.md` 原樣搬成 `交付報告/舊紀錄.md`。flow.yaml 與 templates/ 寫前寫後
-逐位元比對, 不一樣就還原並報錯。不加 --apply 只印出會寫什麼。
-"""
 import hashlib
 import os
 import re
@@ -23,7 +14,6 @@ from video_to_flow import report  # noqa: E402
 
 FLOWS = Path(os.environ["USERPROFILE"]) / "AutoClick"
 
-# ---------------------------------------------------------------- 共用段落
 
 POPUP_RISK = ("開頭載入異常久時，關掉簽到後忙碌檢查 1 秒內沒看到忙碌指示就放行，接著彈窗全部逾時、"
               "基建入口找不到而停止（10/08 08:44 實跑）。當時另加的「先等忙碌指示消失」那步用了出現等候上限，"
@@ -275,7 +265,6 @@ CONFIRM_IMG = re.compile(r"確認圖「([^」]+)」")
 
 
 def stale_templates(old_text, current):
-    """舊報告步驟清單提到、現在 templates/ 沒有的範本名."""
     seen = []
     for line in old_text.splitlines():
         m = NOTE_ROW.match(line)
@@ -326,7 +315,7 @@ def overview(name, flow, folder, secs, info, stale_names):
     seen = set()
     rows = []
     for s, t in pend:
-        if t in seen:   # 換班各段共用的同一則只列一次
+        if t in seen:
             continue
         seen.add(t)
         rows.append(f"{t}（[{s.name}]({s.file})）")

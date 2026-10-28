@@ -1,18 +1,3 @@
-"""早_簡中: 辦公室換班之後加一站「回收站」換班 (示範影片 add5.mp4, 簡中視窗 1696×912, 2026-10-10).
-
-    .venv/Scripts/python .scratch/scale-range/add_recycle.py [--dry]
-
-影片: 進駐總覽從清單頂端一路往下拖, 最後一次拖完 (f164 起) 辦公室標題在影片 (821,216)、
-回收站 ⇌ 在 (1622,533), f199 點 ⇌。回收站標題＝辦公室標題 +217 (類別標題間距, 同 LAYOUT)。
-
-流程狀態 (發電站拖完, 捲 1718) 辦公室標題在螢幕 y=606, 回收站的 ⇌ 會落在視窗底邊、
-忙碌指示帶附近 → 照影片再拖一次 (333px, 到影片最終狀態 捲 2051), 回收站標題預期落在
-螢幕 y=490, 再照票 10 的定位法: 標題窄帶 + 由上到下第 1 個 → 相對座標點 ⇌。
-整段包成單分支分岔: 辦公室標題找不到 (捲動漂走) 就整段跳過, 不停掉後面的好友與採購。
-
-自我驗證同 shift_build: 影片最終狀態的幾幀貼到搜尋範圍畫布上, ×0.85/×1.0/×1.15 帶內要挑到
-回收站標題本身, 落點離一個 ⇌ 中心 ≤ SWAP_TOL; 拖曳前的定位 (辦公室窄帶) 用 f152 (漂 +45px) 驗。
-"""
 from __future__ import annotations
 
 import argparse
@@ -30,22 +15,22 @@ from automation import findtarget  # noqa: E402
 LANG, FLOW, VIDEO = "cn", "早_簡中", "add5"
 HEADER = "标题_回收站"
 OFFICE = "标题_办公室"
-HEADER_GAP = 217                 # 類別標題 → 下一個類別標題 (各一列時): label_dy 53 + gap 164
-CLEAN_FRAME = 168                # 影片最終狀態、游標停在清單頂端 (1419,182) 的幀
-OFFICE_AT = (821, 216)           # 最終狀態辦公室標題中心 (影片座標, 用既有範本量到)
-RECYCLE_SWAP = (1622, 533)       # 最終狀態回收站 ⇌ 中心 (影片座標)
-FINAL_FRAMES = [168, 176, 196, 230]   # 最終狀態 (230 是點 ⇌ 之後, 該列反白)
-PRE_DRAG_FRAME = 152             # 辦公室標題在影片 y=594 (流程狀態 549, 漂 +45)
-DRAG_X = 626                     # 其他站的拖曳欄 (螢幕 1542 / 影片 1447, 影片裡使用者也拖這欄)
-DRAG_FROM_VIDEO_Y = 721          # 影片裡每次拖曳的起點 y
-OFFICE_TOP = 2324                # 辦公室標題頂端狀態的螢幕 y (shift_cn.json tops)
-SCROLLED_BEFORE = 1718           # 發電站拖完的累計捲動量 (shift_cn.json)
+HEADER_GAP = 217
+CLEAN_FRAME = 168
+OFFICE_AT = (821, 216)
+RECYCLE_SWAP = (1622, 533)
+FINAL_FRAMES = [168, 176, 196, 230]
+PRE_DRAG_FRAME = 152
+DRAG_X = 626
+DRAG_FROM_VIDEO_Y = 721
+OFFICE_TOP = 2324
+SCROLLED_BEFORE = 1718
 BACKUP = os.path.join(bp.APP, "dist", "profiles-backup-2026-10-10-recycle-shift")
 
 
 def crop_header():
     x, y = OFFICE_AT[0], OFFICE_AT[1] + HEADER_GAP
-    box = (x - 51, y - 20, 102, 40)         # 同 rebuild_shift HEADERS cn 的框 (770, y-20, 102, 40)
+    box = (x - 51, y - 20, 102, 40)
     img = sr.crop(sr.frame(VIDEO, CLEAN_FRAME), box)
     d = os.path.join(sr.TEMPLATES, LANG)
     os.makedirs(d, exist_ok=True)
@@ -64,12 +49,12 @@ def band_rect(expected_y, anchor, region):
 
 def build_steps(office_step, anchor, region):
     ox, oy = sr.offset(LANG)
-    office_y = OFFICE_TOP - SCROLLED_BEFORE                     # 606
-    final_scroll = OFFICE_TOP - oy - OFFICE_AT[1]               # 2051
-    drag = final_scroll - SCROLLED_BEFORE                       # 333
-    y1 = DRAG_FROM_VIDEO_Y + oy - office_y                      # 相對辦公室標題
-    recycle_y = OFFICE_TOP + HEADER_GAP - final_scroll          # 490
-    header_x = OFFICE_AT[0] + ox                                # 916
+    office_y = OFFICE_TOP - SCROLLED_BEFORE
+    final_scroll = OFFICE_TOP - oy - OFFICE_AT[1]
+    drag = final_scroll - SCROLLED_BEFORE
+    y1 = DRAG_FROM_VIDEO_Y + oy - office_y
+    recycle_y = OFFICE_TOP + HEADER_GAP - final_scroll
+    header_x = OFFICE_AT[0] + ox
     rel = (RECYCLE_SWAP[0] + ox - header_x, RECYCLE_SWAP[1] + oy - recycle_y)
     locate_office = {
         "type": "find_click", "target": dict(findtarget.target(office_step)),
@@ -97,7 +82,6 @@ def build_steps(office_step, anchor, region):
 
 
 def find_insert(steps):
-    """辦公室站 (找 标题_办公室 → 點 ⇌ → branch_end) 之後的位置 (0-based)."""
     idx = [i for i, s in enumerate(steps)
            if s["type"] == "find_click" and findtarget.template(s) == OFFICE]
     assert len(idx) == 1, idx
@@ -146,7 +130,6 @@ def self_check(hub, anchor, region, steps, info):
             + (f"挑 {e['center']} {e['score']} {'標題' if e['is_header'] else '別的'} 落點 {e['point']}→⇌{e['swap']} {e['dist']}px"
                if e["found"] else "無")
             for s, e in per.items()))
-    # 拖曳前的定位: 辦公室窄帶在漂了 +45px 的幀上要挑到辦公室標題
     canvas, org = place(sr.frame(VIDEO, PRE_DRAG_FRAME))
     tgt_o = findtarget.target(steps[1])
     expected_o = (OFFICE_AT[0] + ox, 594 + oy)

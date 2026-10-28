@@ -1,15 +1,9 @@
-"""步驟編輯器版面 B (ui-slim 07/08): 兩欄、哪些欄位看得到、找圖目標直接在主對話框設、
-驗證錯誤在底列、寬度固定、確定永遠在工作區內、⚠ 一行.
-
-沿用 test_editor_scale 的最小 App 與 `_Driver`／`_edit`: 對話框真的開、真的發事件;
-斷言對話框回傳的步驟與看得到的欄位標題 (以標題文字找), 不看內部欄位。
-"""
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 from harness import click, drag, find, tgt
 
 import ui_dialogs
 from automation import flowdefaults, win
-from test_editor_scale import _edit, _press, make_app  # noqa: F401 (fixture)
+from test_editor_scale import _edit, _press, make_app  # noqa: F401
 from test_fixed_rect_ui import FIXED_ZH, RECT, _choose, _labels, _overlay
 from test_pointer_confirm_ui import _combo, _pick
 from test_template_picker import _all
@@ -21,7 +15,6 @@ TITLES = ["範本", "限定範圍", "挑選規則", "比色", "動作", "點擊�
 
 
 def _shown_titles(dlg):
-    """看得到的欄位標題 (依畫面由上到下、由左到右)."""
     dlg.update()
     got = [(w.winfo_rootx(), w.winfo_rooty(), str(w.cget("text"))) for w in _all(dlg)
            if w.winfo_class() == "TLabel" and str(w.cget("text")) in TITLES
@@ -46,8 +39,6 @@ def _cancel(dr):
 def _open(app, step, *actions, title):
     return _edit(app, dict(step, _edit=True), *actions, _cancel, title=title)
 
-
-# ---------- 找圖: 哪些欄位看得到 ----------
 
 def test_找圖點擊_左卡找什麼_右卡找到之後(make_app):
     seen = {}
@@ -83,8 +74,6 @@ def test_每個欄位標題旁都有說明圖示(make_app):
     _open(make_app(1.0), find("a"), tips, title="編輯：找圖點擊")
     assert seen["n"] == len(seen["titles"])
 
-
-# ---------- 找圖目標直接在主對話框設 ----------
 
 def test_限定範圍挑選規則比色_在主對話框設完存進找圖目標(make_app, monkeypatch):
     a = make_app(1.0)
@@ -141,8 +130,6 @@ def test_最接近指定點_原點XY點選另起一行(make_app):
     assert seen["below"]
 
 
-# ---------- 驗證錯誤在底列、⚠ 一行 ----------
-
 def test_沒選範本_錯誤在底列_對話框不關_不彈窗(make_app, no_real_dialogs):
     seen = {}
 
@@ -183,8 +170,6 @@ def test_拖曳原點的圖離開_原點不是找圖_一行警告(make_app):
     assert seen["warn"] == ["⚠ 原點要來自找圖步驟（前面放一個找圖）"]
 
 
-# ---------- 座標點擊、拖曳 ----------
-
 def test_座標點擊_不確認時沒有逾時與找不到時(make_app):
     seen = {}
     _open(make_app(1.0), click(1, 2), _look(seen), _pick("做到確認圖", "確認圖"),
@@ -201,8 +186,6 @@ def test_拖曳_左卡起點終點時間停頓_沒有原點勾選(make_app):
     assert seen["titles"] == ["起點", "終點", "拖曳時間", "放開前停頓", "生效確認", "忙碌檢查",
                               "等待逾時", "找不到時"]
 
-
-# ---------- 寬度固定、高度在工作區內 ----------
 
 def _width(seen, key):
     def act(dr):
@@ -243,8 +226,6 @@ def test_全部攤開的需求高度小於工作區(make_app, monkeypatch):
           height, title="編輯：找圖點擊")
     assert seen["h"] < seen["limit"]
 
-
-# ---------- 簡單步驟 ----------
 
 def test_簡單步驟各一列_回傳值照舊(make_app):
     a = make_app(1.0)

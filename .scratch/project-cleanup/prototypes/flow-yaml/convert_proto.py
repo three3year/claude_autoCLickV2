@@ -1,10 +1,3 @@
-"""PROTOTYPE — 拋棄式。wayfinder 票 02（flow.yaml 具體 schema）的樣本產生器。
-
-把打包版的 .autoclickpack 轉成三種 flow.yaml 寫法讓使用者比較，並做往返驗證
-（yaml 讀回 → 舊步驟語意，與原檔正規化後逐步比對）。不進 app。
-
-    .venv/Scripts/python.exe convert_proto.py <pack> <輸出目錄>
-"""
 import json
 import os
 import sys
@@ -12,18 +5,14 @@ import zipfile
 
 import yaml
 
-# ---------- 新格式的預設值（沒寫＝這個值） ----------
 D_TIMEOUT = 10
-D_INTERVAL = 0.3        # 提案：四份流程 337 個找圖全是 0.3，預設改 0.3
-D_DRAG = 0.5            # 拖曳時間、按住時間（四份流程全是 500ms/500ms）
+D_INTERVAL = 0.3
+D_DRAG = 0.5
 D_WAIT = 1.0
-D_ON_FAIL = "stop"      # ADR 0014：找不到時沒寫＝停止
+D_ON_FAIL = "stop"
 
-
-# ================= 舊步驟 → 新步驟（單步，不含區段） =================
 
 def _target(tgt, head):
-    """找圖目標 → {head: 範本, within, pick, color}."""
     out = {head: tgt["template"]}
     lim = tgt.get("limit")
     if lim:
@@ -40,7 +29,6 @@ def _target(tgt, head):
 
 
 def _common(s, out, old_on_fail):
-    """生效確認、逾時、找不到時、忙碌檢查、更新原點."""
     c = s.get("confirm", "none")
     if c == "appear":
         ct = _target(s["confirmTarget"], "appear")
@@ -78,7 +66,7 @@ def convert_step(s):
         off = [s.get("offsetX", 0), s.get("offsetY", 0)]
         if off != [0, 0]:
             out["offset"] = off
-        return _common(s, out, "skip")      # 舊執行器：找圖沒寫＝skip
+        return _common(s, out, "skip")
     if t == "click":
         assert s.get("mode") == "prev" and s.get("button", "left") == "left"
         return _common(s, {"click": [s["x"], s["y"]]}, "stop")
@@ -95,10 +83,7 @@ def convert_step(s):
     raise ValueError(t)
 
 
-# ================= 平面標記 → 巢狀區段 =================
-
 def nest(steps):
-    """回傳 [(節點, 舊序號)]；節點是新步驟 dict，或 repeat / branch 區段."""
     pos = 0
 
     def block(stop_types):
@@ -137,10 +122,7 @@ def nest(steps):
     return block(())
 
 
-# ================= 輸出：三種寫法 =================
-
 def flow(v):
-    """單行 flow-style YAML."""
     return yaml.dump(v, allow_unicode=True, default_flow_style=True,
                      sort_keys=False, width=10_000).removesuffix("...\n").strip()
 
@@ -224,7 +206,6 @@ def emit_flat_compact(steps):
 
 
 def to_plain(nodes):
-    """巢狀節點 → 純資料（給展開寫法用 yaml.dump）."""
     out = []
     for node, _ in nodes:
         if "repeat" in node:
@@ -260,10 +241,7 @@ def _short_list(d, v):
 _D.add_representer(list, _short_list)
 
 
-# ================= 往返驗證：新 yaml → 舊步驟語意 =================
-
 def back_step(n):
-    """新步驟 → 舊步驟的有效語意（所有欄位補成實際值）."""
     def tgt(d, head):
         t = {"template": d[head]}
         if "within" in d:
@@ -331,7 +309,6 @@ def flatten(nodes):
 
 
 def norm_old(s):
-    """原檔步驟 → 有效語意（舊執行器的預設補齊、不再存在的欄位丟掉）."""
     t = s["type"]
     if t in ("loop_start",):
         return {"type": t, "count": s.get("count", 1)}
@@ -363,7 +340,6 @@ def norm_old(s):
 
 
 def canon(x):
-    """比對用：dict 鍵排序、limit 的 kind 統一."""
     return json.loads(json.dumps(x, sort_keys=True, ensure_ascii=False))
 
 
@@ -396,8 +372,6 @@ def flat_back(items):
             out.append(back_step(v))
     return out
 
-
-# ================= main =================
 
 def main(pack, outdir):
     z = zipfile.ZipFile(pack)

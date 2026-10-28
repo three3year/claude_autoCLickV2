@@ -1,12 +1,7 @@
-"""步驟編輯器以外的對話框也照說明文字規則 (ui-slim 09): 說明收進 ⓘ、驗證錯誤在底列一行
-(不彈窗)、確認圖的找圖設定子對話框跟步驟編輯器的左卡同一套欄位.
-
-對話框真的開 (`_Driver`), 看得到什麼以文字找。
-"""
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import ui_dialogs
-from test_editor_scale import make_app  # noqa: F401 (fixture)
+from test_editor_scale import make_app  # noqa: F401
 from test_fixed_rect_ui import _labels, _target_dialog
 from test_pointer_confirm_ui import _combo
 from test_template_picker import TITLE, _all, _Driver, _open, picker  # noqa: F401

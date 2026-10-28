@@ -1,17 +1,3 @@
-"""採購中心商品範本: 從倉庫素材圖切 PNG, 用專案引擎在商店畫面上驗證 (見 spec.md).
-
-    .venv/Scripts/python.exe .scratch/credit-store-templates/build.py            # 全部重跑
-    .venv/Scripts/python.exe .scratch/credit-store-templates/build.py --items 糖  # 只跑幾種, 輸出到 preview/
-    .venv/Scripts/python.exe .scratch/credit-store-templates/build.py --overlays  # 只畫核對圖, 不跑引擎
-
-全部重跑時清空 `oCam Video\\採購中心範本\\繁中\\`、`簡中\\` 再重新產生, 並覆寫 `報告.md`。
-驗證畫面與標註在 annotations.json (影格由 extract_frames.py 抽出、圓心由
-measure_centers.py 量出)。核對圖寫到本資料夾的 overlays/。
-
-驗證走引擎公開 API, 與影片轉流程的自我驗證同一套: make_library → 逐張
-Engine.register → 以整張驗證畫面 Engine.query(預期尺度 1), 門檻用 arknights
-profile 的 config.yaml, 位置容許值沿用 tools/video_to_flow/verify.position_tolerance。
-"""
 from __future__ import annotations
 
 import argparse
@@ -39,10 +25,6 @@ from video_to_flow.geom import center  # noqa: E402
 PREFIX = "採購_"
 RETAKE = "待重拍_"
 
-# 倉庫素材圖上的 23 種商品: (遊戲繁中名, 核對圖用的 ASCII 代號, 素材圖, 圓圈中心)
-# 素材圖都是繁中客戶端的倉庫 (同一尺度)。圓圈中心是霍夫圓偵測的結果; pic2 各格的
-# 物品由看圖對照遊戲物品辨認 (pic2 只取一階灰圈、二階黃綠圈)。pic8 的 EXP 卡圓心
-# 由外環外緣擬圓, 書本超出圓圈擬不準, 改用同欄/同列的圓心 (格距同 pic2)。
 ITEMS = [
     ("源岩", "yuanyan", "pic2", (104.5, 585.5)),
     ("固源岩", "guyuanyan", "pic2", (104.5, 351.5)),
@@ -68,18 +50,13 @@ ITEMS = [
     ("技巧概要·卷1", "skill1", "pic8", (522.5, 105.2)),
     ("技巧概要·卷2", "skill2", "pic8", (330.4, 572.0)),
 ]
-# 有簡中客戶端倉庫圖的商品: 簡中範本改從這裡切 (不必把繁中倉庫圖縮放到簡中尺度)。
-# pic7 與 pic8 同一排版, 格距 170.9 vs 192 px (比 0.89, 等於簡中/繁中的畫面比);
-# 圓心取法同 pic8。
 CN_SOURCES = {
     "基礎作戰記錄": ("pic7", (278.1, 88.9)),
     "初級作戰記錄": ("pic7", (107.2, 502.0)),
     "技巧概要·卷1": ("pic7", (449.0, 88.9)),
     "技巧概要·卷2": ("pic7", (278.1, 502.0)),
 }
-# 驗證畫面上出現、但不在這次範本裡的商品 (核對圖代號)
 OTHER_CODES = {"傢俱零件": "furniture"}
-# 這次沒做的商品 (使用者決定傢俱零件不判斷, 不列)
 NOT_MADE = []
 
 # 兩個候選框法: 相對圓圈中心的 (左, 上, 右, 下), 倉庫像素 (圓圈外環半徑約 78、
@@ -95,19 +72,12 @@ FRAMINGS = {
                      "上緣停在折扣標籤下方 (-65)，外環頂端約 13 px 的弧框不進來"},
 }
 
-TW_SCALE = 0.975          # 倉庫圖示 → 繁中商店 (spec Further Notes 實測)
-# 卡片範圍 (相對圓圈中心, 繁中商店像素): demo2 / pic1 上量的卡片外框
+TW_SCALE = 0.975
 CARD_BOX_TW = (-140, -150, 150, 140)
-# 卡片格距 (欄距, 列距): 未售完卡多的畫面上連格距一起擬合的結果 (繁中 pic1、
-# demo2 第 2760 幀; 簡中 demo1 第 4620 幀、demo5 第 3300 幀、demo6 第 3113 幀)
 GRID = {"tw": (312.1, 313.4), "cn": (276.1, 277.1)}
-# 量圓圈直徑用的已知商品: 黃綠圈的二階材料 (圖示不超出圓圈, 外環完整)
 RING_ITEMS = {"糖", "聚酸酯", "裝置", "固源岩", "異鐵"}
-# 外環半徑的粗估 (px): 量直徑時放射線的搜尋範圍以它為準
 RING_RADIUS = {"warehouse": 78.0, "tw": 75.0, "cn": 66.0}
 
-
-# ---------------------------------------------------------------- 影像 I/O
 
 def read(path):
     img = cv2.imdecode(np.fromfile(path, np.uint8), cv2.IMREAD_COLOR)
@@ -123,14 +93,7 @@ def write(path, img):
     buf.tofile(path)
 
 
-# ---------------------------------------------------------------- 切圖
-
 def cut(src, circle, box, s, src_scale=1.0):
-    """切出相對圓圈中心 box (繁中倉庫像素) 的範圍, 輸出是繁中倉庫圖示的 s 倍.
-
-    src_scale = 素材圖本身相對繁中倉庫的尺度 (簡中客戶端的倉庫圖 < 1)。
-    回傳 (範本圖, 範本中心相對圓圈中心的偏移 (縮放後像素))。
-    """
     f = s / src_scale
     big = cv2.resize(src, None, fx=f, fy=f, interpolation=cv2.INTER_AREA)
     cx, cy = (circle[0] + 0.5) * f - 0.5, (circle[1] + 0.5) * f - 0.5
@@ -143,12 +106,6 @@ def cut(src, circle, box, s, src_scale=1.0):
 
 
 def cut_all(sources, names, framing, s, cn_src_scale=None):
-    """{商品名: {"img": 範本圖, "offset": 範本中心相對圓圈中心的偏移}}.
-
-    cn_src_scale 有值＝簡中組: CN_SOURCES 裡的商品改從簡中倉庫圖切, 該圖相對繁中
-    倉庫的尺度取 cn_src_scale (同一客戶端的倉庫與商店畫面等比, 所以等於簡中/繁中
-    商店的圓圈直徑比)。
-    """
     out = {}
     for name, _code, pic, circle in ITEMS:
         if name in names:
@@ -161,15 +118,7 @@ def cut_all(sources, names, framing, s, cn_src_scale=None):
     return out
 
 
-# ---------------------------------------------------------------- 量圓圈直徑
-
 def ring_radius(img, circle, r_guess):
-    """沿放射線找彩色外環的外緣 (外環 → 背景) 半徑, 取各方向中位數.
-
-    每條射線在 [0.8R, 1.25R] 內找色差 (Lab) 的梯度, 取「由內往外最後一個
-    超過該射線最大梯度一半」的位置——外環內側的黑環邊緣更強, 但在更裡面。
-    右下象限 (數字框) 不量。
-    """
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
     rs = np.arange(0.8 * r_guess, 1.25 * r_guess, 0.25)
     radii = []
@@ -187,18 +136,16 @@ def ring_radius(img, circle, r_guess):
 
 @dataclass
 class Scales:
-    """量出來的尺度: 簡中倍率與量測依據."""
-    cn_scale: float      # 倉庫圖示 → 簡中商店
-    cn_over_tw: float    # 簡中/繁中 圓圈直徑比
-    grid_ratio: float    # 簡中/繁中 卡片格距比 (核對用)
-    d_tw: float          # 繁中商店直徑中位數
-    d_cn: float          # 簡中商店直徑中位數
-    d_warehouse: float   # 倉庫直徑中位數 (核對 ×0.975 用)
-    per_card: dict       # {"tw"/"cn": [(畫面, 商品, 直徑)]}
+    cn_scale: float
+    cn_over_tw: float
+    grid_ratio: float
+    d_tw: float
+    d_cn: float
+    d_warehouse: float
+    per_card: dict
 
 
 def measure_scales(frames, sources):
-    """簡中商店的圓圈直徑 ÷ 繁中商店的圓圈直徑 (只量未售完的已知商品卡)."""
     per_card = {"tw": [], "cn": []}
     for fr in frames:
         for card in fr["cards"]:
@@ -213,10 +160,7 @@ def measure_scales(frames, sources):
                   d_tw, d_cn, d_wh, per_card)
 
 
-# ---------------------------------------------------------------- 驗證
-
 def card_box(card, k):
-    """卡片範圍 (x0, y0, x1, y1), k = 該畫面相對繁中商店的格距比."""
     l, t, r, b = CARD_BOX_TW
     cx, cy = card["center"]
     return cx + l * k, cy + t * k, cx + r * k, cy + b * k
@@ -231,12 +175,6 @@ def _dist(a, b):
 
 
 class Verifier:
-    """一組範本 (同一尺度) 在一組驗證畫面上的驗證結果.
-
-    results[範本名][畫面 id][比色開關] = `_judge` 的結果 dict;
-    failed[範本名] = 引擎無法登錄的原因。
-    """
-
     def __init__(self, engine, config, templates, frames, k):
         from subject_detection import make_library
 
@@ -253,10 +191,10 @@ class Verifier:
                 paths[name] = p
             lib = make_library(paths, config, os.path.join(tmp, "registered"))
             for name in templates:
-                try:   # 登錄產物載進記憶體, 暫存目錄刪掉後照樣能查
+                try:
                     engine.register(lib, name)
                     registered.append(name)
-                except Exception as e:   # 無結構的框連登錄都過不了
+                except Exception as e:
                     self.failed[name] = str(e)
         self.results = {n: {} for n in templates}
         for name in registered:
@@ -268,20 +206,9 @@ class Verifier:
                         self._judge(name, fr, r)
 
     def _judge(self, name, fr, r):
-        """範本 name 在畫面 fr 上的一次查詢結果 r → 本畫面的判定與報告用分數.
-
-        - own: 每張未售完的本尊卡 {card, hit (預期位置附近有匹配), score (那附近
-          最高的深度驗證分數), color (該候選的比色分數)}; 售完的本尊卡不計
-        - false: 落在別種商品卡 (含售完卡) 上的匹配
-        - top_other: 別種商品卡上深度驗證分數最高的候選; 沒有候選過粗篩時
-          coarse_other 記粗篩分數最高的 (分數, 卡名)
-        - on_card / on_coarse: 每張卡上最高的深度驗證 / 粗篩分數 (同系列互認檢查用)
-        - ok: 本畫面通過 (本尊卡都有匹配、別種卡上沒有匹配)
-        """
         t = self.templates[name]
         th, tw = t["img"].shape[:2]
         tol = vtf_verify.position_tolerance((0, 0, tw, th))
-        # 候選的深度驗證分數只有過粗篩門檻的才有 (與比色無關)
         cands = r.debug.get("candidates", [])
         passing = [c for c in cands if c["score"] >= self.match_threshold]
         vscores = r.debug.get("verify_scores", [c["score"] for c in passing])
@@ -325,7 +252,6 @@ class Verifier:
                 "ok": all(o["hit"] for o in own) and not false_hits}
 
     def verdict(self, name, color):
-        """('pass' / 'retake' / 'unverified', 原因清單)."""
         if name in self.failed:
             return "retake", [f"引擎無法登錄這張範本（{self.failed[name]}）"]
         why, seen = [], False
@@ -341,10 +267,6 @@ class Verifier:
         return ("pass" if seen else "unverified"), []
 
     def margin(self, name):
-        """比色關: 「本尊分數 − 最高別種商品分數」在含本尊的畫面上的最小值.
-
-        別種卡上沒有候選過粗篩時別種分數算 0 (兩種框法同一個算法)。
-        """
         vals = []
         for fr in self.frames:
             res = self.results.get(name, {}).get(fr["id"], {}).get(False)
@@ -358,11 +280,10 @@ class Verifier:
 
 @dataclass
 class SetRun:
-    """一組範本 (一種框法、一種尺度) 的驗證與判定."""
     label: str
     templates: dict
     ver: Verifier
-    files: dict | None = None   # {商品名: 輸出檔名}; 寫出後才有
+    files: dict | None = None
 
     def __post_init__(self):
         self.verdicts = {n: {c: self.ver.verdict(n, c) for c in (False, True)}
@@ -379,10 +300,7 @@ class SetRun:
         return min(ms) if ms else None
 
 
-# ---------------------------------------------------------------- 輸出
-
 def write_set(run, dest):
-    """清空輸出資料夾後依判定命名寫出 PNG (`待重拍_` 前綴只看比色關)."""
     if os.path.isdir(dest):
         shutil.rmtree(dest)
     os.makedirs(dest)
@@ -396,7 +314,6 @@ def write_set(run, dest):
 
 
 def overlay(fr, templates, k, path):
-    """核對圖: 卡片範圍 (綠＝未售完、紅＝售完)、圓圈中心、範本預期位置、商品代號."""
     img = fr["img"].copy()
     for card in fr["cards"]:
         x0, y0, x1, y1 = (round(v) for v in card_box(card, k))
@@ -407,7 +324,7 @@ def overlay(fr, templates, k, path):
         code = next((c for n, c, *_ in ITEMS if n == card["name"]),
                     OTHER_CODES.get(card["name"], "?"))
         label = code + (" SOLD" if card["soldOut"] else "")
-        for color, thick in (((255, 255, 255), 4), (col, 2)):   # 白邊 + 本色
+        for color, thick in (((255, 255, 255), 4), (col, 2)):
             cv2.putText(img, label, (x0 + 6, y0 + 40), cv2.FONT_HERSHEY_SIMPLEX,
                         0.8, color, thick)
         t = templates.get(card["name"])
@@ -427,7 +344,6 @@ def overlays(frames, templates_by_set, scales):
 
 
 def template_sheet(sets, path):
-    """各組範本並排的核對圖 (每列一種商品)."""
     rows = []
     for name, code, *_ in ITEMS:
         tiles = []
@@ -446,8 +362,6 @@ def template_sheet(sets, path):
             for r in rows]
     write(path, np.vstack(rows))
 
-
-# ---------------------------------------------------------------- 報告
 
 V_LABEL = {"pass": "通過", "retake": "待重拍", "unverified": "未驗證"}
 
@@ -483,7 +397,6 @@ def _other_cell(res, color):
 
 
 def score_table(lines, title, run):
-    """每張範本在每張畫面上的本尊分數與最高別種分數 (比色關/開並列)."""
     lines += [f"### {title}：每張範本在每張畫面上的分數", "",
               "分數是引擎深度驗證的分數；門檻見開頭。本尊分數列出畫面上每張"
               "未售完的本尊卡（✗＝那張卡上沒有匹配）；最高別種是落在其他商品卡（含售完卡）"
@@ -531,7 +444,6 @@ def _source_key(fr):
 
 
 def video_quality(frames):
-    """各素材影片的位元率 (檔案大小 ÷ 長度), 判斷壓縮失真用."""
     out = {}
     for fr in frames:
         v = fr["source"].get("video")
@@ -551,7 +463,6 @@ def _by_source(groups):
 
 
 def failure_sources(lines, title, run):
-    """待重拍的範本: 沒過與通過的畫面各來自哪個素材 (看失敗是否集中在某支影片)."""
     rows = []
     for name in run.names_with("retake"):
         if name in run.ver.failed:
@@ -582,7 +493,6 @@ SERIES = [("源岩", "固源岩"), ("代糖", "糖"), ("酯原料", "聚酸酯")
 
 
 def cross_table(lines, title, run):
-    """同系列不同階: A 範本在 B 卡上、B 範本在 A 卡上的最高分."""
     ver = run.ver
     lines += [f"### {title}：同系列不同階互相認錯的檢查", "",
               "每一對列出「A 範本在 B 卡上」與「B 範本在 A 卡上」所有畫面的最高深度驗證分數"
@@ -706,8 +616,6 @@ def build_report(config, tw_runs, chosen, cn_run, scales):
     return lines
 
 
-# ---------------------------------------------------------------- 主程式
-
 def load_frames(set_keys):
     with open(os.path.join(HERE, "annotations.json"), encoding="utf-8") as f:
         ann = json.load(f)
@@ -761,7 +669,6 @@ def main(argv=None):
     engine = make_engine()
     config = load_config(PROFILE)
 
-    # 繁中: 兩種框法都驗, 依通過張數 → 最小差距定案
     tw_runs = {}
     for fw in FRAMINGS:
         print(f"繁中 {FRAMINGS[fw]['label']} 驗證中…", flush=True)

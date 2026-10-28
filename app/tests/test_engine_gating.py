@@ -1,14 +1,8 @@
-"""就緒 gating (startup-speed 票 03): `引擎就緒`前辨識類操作提示並拒絕.
-
-App 的重量級 __init__ 以子類跳過 (沿用 test_deferred_reregister 模式),
-hub 直接撥狀態、messagebox 以紀錄樁取代——驗「狀態×操作」的外部行為:
-拒絕時跳提示且不啟動, 就緒時放行。
-"""
 from types import SimpleNamespace
 
 import tkinter as tk
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import app as app_mod
 import enginehub
@@ -32,8 +26,6 @@ class _FakeRunner:
 
 
 class _GateApp(app_mod.App):
-    """只建 start_run / stop_all / F12 gating 需要的欄位."""
-
     def __init__(self, root, state):
         self.root = root
         self.hub = enginehub.EngineHub()
@@ -41,7 +33,7 @@ class _GateApp(app_mod.App):
         self.runner = _FakeRunner()
         self.steps = [{"type": "wait", "wait": 0.01}]
         self.scan_region = None
-        self.flow_cal = {"pair": ["a", "b"], "baseline": 100.0}  # 流程可執行
+        self.flow_cal = {"pair": ["a", "b"], "baseline": 100.0}
         self._pending_templates = set()
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")
 
@@ -102,14 +94,14 @@ def test_載入中按F12_提示並拒絕_不經急停(tkroot, monkeypatch):
     rec = _MsgRec(monkeypatch)
     a = _GateApp(tkroot, enginehub.LOADING)
     a._on_hotkey()
-    _pump(tkroot)  # 提示是轉回 UI 執行緒跳的
+    _pump(tkroot)
     assert a.runner.stopped == 0
     assert any("載入中" in m for m in rec.warnings)
 
 
 def test_執行中按F12_直接急停不提示(tkroot, monkeypatch):
     rec = _MsgRec(monkeypatch)
-    a = _GateApp(tkroot, enginehub.LOADING)  # 理論上不會發生, 但急停必須永遠有效
+    a = _GateApp(tkroot, enginehub.LOADING)
     a.runner.running = True
     a._on_hotkey()
     assert a.runner.stopped == 1

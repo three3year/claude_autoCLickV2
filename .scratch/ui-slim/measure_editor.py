@@ -1,12 +1,3 @@
-"""量步驟編輯器版面 B 的兩欄需求寬度與確認圖下拉寬度 (ui-slim 07/08; 一次性, 不進 tools/).
-
-    .venv/Scripts/python.exe .scratch/ui-slim/measure_editor.py
-
-找圖、座標點擊、拖曳各建一次編輯器 (不開 modal), 把所有依選項出現的列全部攤開 (等於所有
-選項組合的聯集: 每一列各自獨立, 攤開時每張卡的寬度就是各組合的最大值), 量兩張卡的需求寬度;
-再用流程預設位置底下所有流程的範本名, 量最長的名字在下拉選單裡要幾個字元寬。
-結果用來定 ui_dialogs.CARD_W 與 CFM_W。
-"""
 import os
 import sys
 import tkinter as tk

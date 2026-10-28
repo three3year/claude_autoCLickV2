@@ -1,10 +1,3 @@
-"""票 02 的交付報告: 早_簡中、早_繁中的 .md 加「接收線索」一節、改流程內容、重產步驟清單.
-
-    .venv/Scripts/python.exe .scratch/run-1007-fixes/report_clues.py
-
-先跑 build_clues.py --apply。可以重跑: 本節與步驟清單整段換掉, 其他段落只換指定的句子。
-步驟清單與節的換法沿用 busy-pause-fixed-rect/report.py。
-"""
 from __future__ import annotations
 
 import os
@@ -77,7 +70,6 @@ SECTIONS = {
     ],
 }
 
-# 流程內容裡要換的句子 (舊 → 新)
 PROSE = {
     "早_簡中": [
         ("  接收线索（打開面板、點面板外關掉）→ 传递线索 → 返回 ×2。",
@@ -89,7 +81,6 @@ PROSE = {
          "   - 傳遞線索 → 快速傳遞 → 關閉 → 返回 ×2。"),
     ],
 }
-# 簡中舊說明「只開關、沒有按全部收取」那一點 (到下一個同層項目為止) 換成一句
 CN_OLD_NOTE = re.compile(r"  - \*\*接收线索只開關、沒有按「全部收取」\*\*.*?(?=\n  - |\n- |\n\n|\n## )", re.S)
 CN_NEW_NOTE = "  - 接收线索原本只開關、沒有按「全部收取」（demo6 當天沒有新線索）；10/07 晚照 add1 補上。"
 
@@ -107,7 +98,7 @@ def main():
             text = f.read()
         text = r05.replace_section(text, re.escape(HEADING), sec, before_first_h2=True)
         for old, new in PROSE[name]:
-            if new in text:   # 重跑: 已經換過 (新句子裡可能含著舊句子)
+            if new in text:
                 continue
             if old in text:
                 text = text.replace(old, new)

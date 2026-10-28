@@ -1,15 +1,3 @@
-"""一次性轉換: 打包版 2026-10-10 的四份 .autoclickpack → 流程資料夾 (flow-folder-format 票 12).
-
-規則見 .scratch/project-cleanup/issues/11-converter-rules-and-acceptance.md。不進 tools/、
-不寫正式測試、之後不維護; 跟著提交當紀錄。
-
-    .venv/Scripts/python.exe .scratch/flow-folder-format/convert.py <舊 flows 資料夾> [輸出位置]
-
-輸出位置預設 %USERPROFILE%/AutoClick。自己開 zip 讀 flow.json 與 templates/_meta.json, 組成
-新記憶體模型交 app 的寫檔函式 (flowfile.write_flow); 只處理四份實有的欄位 (其他值一律報錯)。
-每份輸出資料夾已存在就報錯停下, 什麼都不寫。跑完自我核對: app 讀檔讀回 → 獨立的反向對映
-轉回舊鍵 → 與原檔逐步比; 範本圖逐位元比; 流程層設定逐項比。
-"""
 import json
 import os
 import shutil
@@ -24,7 +12,7 @@ from automation import flowdefaults  # noqa: E402
 
 FLOWS = ("早_簡中", "早_繁中", "晚_簡中", "晚_繁中")
 ENGINE = {"scale_range": [0.6, 1.5]}
-DROPPED = ("mode", "button", "clicks")   # 四份全 prev/left/1, 新格式沒有這些選項
+DROPPED = ("mode", "button", "clicks")
 
 
 class ConvertError(Exception):
@@ -35,8 +23,6 @@ def need(cond, what):
     if not cond:
         raise ConvertError(what)
 
-
-# ================= 舊 → 新 (記憶體模型) =================
 
 def target(t, where):
     need(set(t) <= {"template", "limit", "pick", "colorCheck"}, f"{where}: 沒處理的鍵 {sorted(t)}")
@@ -57,7 +43,6 @@ def target(t, where):
 
 
 def confirm_and_wait(s, out, where):
-    """生效確認＋等待三欄 (四份裡會等待的步驟三欄都明寫)＋忙碌檢查＋更新原點."""
     c = s.get("confirm", "none")
     need(c in ("none", "gone", "next", "appear"), f"{where}: confirm={c!r}")
     out["confirm"] = c
@@ -119,8 +104,6 @@ def convert_step(s, no):
         out = {"type": "branch_end", "on_break": s.get("onBreak", "continue")}
     else:
         out = {"type": t}
-    # 新格式這個類型沒有的欄位 (只找圖/等消失的生效確認與忙碌檢查、拖曳的更新原點):
-    # 舊檔裡必須是沒有作用的值才丟
     for k in [k for k in out if k not in flowdefaults.KEYS[out["type"]]]:
         need(out.pop(k) == UNUSED[k], f"{where}: {k} 在新格式的 {out['type']} 沒有, 舊值卻有作用")
     return flowdefaults.complete(out)
@@ -158,8 +141,6 @@ def convert(data, meta):
     )
     return flow
 
-
-# ================= 新 → 舊 (自我核對用, 獨立寫的反向對映) =================
 
 def back_target(t):
     out = {"template": t["template"]}
@@ -199,7 +180,7 @@ def back_step(n):
              "ms": round(n["duration"] * 1000), "holdMs": round(n["hold"] * 1000)}
     else:
         raise ConvertError(f"反向對映: 沒處理的類型 {t}")
-    o["confirm"] = n.get("confirm", "none")   # 只找圖/等消失沒有這兩欄
+    o["confirm"] = n.get("confirm", "none")
     if o["confirm"] == "appear":
         o["confirmTarget"] = back_target(n["confirm_target"])
     if "timeout" in n:
@@ -210,9 +191,7 @@ def back_step(n):
     return o
 
 
-
 def effective_old(s):
-    """原檔步驟的有效內容: 丟掉新格式沒有的選項, 沒寫的補成舊＝新相同的預設."""
     o = {k: v for k, v in s.items() if k not in DROPPED}
     t = o["type"]
     if t in ("loop_end", "branch_end"):
@@ -275,8 +254,6 @@ def self_check(name, data, meta, z, folder):
     return problems, len(back["steps"]), len(out)
 
 
-# ================= main =================
-
 def main(src_dir, out_root=None):
     out_root = out_root or os.path.join(os.path.expanduser("~"), "AutoClick")
     jobs = []
@@ -286,7 +263,6 @@ def main(src_dir, out_root=None):
         need(os.path.isfile(pack), f"找不到 {pack}")
         need(not os.path.exists(folder), f"輸出資料夾已存在 (要重轉先手動刪): {folder}")
         jobs.append((name, pack, folder))
-    # 先全部轉成記憶體模型 (任一份有沒處理的欄位就整批停下, 什麼都不寫)
     loaded = []
     for name, pack, folder in jobs:
         z = zipfile.ZipFile(pack)

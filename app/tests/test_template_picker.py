@@ -1,10 +1,3 @@
-"""選範本對話框 (票 07): 跨存檔瀏覽、從磁碟挑圖、現場截圖, **確定才複製**.
-
-「確定才複製 / 取消不留痕」只有互動才會執行到, 所以每個案例都真的把對話框開
-起來、用 `event_generate` 走一遍選取與按鈕, 再斷言**檔案系統的狀態** (工作區
-裡有沒有那張圖) 與回傳值。modal 對話框會卡住呼叫端, 所以互動放在 `after()` 裡
-(既有紀律)。
-"""
 import os
 from types import SimpleNamespace
 import tkinter as tk
@@ -12,7 +5,7 @@ import tkinter as tk
 import numpy as np
 import pytest
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import app as app_mod
 import enginehub
@@ -22,8 +15,6 @@ from automation import imgio
 
 
 class _PickApp(app_mod.App):
-    """只建選範本對話框需要的欄位."""
-
     def __init__(self, root, base_dir, state=enginehub.READY):
         self.root = root
         self.store = flowfile.FlowTemplates.new(os.path.join(str(base_dir), "unsaved"))
@@ -35,9 +26,9 @@ class _PickApp(app_mod.App):
         self._rereg_after = None
         self.logged = []
         self.reloads = 0
-        self.shot = None      # 「截圖新增」框到的假截圖
-        self.shot_anchor = None   # 假截圖當下量到的`座標基準點` (None＝沒有校準對)
-        self.shot_k = 1.0         # 假截圖當下量到的`畫面倍率`
+        self.shot = None
+        self.shot_anchor = None
+        self.shot_k = 1.0
 
     def rebind_templates(self, changed=None):
         self.reloads += 1
@@ -52,13 +43,12 @@ class _PickApp(app_mod.App):
         self.logged.append((level, msg))
 
     def pick_region_measured(self, done, hide=(), parent=None):
-        # 清場與量校準在 test_editor_scale 測; 這裡直接拿假截圖與假量測收尾
         if self.shot:
             done(self.shot, SimpleNamespace(anchor=self.shot_anchor, k=self.shot_k,
                                             frame=self.shot.get("frame"), job=None))
 
     def _schedule_reregister(self):
-        pass       # 測試不跑事件迴圈的延後排程
+        pass
 
 
 def _img(fill=200, w=12, h=8):
@@ -72,7 +62,6 @@ def _png(fill=200, w=12, h=8):
 
 
 def _other_flow(name, template, images):
-    """流程存放區底下的另一份流程資料夾 (選範本對話框的來源之一)."""
     import apppaths
     folder = os.path.join(apppaths.flows_root(), name)
     flow = flowfile.new_flow()
@@ -81,10 +70,7 @@ def _other_flow(name, template, images):
     return folder
 
 
-# ---------- 對話框的互動驅動 ----------
-
 def _first(widget, cls):
-    """在 widget 樹裡找第一個該類別的元件, 找不到回 None."""
     for child in widget.winfo_children():
         if child.winfo_class() == cls:
             return child
@@ -95,10 +81,8 @@ def _first(widget, cls):
 
 
 class _Driver:
-    """在 modal 對話框開著的時候操作它 (透過 after 排進同一個事件迴圈, 一個做完才排下一個)."""
-
-    STEP_MS = 60          # 前一個動作做完到下一個動作之間
-    LEFT_OPEN_MS = 10000  # 動作都做完, 對話框還開著多久就算失敗並關掉
+    STEP_MS = 60
+    LEFT_OPEN_MS = 10000
 
     def __init__(self, root, title):
         self.root = root
@@ -108,12 +92,6 @@ class _Driver:
         self._todo = []
 
     def run(self, *actions):
-        """actions: 收 driver 的 callable, 依序執行——前一個做完才排下一個.
-
-        不能一開始就把每個動作排在固定時間: 對話框開得比間隔慢時好幾個計時器
-        同時到期, 延後重排保不住順序——曾經「確定」插隊到「在畫面上框選」前面,
-        確定沒過、對話框關不掉, 測試卡住等人來關 (2026-10-09)。
-        """
         self._todo = list(actions)
         self.root.after(self.STEP_MS, self._start)
 
@@ -130,14 +108,13 @@ class _Driver:
         act = self._todo.pop(0)
         try:
             act(self)
-        except BaseException as e:       # 讓失敗浮出來, 不要卡在 modal
+        except BaseException as e:
             self.error = e
             self.close()
             return
         self.root.after(self.STEP_MS, self._next)
 
     def _left_open(self):
-        """動作都做完了對話框還開著＝測試會一直等下去: 記成失敗並關掉, 不留給人關."""
         if self.error is None and self.dlg is not None and self.dlg.winfo_exists():
             self.error = AssertionError(
                 f"動作都做完了，對話框「{self.title}」還開著（例如確定沒通過）")
@@ -152,7 +129,6 @@ class _Driver:
         self.error = AssertionError(f"對話框沒開起來: {self.title}")
 
     def _nodes(self, parent=""):
-        """(節點, 顯示文字); 展開中的來源才走進它的子節點."""
         out = []
         for node in self.tree.get_children(parent):
             out.append((node, self.tree.item(node, "text")))
@@ -174,18 +150,13 @@ class _Driver:
             f"樹裡沒有 {needle!r}（under={under!r}）: {self.rows_text()}")
 
     def select(self, needle, under=None):
-        """點選含 needle 的列: 來源列＝展開它, 範本列＝選取它 (真的發事件).
-
-        `under` 指定先找到哪一個來源, 再從它底下找——不同來源可以有同名的
-        範本, 不指定就會抓到第一個。
-        """
         self._update()
         node = self._find_node(needle, under)
         self.tree.focus(node)
-        if self.tree.parent(node) == "":     # 來源列: 展開 (內容此時才讀)
+        if self.tree.parent(node) == "":
             self.tree.item(node, open=True)
             self.tree.event_generate("<<TreeviewOpen>>")
-        else:                                # 範本列: 選取
+        else:
             self.tree.selection_set(node)
             self.tree.event_generate("<<TreeviewSelect>>")
         self._update()
@@ -196,7 +167,6 @@ class _Driver:
             self._update()
 
     def _update(self):
-        """處理對話框的待辦事件 (下一個動作要等這個動作做完才排, 不會在這裡插隊)."""
         self.dlg.update()
 
     def info_text(self):
@@ -248,14 +218,7 @@ def _open(app, driver, *actions):
 TITLE = "選擇範本"
 
 
-# ---------- 互動驅動本身 ----------
-
 def _slow_dialog(root, title, build_ms, busy_ms):
-    """開一個建得很慢的 modal 對話框, 等它被關掉.
-
-    建 build_ms (driver 排好的計時器開好時有的已到期、有的還沒); 剛開時有一陣
-    事件 (3 個, 各花 busy_ms) 要處理——像真的對話框剛 map 時那樣。
-    """
     import time
     dlg = tk.Toplevel(root)
     dlg.title(title)
@@ -271,8 +234,6 @@ def _slow_dialog(root, title, build_ms, busy_ms):
     root.wait_window(dlg)
 
 
-# 舊的驅動 (一開始就把動作排在固定時間, 處理事件中到期的延後重排) 在這幾組
-# 每次都會亂序 (2026-10-09 量過: 2,1,3 / 1,3,2 / 3,2,1)
 @pytest.mark.parametrize("build_ms,busy_ms", [(150, 60), (220, 40), (250, 20)])
 def test_驅動照順序做動作_對話框開得慢也不插隊(picker, build_ms, busy_ms):
     order = []
@@ -292,13 +253,11 @@ def test_驅動照順序做動作_對話框開得慢也不插隊(picker, build_m
 def test_動作做完對話框還開著_算失敗並關掉_不卡住(picker, monkeypatch):
     monkeypatch.setattr(_Driver, "LEFT_OPEN_MS", 200)
     d = _Driver(picker.root, "關不掉")
-    d.run(lambda dr: None)            # 例如按了確定卻沒通過
+    d.run(lambda dr: None)
     _slow_dialog(picker.root, "關不掉", build_ms=0, busy_ms=0)
     assert isinstance(d.error, AssertionError)
     assert "還開著" in str(d.error)
 
-
-# ---------- 樹狀來源 ----------
 
 def test_左側列出本流程與其他流程存檔(picker):
     app = picker
@@ -342,8 +301,6 @@ def test_展開其他存檔看到它的範本(picker):
     assert "night" in seen["info"], "右側預覽顯示來源"
 
 
-# ---------- 確定才複製 / 取消不留痕 ----------
-
 def test_按確定才把其他存檔的圖複製進本流程(picker):
     app = picker
     other = _other_flow("src", "gear", {"gear": _png(90)})
@@ -378,7 +335,6 @@ def test_按取消時檔案系統完全沒有變化(picker):
 
 
 def _snapshot(store):
-    """本流程範本快取的完整內容快照 (檔名 → 內容); 用來斷言「什麼都沒發生」."""
     out = {}
     for base, _dirs, files in os.walk(store.cache):
         for fn in files:
@@ -398,7 +354,6 @@ def test_跨流程複製進來的是獨立副本(picker):
         dr.press("確定")
 
     _open(app, d, pick)
-    # 來源流程日後改圖
     _other_flow(os.path.basename(other), "gear", {"gear": _png(10)})
     assert open(app.store.path_of("gear"), "rb").read() == _png(90)
 
@@ -410,8 +365,8 @@ def test_撞名自動加序號並寫進執行紀錄(picker):
     d = _Driver(app.root, TITLE)
 
     def pick(dr):
-        dr.select("src")                      # 展開來源存檔
-        dr.select("gear", under="src")        # 明確選它裡面那一張
+        dr.select("src")
+        dr.select("gear", under="src")
         dr.press("確定")
 
     got = _open(app, d, pick)
@@ -434,8 +389,6 @@ def test_選本流程已有的範本不複製(picker):
     assert got == "btn"
     assert app.store.names() == ["btn"], "沒有多出一份副本"
 
-
-# ---------- 現場截圖 ----------
 
 def test_現場截圖後按確定才落地(picker):
     app = picker
@@ -487,8 +440,6 @@ def test_加入範本後提示建議跑比對測試(picker):
     assert any("比對測試" in m for _lvl, m in app.logged)
 
 
-# ---------- 從磁碟挑 PNG ----------
-
 def test_從磁碟挑png_確定後複製進本流程(picker, tmp_path, monkeypatch):
     app = picker
     src = tmp_path / "outside.png"
@@ -523,10 +474,7 @@ def test_從磁碟挑png_取消不留痕(picker, tmp_path, monkeypatch):
     assert _snapshot(app.store) == {}
 
 
-# ---------- 就緒 gating ----------
-
 def test_引擎未就緒時對話框照樣開得起來也挑得動(tkroot, tmp_path):
-    """挑圖不需要辨識, 只有比對類動作才走既有的就緒 gating."""
     tkroot.deiconify()
     tkroot.geometry("+40+40")
     tkroot.update()
@@ -560,11 +508,7 @@ def test_沒選任何一列就按確定_底列提示_不彈窗(picker, no_real_d
     assert not any(no_real_dialogs.values())
 
 
-# ---------- 取消找圖對話框＝這次加的圖也丟棄 (US 14) ----------
-
 def test_取消整個對話框時這次加的範本被丟棄(picker):
-    """spec:「在找圖對話框現場截圖後按取消＝丟棄該圖。現行`確認圖`
-    「截圖即時存檔、取消對話框圖仍留下」的行為一併改成丟棄。」"""
     app = picker
     app.store.add("kept", b"K")
     app.steps = [{"type": "find_click", "target": {"template": "kept"}}]
@@ -598,7 +542,6 @@ def test_已被其他步驟引用的絕不誤刪(picker):
 
 
 def test_校準對的範本絕不誤刪(picker):
-    """flow-scale 票 02: 校準對是被引用的範本, 不被步驟引用也要留著."""
     app = picker
     app.store.add("圖示", b"I")
     app.store.add("關閉", b"X")
@@ -617,8 +560,6 @@ def test_沒有新增範本時是空操作(picker):
     assert app.logged == []
 
 
-# ---------- 左側樹狀每一列都有縮圖 (spec:「可展開看裡面的範本縮圖」) ----------
-
 def test_樹狀每一列都帶縮圖_展開時才讀(picker):
     app = picker
     app.store.add("mine", _png(200, 20, 12))
@@ -627,10 +568,9 @@ def test_樹狀每一列都帶縮圖_展開時才讀(picker):
     seen = {}
 
     def look(dr):
-        # 本流程預設展開 → 它的範本列一開始就有縮圖
         node = dr._find_node("mine")
         seen["cur"] = dr.tree.item(node, "image")
-        dr.select("src")                       # 展開另一份存檔
+        dr.select("src")
         node = dr._find_node("gear", under="src")
         seen["other"] = dr.tree.item(node, "image")
         dr.press("取消")
@@ -641,7 +581,6 @@ def test_樹狀每一列都帶縮圖_展開時才讀(picker):
 
 
 def test_未展開的來源不去讀它的圖(picker, monkeypatch):
-    """只列檔名與縮圖——沒展開就連縮圖都不該讀."""
     app = picker
     _other_flow("src", "gear", {"gear": _png(90)})
     reads = []

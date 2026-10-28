@@ -1,9 +1,3 @@
-"""執行期`畫面倍率`套用: 三類偏移 (含拖曳兩端點) ×倍率換算落點.
-
-倍率 1 的恆等回歸由既有 runner 測試 (全數未改) 把守; 本檔只驗倍率≠1
-(倍率取`支援倍率範圍`內的值: 區間外執行器不執行)。
-斷言對象是假 win.click / win.drag 收到的最終落點 (= 中心/基準點 + 偏移×倍率)。
-"""
 from harness import click, drag, find
 
 
@@ -35,7 +29,6 @@ def test_搜尋範圍本身不乘倍率(harness):
 
 
 def test_找圖不點擊時原點也含倍率後的偏移(harness):
-    """wait_gone / none 記錄的原點 = 找到位置 + 偏移×倍率."""
     harness.vision.plan("a.png", [(500, 400)])
     harness.run([find("a.png", type="find", offset=[10, 0]),
                  click(0, 0)], scale=1.1)

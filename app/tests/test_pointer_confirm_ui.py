@@ -1,20 +1,13 @@
-"""座標點擊與拖曳的`生效確認`: 對話框、步驟摘要、警告標記、被引用的範本
-(effect-confirm 票 03).
-
-對話框沿用 test_editor_scale 的最小 App ＋ `_Driver`; 清單渲染沿用
-test_confirm_next_ui 的 `_MiniApp`。
-"""
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 from harness import click, drag, find, tgt
 
 import app as app_mod
 import flowfile
 from test_confirm_next_ui import _MiniApp
-from test_editor_scale import _edit, _press, make_app  # noqa: F401 (fixture)
+from test_editor_scale import _edit, _press, make_app  # noqa: F401
 
 
 def _combo(dr, value_contains):
-    """對話框裡選項含某字樣的那個下拉選單."""
     from test_template_picker import _all
     for w in _all(dr.dlg):
         if w.winfo_class() == "TCombobox" and any(
@@ -31,8 +24,6 @@ def _pick(value_contains, choice):
         dr.dlg.update()
     return act
 
-
-# ---------- 對話框 ----------
 
 def test_座標點擊對話框保留確認圖設定_找不到時預設停止(make_app):
     a = make_app(1.0)
@@ -85,8 +76,6 @@ def test_確認圖出現卻沒選確認圖_擋下_錯誤在底列不彈窗(make_
     assert not any(no_real_dialogs.values())
 
 
-# ---------- 摘要、警告標記、被引用的範本 ----------
-
 def test_步驟摘要顯示座標點擊與拖曳的確認方式():
     s = app_mod.step_desc(click(1, 2, confirm="appear", confirm_target=tgt("ok")))
     assert "做到確認圖「ok」出現（逾時5s→停止）" in s
@@ -112,7 +101,7 @@ def test_下一步不是找圖的座標點擊與拖曳有警告標記(tkroot):
 def test_座標點擊與拖曳的確認圖是被引用的範本_改名跟著改():
     steps = [click(1, 2, confirm="appear", confirm_target=tgt("ok")),
              drag(1, 2, 3, 4, confirm="appear", confirm_target=tgt("ok2")),
-             click(1, 2, confirm_target=tgt("stale"))]   # 沒選 appear 不算
+             click(1, 2, confirm_target=tgt("stale"))]
     assert flowfile.used_templates(steps) == ["ok", "ok2"]
     assert flowfile.rename_refs(steps, "ok", "確認") == 1
     assert steps[0]["confirm_target"]["template"] == "確認"
@@ -128,8 +117,6 @@ def test_執行前檢查_座標點擊的確認圖不在本流程就擋下(tkroot
     assert any("不見了（確認圖）" in m for m in rec)
 
 
-# ---------- 原點的圖離開 (effect-confirm 票 04) ----------
-
 def test_拖曳對話框可選原點的圖離開_摘要顯示(make_app):
     a = make_app(1.0)
     got = _edit(a, drag(1, 2, 3, 4, _edit=True),
@@ -144,11 +131,11 @@ def test_原點不是來自找圖時有警告標記且執行前擋下(tkroot):
     tkroot.withdraw()
     leaves = dict(confirm="gone")
     a = _MiniApp(tkroot, [find("row1", type="find"), wait(0.3),
-                          drag(0, 0, 0, -100, **leaves),     # 原點來自找圖
-                          drag(0, 0, 0, -100, **leaves),     # 來自上一個拖曳
-                          click(5, 5), click(0, 0, **leaves),  # 來自點擊
+                          drag(0, 0, 0, -100, **leaves),
+                          drag(0, 0, 0, -100, **leaves),
+                          click(5, 5), click(0, 0, **leaves),
                           find("x", type="find", update_origin=False),
-                          click(0, 0, **leaves)])           # 仍是點擊 (找圖沒更新)
+                          click(0, 0, **leaves)])
     try:
         a.render_steps()
         lines = a.step_list.get("1.0", "end").splitlines()

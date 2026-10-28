@@ -1,25 +1,6 @@
-"""票 07: 快速置入看線索板狀態 (見 issues/07-quick-place-by-board-state.md).
-
-    .venv/Scripts/python.exe .scratch/busy-pause-fixed-rect/quick_place.py [--apply]
-
-早_簡中、早_繁中的「快速置入」那一步換成一個分岔:
-    分支 1: 交流中〔固定矩形、比色〕→ 僅等待出現 (逾時 1.5s → 跳過), 後面不接步驟
-    分支 2: 原本的快速置入步驟原樣搬進來
-同一輪兩個都成立時走排在前面的分支 1 (執行器每輪依分支順序判定), 所以交流中時不按。
-
-「交流中」範本: 線索板底部中間的「线索交流开启中／線索交流開啟中」字樣中間壓著一個會轉的
+"""「交流中」範本: 線索板底部中間的「线索交流开启中／線索交流開啟中」字樣中間壓著一個會轉的
 圓環 (圓點繞著轉、外圈會脈動), 只截左邊不會動的那段: 橘線末端＋第一個字「线／線」,
-右緣停在第二個字之前 (圓點最左約到第二個字)。兩版各從自己的影片截 (ADR 0009)。
-
-驗證走 app 的真實偵測路徑 (arknights 門檻), 影格先換成實機搜尋範圍的畫布
-(common.frame_region), 找圖目標照存檔裡的設定 (含固定矩形) 執行:
-- 交流中的影格 (底部中間有長橘線; 抽樣): 交流中要找得到。
-- 線索板沒在交流的影格 (快速置入找得到、沒有長橘線; 含簡中 demo6 第 952 幀 0/7):
-  交流中要找不到。
-- 其他影格 (每 40 幀抽一張): 交流中要找不到。
-- 線索板影格上照分岔的判定 (依分支順序第一個挑到的): 交流中 → 分支 1; 沒在交流 → 不走分支 1
-  (快速置入是橘的就走分支 2; 灰的＝線索已滿, 兩個都不成立, 逾時跳過)。
-結果寫 results/quick_place.json。--apply: 驗證通過才改存檔 (先備份、讀回驗證、草稿同步)。
+右緣停在第二個字之前 (圓點最左約到第二個字)。
 """
 from __future__ import annotations
 
@@ -40,16 +21,13 @@ from automation import findtarget  # noqa: E402
 NAME = "交流中"
 QUICK = "快速置入"
 TIMEOUT = 1.5
-MARGIN = 40          # 固定矩形: 範本框四周外擴 (影片像素)
+MARGIN = 40
 
-# 範本來源: (影片, 幀, 裁切框 x, y, w, h) — 影片座標
 SOURCE = {
     "cn": ("demo6", 1090, (770, 788, 74, 26)),
     "tw": ("demo2", 1140, (870, 886, 82, 30)),
 }
-# 長橘線所在的帶狀區 (影片座標 y0, y1, x0, x1): 交流中的標註依據
 BAND = {"cn": (790, 812, 600, 1200), "tw": (888, 912, 500, 1400)}
-# 影格清單 (影片, 起, 迄): 線索板一帶, 逐 4 幀標註
 BOARD = {
     "cn": [("demo6", 900, 1200), ("demo5", 1200, 1560)],
     "tw": [("demo2", 900, 1260)],
@@ -58,7 +36,6 @@ OTHER_STRIDE = 40
 
 
 def exchange_line(img, lang):
-    """底部中間有長橘線 (一列橘色像素 >200)＝線索交流開啟中."""
     y0, y1, x0, x1 = BAND[lang]
     hsv = cv2.cvtColor(img[y0:y1, x0:x1], cv2.COLOR_BGR2HSV)
     m = ((hsv[..., 0] > 3) & (hsv[..., 0] < 25) & (hsv[..., 1] > 150)
@@ -67,7 +44,6 @@ def exchange_line(img, lang):
 
 
 def quick_index(steps):
-    """快速置入那一步的索引 (找圖、比色、點擊); 必須剛好一個."""
     hits = [i for i, s in enumerate(steps)
             if s.get("type") == "find_click" and findtarget.template(s) == QUICK]
     if len(hits) != 1:
@@ -91,7 +67,7 @@ def rebuild(steps, rect):
     i = quick_index(steps)
     if already_done(steps, i):
         out = [dict(s) for s in steps]
-        out[i - 2] = cond_step(rect)          # 重跑: 只更新條件步驟
+        out[i - 2] = cond_step(rect)
         return out, i - 3
     new = steps[:i] + [{"type": "branch_start"}, cond_step(rect),
                        {"type": "branch_or"}, steps[i], {"type": "branch_end"}]
@@ -104,7 +80,6 @@ def cut(frames, lang):
 
 
 def settled(img, lang, tmpl):
-    """字樣停在範本來源的位置、沒被蓋住 (灰階相關 ≥0.9, ±3px): 不是淡入、滑動或被忙碌圖示蓋住."""
     _video, _n, (x, y, w, h) = SOURCE[lang]
     roi = cv2.cvtColor(img[y - 3:y + h + 3, x - 3:x + w + 3], cv2.COLOR_BGR2GRAY)
     t = cv2.cvtColor(tmpl, cv2.COLOR_BGR2GRAY)
@@ -112,11 +87,6 @@ def settled(img, lang, tmpl):
 
 
 def samples(frames, lang, quick_img, tmpl):
-    """[(video, n, kind)]: kind = exchange / transition / board_idle / other.
-
-    transition: 有長橘線但字樣沒停好 (線索板淡入、接收線索面板拉開時滑走、忙碌圖示蓋住)。
-    只記錄分岔會怎麼判定, 不算進通過與否 (流程走到快速置入前已在線索板上操作過, 板子已穩定)。
-    """
     out = []
     q = cv2.cvtColor(quick_img, cv2.COLOR_BGR2GRAY)
     seen = set()
@@ -141,7 +111,7 @@ def samples(frames, lang, quick_img, tmpl):
             if (video, n) in seen:
                 continue
             if exchange_line(frames.get(video, n), lang):
-                continue          # 交流中的影格已在上面
+                continue
             out.append((video, n, "other"))
     return out
 
@@ -161,14 +131,13 @@ def evaluate(lang, hub, cond, quick, frames, place, rows_in):
         if kind == "other":
             row["ok"] = not row["exchange"]
         else:
-            # 分岔的判定: 依分支順序第一個挑到的
             fq = findtarget.find(quick, hub, canvas, org, origin=None, scale=1.0)
             row["branch"] = 1 if fe.picked else (2 if fq.picked else None)
             if kind == "transition":
-                row["ok"] = True      # 不計分, 見 samples()
+                row["ok"] = True
             elif kind == "exchange":
                 row["ok"] = row["branch"] == 1
-            else:   # 沒在交流: 不能走分支 1; 快速置入是灰的 (線索已滿) 時本來就不按 (分岔逾時跳過)
+            else:
                 row["ok"] = row["branch"] != 1
         rows.append(row)
     return rows

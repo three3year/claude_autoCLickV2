@@ -1,12 +1,6 @@
-"""拾取類入口: 覆蓋層先出現、辨識在背景 (recognize-off-clear 票 03–06).
-
-清場只截一張整個虛擬桌面的圖, 覆蓋層直接顯示它; 校準與 ◎ 推算在背景同時做。覆蓋層以樁
-取代 (記下被叫時待定結果好了沒、是不是在清場裡), 背景辨識扣住／放行 (`harness.Held`),
-`ClearProbe` 斷言清場中查詢 0 次。對話框照常用 `_Driver` 真的按按鈕。
-"""
 import numpy as np
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 from harness import CAL_PAIR, miss
 
 import recognition
@@ -22,7 +16,6 @@ from test_template_picker import TITLE, _all, _btn, _Driver, _open
 
 
 def _overlay(monkeypatch, result, probe=None):
-    """覆蓋層樁: 記下 (模式, 待定結果的狀態, 是否在清場裡, kw), 回傳 result (可為 callable)."""
     calls = []
 
     def pick(root, mode, prompt, **kw):
@@ -49,8 +42,6 @@ def _disabled(dlg, text):
 def _new_templates(app):
     return [n for n in app.store.names() if n.startswith("tmpl_")]
 
-
-# ---------- 票 03: 截圖新增 / 重截 / 選範本對話框截圖 / 固定矩形 ----------
 
 def test_截圖新增_覆蓋層先出現_放行後才存範本並查縮放餘裕_清場中查詢0次(make_app, monkeypatch):
     app = make_app(2.0)
@@ -81,9 +72,9 @@ def test_截圖新增_覆蓋層顯示中校準失敗_立刻中止_還原後警�
     h = held(app)
 
     def fail_while_shown(kw):
-        h.release()                     # 背景在覆蓋層顯示中做完: 量不到
+        h.release()
         assert kw["pending"].status() == "failed"
-        return ui_overlay.ABORT          # 真的覆蓋層看到失敗就結束 (GUI 測試另驗)
+        return ui_overlay.ABORT
     _overlay(monkeypatch, fail_while_shown)
     app.capture_template()
     assert _new_templates(app) == []
@@ -212,14 +203,11 @@ def test_固定矩形_校準失敗_矩形不變(make_app, monkeypatch, no_real_d
     assert any(CAL_PAIR[1] in m for m in no_real_dialogs["warning"])
 
 
-# ---------- 票 04: 指定點 / 拾取座標 ── ◎ 晚到、可先點 ----------
-
 def _find_step(name="a"):
     return flowdefaults.complete({"type": "find_click", "target": {"template": name}})
 
 
 def _pointer_app(make_app, monkeypatch, scale=1.0):
-    """前一步是找圖 a: ◎＝即時在拾取那張截圖上找到 a 的位置 (背景)."""
     app = make_app(scale)
     _engine(app, monkeypatch)
     _template(app, "a", 20, 20)
@@ -256,7 +244,7 @@ def test_拾取座標_扣住時以點一下模式叫出_先點_放行後才填_�
 
 
 def test_拾取座標_先點之後推不出原點_警告_欄位不變(make_app, monkeypatch, no_real_dialogs):
-    app = make_app(1.0)          # 沒有前一步: 推不出原點
+    app = make_app(1.0)
     h = held(app)
     _overlay(monkeypatch, {"endX": 450, "endY": 330, "early": True})
 
@@ -332,8 +320,6 @@ def test_指定點_原點確定推不出且還沒點_先請你點原點(make_app
     assert got["pick"] == {"near": [30, -10]}
 
 
-# ---------- 票 05: 比對測試 ----------
-
 def test_比對測試_清場中查詢0次_扣住時結果視窗還沒開_發起的對話框關不掉(make_app, monkeypatch):
     app = _pointer_app(make_app, monkeypatch)
     monkeypatch.setattr(ui_dialogs, "_annotate_find",
@@ -341,7 +327,6 @@ def test_比對測試_清場中查詢0次_扣住時結果視窗還沒開_發起�
                         np.zeros((60, 80, 3), np.uint8))
     probe = ClearProbe(monkeypatch, app)
     h = held(app)
-    # ◎ 待定: 同一次清場叫「點一下原點」的覆蓋層 (算好會自己結束); 這裡模擬使用者先點了
     calls = _overlay(monkeypatch, {"screenX": 400, "screenY": 300}, probe)
     seen = {}
 
@@ -442,8 +427,6 @@ def test_比對測試_原點已經算好_不開覆蓋層(make_app, monkeypatch):
         if getattr(w, "title", lambda: "")() == "比對測試結果":
             w.destroy()
 
-
-# ---------- 票 06: 按確定觸發的拾取檢查 ----------
 
 def test_找圖設定按確定_對話框先關_主視窗辨識中_放行後才標警告(flow_app, monkeypatch):
     a = flow_app

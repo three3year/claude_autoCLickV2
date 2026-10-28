@@ -1,10 +1,3 @@
-"""背景辨識入口與`辨識中` (recognize-off-clear 票 01、02).
-
-清場只截圖, 量測在背景: 清場換成記錄「現在是否清場中」的樁, 假偵測器記下每次查詢與
-登錄載入當時是否在清場中 (`ClearProbe`)。背景辨識換成可扣住／放行的 executor
-(`harness.Held`), 斷言辨識中當下的樣子: 圖片類按鈕反灰、非圖片類照常、「辨識中…」在發起
-的視窗、發起的對話框關不掉; 放行後結果寫出、反灰解除。真的開執行緒的 `Threaded` 另一條。
-"""
 import contextlib
 import threading
 import time
@@ -12,7 +5,7 @@ import tkinter as tk
 
 import pytest
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 from harness import FileLog, Held, Screen, Vision
 
 import app as app_mod
@@ -25,11 +18,9 @@ from test_template_picker import _all, _Driver
 
 
 class ClearProbe:
-    """清場樁＋查詢紀錄: 每次查詢 (與登錄載入) 記下當時是否在清場中."""
-
     def __init__(self, monkeypatch, app):
         self.depth = 0
-        self.calls = []     # (範本名, 是否在清場中)
+        self.calls = []
 
         @contextlib.contextmanager
         def screen_clear(root, extra=()):
@@ -64,11 +55,7 @@ def _disabled(w):
     return w.instate(["disabled"])
 
 
-# ---------- 背景辨識入口本身 ----------
-
 class _Mini:
-    """背景辨識入口需要的最小 App: root＋紀錄區."""
-
     def __init__(self, root):
         self.root = root
         self.logged = []
@@ -140,7 +127,7 @@ def test_發起的對話框顯示辨識中_關閉類反灰_視窗X無效(mini):
     assert status.cget("text") == recognition.BUSY_TEXT
     assert str(close.cget("state")) == "disabled"
     assert rec.holds(dlg)
-    dlg.tk.call(dlg.protocol("WM_DELETE_WINDOW"))   # 按視窗 X
+    dlg.tk.call(dlg.protocol("WM_DELETE_WINDOW"))
     assert dlg.winfo_exists(), "做完前關不掉"
     rec.executor.release()
     assert status.cget("text") == "" and str(close.cget("state")) == "normal"
@@ -221,19 +208,16 @@ def test_真的開執行緒_背景跑工作_收尾回到介面執行緒(tkroot):
     assert where["done"] is threading.main_thread()
 
 
-# ---------- 流程設定的量測入口 (票 01 測試校準對、票 02 其他三個) ----------
-
 PAIR = ("圖示", "關閉鈕")
 FB = ("標題左", "標題右")
 
 
 @pytest.fixture
 def flow_app(main_app, monkeypatch):
-    """真的主視窗, 引擎換成假偵測器 (就緒), 截圖是假畫面."""
     a = main_app
     vision = Vision()
     a.hub.state = enginehub.READY
-    a._engine_state_seen = enginehub.READY   # 引擎狀態沒有「剛轉就緒」要處理
+    a._engine_state_seen = enginehub.READY
     monkeypatch.setattr(a.hub, "ensure_template", vision.ensure_template)
     a.detector = vision
     for n in (*PAIR, *FB, "新左", "新右"):
@@ -340,7 +324,7 @@ def test_設定校準對_清場中查詢0次_扣住時資料沒變_放行後才�
     a = flow_app
     a.store.set_pos(PAIR[0], [10, 20])
     _pick_pair(monkeypatch, ("新左", "新右"))
-    a.vision.plan("新左", [(200, 100)])     # 新基準點差 (100,50)
+    a.vision.plan("新左", [(200, 100)])
     a.vision.plan("新右", [(700, 100)])
     probe = ClearProbe(monkeypatch, a)
     h = held(a)
@@ -412,7 +396,7 @@ def test_辨識中關掉主視窗_不出錯_結果不套用(flow_app, monkeypatc
     a.dirty = False
     a.on_close()
     assert not a.root.winfo_exists()
-    h.release()          # 背景做完: 應用已關, 丟棄
+    h.release()
     assert not a.recognition.busy
     assert a.flow_cal is old, "結果不套用"
 

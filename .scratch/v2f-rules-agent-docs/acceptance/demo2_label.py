@@ -1,11 +1,3 @@
-"""驗收②輔助: demo2 的掃描候選底下是哪張圖 (用在用的早_繁中範本當命名與框的參考).
-
-    .venv/Scripts/python .scratch/v2f-rules-agent-docs/acceptance/demo2_label.py <candidates.json> <輸出.json>
-
-每個候選在點擊前幾幀 (游標還沒壓到時) 的點擊位置附近 ±R px 查每張範本, 列出匹配框包含點擊位置
-(或中心在 40px 內) 的範本、分數與框。只是給人覆核用的線索; 計畫裡的框照樣是影片像素、
-範本照樣由組裝從 demo2 影格重裁。
-"""
 import json
 import os
 import sys

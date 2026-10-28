@@ -1,25 +1,18 @@
-"""真的覆蓋層: 預先截好的圖、待定結果、◎ 晚到 (recognize-off-clear 票 03/04; 隱藏桌面跑).
-
-覆蓋層開著時 `pick` 卡在事件迴圈, 操作排進 root.after; 點擊用 event_generate 發到 Canvas
-(合成事件不走 grab 路由, 這裡只驗覆蓋層自己的狀態變化)。
-"""
 import time
 import tkinter as tk
 
 import numpy as np
 import pytest
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import ui_overlay
-from test_screen_clear_gui import fresh, root  # noqa: F401  (清場狀態重來的 Tk 根)
+from test_screen_clear_gui import fresh, root  # noqa: F401
 
 SHOT = (np.full((300, 400, 3), 60, np.uint8), (0, 0))
 
 
 class _Pending:
-    """測試控制的待定結果 (形狀同 ui_dialogs._Pending)."""
-
     def __init__(self, state="pending", mark=None):
         self.state, self.mark = state, mark
 
@@ -35,11 +28,6 @@ def no_grab(monkeypatch):
 
 
 def _drive(root, *steps, ms=120):
-    """覆蓋層開著時依序做 steps (各收 Canvas); 出錯也把覆蓋層關掉, 不卡住.
-
-    第一步等覆蓋層真的畫出來才做 (機器忙時 pick 建覆蓋層會超過 ms; 2026-10-14 曾因此
-    操作落空、覆蓋層一直等); 等太久算失敗。
-    """
     errors = []
     deadline = time.monotonic() + 10
 
@@ -70,7 +58,6 @@ def _drive(root, *steps, ms=120):
 
 
 def _hint(cv):
-    """提示列＝覆蓋層畫的第一個文字 (放大鏡的座標文字在它之後才畫)."""
     first = next(i for i in cv.find_all() if cv.type(i) == "text")
     return cv.itemcget(first, "text")
 

@@ -1,10 +1,3 @@
-"""從素材影片抽出驗證影格存進 frames/ (pic1 原樣複製).
-
-影格清單讀 annotations.json 的 source: {"pic": "pic1"} 或 {"video": "demo2", "frame": 2760}。
-影格是 1:1 的遊戲畫面 (影片與實際畫面同尺度), 不做任何縮放。
-
-    .venv/Scripts/python.exe .scratch/credit-store-templates/extract_frames.py
-"""
 import json
 import os
 import shutil

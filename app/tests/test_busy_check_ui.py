@@ -1,26 +1,17 @@
-"""`忙碌檢查`的存檔、對話框、步驟摘要與執行前檢查 (busy-check 票 02/03, ADR 0011).
-`忙碌出現等候`是固定行為 (1 秒), 不進存檔、主視窗沒有欄位.
-
-存檔照 test_flowfile 的手法真檔案測; 對話框沿用 test_editor_scale 的最小 App ＋
-`_Driver` 真的按按鈕、真的點勾選框; 主視窗設定與執行前檢查沿用 test_retry_settings /
-test_calibration_ui 的最小 App 子類。
-"""
 import tkinter as tk
 from types import SimpleNamespace
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 from harness import click, drag, find, tgt
 
 import app as app_mod
 import flowfile
 from test_calibration_ui import _CalApp, _warnings
-from test_editor_scale import _edit, _press, make_app  # noqa: F401 (fixture)
+from test_editor_scale import _edit, _press, make_app  # noqa: F401
 from test_pointer_confirm_ui import _pick
 from test_retry_settings import BUSY, _SetApp
 from test_template_picker import _all
 
-
-# ---------- 存檔 ----------
 
 def _round_trip(tmp_path, steps):
     flow = flowfile.new_flow()
@@ -41,10 +32,7 @@ def test_沒寫的讀進來沒勾(tmp_path):
     assert "busy_check" not in (tmp_path / "flow.yaml").read_text(encoding="utf-8")
 
 
-# ---------- 對話框 ----------
-
 def _busy_label(dlg):
-    """對話框裡的忙碌檢查勾選框 (Label ☑/☐ 實作)."""
     for w in _all(dlg):
         if w.winfo_class() == "Label" and "忙碌指示消失" in str(w.cget("text")):
             return w
@@ -60,7 +48,6 @@ def _toggle(dr):
 
 
 def _see(seen):
-    """記下勾選框當下的文字與是否顯示在畫面上."""
     def act(dr):
         dr._update()
         w = _busy_label(dr.dlg)
@@ -119,7 +106,6 @@ def test_找圖切到不點擊_勾選隱藏並存為沒勾(make_app):
 
 
 def test_編輯不點擊的找圖步驟_開得起來_不改按確定原樣回來(make_app):
-    """完整的 find / wait_gone 步驟沒有 busy_check 鍵 (不送輸入); 對話框仍要開得起來."""
     a = make_app(1.0)
     a.store.add("a", b"A")
     for t in ("find", "wait_gone"):
@@ -132,8 +118,6 @@ def test_編輯不點擊的找圖步驟_開得起來_不改按確定原樣回來
         assert got == step, t
 
 
-# ---------- 步驟摘要 ----------
-
 def test_步驟摘要顯示忙碌檢查():
     for s in (click(1, 2, busy_check=True), drag(1, 2, 3, 4, busy_check=True),
               find("a", busy_check=True)):
@@ -142,8 +126,6 @@ def test_步驟摘要顯示忙碌檢查():
               find("a", type="wait_gone", busy_check=True)):
         assert "忙碌檢查" not in app_mod.step_desc(s), s
 
-
-# ---------- 執行前檢查 ----------
 
 def test_有步驟勾了忙碌檢查但沒設忙碌指示_整份執行與測試選取都擋下(
         tkroot, monkeypatch, tmp_path):
@@ -158,7 +140,6 @@ def test_有步驟勾了忙碌檢查但沒設忙碌指示_整份執行與測試�
     a.start_run(steps=a.steps[1:2], test=True)
     assert a.runner.started == []
     assert any("忙碌指示" in m and "步驟 1" in m for m in rec)
-    # 沒勾的片段照常執行
     a.start_run(steps=a.steps[0:1], test=True)
     assert len(a.runner.started) == 1
 

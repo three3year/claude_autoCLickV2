@@ -1,12 +1,3 @@
-"""流程 .md 報告: 加「採購中心改成一個分岔」一節、重產步驟清單 (見 spec.md「報告」).
-
-    .venv/Scripts/python.exe .scratch/credit-store-switch/report.py --lang tw
-    .venv/Scripts/python.exe .scratch/credit-store-switch/report.py --lang cn [--flow 早_簡中]
-
-先跑 build.py、sim.py、frames.py (驗證結果從 results/*.json 讀)。可以重跑: 本節與
-步驟清單整段換掉; 報告其他段落 (概要、流程內容) 不動, 要另外手改。
-步驟清單的文字用 app 自己的 step_desc (與編輯器步驟清單同一套)。
-"""
 from __future__ import annotations
 
 import argparse
@@ -24,7 +15,6 @@ DATE = "2026-10-07"
 HEADING = f"## {DATE}：採購中心改成一個分岔（找到就買）"
 STEPS_HEADING = f"## 步驟清單（{DATE} 更新）"
 
-# 採購中心範本報告 (oCam Video/採購中心範本/報告.md) 裡沒有畫面可驗的商品
 UNVERIFIED = {
     "tw": ["源岩", "代糖", "酯原料", "異鐵碎片", "雙酮", "酮凝集", "碳", "碳素", "碳素組",
            "技巧概要·卷1", "技巧概要·卷2"],
@@ -37,11 +27,11 @@ BACKUP_FLOW = {"tw": "早_繁中", "cn": "早_簡中_demo6"}
 
 def block_span(steps):
     start, nav = common.purchase_span(steps)
-    return start + 1, nav   # 1-based: 重複區段開始 … 重複區段結束
+    return start + 1, nav
 
 
 def step_table(steps):
-    import app   # 步驟描述與編輯器同一套 (app.step_desc)
+    import app
     lines = [STEPS_HEADING, "", "| # | 步驟 | 內容 |", "|---|---|---|"]
     for i, s in enumerate(steps, 1):
         lines.append(f"| {i} | {s['type']} | {app.step_desc(s)} |")
@@ -49,7 +39,6 @@ def step_table(steps):
 
 
 def buy_parts(steps):
-    """(條件步驟, 其後購買步驟的一行描述): 取區塊裡第一個商品分支 (各分支相同)."""
     import app
     cond, tail = common.buy_tail(steps[slice(*common.purchase_span(steps))])
     return cond, "；".join(app.step_desc(s) for s in tail)
@@ -147,10 +136,6 @@ def section(lang, steps, dropped, sim, fr):
 
 
 def replace_section(text, heading_re, new_lines, before_first_h2=False):
-    """把 heading_re 那一節 (到下一個 `## ` 為止) 換成 new_lines; 沒有就插入.
-
-    插入位置: before_first_h2＝第一個 `## ` 之前; 否則檔尾。
-    """
     lines = text.split("\n")
     idx = next((i for i, l in enumerate(lines) if re.match(heading_re, l)), None)
     if idx is not None:
@@ -168,7 +153,6 @@ def replace_section(text, heading_re, new_lines, before_first_h2=False):
 
 
 def removed_templates(lang, steps_refs):
-    """備份裡改之前的流程引用、現在不再引用的範本."""
     old = os.path.join(common.ROOT, common.BACKUP, "arknights", "flows",
                        BACKUP_FLOW[lang] + flowfile.EXT)
     before = set(flowfile.flow_refs(flowfile.read(old)["data"]))

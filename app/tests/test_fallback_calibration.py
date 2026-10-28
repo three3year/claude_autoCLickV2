@@ -1,9 +1,3 @@
-"""`備用校準對` (scale-range 票 07): 存檔、量測純函式、執行器.
-
-主對找不到時改量備用對, 座標基準點＝備用第一張中心 + 偏移×倍率 (偏移是「備用第一張
-中心 → 座標基準點」的流程尺度向量), 所以存下的座標一律仍相對同一個基準點;
-主備都找不到才不執行並列出兩組各缺哪張。沒設備用對的行為與現在完全相同。
-"""
 import os
 import sys
 
@@ -19,13 +13,10 @@ FB = ("標題列圖示", "關閉鈕")
 
 
 def with_fallback(baseline=1000.0, fb_baseline=1868.0, offset=(100, 50)):
-    """主對 + 備用對的校準資料."""
     c = cal(MAIN, baseline)
     c[calibration.FALLBACK_KEY] = calibration.make_fallback(FB, fb_baseline, offset)
     return c
 
-
-# ---------- 存檔格式 ----------
 
 def test_備用組的形狀():
     fb = calibration.make_fallback(FB, 1868, (100, 50))
@@ -94,8 +85,6 @@ def test_改名跟著改備用對():
     assert calibration.fallback_pair(data[calibration.FLOW_KEY])["pair"] ==         [FB[0], "關閉鈕2"]
 
 
-# ---------- 量測純函式 ----------
-
 def _grab(v, region=None):
     screen, org = v.grab(region)
     return screen, org
@@ -108,7 +97,7 @@ def _place(v, names, a, b):
 
 def test_主對找得到_不碰備用對():
     v = Vision()
-    _place(v, MAIN, (300, 200), (1100, 200))    # 800 ÷ 1000 = 0.8
+    _place(v, MAIN, (300, 200), (1100, 200))
     _place(v, FB, (20, 20), (1500, 20))
     c = calibration.calibrate(v.query, *_grab(v), with_fallback())
     assert c.ok and c.used == "main"
@@ -120,7 +109,6 @@ def test_主對找得到_不碰備用對():
 def test_主對缺一張_改量備用對_基準點換回同一點():
     v = Vision()
     _place(v, MAIN, None, (1100, 200))
-    # 備用距離 1494.4 ÷ 1868 = 0.8; 基準點＝備用第一張 (20,20) + 偏移 (100,50)×0.8 = (100,60)
     _place(v, FB, (20, 20), (1514, 20))
     c = calibration.calibrate(v.query, *_grab(v), with_fallback())
     assert c.ok and c.used == "fallback"
@@ -132,7 +120,6 @@ def test_主對缺一張_改量備用對_基準點換回同一點():
 
 
 def test_偏移為零時與主對同點():
-    """備用第一張就在主對第一張的位置 (偏移 0,0): 兩組量出同一個基準點."""
     both = with_fallback(fb_baseline=1500.0, offset=(0, 0))
     v = Vision()
     _place(v, MAIN, (300, 200), (1300, 200))
@@ -178,27 +165,24 @@ def test_沒設備用對_主對缺一張照舊失敗():
 def test_備用對的倍率同樣貼齊1():
     v = Vision()
     _place(v, MAIN, None, (1100, 200))
-    _place(v, FB, (20, 20), (1887, 20))     # 1867/1868: 抖動
+    _place(v, FB, (20, 20), (1887, 20))
     c = calibration.calibrate(v.query, *_grab(v), with_fallback())
     assert c.scale == 1.0
     assert c.anchor == (120, 70)
 
 
 def test_編輯器設定備用對的偏移換算_與量測互逆():
-    """設定時: 偏移＝(主基準點 − 備用第一張中心) ÷ 倍率; 量測時再乘回去."""
     anchor, fb_first, k = (190, 95), (10, 15), 0.9
     offset = calibration.fallback_offset(anchor, fb_first, k)
     assert offset == (200, 89)
     assert calibration.fallback_anchor(fb_first, offset, k) == (190, 95)
 
 
-# ---------- 執行器 ----------
-
 def test_執行器主對找不到改用備用對_印警告照跑_固定矩形落點對(harness):
     harness.vision.plan(MAIN[0], [None])
     harness.vision.plan(MAIN[1], [(1200, 200)])
     harness.vision.plan(FB[0], [(20, 20)])
-    harness.vision.plan(FB[1], [(1701, 20)])     # 1681 ÷ 1868 ≈ ×0.9, 基準點 (110,65)
+    harness.vision.plan(FB[1], [(1701, 20)])
     rect = {"within": [100, 50, 300, 120]}
     harness.vision.plan("a", [(300, 160)])
     r = harness.run([find("a", target=rect), click(10, 20)],
@@ -265,7 +249,7 @@ def test_執行器備用對量到支援倍率範圍外_不執行(harness):
     harness.vision.plan(MAIN[0], [None])
     harness.vision.plan(MAIN[1], [(1200, 200)])
     harness.vision.plan(FB[0], [(20, 20)])
-    harness.vision.plan(FB[1], [(1514, 20)])     # 1494 ÷ 1868 ≈ ×0.8
+    harness.vision.plan(FB[1], [(1514, 20)])
     r = harness.run([click(1, 1), find("a")], calibration=with_fallback())
     assert r.ended == "error"
     assert harness.kinds() == []

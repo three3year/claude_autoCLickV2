@@ -1,22 +1,3 @@
-"""接縫二: 真引擎＋標註過的商店影格, 驗分岔會挑哪張卡 (見 spec.md「Testing Decisions」).
-
-    .venv/Scripts/python.exe .scratch/credit-store-switch/frames.py --lang tw
-    .venv/Scripts/python.exe .scratch/credit-store-switch/frames.py --lang cn [--flow 早_簡中]
-
-影格與標註沿用採購中心範本的驗證 (`.scratch/credit-store-templates/frames/`、
-`annotations.json`; 影格由那邊的 extract_frames.py 抽出)。
-
-走 app 的真實偵測路徑: 存檔裡的範本解到臨時 profile 的工作區 (flowfile.Workspace) → EngineHub 載入 (arknights
-profile 的 config.yaml 門檻) → 依分岔的分支順序對整張影格執行各分支條件步驟的
-找圖目標 (automation.findtarget.find, 畫面倍率 1); 第一個挑到的＝分岔會走的分支
-(同執行器 _exec_branch 每輪的判定)。
-
-預期: 標註裡還沒售完的卡中, 優先最高的那種商品; 同種多格取最上面那格 (同列取左邊)。
-位置: 範本中心應落在 卡片圓心 + 框法偏移 (圈內方塊, 見 credit-store-templates/build.py
-的 FRAMINGS["inner"]) 的位置容許值內 (同影片轉流程的 position_tolerance)。
-demo1 的影格位元率低 (0.5 Mbps), 已知待重拍範本在上面比不到: 結果照實列出並註明,
-不算失敗。結果寫到 results/frames_<lang>.json; 有非 demo1 的影格不符預期時結束碼 1。
-"""
 from __future__ import annotations
 
 import argparse
@@ -40,7 +21,7 @@ from automation.runner import branch_layout  # noqa: E402
 from video_to_flow import verify as vtf_verify  # noqa: E402
 
 TEMPLATES_DIR = os.path.join(common.ROOT, ".scratch", "credit-store-templates")
-INNER_BOX = (-50, -52, 50, 20)   # 圈內方塊 (倉庫像素, 相對圓圈中心; 範本寬＝100×尺度)
+INNER_BOX = (-50, -52, 50, 20)
 LOW_BITRATE = {"demo1"}
 
 
@@ -52,7 +33,6 @@ def read_img(path):
 
 
 def branch_targets(steps):
-    """採購區塊裡分岔各分支的條件找圖目標 (依分支順序)."""
     start, nav = common.purchase_span(steps)
     bs = next(i for i in range(start, nav) if steps[i].get("type") == "branch_start")
     segs, _end = branch_layout(steps, bs)
@@ -60,7 +40,6 @@ def branch_targets(steps):
 
 
 def expected(frame, sizes):
-    """(商品名, 預期範本中心, 容許值) 或 None (畫面上沒有還沒售完的白名單商品)."""
     live = [c for c in frame["cards"] if not c["soldOut"] and c["name"] in PRIORITY]
     if not live:
         return None
@@ -80,7 +59,6 @@ def _dist(a, b):
 
 
 def card_at(frame, pt):
-    """點擊位置落在哪張卡 (最近的圓心, 半個格距以內)."""
     best = min(frame["cards"], key=lambda c: _dist(c["center"], pt))
     return best if _dist(best["center"], pt) < 130 else None
 
@@ -90,7 +68,6 @@ def card_text(card):
 
 
 def make_hub(images, names, tmp):
-    """臨時 profile 目錄 tmp: 範本寫進它的工作區 (flowfile.Workspace 的版面), 引擎照 app 的方式載入."""
     ws = flowfile.Workspace(tmp)
     for n in names:
         ws.add(n, images[n])
@@ -107,7 +84,7 @@ def make_hub(images, names, tmp):
 
 def judge(frame, tgts, hub, sizes):
     img = read_img(os.path.join(TEMPLATES_DIR, "frames", frame["id"] + ".png"))
-    picks = []    # 所有成立的分支 (依順序)
+    picks = []
     found = {}
     for k, t in enumerate(tgts):
         f = findtarget.find(t, hub, img, (0, 0), origin=None, scale=1.0)

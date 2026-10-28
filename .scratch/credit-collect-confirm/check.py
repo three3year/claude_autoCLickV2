@@ -1,14 +1,3 @@
-"""接縫二: 讀回檢查早班存檔與草稿 (見 spec.md「接縫二」).
-
-    .venv/Scripts/python.exe .scratch/credit-collect-confirm/check.py --lang tw|cn [--flows 目錄] [--orig 目錄]
-
---orig: 改動前的流程資料夾 (預設本功能的備份; 票另備了一份就用那份)。存檔要符合:
-- 步驟數不變, 只有收取信用那一步不同, 而且只差 confirm、confirmTarget、onNotFound 三個欄位:
-  確認圖出現、跳出, 確認圖＝緊接的下一步 (物資彈窗) 的找圖目標。
-- 其他步驟、流程層級設定、範本一字不差; 區段完整。
-草稿屬於這份存檔時: 草稿的步驟與設定和存檔相同, 工作區的範本和存檔相同。
-結果寫 results/check_<lang>.json; 有任何一項不符時結束碼 1。
-"""
 from __future__ import annotations
 
 import argparse
@@ -30,7 +19,6 @@ def _settings(data):
 
 
 def check_flow(lang, data, images, orig):
-    """存檔的檢查: [(項目, 是否通過, 說明)]."""
     steps, before = data["steps"], orig["data"]["steps"]
     i = collect.credit_index(before, lang)
     diff = [k for k, (a, b) in enumerate(zip(steps, before)) if a != b]

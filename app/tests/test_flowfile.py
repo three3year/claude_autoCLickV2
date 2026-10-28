@@ -1,8 +1,3 @@
-"""流程資料夾裡「本流程的範本」(FlowTemplates) 與名稱、引用的規則: 資料進資料出
-(暫存目錄真測, 不 mock). flow.yaml 本身的讀寫在 test_flowfolder.
-
-對外行為＝資料夾與快取在各操作之後的檔案狀態、讀回來的流程。不斷言內部欄位。
-"""
 import os
 import sys
 
@@ -15,7 +10,6 @@ from automation import flowdefaults, flowfmt  # noqa: E402
 
 
 def find_step(template, confirm_tmpl=None, **extra):
-    """完整的找圖步驟; confirm_tmpl＝確認圖 (點到確認圖出現)."""
     s = {"type": "find_click", "target": {"template": template}}
     if confirm_tmpl is not None:
         s.update(confirm="appear", confirm_target={"template": confirm_tmpl})
@@ -42,19 +36,15 @@ def ls(path):
 
 
 def saved_folder(tmp_path, steps, images, name="流程"):
-    """寫好一份流程資料夾 (直接用寫檔函式)."""
     folder = tmp_path / name
     flowfile.write_flow(folder, flow(steps), images)
     return folder
 
 
-# ---------- 名稱規則與引用 ----------
-
 def test_撞名加序號():
     assert flowfile.free_name("btn", []) == "btn"
     assert flowfile.free_name("btn", ["btn"]) == "btn_2"
     assert flowfile.free_name("btn", ["btn", "btn_2"]) == "btn_3"
-    # 末端已是 _數字 → 從該數字往上找, 不疊字
     assert flowfile.free_name("btn_2", ["btn_2"]) == "btn_3"
     assert flowfile.free_name("btn_002", ["btn_002"]) == "btn_003"
 
@@ -100,8 +90,6 @@ def test_確認圖只在生效確認選確認圖出現時算引用():
     s = find_step("a", confirm="next", confirm_target={"template": "舊的"})
     assert flowfile.used_templates([s]) == ["a"]
 
-
-# ---------- 本流程的範本: 開檔、新增、改名、刪除 ----------
 
 def test_開流程資料夾_範本是templates裡的圖_上次沒存的截圖丟掉_登錄產物留著(tmp_path):
     folder = saved_folder(tmp_path, [find_step("a")], {"a": b"A"})
@@ -173,8 +161,6 @@ def test_換校準對時所有拍攝位置一起改成相對新基準點(tmp_pat
     assert store.shift_pos((100, 50), (190, 95), 0.9) == 1
     assert store.pos_of("a") == [100, 50]
 
-
-# ---------- 存檔 ----------
 
 def test_存檔_截圖搬進templates_只留被引用的_沒被引用的回到快取(tmp_path):
     folder = saved_folder(tmp_path, [find_step("a"), find_step("b")],
@@ -252,8 +238,6 @@ def test_開新流程或讀取別的流程時未存檔快取清空(tmp_path):
     assert ls(unsaved) == []
 
 
-# ---------- 其他流程資料夾 ----------
-
 def test_列出其他流程資料夾與它們的範本(tmp_path):
     saved_folder(tmp_path, [find_step("x")], {"x": b"X"}, name="甲")
     saved_folder(tmp_path, [], {}, name="乙")
@@ -264,8 +248,6 @@ def test_列出其他流程資料夾與它們的範本(tmp_path):
     assert flowfile.folder_template_bytes(tmp_path / "甲", "x") == b"X"
     assert flowfile.folder_template_bytes(tmp_path / "甲", "沒有") is None
 
-
-# ---------- 座標換算與平移 (flowfmt 純函式, coord-anchor 票 03/07) ----------
 
 def test_存檔座標與螢幕座標互換():
     anchor = (115, 76)
@@ -295,7 +277,6 @@ def test_換校準對後所有存下的座標改成相對新基準點():
 
 
 def test_倍率不是1時換校準對_落點在捨入誤差內不變():
-    """每個座標用舊基準點換到螢幕、再用新基準點換回 (流程尺度存整數, 誤差 ≤ 倍率/2 px)."""
     k, old, new = 1.7, (100, 50), (233, 97)
     data = {"steps": [{"type": "find_click",
                        "target": {"template": "a", "within": [101, 51, 31, 21]}}]}
@@ -304,8 +285,6 @@ def test_倍率不是1時換校準對_落點在捨入誤差內不變():
     after = flowfmt.rect_to_screen(data["steps"][0]["target"]["within"], new, k)
     assert all(abs(a - b) <= 1 for a, b in zip(before, after))
 
-
-# ---------- 檔名不分大小寫、存檔中途失敗、重掃 (code review) ----------
 
 def test_只差大小寫也算撞名():
     assert flowfile.free_name("btn", ["Btn"]) == "btn_2"
@@ -333,13 +312,13 @@ def test_存檔寫一半失敗_舊的flow_yaml引用的圖都還在(tmp_path, mo
 
     real = os.replace
 
-    def boom(src, dst):   # 只有取代 flow.yaml 那一下失敗
+    def boom(src, dst):
         if str(dst).endswith("flow.yaml"):
             raise OSError("磁碟滿了")
         real(src, dst)
     monkeypatch.setattr(flowfile.os, "replace", boom)
     with pytest.raises(OSError):
-        store.save(flow([find_step("a")]))   # b 不再被引用
+        store.save(flow([find_step("a")]))
     monkeypatch.undo()
 
     assert ls(folder / "templates") == ["a.png", "b.png"]

@@ -1,7 +1,6 @@
-"""applog: 單行事件、例外落地、大小輪替."""
 import os
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import applog
 
@@ -19,7 +18,7 @@ def test_事件寫成帶時間戳的單行(tmp_path, monkeypatch):
     assert len(lines) == 1
     assert "clear.enter" in lines[0]
     assert "windows=3" in lines[0] and "depth=1" in lines[0]
-    assert lines[0][:4].isdigit()  # 年份開頭的時間戳
+    assert lines[0][:4].isdigit()
 
 
 def test_例外含完整traceback(tmp_path, monkeypatch):
@@ -41,8 +40,8 @@ def test_超過大小上限即輪替(tmp_path, monkeypatch):
     monkeypatch.setattr(applog, "_MAX_BYTES", 100)
     for _ in range(10):
         applog.log("x", data="y" * 40)
-    assert os.path.exists(p + ".1")  # 舊檔輪替保留
-    assert os.path.getsize(p) < 500  # 現行檔已重新開始
+    assert os.path.exists(p + ".1")
+    assert os.path.getsize(p) < 500
 
 
 def test_預設路徑在本機狀態資料夾(monkeypatch):
@@ -53,4 +52,4 @@ def test_預設路徑在本機狀態資料夾(monkeypatch):
 
 def test_寫入失敗不炸(tmp_path, monkeypatch):
     monkeypatch.setattr(applog, "_path", str(tmp_path / "no_dir" / "x.log"))
-    applog.log("evt")  # 目錄不存在 → 安靜吞掉
+    applog.log("evt")

@@ -1,9 +1,3 @@
-"""座標點擊與拖曳的`生效確認` (effect-confirm 票 03, ADR 0008).
-
-確認圖出現、下一步的圖出現: 送出後走與找圖點擊同一套確認/補做迴圈 (補做間隔、
-忙碌指示把關); 補做送出與第一次相同的輸入, 原點在生效後才更新; 逾時預設停止。
-沒開確認的照舊, 並在檔案日誌記一行座標。
-"""
 from harness import click, drag, find, here, tgt
 
 AT = (500, 400)
@@ -35,7 +29,6 @@ def test_座標點擊_沒出現就在補做間隔後補點_兩次落點相同(ha
 
 def test_補做間隔與忙碌指示也把關座標點擊(harness):
     harness.vision.plan("ok", [None] * 8 + [(300, 300)])
-    # 每輪沒生效都查 (補做的門): 1.0/1.2/1.4 有指示, 1.6 消失 → 1.6s 補
     harness.vision.plan("busy", [None] * 4 + [(960, 1000)] * 3 + [None])
     harness.run([here(), click(100, 100, confirm="appear", confirm_target=tgt("ok"),
                        interval=0.2)], busy=tgt("busy"))
@@ -82,12 +75,10 @@ def test_確認逾時可改跳過(harness):
     r = harness.run([here(), click(100, 100, confirm="appear", confirm_target=tgt("ok"),
                            timeout=1, interval=0.2, on_fail="skip"),
                      click(9, 9)])
-    # 沒生效 → 原點不更新, 下一步仍相對定位找圖的 (0, 0)
     assert r.ended == "done" and harness.clicks()[-1] == (9, 9)
 
 
 def test_確認圖以操作後的原點為準(harness):
-    """確認圖挑最接近原點的: 原點是這次點擊的落點, 不是點擊前的."""
     near = {"pick": {"near": [0, 0]}}
     harness.vision.plan("ok", [[(110, 110), (850, 850)]])
     r = harness.run([here(), click(800, 800, confirm="appear",

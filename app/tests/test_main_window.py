@@ -1,8 +1,3 @@
-"""主視窗 (ui-slim): ⓘ 說明提示、視窗標題、版面 D 的元件.
-
-真的 App (conftest `main_app`), 元件以文字找、互動用 event_generate 真的走一遍;
-斷言看得到什麼 (按鈕文字、提示框、標題), 不看內部欄位。
-"""
 import tkinter as tk
 from types import SimpleNamespace
 
@@ -36,7 +31,6 @@ def texts(w, classes=("TButton", "Button", "TLabel", "Label", "TMenubutton")):
 
 
 def tips(w):
-    """所有 ⓘ 元件."""
     return [c for c in all_widgets(w) if c.winfo_class() == "Label"
             and str(c.cget("text")) == "ⓘ"]
 
@@ -54,8 +48,6 @@ def leave(lbl):
     lbl.event_generate("<Leave>")
     lbl.update()
 
-
-# ---------- ⓘ (票 01) ----------
 
 def _scan_tip(a):
     row = a.scan_lbl.master
@@ -104,8 +96,6 @@ def test_說明圖示提示框夾在螢幕工作區內(main_app):
     assert y1 <= t.winfo_rooty() and t.winfo_rooty() + t.winfo_height() <= y2
 
 
-# ---------- 版面 D (票 05): 元件數對照 05 Answer 的表格 ----------
-
 REMOVED = ("設定校準對", "設定備用校準對", "校準", "忙碌指示…", "上傳圖片", "比對測試",
            "複製", "重新整理", "讀檔", "＋ 新增步驟", "框選範圍", "截圖框選")
 
@@ -115,7 +105,6 @@ def buttons(w):
 
 
 def toolbar_rows(a):
-    """主視窗由上而下的第一、二列工具列."""
     return [w for w in a.root.winfo_children() if w.winfo_class() == "TFrame"][:2]
 
 
@@ -129,7 +118,7 @@ def mapped_buttons(w):
 
 
 def resize(a, width):
-    a.root.minsize(400, 300)    # 主視窗最小寬 900 時剛好放得下, 測收合要更窄
+    a.root.minsize(400, 300)
     a.root.geometry(f"{width}x700")
     a.root.update()
     a.root.update()
@@ -209,8 +198,6 @@ def test_選取步驟列只剩編輯與刪除兩個圖示(main_app):
 def test_存檔開檔快速鍵照舊(main_app):
     assert main_app.root.bind("<Control-s>") and main_app.root.bind("<Control-o>")
 
-
-# ---------- 流程設定對話框 (票 04) ----------
 
 SETTINGS = "流程設定"
 CAL = {"pair": ["左", "右"], "baseline": 300.0}
@@ -355,8 +342,6 @@ def test_設定忙碌指示後現狀與摘要立刻跟著變(main_app, monkeypat
     assert a.settings_lbl.cget("text") == "校準對 ✗　忙碌指示 ✓"
 
 
-# ---------- 範本面板: 未引用標記與重截 (票 06) ----------
-
 def _img(fill, w=12, h=8):
     x = np.zeros((h, w, 3), np.uint8)
     x[:] = fill
@@ -381,7 +366,7 @@ def test_沒被引用的範本灰字標未引用_步驟改動即時跟著變(mai
     assert _rows(a)[0][0] == "🖼 a"
     assert _rows(a)[1] == ("○ b　（未引用）", C["muted"])
     a.step_list.selection_set(0)
-    a.del_step()                       # 刪掉最後一個引用 a 的步驟
+    a.del_step()
     assert _rows(a)[0][0] == "○ a　（未引用）"
     a.steps.append(_find("b"))
     a.render_steps()
@@ -447,8 +432,6 @@ def test_重截取消什麼都不變_沒選範本寫一行提示(main_app, tmp_p
     assert not a.dirty
     assert a.store.path_of("a") == str(folder / "templates" / "a.png")
 
-
-# ---------- 標題列雙擊放大: 放開落在按鈕上不算點擊 ----------
 
 def _click(w):
     w.event_generate("<ButtonPress-1>", x=4, y=4)

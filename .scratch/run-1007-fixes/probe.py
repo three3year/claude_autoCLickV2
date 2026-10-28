@@ -1,11 +1,3 @@
-"""真引擎在影片影格上跑找圖目標 (照 credit-store-switch/frames.py 的載入方式).
-
-    .venv/Scripts/python.exe .scratch/run-1007-fixes/probe.py --flow 早_繁中 --video add2 \
-        --frames 98-110 --target '{"template":"忙碌指示","limit":{"kind":"grid","cells":[8,9]}}' \
-        [--tmpl 新範本名=路徑.png ...]
-
-範本先取流程存檔裡的, --tmpl 另外加/覆蓋。影片與流程同尺度, 倍率 1。
-"""
 from __future__ import annotations
 
 import argparse

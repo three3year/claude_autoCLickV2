@@ -1,27 +1,3 @@
-"""文件對照: 文件裡寫的路徑、指令、`模組.符號`、md 連結都要在 repo 裡找得到.
-
-對象是 README、根目錄 CLAUDE.md、三份 CONTEXT、app/CLAUDE.md 與 docs/agents/ 底下的檔。
-函式改名、檔案搬家、工具刪掉時這裡會紅, 文件不會靜靜過期。不載引擎、不開視窗:
-符號用 ast 讀原始檔; 只 import flowfile／apppaths 拿佈局常數 (harness 只是為了 sys.path)。
-
-四類片語與規則 (spec: .scratch/docs-rewrite/spec.md):
-
-- **路徑** (反引號裡含 / 或 \\、或以已知副檔名結尾): 依序對 repo 根、app/、app/automation/、
-  app/tests/、tests/、tools/、src/subject_detection/、文件自己的目錄解析, 任一存在即過。
-  流程資料夾、本機狀態資料夾、基準集案例裡的名字 (flow.yaml、templates/、.cache/registered/、
-  交付報告/、autoclick.log、expect.yaml…) 對程式裡的佈局常數解析, 不對磁碟。
-- **指令** (bash 區塊的每一行; 反引號裡以 python／pip 直譯器開頭、以 .bat 結尾、或 tools/／app
-  開頭且帶參數的片語): `python -m 模組` 要 find_spec 得到, `python 路徑` 與腳本路徑要存在;
-  參數不檢查; 行首的 `cd 目錄 &&` 會換掉後面相對路徑的基準。
-- **符號** (`模組.符號`): 模組是 app 頂層、automation/、app/tests/、subject_detection/、
-  tools 套件之一時, 符號要是該模組頂層的 def／class／大寫常數／匯入名; 符號是類別且還有下一段時,
-  下一段要是方法或 self.x 屬性。`App.x`、`Runner.x`、`hub.x`、`store.x`、`win.x` 對應固定的
-  類別或模組; 開頭是某個已知類別名 (`Engine.query`) 時查該類別。開頭不認得的不檢查。
-- **連結** (`[文字](目標)`): 目標去掉 # 片段後要存在; http(s) 不檢查。
-
-跳過規則固定三條: 含 `<…>` 的佔位、含 `%…%` 的環境變數、含 `*` 或 NNN 的樣式。
-已移除的功能名一律不用反引號寫——那是文件的寫法規則, 這裡沒有例外清單。
-"""
 import ast
 import functools
 import glob
@@ -29,13 +5,12 @@ import importlib.util
 import os
 import re
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 import pytest
 
 import flowfile
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-# docs/agents/ 既有三份 (issue-tracker、triage-labels、domain) 是 skill 的協定檔, 不對照
 _AGENT_DOCS_EXEMPT = {"issue-tracker.md", "triage-labels.md", "domain.md"}
 DOCS = ["README.md", "CLAUDE.md", "GLOSSARY.md", "GLOSSARY-MAP.md",
         "app/CLAUDE.md", "app/GLOSSARY.md",
@@ -48,13 +23,11 @@ PATH_ROOTS = ("", "app", "app/automation", "app/tests", "tests", "tools", "src/s
 COMMAND_FENCES = {"bash", "sh", "shell", "powershell", "console"}
 INTERPRETERS = {"python", "pip"}
 SCRIPT_PREFIXES = ("tools/", "app\\", "app/")
-# 原始檔目錄 → 模組索引 (模組名 → 頂層名字與類別)
 SOURCE_DIRS = ("app", "app/automation", "app/tests", "src/subject_detection",
                "tools/flow_check", "tools/video_to_flow", "tools/build")
 PACKAGES = {"subject_detection": "src/subject_detection", "automation": "app/automation",
             "video_to_flow": "tools/video_to_flow", "flow_check": "tools/flow_check",
             "build": "tools/build"}
-# 文件裡的慣用簡寫 → (模組, 類別或 None)
 ALIASES = {"App": ("app", "App"), "Runner": ("runner", "Runner"),
            "hub": ("enginehub", "EngineHub"), "store": ("flowfile", "FlowTemplates"),
            "win": ("win", None)}
@@ -62,15 +35,12 @@ ALIASES = {"App": ("app", "App"), "Runner": ("runner", "Runner"),
 RULE_PATH, RULE_COMMAND, RULE_SYMBOL, RULE_LINK = "路徑", "指令", "符號", "連結"
 
 
-# ================= 片語抽取 =================
-
 def _skip(phrase):
     return bool(re.search(r"<[^>]*>", phrase) or re.search(r"%[^%]+%", phrase)
                 or "*" in phrase or "NNN" in phrase)
 
 
 def phrases(text):
-    """(行號, 種類, 片語) 清單; 種類是 tick／command／link. 圍欄可以縮排 (清單項目裡的區塊)."""
     out = []
     fence = None
     for n, raw in enumerate(text.splitlines(), 1):
@@ -92,12 +62,10 @@ def phrases(text):
 
 
 def _exe_base(token):
-    """指令第一個 token 的程式名: 去掉目錄與 .exe."""
     return re.sub(r"\.exe$", "", token.replace("\\", "/").rsplit("/", 1)[-1])
 
 
 def _is_command(phrase):
-    """直譯器開頭、.bat、或 tools/／app 開頭且帶參數的片語; 光一個路徑算路徑."""
     tokens = phrase.split()
     first = tokens[0] if tokens else ""
     return (_exe_base(first) in INTERPRETERS or first.lower().endswith(".bat")
@@ -113,12 +81,9 @@ _SYMBOL = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$")
 
 
 def _symbol_text(phrase):
-    """`a.b(…)` → `a.b`; 不是 模組.符號 形狀回 None."""
     s = re.sub(r"\(.*\)$", "", phrase).strip()
     return s if _SYMBOL.match(s) else None
 
-
-# ================= 路徑 =================
 
 def _parse(rel):
     with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
@@ -132,7 +97,6 @@ def _string_constants(node):
 
 @functools.lru_cache(maxsize=None)
 def _fixed_layout_names():
-    """apppaths、交付報告、基準集案例裡的名字 (不會被測試 monkeypatch 的那些)."""
     names = set()
     for node in _parse("app/apppaths.py").body:
         if isinstance(node, ast.FunctionDef) and node.name in (
@@ -149,7 +113,6 @@ def _fixed_layout_names():
 
 
 def layout_names():
-    """流程資料夾、本機狀態資料夾、基準集案例裡的名字: 以程式裡的常數為準."""
     return {flowfile.FLOW_YAML, flowfile.TEMPLATES_DIR, flowfile.CACHE_DIR,
             flowfile.SHOTS_DIR, flowfile.REGISTERED_DIR} | _fixed_layout_names()
 
@@ -159,7 +122,6 @@ def _exists_under(base, rel):
 
 
 def resolve_path(phrase, doc_dir):
-    """解析得到回 None; 否則回說明."""
     rel = phrase.replace("\\", "/").strip("/")
     parts = [p for p in rel.split("/") if p]
     if not parts:
@@ -171,8 +133,6 @@ def resolve_path(phrase, doc_dir):
         return None
     return "repo 裡沒有這個路徑"
 
-
-# ================= 指令 =================
 
 def _find_spec(module):
     try:
@@ -215,12 +175,10 @@ def resolve_command(phrase):
     return None
 
 
-# ================= 符號 =================
-
 class ModuleInfo:
     def __init__(self):
         self.names = set()
-        self.classes = {}   # 類別名 → 方法與屬性
+        self.classes = {}
 
 
 def _targets(node):
@@ -254,7 +212,6 @@ def _class_members(class_node):
 
 
 def _index_file(rel, info):
-    """模組頂層的 def／class／大寫常數／匯入名, 與每個類別的成員."""
     for node in _parse(rel).body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             info.names.add(node.name)
@@ -269,7 +226,6 @@ def _index_file(rel, info):
 
 @functools.lru_cache(maxsize=None)
 def module_index():
-    """模組名 → ModuleInfo; 同名模組 (conftest) 合併."""
     index = {}
     for d in SOURCE_DIRS:
         for path in sorted(glob.glob(os.path.join(ROOT, d, "*.py"))):
@@ -311,7 +267,6 @@ def _check_in_module(module, parts):
 
 
 def resolve_symbol(symbol):
-    """解析得到或開頭不認得回 None; 否則回說明."""
     parts = symbol.split(".")
     head, rest = parts[0], parts[1:]
     if head in ALIASES:
@@ -339,8 +294,6 @@ def resolve_symbol(symbol):
     return None
 
 
-# ================= 連結 =================
-
 def resolve_link(target, doc_dir):
     if target.startswith(("http://", "https://", "mailto:", "#")):
         return None
@@ -350,10 +303,7 @@ def resolve_link(target, doc_dir):
     return None
 
 
-# ================= 對照 =================
-
 def problems(text, doc_name, doc_dir):
-    """一份文件的全部失敗 (一則一行, 格式 文件:行號 片語 — 規則名); 空＝全部解析得過."""
     out = []
     for n, kind, phrase in phrases(text):
         why = rule = None
@@ -383,8 +333,6 @@ def test_文件裡的片語都解析得過(doc):
     got = doc_problems(doc)
     assert got == [], "\n" + "\n".join(got)
 
-
-# ---------- 反例: 四類各一, 餵同一個解析函式 ----------
 
 BAD = """\
 第一行沒東西

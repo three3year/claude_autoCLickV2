@@ -1,10 +1,3 @@
-"""交付報告: 早班 .md 最上面加「快速置入前先查 1–7 號線索」一節, 重產步驟清單.
-
-    .venv/Scripts/python.exe .scratch/quick-place-clue-check/report.py --lang cn|tw [--flows 目錄]
-
-先跑 crop.py、build.py --apply、check.py、frames.py、sim.py (從 results/ 讀它們的結果)。可以重跑:
-本節與步驟清單整段換掉, 報告其他段落不動 (換法沿用 busy-pause-fixed-rect/report.py)。
-"""
 from __future__ import annotations
 
 import argparse
@@ -42,7 +35,7 @@ def _results(lang):
 
 
 def step_table(steps):
-    import app   # 步驟描述與編輯器同一套 (app.step_desc)
+    import app
     lines = [STEPS_HEADING, "", "| # | 步驟 | 內容 |", "|---|---|---|"]
     for i, s in enumerate(steps, 1):
         lines.append(f"| {i} | {s['type']} | {app.step_desc(s)} |")
@@ -50,7 +43,6 @@ def step_table(steps):
 
 
 def _frames_lines(rep):
-    """接縫一的結果: 每張新範本該找到幾張、該找不到幾張 (游標壓住的另列)."""
     out = [f"    - {line}" for line in frames.tally(rep)]
     cur = [x for x in rep["rows"] if x["cursor"]]
     out.append(f"    - 游標壓在圖上的影格不算數（實跑找圖前會先移開游標）：{len(cur)} 筆，"

@@ -1,10 +1,5 @@
-"""執行器的既有行為回歸網: 等待、找圖三態、點擊後確認."""
-
-
 from harness import click, find, here, tgt, wait
 
-
-# ---------- 等待 ----------
 
 def test_等待確實停留指定時間(harness):
     t0 = harness.clock.t
@@ -30,8 +25,6 @@ def test_等待可被急停中斷(harness):
     assert harness.clicks() == [], "急停後不該再執行後續步驟"
     assert "已停止" in harness.log_text()
 
-
-# ---------- 找圖三態 ----------
 
 def test_找圖點擊在找到的位置點下去(harness):
     harness.vision.plan("a.png", [None, None, (500, 400)])
@@ -94,8 +87,6 @@ def test_範本遺失時停止並說明是哪一張(harness):
     assert "gone.png" in harness.log_text()
 
 
-# ---------- 點擊後確認 ----------
-
 def test_點擊後確認目標消失前會自動補點(harness):
     harness.vision.plan("a.png", [(500, 400), (500, 400), None])
     harness.run(retry_interval=0, steps=[find("a.png", confirm="gone", interval=0.1)])
@@ -118,11 +109,8 @@ def test_點擊後確認逾時未生效依找不到時處置(harness):
                       on_fail="skip"),
                  click(9, 9)])
     assert "未確認生效" in harness.log_text()
-    # 相對最後一次點 a 的落點 (原點)
     assert harness.clicks()[-1] == (509, 409), "跳過後應繼續執行後續步驟"
 
-
-# ---------- 搜尋範圍 ----------
 
 def test_找圖只擷取指定的搜尋範圍(harness):
     harness.vision.plan("a.png", [(500, 400)])

@@ -1,14 +1,3 @@
-"""早_簡中: 開頭清彈窗迴圈每一輪先等忙碌指示消失 (10/08 實跑後使用者要求).
-
-    .venv/Scripts/python.exe .scratch/busy-check/cn_start_busy_wait.py            # 只印出要插的位置
-    .venv/Scripts/python.exe .scratch/busy-check/cn_start_busy_wait.py --apply    # 寫回存檔與草稿, 讀回驗證
-
-10/08 08:44 簡中開頭: 签到關掉後忙碌檢查 1.19s 內沒看到忙碌指示就放行, 之後彈窗分岔全逾時、
-基建入口 30s 找不到 → 停止。簡中這段載入異常久, 只靠點擊後的忙碌檢查 (出現等候 1000ms) 不夠。
-插在迴圈開頭 (loop_start 之後、branch_start 之前): 每一輪找彈窗前先等忙碌指示消失;
-出現等候上限 3000ms 內沒看到＝通過, 60s 還沒消失＝停止 (同忙碌檢查的 60s 規則)。
-可以重跑 (已插的不再插)。
-"""
 from __future__ import annotations
 
 import argparse
@@ -36,7 +25,6 @@ def wait_step(busy):
 
 
 def insert_at(steps):
-    """開頭清彈窗迴圈: 第一個 loop_start, 緊接著 branch_start; 回傳插入索引 (已插過回傳 None)."""
     i = next(i for i, s in enumerate(steps) if s.get("type") == "loop_start")
     nxt = steps[i + 1]
     if nxt.get("action") == "wait_gone":

@@ -1,16 +1,10 @@
-"""流程的開啟與儲存 (flow-folder-format 08/09/10): 一份流程＝一個資料夾.
-
-對外行為＝流程資料夾在各操作之後的檔案狀態、開啟後得到的流程、執行紀錄與彈窗。
-App 的重量級 __init__ 以子類跳過; 檔案對話框以樁取代 (使用者選了哪個檔);
-本機狀態資料夾與流程存放區由 conftest 換到暫存目錄。
-"""
 import os
 import tkinter as tk
 from types import SimpleNamespace
 
 import numpy as np
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import app as app_mod
 import apppaths
@@ -31,8 +25,6 @@ class _Var:
 
 
 class _FlowApp(app_mod.App):
-    """只建存檔/讀檔需要的欄位 (假引擎: 狀態直接設就緒, 不載入模型)."""
-
     def __init__(self, root):
         self.root = root
         self.hub = enginehub.EngineHub()
@@ -54,7 +46,6 @@ class _FlowApp(app_mod.App):
         self.rendered = 0
         self.rebind_templates()
 
-    # ---- 以樁取代的 UI ----
     def refresh_templates(self):
         pass
 
@@ -89,7 +80,6 @@ def _png(fill=200):
 
 
 def _find(template, **extra):
-    """完整的找圖步驟 (記憶體裡的步驟一律照「沒寫＝」表補齊)."""
     s = {"type": "find_click", "target": {"template": template}}
     s.update(extra)
     return flowdefaults.complete(s)
@@ -108,7 +98,6 @@ def _write(folder, steps, images, **extra):
 
 
 def _shot(a, name, fill=90):
-    """在 app 裡截一張範本 (落在快取, 還沒進 templates/)."""
     return a.add_template_image(name, _png(fill))
 
 
@@ -140,8 +129,6 @@ def _opened(a, monkeypatch, folder):
     a.open_flow()
     assert a.current_flow_path() == os.path.abspath(folder)
 
-
-# ---------- 開檔 ----------
 
 def test_開檔對話框篩選flow_yaml_從流程存放區開(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, monkeypatch)
@@ -204,13 +191,11 @@ def test_上次沒存的截圖在讀取流程時清掉(tkroot, tmp_path, monkeyp
     assert "沒存" in a.list_template_names()
     monkeypatch.setattr(app_mod.messagebox, "askyesnocancel", lambda *x, **kw: False)
 
-    _opened(a, monkeypatch, folder)   # 不存檔直接重讀
+    _opened(a, monkeypatch, folder)
 
     assert a.list_template_names() == ["a"]
     assert _ls(os.path.join(folder, ".cache", "shots")) == []
 
-
-# ---------- 存檔 ----------
 
 def test_存檔只寫引用集合_刪掉引用的步驟再存那張圖離開templates(tkroot, tmp_path,
                                                      monkeypatch):
@@ -229,7 +214,7 @@ def test_存檔保留校準對與忙碌指示的圖(tkroot, tmp_path, monkeypatc
     a = _app(tkroot, monkeypatch)
     folder = _write(tmp_path / "f", [_find("btn"), _find("沒用")],
                     {"btn": b"X", "沒用": b"X"})
-    for n in ("c1", "c2", "忙"):   # 使用者自己丟進 templates/ 的圖
+    for n in ("c1", "c2", "忙"):
         (tmp_path / "f" / "templates" / (n + ".png")).write_bytes(b"X")
     _opened(a, monkeypatch, folder)
     a.steps = [_find("btn")]
@@ -299,8 +284,6 @@ def test_存檔不動流程存放區裡的其他流程(tkroot, tmp_path, monkeyp
     assert a.other_flow_folders() == [other]
 
 
-# ---------- 新流程第一次存檔 ----------
-
 def test_新流程第一次存檔_建流程名資料夾_未存檔快取的登錄產物搬進去(tkroot, tmp_path,
                                                        monkeypatch):
     a = _app(tkroot, monkeypatch)
@@ -346,8 +329,6 @@ def test_取消存檔對話框不寫任何檔(tkroot, tmp_path, monkeypatch):
     assert _ls(apppaths.flows_root()) == []
 
 
-# ---------- 本機狀態: 上次開的流程 ----------
-
 def test_開app自動開上次的流程(tkroot, tmp_path, monkeypatch):
     folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
     apppaths.remember_last_flow(folder)
@@ -373,8 +354,6 @@ def test_開過的流程記成上次開的(tkroot, tmp_path, monkeypatch):
     assert apppaths.load_state() == {"last_flow": os.path.abspath(folder)}, "只記上次開的流程"
 
 
-# ---------- 新流程 ----------
-
 def test_新流程清空步驟與範本_未存檔快取清空(tkroot, tmp_path, monkeypatch):
     a = _app(tkroot, monkeypatch)
     folder = _write(tmp_path / "f", [_find("old")], {"old": b"O"})
@@ -399,10 +378,7 @@ def test_沒有改動時三個入口都不問(tkroot, tmp_path, monkeypatch):
     assert a.confirm_discard("離開") is True
 
 
-# ---------- 未存檔提示: 存檔／不存／取消 ----------
-
 def _dirty_app(tkroot, tmp_path, monkeypatch, answer):
-    """開著一份流程、改了一步還沒存; 提示一律回 answer (True＝存檔, False＝不存, None＝取消)."""
     a = _app(tkroot, monkeypatch)
     folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
     _opened(a, monkeypatch, folder)
@@ -446,7 +422,7 @@ def test_標題_開檔與新流程後沒有星號_新流程是未命名(tkroot, 
     assert a.root.title() == "別的 — AutoClick"
     a.steps.append({"type": "wait", "wait": 1.0})
     a._mark_dirty()
-    a.new_flow()     # 回答「不存」
+    a.new_flow()
     assert a.root.title() == "未命名 — AutoClick"
 
 
@@ -461,13 +437,11 @@ def test_標題_新流程第一次存檔後換成流程名(tkroot, tmp_path, mon
 
 
 def test_執行設定的元件動過但值沒變_不算改動(tkroot, tmp_path, monkeypatch):
-    """次數欄有焦點時放開任何鍵 (Alt+Tab 的 Alt)、在 1 往下滾, 值都沒變——
-    之前一律標成未存檔, 只按了執行的流程關閉時也問要不要存檔."""
     win = tk.Toplevel(tkroot)
     try:
         a = _FlowApp(win)
         monkeypatch.setattr(a, "_schedule_reregister", lambda: None)
-        a._build_toolbar()   # 真的模式下拉與次數欄
+        a._build_toolbar()
         win.deiconify()
         win.update()         # 事件要發到已映射的視窗上才會派送
         folder = _write(tmp_path / "f", [_find("a")], {"a": b"A"})
@@ -482,7 +456,7 @@ def test_執行設定的元件動過但值沒變_不算改動(tkroot, tmp_path, 
             return a.dirty
 
         assert not fire(a.run_count, "<KeyRelease>", keysym="Alt_L")
-        assert not fire(a.run_count, "<MouseWheel>", delta=-120)   # 已是 1, 滾不下去
+        assert not fire(a.run_count, "<MouseWheel>", delta=-120)
         assert a.run_count.get() == "1"
         assert fire(a.run_count, "<MouseWheel>", delta=120)
         assert a.run_count.get() == "2"
@@ -569,13 +543,11 @@ def test_回答存檔但新流程存檔被取消_不往下走(tkroot, tmp_path, 
     a.steps = [_find("x")]
     a._mark_dirty()
     monkeypatch.setattr(app_mod.messagebox, "askyesnocancel", lambda *x, **kw: True)
-    _stub_save(monkeypatch, None)   # 第一次存檔的對話框按取消
+    _stub_save(monkeypatch, None)
     closed = _closing(a, monkeypatch)
     a.on_close()
     assert closed == [] and a.steps == [_find("x")]
 
-
-# ---------- 引擎參數覆蓋 ----------
 
 def test_引擎參數_沒寫用內建預設_流程engine段覆蓋(tkroot, monkeypatch):
     from subject_detection.library import load_default_config
@@ -596,8 +568,6 @@ def test_存檔原樣保留流程的engine段(tkroot, tmp_path, monkeypatch):
     assert flowfile.read_flow(folder)["engine"] == {"scale_range": [0.6, 1.5]}
 
 
-# ---------- 退場的東西 ----------
-
 def test_匯出與profile入口都不存在(tkroot, monkeypatch):
     a = _app(tkroot, monkeypatch)
     for gone in ("export_pack", "switch_profile", "open_profile_dir", "_autosave",
@@ -606,10 +576,8 @@ def test_匯出與profile入口都不存在(tkroot, monkeypatch):
     assert not hasattr(flowfile, "Workspace")
 
 
-# ---------- 讀取流程就背景預載 (flow-folder-format 11) ----------
-
 def _engine_app(tkroot, monkeypatch, engine, load=True):
-    from test_enginehub import RegEngine  # noqa: F401
+    from test_enginehub import RegEngine
     a = _app(tkroot, monkeypatch)
     a.hub = enginehub.EngineHub(engine_factory=lambda: engine)
     if load:
@@ -668,9 +636,9 @@ def test_預載中換流程_舊的丟掉新的開始_紀錄不混(tkroot, tmp_pa
     second = _write(tmp_path / "乙", [_find("x")], {"x": b"X"})
     _opened(a, monkeypatch, first)
     old = a._preload_thread
-    time.sleep(0.1)                 # 卡在甲的第一張
+    time.sleep(0.1)
     threading.Timer(0.2, gate.set).start()
-    _opened(a, monkeypatch, second)  # 換流程要等手上那張登錄完
+    _opened(a, monkeypatch, second)
     old.join(5)
     _settle(a)
     assert "b" not in engine.registered and "c" not in engine.registered
@@ -699,9 +667,8 @@ def test_新增範本後只有那張要重新登錄_其他留在記憶體(tkroot
     before = {n: t.artifacts for n, t in a.library.templates.items()}
 
     name = _shot(a, "新圖")
-    app_mod.App.ensure_registered(a)   # 子類把它換成空操作; 這裡要真的跑
+    app_mod.App.ensure_registered(a)
 
     arts = {n: t.artifacts for n, t in a.library.templates.items()}
     assert arts["a"] is before["a"] and arts["b"] is before["b"]
     assert arts[name] is None, "新的那張用到時才登錄"
-

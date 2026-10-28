@@ -1,11 +1,3 @@
-"""`開始延遲`是時間下限 (start-delay-floor 票 01、02).
-
-從按下「執行」那一刻算起, 到`開頭校準`之前至少要經過設定的秒數;
-`範本預載`在倒數期間同時進行——提早完成就等到到期, 超過了就一完成就開始。
-斷言對象: 執行紀錄的內容與順序、開頭校準那次截圖的虛擬時間、狀態回報的
-開跑前階段。假引擎的 preload_cost 讓每載一張範本推進虛擬時鐘
-(這些測試的流程只引用校準對, 預載名單恰 2 張)。
-"""
 import pytest
 
 from harness import click
@@ -14,7 +6,6 @@ from automation import runner as runner_mod
 
 
 def test_開始延遲_補做間隔_忙碌出現等候是固定行為():
-    """不是設定: app 不傳, 執行器用常數 (參數只留給測試縮短虛擬時間)."""
     import inspect
     params = inspect.signature(runner_mod.Runner.start).parameters
     assert params["start_delay"].default == runner_mod.START_DELAY == 3.0
@@ -27,19 +18,16 @@ WAITING = "等待準備範本完成"
 
 
 def cal_time(harness):
-    """開頭校準那次截圖的虛擬時間 (第一次擷取)."""
     return harness.vision.grab_times[0]
 
 
 def prerun_logs(harness, r):
-    """開跑前的紀錄 (到開頭校準那行之前)."""
     logs = harness.logs(r)
     end = next(i for i, m in enumerate(logs) if m.startswith("開頭校準"))
     return logs[:end]
 
 
 def start_and_join(harness, runner, **kw):
-    """啟動已建好的執行器並等它結束 (測試要先在 runner 上掛觀察點時用)."""
     harness.start(runner, [click(1, 1)], **kw)
     runner._thread.join(10)
     assert not runner._thread.is_alive(), "執行緒逾時未結束"
@@ -47,17 +35,14 @@ def start_and_join(harness, runner, **kw):
 
 
 def watch_prerun_per_load(harness, runner):
-    """每載完一張範本 (執行器的回呼之後) 記下狀態回報的開跑前階段."""
     seen = []
     harness.vision.after_each_load = lambda: seen.append(
         runner.status()["prerun"])
     return seen
 
 
-# ---------- 時間下限 (票 01) ----------
-
 def test_預載提早完成_等到到期才校準(harness):
-    harness.vision.preload_cost = 1.0      # 預載共 2 秒
+    harness.vision.preload_cost = 1.0
     t0 = harness.clock.t
     r = harness.run([click(1, 1)], start_delay=3)
     assert r.ended == "done"
@@ -67,7 +52,7 @@ def test_預載提早完成_等到到期才校準(harness):
 
 
 def test_預載超過延遲_預載一完成就校準(harness):
-    harness.vision.preload_cost = 2.0      # 預載共 4 秒
+    harness.vision.preload_cost = 2.0
     t0 = harness.clock.t
     r = harness.run([click(1, 1)], start_delay=3)
     assert r.ended == "done"
@@ -103,7 +88,6 @@ def test_預載失敗_立刻報錯_不等倒數_不校準(harness):
 
 def test_倒數剩餘等待中停止_不校準不送輸入(harness):
     runner = harness.make_runner()
-    # 預載瞬間完成, 之後的 sleep 全是剩餘倒數; 第 5 拍 (0.25 秒) 時按停止
     harness.clock.on_sleep = lambda n: runner.stop() if n == 5 else None
     start_and_join(harness, runner, start_delay=3)
     assert runner.ended == "stopped"
@@ -112,7 +96,7 @@ def test_倒數剩餘等待中停止_不校準不送輸入(harness):
 
 
 def test_預載超過延遲_預載途中停止_不校準不送輸入(harness):
-    harness.vision.preload_cost = 2.0      # 預載共 4 秒, 到期後沒有剩餘等待
+    harness.vision.preload_cost = 2.0
     runner = harness.make_runner()
     harness.vision.after_each_load = runner.stop
     start_and_join(harness, runner, start_delay=3)
@@ -121,10 +105,8 @@ def test_預載超過延遲_預載途中停止_不校準不送輸入(harness):
     assert harness.kinds() == []
 
 
-# ---------- 開跑前階段 (票 02) ----------
-
 def test_開跑前階段_到期前倒數中_到期後等待範本(harness):
-    harness.vision.preload_cost = 2.0      # 第 1 張載完 t=2 (未到期), 第 2 張 t=4
+    harness.vision.preload_cost = 2.0
     runner = harness.make_runner()
     seen = watch_prerun_per_load(harness, runner)
     start_and_join(harness, runner, start_delay=3)
@@ -136,7 +118,7 @@ def test_啟動當下已到期_啟動當下與預載期間都是等待範本(har
     harness.vision.preload_cost = 0.5
     runner = harness.make_runner()
     seen = watch_prerun_per_load(harness, runner)
-    at_first_log = []   # 第一行紀錄 (準備範本中…) 寫出時, 還沒做過任何到期檢查
+    at_first_log = []
     log = runner.log
     runner.log = lambda msg, level="info": (
         at_first_log or at_first_log.append(runner.status()["prerun"]),
@@ -148,12 +130,12 @@ def test_啟動當下已到期_啟動當下與預載期間都是等待範本(har
 
 
 def test_預載提早完成_剩餘倒數仍是倒數中(harness):
-    harness.vision.preload_cost = 0.5      # 預載 1 秒, 剩 2 秒倒數 (40 拍)
+    harness.vision.preload_cost = 0.5
     runner = harness.make_runner()
     seen = []
     harness.clock.on_sleep = lambda n: seen.append(runner.status()["prerun"])
     start_and_join(harness, runner, start_delay=3)
-    assert seen and set(seen[:10]) == {"countdown"}   # 前 10 拍都還在倒數
+    assert seen and set(seen[:10]) == {"countdown"}
 
 
 def test_開頭校準時開跑前階段已清除(harness, monkeypatch):

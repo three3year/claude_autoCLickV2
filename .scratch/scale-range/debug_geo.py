@@ -1,4 +1,3 @@
-"""除錯: 繁中進駐總覽幾幀上 標題_貿易站 的匹配、⇌ 位置、貿易站1列 的找法."""
 import os, shutil, tempfile, sys
 import srcommon as sr
 from srcommon import bp

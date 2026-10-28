@@ -1,15 +1,3 @@
-"""票 01、02: 晚班兩份開頭加「找公告 X → 點到消失, 2 秒找不到就跳過」(見 spec.md).
-
-    .venv/Scripts/python.exe .scratch/evening-notice-close/build.py            # 只算、印出
-    .venv/Scripts/python.exe .scratch/evening-notice-close/build.py --apply    # 寫回存檔與草稿
-
-- 新的第 1 步從早班同一步原樣複製 (簡中「公告关闭」、繁中「圓形叉叉」, 連固定矩形),
-  只把逾時改成 2 秒; 範本圖從早班存檔搬 (同一客戶端的校準對基準距離、搜尋範圍都相同, 不換算)。
-- 晚_繁中的忙碌指示圖換成早_繁中那張 (票 06 從 demo2 重截的), 限定範圍不動。
-- 其餘步驟一字不改, 編號 +1。可以重跑: 第 1 步已經是關公告那步就不再插。
-- 寫回前: AutoClick 要關著、備份 profiles (本功能的備份目錄不在才複製); 寫回後讀回驗證、
-  草稿屬於這份存檔時連草稿與工作區一起同步。之後跑 check.py 做完整讀回檢查。
-"""
 from __future__ import annotations
 
 import argparse
@@ -24,7 +12,6 @@ import flowfile  # noqa: E402
 
 
 def source_step(lang, src):
-    """早班那一步 (唯一一個用這張範本的找圖步驟) 複製一份, 逾時改 2 秒."""
     tmpl = notice.LANGS[lang]["template"]
     hits = [s for s in src["data"]["steps"] if notice.is_notice_step(s, lang)]
     if len(hits) != 1:
@@ -37,7 +24,6 @@ def source_step(lang, src):
 
 
 def rebuild(lang, r, src):
-    """回傳 (新 data, 新 images, 說明)."""
     cfg = notice.LANGS[lang]
     data, images = r["data"], dict(r["images"])
     steps = data["steps"]

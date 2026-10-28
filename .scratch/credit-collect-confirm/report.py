@@ -1,10 +1,3 @@
-"""交付報告: 早班 .md 最上面加「收取信用改成等物資彈窗出現」一節, 重產步驟清單.
-
-    .venv/Scripts/python.exe .scratch/credit-collect-confirm/report.py --lang tw|cn [--flows 目錄]
-
-先跑 build.py --apply、check.py、sim.py (從 results/ 讀它們的結果)。可以重跑: 本節與步驟清單
-整段換掉, 報告其他段落不動。節與步驟清單的換法沿用 busy-pause-fixed-rect/report.py。
-"""
 from __future__ import annotations
 
 import argparse
@@ -39,7 +32,7 @@ def _results(lang):
 
 
 def step_table(steps):
-    import app   # 步驟描述與編輯器同一套 (app.step_desc)
+    import app
     lines = [STEPS_HEADING, "", "| # | 步驟 | 內容 |", "|---|---|---|"]
     for i, s in enumerate(steps, 1):
         lines.append(f"| {i} | {s['type']} | {app.step_desc(s)} |")
@@ -49,7 +42,7 @@ def step_table(steps):
 def section(lang, res, steps):
     import app
     n = res["build"]["step"]
-    got = steps[n]                      # 緊接的下一步 (0 起算的 n＝編號 n+1)
+    got = steps[n]
     got_name = findtarget.template(got)
     tw = lang == "tw"
     sims = res["sim"]["results"]

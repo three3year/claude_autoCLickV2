@@ -1,15 +1,9 @@
-"""範本面板＝本流程的範本清單 (票 06): 選取/預覽/重新命名/刪除.
-
-只拍靜態畫面驗證不了「互動才會執行到」的路徑, 所以選取、重新命名、刪除都用
-`event_generate` 真的走一遍, 再斷言對外行為: 清單內容、預覽文字、本流程範本的
-檔案狀態、步驟引用。App 的重量級 __init__ 以子類跳過 (沿用既有模式)。
-"""
 import os
 import tkinter as tk
 
 import numpy as np
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import app as app_mod
 import enginehub
@@ -20,14 +14,12 @@ from ui_theme import C, FONT_MONO
 
 
 class _PanelApp(app_mod.App):
-    """只建範本面板需要的欄位."""
-
     def __init__(self, root, base_dir, steps=None):
         self.root = root
         self.store = flowfile.FlowTemplates.new(os.path.join(str(base_dir), "unsaved"))
-        self.library = None          # 引擎尚未就緒: 面板照樣要能用
+        self.library = None
         self.steps = steps or []
-        self.hub = enginehub.EngineHub()   # 引擎尚未就緒 (只用到搬檔鎖)
+        self.hub = enginehub.EngineHub()
         self.flow_cal = None
         self.busy_target = None
         self.dirty = False
@@ -70,7 +62,7 @@ class _PanelApp(app_mod.App):
 
     def destroy(self):
         self.panel.destroy()
-        self.root.withdraw()   # session 共用的 root, 還原成其他測試預期的狀態
+        self.root.withdraw()
 
 
 def _img(w=12, h=8, fill=200):
@@ -80,7 +72,6 @@ def _img(w=12, h=8, fill=200):
 
 
 def _add(app, name, w=12, h=8, fill=200):
-    """把一張真圖放進本流程的範本 (面板讀的就是這些檔案)."""
     app.store.add(name, imgio.encode_png(_img(w, h, fill)))
     return name
 
@@ -101,7 +92,6 @@ def _select(app, name):
 
 
 def _using(*names):
-    """引用這些範本的找圖步驟 (被引用的範本才不會標「未引用」)."""
     return [{"type": "find_click", "target": {"template": n}} for n in names]
 
 
@@ -125,7 +115,6 @@ def test_面板只列出本流程的範本(tkroot, tmp_path):
 
 
 def test_面板沒有資料夾層級(tkroot, tmp_path):
-    """一份流程幾十張圖不需要命名空間: 名稱平面、清單沒有可展開的列."""
     app = _panel(tkroot, tmp_path, names=("a", "b"))
     try:
         assert not hasattr(app, "template_folders")
@@ -231,7 +220,6 @@ def test_刪除範本從本流程移除_引用它的步驟以既有方式標示(
         assert not os.path.exists(app.store.path_of("a"))
         assert not os.path.exists(os.path.join(app.store.registered_dir, "a"))
         assert asked and "步驟 1" in asked[0], "有步驟在用它才提醒"
-        # 引用仍指向已刪除的範本 → 沿用既有機制 (執行前擋下), 不動步驟
         assert steps[0]["target"]["template"] == "a"
     finally:
         app.destroy()
@@ -250,9 +238,6 @@ def test_刪除沒有步驟在用的範本不打擾(tkroot, tmp_path, monkeypatc
         assert asked == []
     finally:
         app.destroy()
-
-
-
 
 
 def test_有拾取檢查警告的範本標示_通過後消失(tkroot, tmp_path):

@@ -1,14 +1,9 @@
-"""引擎生命週期介面 (startup-speed 票 01): 狀態、委派、預載/單張載入.
-
-假引擎經 engine_factory 注入——不碰 torch、不開執行緒, 測試直接把狀態
-撥成任意值。介面形狀＝runner 偵測接縫 (query) 的超集, 與 harness 假件一致。
-"""
 import time
 import warnings
 
 import pytest
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 import enginehub
 
@@ -95,7 +90,7 @@ def test_preload未知範本丟KeyError(tmp_path):
     hub.library = FakeProfile()
     with pytest.raises(KeyError):
         hub.preload(["a", "nope"])
-    assert engine.registered == ["a"]  # 錯在哪張就停在哪張
+    assert engine.registered == ["a"]
 
 
 def test_ensure_template單張登錄(tmp_path):
@@ -109,7 +104,7 @@ def test_coarse_only跟隨引擎(tmp_path):
     hub, _ = _ready_hub(tmp_path, FakeEngine(coarse_only=True))
     assert hub.coarse_only
     hub2 = enginehub.EngineHub(engine_factory=FakeEngine)
-    assert not hub2.coarse_only  # 尚未載入 = 尚未降級
+    assert not hub2.coarse_only
 
 
 def test_gating決策矩陣():
@@ -125,7 +120,6 @@ def test_load只建引擎_不碰範本清單也不整庫登錄(tmp_path):
     hub.load()
     assert hub.state == enginehub.READY
     assert hub.library is lib, "背景載入不覆蓋 app 已綁好的範本清單"
-    # 不整庫登錄: 登錄產物由`範本預載`/單張載入在使用當下載入 (ADR 0004)
     assert engine.registered == []
 
 
@@ -140,7 +134,7 @@ def test_bind不需引擎_範本清單由app給(tmp_path):
     assert lib.templates["按鈕"].image_path == tmp_path / "按鈕.png"
     assert lib.config == {"scale_range": [0.6, 1.5]}
     assert lib.artifacts_dir == tmp_path / "reg"
-    assert hub.state == enginehub.LOADING   # 不觸碰生命週期狀態
+    assert hub.state == enginehub.LOADING
 
 
 def _bound_with_artifacts(tmp_path, cfg):
@@ -196,7 +190,7 @@ def test_load失敗也寫日誌(tmp_path, monkeypatch):
 
 def test_引擎警告只留subject_detection來源(tmp_path):
     def factory():
-        warnings.warn("outside noise")  # filename 是本測試檔 → 應被濾掉
+        warnings.warn("outside noise")
         return FakeEngine()
     hub = enginehub.EngineHub(engine_factory=factory)
     hub.load()
@@ -204,11 +198,7 @@ def test_引擎警告只留subject_detection來源(tmp_path):
     assert hub.warnings == []
 
 
-# ---------- 背景`範本預載` (flow-folder-format 11) ----------
-
 class RegEngine:
-    """登錄會真的把登錄產物掛上去的假引擎; gate＝登錄卡在那裡等放行; bad＝壞圖."""
-
     coarse_only = False
 
     def __init__(self, gate=None, bad=()):
@@ -283,11 +273,11 @@ def test_背景預載中換流程_舊的停下不回報就緒(tmp_path):
     hub = _bound_hub(tmp_path, engine)
     got, report = _collect()
     t = hub.start_preload(["a", "b", "c"], report)
-    time.sleep(0.1)                       # 卡在第一張
+    time.sleep(0.1)
     swap = threading.Thread(target=lambda: hub.bind(
         {"x": str(tmp_path / "x.png")}, {"k": 1}, tmp_path / "reg"))
     gen0 = hub.generation
-    swap.start()                          # 換流程 (等那一張登錄完才接手)
+    swap.start()
     while hub.generation == gen0:
         time.sleep(0.01)
     gate.set()
@@ -307,7 +297,7 @@ def test_背景預載遇到壞圖_回報警告_其他照載(tmp_path):
     events = [(e, d) for _, e, d in got]
     assert events[1][0] == "bad" and events[1][1][0] == "b"
     assert events[-1][0] == "done"
-    with pytest.raises(ValueError):   # 按執行時照舊擋下
+    with pytest.raises(ValueError):
         hub.preload(["a", "b"])
 
 
@@ -320,7 +310,7 @@ def test_背景預載中按執行_等同一份_同一張不載兩次(tmp_path):
     bg = hub.start_preload(["a", "b", "c"], report)
     time.sleep(0.1)
     run = threading.Thread(target=lambda: hub.preload(["a", "b", "c"]))
-    run.start()                           # 執行器的預載接著等
+    run.start()
     time.sleep(0.1)
     assert run.is_alive(), "還沒載完就等"
     gate.set()
@@ -338,7 +328,7 @@ def test_搬檔期間背景預載停在原地_換好清單後讀新路徑(tmp_pa
         t.join(0.3)
         assert engine.registered == [], "搬檔的人持有鎖時不登錄"
         hub.bind({"a": str(tmp_path / "templates" / "a.png")}, {"k": 1}, tmp_path / "reg",
-                 changed=set())   # 同一段裡換清單 (可重入)
+                 changed=set())
     t.join(5)
     assert engine.registered == ["a"]
     assert hub.library.templates["a"].image_path == tmp_path / "templates" / "a.png"

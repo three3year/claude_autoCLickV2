@@ -1,13 +1,6 @@
-"""`固定矩形`的編輯器拖框 (busy-pause-fixed-rect 票 04; coord-anchor 票 04 改相對基準點).
-
-找圖設定子對話框 (找圖步驟與確認圖共用) 的限定範圍選「固定矩形」, 按「在畫面上
-框選」拖一個框, 存成相對拾取當下`座標基準點`的偏移與寬高 (流程尺度)。拾取覆蓋層
-以樁取代 (記下是不是在清場裡叫的), 校準用的截圖走假偵測器, 對話框照常用 `_Driver`
-真的按按鈕、真的發 <<ComboboxSelected>>。
-"""
 import contextlib
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 from harness import CAL_PAIR
 
 import ui_dialogs
@@ -15,13 +8,11 @@ from test_editor_scale import ANCHOR, REGION, _edit, _press, make_app  # noqa: F
 from test_template_picker import _all, _btn, _Driver
 
 FIXED_ZH = ui_dialogs.LIMIT_ZH["rect"]
-# ANCHOR＝(150, 230): 框 (300,350) 400×150 ＝ 相對基準點 (+150,+120) 400×150
 BOX = {"screenX": 300, "screenY": 350, "w": 400, "h": 150}
 RECT = [150, 120, 400, 150]
 
 
 def _overlay(monkeypatch):
-    """拾取樁: 回傳 BOX, 並記下 (模式, 當下是否在清場裡)."""
     state = {"clearing": 0}
     calls = []
 
@@ -42,7 +33,6 @@ def _overlay(monkeypatch):
 
 
 def _choose(text):
-    """限定範圍下拉選 text (真的發選取事件)."""
     def act(dr):
         cb = next(w for w in _all(dr.dlg) if w.winfo_class() == "TCombobox"
                   and text in w.cget("values"))
@@ -85,7 +75,7 @@ def test_倍率不是1時換回流程尺度(make_app, monkeypatch):
 
 
 def test_視窗挪位置後框同一塊_存下的值不變(make_app, monkeypatch):
-    app = make_app(1.0, anchor=(550, 330))   # 基準點挪了 (+400,+100)
+    app = make_app(1.0, anchor=(550, 330))
     _overlay(monkeypatch)
     got = _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH),
                          _press("框選"), _press("確定"))
@@ -126,7 +116,7 @@ def test_沒有校準對時按鈕不可用_並說明原因(make_app, monkeypatch
         btn = _btn(dr.dlg, "框選")
         seen["disabled"] = btn.instate(["disabled"])
         seen["labels"] = _labels(dr.dlg)
-        btn.invoke()      # 停用的按鈕按了也沒事
+        btn.invoke()
         dr.close()
     _target_dialog(app, {"template": "a"}, _choose(FIXED_ZH), look)
     assert seen["disabled"]
@@ -169,7 +159,6 @@ def test_選了固定矩形卻沒框過_確定時底列提示_不彈窗_不存�
 
 
 def test_找圖步驟對話框_主對話框直接選固定矩形框選_存進步驟(make_app, monkeypatch):
-    """找圖步驟自己的限定範圍在主對話框的左卡設 (沒有找圖設定子對話框)."""
     app = make_app(1.0)
     app.store.add("a", b"A")
     _overlay(monkeypatch)

@@ -1,10 +1,3 @@
-"""`原點`與相對座標的回歸網.
-
-`原點`＝最近一個「有更新原點」的步驟所產生的位置。座標點擊與拖曳只有相對原點
-一種座標 (絕對座標已退場, ADR 0014), 所以第一個原點一定來自找圖。
-"""
-
-
 from harness import click, drag, find, here
 
 
@@ -72,6 +65,5 @@ def test_測試選取片段_以原點為基準的步驟在原點來源之前就�
     check = app_mod.App._fragment_origin_error
     assert check(None, [find("a", target=near)], 4) == [5]
     assert check(None, [find("b"), find("a", target=near)], 0) == []
-    # 座標點擊與拖曳一律相對原點: 片段內沒有原點來源就擋
     assert check(None, [click(1, 1), find("b"), drag(0, 0, 1, 1)], 0) == [1]
     assert check(None, [find("b"), click(1, 1), drag(0, 0, 1, 1)], 2) == []

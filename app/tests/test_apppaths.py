@@ -1,13 +1,11 @@
-"""本機狀態資料夾與日誌位置 (flow-folder-format 10): 打包版與原始碼執行各自正確."""
 import importlib
 import os
 import sys
 
-import harness  # noqa: F401  # 先把 app/ 加進 sys.path
+import harness
 
 
 def _fresh():
-    """conftest 把 state_dir 換成暫存目錄; 這裡要測真的函式 → 重新載入一份."""
     import apppaths
     return importlib.reload(apppaths)
 

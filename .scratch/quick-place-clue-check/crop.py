@@ -1,13 +1,3 @@
-"""從示範影片裁新範本, 並在影格上比兩個卡片標籤候選 (見 spec.md「新範本」).
-
-    .venv/Scripts/python.exe .scratch/quick-place-clue-check/crop.py --lang cn|tw
-
-- 範本照 clue.LANGS 的 (幀, 框) 從 add3 (簡中) / add4 (繁中) 裁, 寫到 templates/<lang>/<名>.png
-  (影片與實機同尺度, 不縮放)。另產一張 templates/<lang>/_sheet.png 把全部範本排在一起給人看。
-- 卡片標籤: 兩個候選 (「相关搜集者」/「来自」) 各用自己的固定矩形, 照 app 的真實偵測路徑
-  (arknights 門檻) 在「有卡片」的影格 (clue.picked_frames) 與「沒卡片」的影格上找一次,
-  記下分數。結果寫 results/labels_<lang>.json; 挑哪個寫在 clue.LABEL。
-"""
 from __future__ import annotations
 
 import argparse
@@ -46,7 +36,6 @@ def sheet(lang, imgs):
 
 
 def list_frames(lang):
-    """[(幀, 有沒有卡片, 號碼)]: clue.picked_frames 的每一幀."""
     has = clue.LANGS[lang]["has"]
     return [(f, has[n], n) for f, n in clue.picked_frames(lang)]
 

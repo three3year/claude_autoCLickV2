@@ -1,7 +1,3 @@
-"""採購中心改成一個分岔: 建構與驗證腳本共用的路徑、優先順序與區塊定位 (見 spec.md).
-
-流程存檔只經 app 的流程存檔模組 (app/flowfile.py) 讀寫。
-"""
 from __future__ import annotations
 
 import os
@@ -21,10 +17,9 @@ for p in (APP, os.path.join(ROOT, "tools")):
 
 PREFIX = "採購_"
 RETAKE = "待重拍_"
-ROUNDS = 10            # 重複區段次數 (一頁 10 張卡)
-NO_COLOR = {"技巧概要·卷2"}   # 比色例外: demo6 上比色 0.94, 差門檻一點
+ROUNDS = 10
+NO_COLOR = {"技巧概要·卷2"}
 
-# 購買優先順序 = 分支順序 (兩版相同, 繁體名)
 PRIORITY = [
     "加急許可", "招聘許可", "技巧概要·卷2", "技巧概要·卷1", "赤金", "龍門幣",
     "固源岩", "糖", "聚酸酯", "異鐵", "裝置", "酮凝集",
@@ -35,7 +30,6 @@ assert len(PRIORITY) == len(set(PRIORITY)) == 23
 
 LANGS = {
     "tw": {"label": "繁中", "folder": "繁中", "flows": ["早_繁中"]},
-    # 簡中: 改名前是 早_簡中_demo6, 改名後 (票 02) 它就是 早_簡中
     "cn": {"label": "簡中", "folder": "簡中", "flows": ["早_簡中_demo6", "早_簡中"]},
 }
 
@@ -47,7 +41,6 @@ GOT = ("獲得物資", "获得物资")
 
 
 def flow_path(lang, name=None):
-    """這個語系要改的流程存檔路徑 (name 給了就用它; 也可以直接給檔案路徑)."""
     import flowfile
     if name and os.path.isfile(name):
         return name
@@ -64,7 +57,6 @@ def template_name(item):
 
 
 def item_of(template):
-    """`採購_X` → 商品名 X (template_name 的反向)."""
     return template[len(PREFIX):]
 
 
@@ -74,7 +66,6 @@ def _tmpl(step):
 
 
 def _end_at_depth0(steps, i, end_type):
-    """steps[i] 之後第一個同層的 end_type 標記索引 (區段巢狀以深度略過)."""
     depth = 0
     for j in range(i + 1, len(steps)):
         t = steps[j].get("type")
@@ -90,10 +81,6 @@ def _end_at_depth0(steps, i, end_type):
 
 
 def purchase_span(steps):
-    """採購區塊的位置: (起, 迄) 使得 steps[起:迄] 是收取信用分岔之後、導航之前的步驟.
-
-    迄 = 「導航 → 公開招募」的導航那一步; 收取信用分岔原樣不動。
-    """
     credit = next((i for i, s in enumerate(steps) if _tmpl(s) == CREDIT), None)
     if credit is None:
         raise SystemExit("流程裡找不到收取信用")
@@ -106,10 +93,6 @@ def purchase_span(steps):
 
 
 def buy_tail(section):
-    """一件商品的買法: (條件步驟, 條件步驟之後到分支結尾的步驟).
-
-    條件步驟＝區塊裡第一個「點到確認圖出現、確認圖是購買物品」的找圖步驟。
-    """
     from automation import findtarget
     for i, s in enumerate(section):
         if (s.get("type") == "find_click" and s.get("confirm") == "appear"

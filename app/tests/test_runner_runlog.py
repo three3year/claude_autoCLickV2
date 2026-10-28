@@ -1,10 +1,3 @@
-"""執行紀錄寫入 autoclick.log (find-target 票 06).
-
-每個`找圖目標`的判定結束 (找到、逾時、無法執行) 寫一筆 `find.target`:
-步驟位置、範本、限定矩形、每個匹配的位置與分數 (含比色分數)、挑選規則與挑中
-哪個、點擊落點; 逾時另記最後一次查詢的最高分與未過原因。不逐次輪詢地寫。
-實跑回報點錯後, Claude 靠它分辨「點錯哪個」與「沒找到」。
-"""
 from harness import branch_end, branch_or, branch_start, click, find, tgt
 
 CARDS = [(200, 300), (400, 300), (600, 300), (800, 300)]
@@ -136,7 +129,6 @@ def test_分岔條件的判定有紀錄(harness):
 
 
 def test_寫進真的檔案日誌(tmp_path, monkeypatch):
-    """沒注入時寫 applog (exe／repo 旁的 autoclick.log)."""
     import applog
     from automation import runner as runner_mod
     path = tmp_path / "autoclick.log"

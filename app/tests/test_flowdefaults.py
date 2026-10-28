@@ -1,8 +1,3 @@
-"""「沒寫＝」表 (flow-folder-format 票 06): 預設只存在一張表, 讀檔與新增步驟時補齊、
-存檔時等於預設的不寫; 執行器讀完整步驟.
-
-斷言對象: 補齊/拿掉之後的步驟內容、執行器跑補齊後的步驟送出的事件。
-"""
 from harness import drag, find, here
 
 from automation import flowdefaults
@@ -63,8 +58,6 @@ def test_新增步驟是完整步驟():
     assert flowdefaults.new_step("repeat_end") == {"type": "repeat_end",
                                                     "on_break": "continue"}
 
-
-# ---------- 執行器照補齊後的步驟跑 ----------
 
 def test_找圖沒寫找不到時_找不到就停止流程(harness):
     harness.vision.plan("a", [None])

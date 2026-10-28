@@ -1,11 +1,3 @@
-"""票 01、02 的交付報告: 晚_簡中、晚_繁中的 .md 最上面加「開頭關公告」一節、重產步驟清單.
-
-    .venv/Scripts/python.exe .scratch/evening-notice-close/report_notice.py
-
-先跑 build.py --apply、check.py、frames.py、sim.py (數字從 results/ 讀)。可以重跑: 本節與
-步驟清單整段換掉; 晚_繁中「忙碌指示範本目前比不到」那條風險換成一句。
-節與步驟清單的換法沿用 busy-pause-fixed-rect/report.py。
-"""
 from __future__ import annotations
 
 import json
@@ -16,7 +8,7 @@ import sys
 import notice
 from notice import bp
 
-import report as r05  # noqa: E402  (busy-pause-fixed-rect/report.py: step_table、replace_section)
+import report as r05  # noqa: E402
 
 import flowfile  # noqa: E402
 

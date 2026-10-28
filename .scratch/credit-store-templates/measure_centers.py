@@ -1,11 +1,3 @@
-"""量驗證影格上每張卡的圓圈中心, 寫回 annotations.json 的 center.
-
-卡片是 2 列 × 5 欄的等距格子, 格距是同一客戶端的固定值 (build.GRID): 以霍夫圓
-偵測未售完卡的圓圈, 擬合格子原點 (售完卡的斜帶會讓偵測漏掉或偏掉, 由格子補上)。
-量完要跑 build.py --overlays 疊框目視核對。
-
-    .venv/Scripts/python.exe .scratch/credit-store-templates/measure_centers.py
-"""
 import json
 import os
 
@@ -14,7 +6,7 @@ import numpy as np
 
 from build import GRID, HERE, read
 
-RADIUS = {"tw": (62, 82), "cn": (54, 72)}   # 霍夫圓的半徑範圍 (px)
+RADIUS = {"tw": (62, 82), "cn": (54, 72)}
 COLS = 5
 
 
@@ -29,7 +21,6 @@ def main():
         cs = cv2.HoughCircles(g, cv2.HOUGH_GRADIENT, dp=1, minDist=rmin * 2,
                               param1=100, param2=40, minRadius=rmin, maxRadius=rmax)
         cs = [] if cs is None else cs[0].tolist()
-        # 圓分到格子: 第一欄的圓心 x 都小於一個格距, 上下列以畫面高度 56% 分開;
         # 只留未售完卡上的圓 (售完卡的斜帶讓偵測不可靠)
         px, py = GRID[fr["set"]]
         good = []
@@ -37,7 +28,6 @@ def main():
             col, row = int(x // px), int(y > 0.56 * img.shape[0])
             if col < COLS and not fr["cards"][row * COLS + col]["soldOut"]:
                 good.append((x, y, col, row))
-        # 以未售完卡的圓擬合原點 (售完多的畫面圓太少, 連格距一起擬合會發散)
         bx = float(np.mean([x - px * col for x, _y, col, _row in good]))
         by = float(np.mean([y - py * row for _x, y, _col, row in good]))
         for i, card in enumerate(fr["cards"]):
