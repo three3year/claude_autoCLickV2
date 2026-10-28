@@ -12,7 +12,7 @@ description: 影片量測——從使用者的示範影片（錄影）量出 Aut
 
 寫不寫檔、寫到哪由入口決定；這裡只管影片。flow.yaml 的鍵、執行語意、常見寫法（定位找圖、
 可選彈窗分岔、忙碌檢查該勾哪些步驟、比色與挑選規則）都在 [docs/flow-format.md](../../../docs/flow-format.md)，
-計畫格式在 [plan-format.md](plan-format.md)；詞彙見 `app/CONTEXT.md`。
+計畫格式在 [plan-format.md](plan-format.md)；詞彙見 `app/GLOSSARY.md`。
 
 全程**只讀影片**：使用者常在玩明日方舟，螢幕、滑鼠、鍵盤都是他的。所有指令在 repo 根目錄以
 `.venv/Scripts/python` 執行；縮圖、影格、計畫放**工作目錄** `W`＝session 暫存目錄（系統提示有列出時）
