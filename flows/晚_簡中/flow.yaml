@@ -1,5 +1,5 @@
 format: 1
-scan_region: [-8, 0, 1928, 1038]
+scan_region: [77, 31, 1718, 920]
 calibration:
   pair: [主画面设置钮, 主画面仓库]
   baseline: 1719.2
