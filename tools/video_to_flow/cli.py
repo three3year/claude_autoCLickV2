@@ -54,11 +54,23 @@ def _shared(res):
               + (f"（沿用{info['source']}那一步）" if info["source"] else ""))
 
 
+def _loosened(res):
+    from .labels import label
+    from .report import loosened_text
+    steps = res["step_list"]
+    base = res["position"] - 1 if "position" in res else 0
+    for i, kind, value in res["loosened"]:
+        print(f"固定矩形放寬：{label(steps[base + i])}：{loosened_text(kind, value)}")
+
+
 def _lists(res):
     for name, why in res["retake"].items():
         print(f"待重拍：{name}：{'；'.join(why)}")
+    for name, info in (res.get("existing") or {}).items():
+        print(f"待確認（既有範本）：{name}：{'；'.join(info['reasons'])}——流程裡共 "
+              f"{info['steps']} 步引用它（{'、'.join(info['files'])}），重截會一起影響")
     for _, text in res["scroll_confirm"]:
-        print(f"待確認（捲動）：{text}——同一段有拖曳，沒宣告捲動軸")
+        print(f"待確認（捲動）：{text}——同一段有拖曳，沒宣告捲動軸或停點差")
     for _, text in res["busy_unseen"]:
         print(f"待確認（忙碌）：{text} 勾了忙碌檢查，之後沒看到忙碌指示")
     for _, text in res["busy_unchecked"]:
@@ -123,6 +135,7 @@ def main(argv=None):
                           "；第一次拖曳 {} → {} px".format(*aligned["drag"])
                           if aligned["drag"] else ""))
             _shared(res)
+            _loosened(res)
             _lists(res)
             for n, e in res["similar"].items():
                 print(f"建議：新範本「{n}」跟既有的「{e}」幾乎一樣，考慮改用既有的")
@@ -137,6 +150,7 @@ def main(argv=None):
             if res["verification"] == "coarse":
                 print("警告：驗證不完整——深度驗證模型無法載入，只做了粗篩")
             _shared(res)
+            _loosened(res)
             _lists(res)
             print(f"步驟 {res['steps']}、範本 {res['templates']}")
     except ToolError as e:

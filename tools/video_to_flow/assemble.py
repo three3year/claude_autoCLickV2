@@ -167,6 +167,7 @@ def assemble(plan, engine=None, out_dir=None):
         "busy_unseen": measured.busy_unseen,
         "busy_unchecked": measured.busy_unchecked,
         "shared_rects": shared_info(p, measured, steps),
+        "loosened": measured.loosened,
         "found": {n: r["boxes"] for n, r in checked.items()},
         "frames": {i: measure_mod.step_frame(p, i) for i in range(len(steps))},
         "step_list": steps,

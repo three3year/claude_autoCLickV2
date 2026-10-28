@@ -14,7 +14,8 @@
 
 每個找圖目標 (找圖步驟、確認圖、忙碌指示) 在它那一幀上照它的設定完整執行一次
 (與執行器同一個模組: 裁限定範圍 → 查詢 → 比色 → 挑選規則): 挑中的框就是原點推算用的框,
-`固定矩形`＝挑中的框每邊外推範本寬高的 50% (宣告了捲動軸的那一軸拉到影片兩端), 超出影片的
+`固定矩形`＝挑中的框每邊外推範本寬高的 50% (宣告了捲動軸的那一軸拉到影片兩端;
+`停點差`那一軸每邊至少 DRIFT_MARGIN; `遞補方向`那一端拉到影片邊緣), 超出影片的
 部分裁掉; 加上固定矩形再挑一次要挑到同一個, 再跑`拾取檢查`的唯一與矩形餘裕。判斷都只呼叫
 app 的 pickcheck 模組。矩形餘裕照規則必過 (裁過的那一側不算), 沒過＝工具的 bug。
 
@@ -53,23 +54,40 @@ def make_engine():
         return Engine()
 
 
-def fixed_rect(box, size, anchor, scroll=None):
-    """`固定矩形`: 挑中的框每邊外推框寬高的 50% (中心不變), 宣告捲動軸的那一軸拉到影片兩端,
+DRIFT_MARGIN = 80   # `停點差`: 沿宣告方向每邊至少外推這麼多 (流程尺度, 執行時跟著畫面倍率縮放)
+
+
+def fixed_rect(box, size, anchor, scroll=None, drift=None, toward=None):
+    """`固定矩形`: 挑中的框每邊外推框寬高的 50% (中心不變); 宣告捲動軸的那一軸拉到影片兩端,
+    `停點差`那一軸每邊至少 DRIFT_MARGIN, `遞補方向` (toward) 那一端拉到影片邊緣;
     超出影片的部分裁掉 → (相對座標基準點的 [x, y, w, h], 被裁掉的邊 set)."""
-    return expand_rect(box, (box[2], box[3]), size, anchor, scroll)
+    return expand_rect(box, (box[2], box[3]), size, anchor, scroll, drift, toward)
 
 
-def expand_rect(box, tpl, size, anchor, scroll=None):
-    """box 每邊外推 tpl (寬, 高) 的一半 (進位), 捲動軸那一軸拉到影片兩端, 超出影片的部分裁掉
+def expand_rect(box, tpl, size, anchor, scroll=None, drift=None, toward=None):
+    """box 每邊外推 tpl (寬, 高) 的一半 (進位; drift 那一軸至少 DRIFT_MARGIN), 捲動軸那一軸拉到
+    影片兩端, toward 那一端拉到影片邊緣, 超出影片的部分裁掉
     → (相對座標基準點的 [x, y, w, h], 被裁掉的邊 set)."""
     x, y, w, h = box
     W, H = size
     mx, my = math.ceil(tpl[0] / 2), math.ceil(tpl[1] / 2)
+    if drift == "vertical":
+        my = max(my, DRIFT_MARGIN)
+    elif drift == "horizontal":
+        mx = max(mx, DRIFT_MARGIN)
     x0, y0, x1, y1 = x - mx, y - my, x + w + mx, y + h + my
     if scroll == "vertical":
         y0, y1 = 0, H
     elif scroll == "horizontal":
         x0, x1 = 0, W
+    if toward == "left":
+        x0 = 0
+    elif toward == "right":
+        x1 = W
+    elif toward == "up":
+        y0 = 0
+    elif toward == "down":
+        y1 = H
     clipped = {side for side, out in (("left", x0 < 0), ("top", y0 < 0),
                                       ("right", x1 > W), ("bottom", y1 > H)) if out}
     x0, y0, x1, y1 = max(0, x0), max(0, y0), min(W, x1), min(H, y1)
@@ -213,7 +231,7 @@ class Checker:
             self.results[name]["reasons"].append(f"縮放餘裕：{w.text}")
 
     def locate_target(self, tgt, frame, origin, label, at=None, scroll=None,
-                      fallback_box=None, shift=(0, 0), shared=None):
+                      fallback_box=None, shift=(0, 0), shared=None, drift=None, toward=None):
         """照找圖目標在 frame 上挑一次, 算固定矩形 → (挑中的框, within).
 
         tgt: 找圖目標 (pick near 已是相對 origin 的值, 沒有 within); 挑不到時用
@@ -221,21 +239,22 @@ class Checker:
         shift: 這一步的`對齊位移`——origin、at 是執行時的位置, 減掉它才是影片裡的位置;
         在影格上挑中的框加回它才算固定矩形, 回傳的框也是執行時的位置。
         shared: 引用的`共用矩形`名——只挑框、回傳 within None; `resolve_shared` 再把框寫進
-        tgt (同一個 dict) 並跑檢查。
+        tgt (同一個 dict) 並跑檢查。drift / toward: `停點差`的軸 / `遞補方向` (見 fixed_rect)。
         """
         dx, dy = shift
         if origin is not None:
             origin = (origin[0] - dx, origin[1] - dy)
         if at is not None:
             at = [at[0] - dx, at[1] - dy]
-        box, within = self._locate(tgt, frame, origin, label, at, scroll, fallback_box,
-                                   (dx, dy), shared)
+        box, within = self._locate(tgt, frame, origin, label, at,
+                                   (scroll, drift, toward), fallback_box, (dx, dy), shared)
         if box is not None and (dx, dy) != (0, 0):
             box = (box[0] + dx, box[1] + dy, box[2], box[3])
         return box, within
 
-    def _locate(self, tgt, frame, origin, label, at, scroll, fallback_box, shift, shared):
-        """locate_target 在影片位置上的本體 (origin、at、回傳的框都是影片裡的位置)."""
+    def _locate(self, tgt, frame, origin, label, at, rule, fallback_box, shift, shared):
+        """locate_target 在影片位置上的本體 (origin、at、回傳的框都是影片裡的位置);
+        rule: (捲動軸, 停點差, 遞補方向)."""
         name = tgt["template"]
         res = self.results[name]
         size = self.sizes[name]
@@ -277,7 +296,7 @@ class Checker:
             return fallback_box, None
         # 固定矩形照執行時的位置 (框加位移) 算
         moved = (box[0] + shift[0], box[1] + shift[1], box[2], box[3])
-        within, clipped = fixed_rect(moved, self.size, self.anchor, scroll)
+        within, clipped = fixed_rect(moved, self.size, self.anchor, *rule)
         for w in pickcheck.rect_margin(dict(tgt, within=within), size):
             if not clipped:
                 raise ToolError(f"工具錯誤：{label} 的固定矩形沒過矩形餘裕：{w.text}")

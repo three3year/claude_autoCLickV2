@@ -72,6 +72,7 @@ class Measured:
     busy_unseen: list = field(default_factory=list)     # 勾了、之後沒看到 [(索引, 文字)]
     busy_unchecked: list = field(default_factory=list)  # 沒勾、之後看到了
     shared: dict = field(default_factory=dict)          # 共用矩形 {名: within}
+    loosened: list = field(default_factory=list)        # 停點差／遞補方向 [(索引, 鍵, 值)]
 
 
 def measure(p, checker, busy=None, shifts=None):
@@ -89,7 +90,8 @@ def measure(p, checker, busy=None, shifts=None):
         fb = p.templates[name]["box"] if name in p.templates else None
         return checker.locate_target(tgt, frame, origin, f"{label(s)}那一步",
                                      at=ev.get("at"), scroll=ev.get("scroll"),
-                                     fallback_box=fb, shift=shift(i), shared=ev.get("rect"))
+                                     fallback_box=fb, shift=shift(i), shared=ev.get("rect"),
+                                     drift=ev.get("drift"), toward=ev.get("shift"))
 
     def locate_confirm(i, s, ctgt, origin):
         frame = confirm_frame(p, i)
@@ -103,10 +105,11 @@ def measure(p, checker, busy=None, shifts=None):
 
     steps = origin_mod.derive(p.steps, p.evidence, p.templates, locate, locate_confirm)
     out = Measured(steps)
-    # 共用矩形的成員算已宣告 (成員不能自己寫捲動軸; 框涵蓋整個容器)
+    # 共用矩形的成員、宣告停點差或遞補方向的都算已宣告 (固定矩形的來源一步只能有一個)
     out.no_scroll = {i for i, s in enumerate(steps)
-                     if findtarget.is_find(s) and not (p.evidence[i] or {}).get("scroll")
-                     and not (p.evidence[i] or {}).get("rect")}
+                     if findtarget.is_find(s) and not any(
+                         (p.evidence[i] or {}).get(k) for k in plan_mod.RECT_KEYS)}
+    out.loosened = loosened(p)
     if busy is not None and "frame" in busy:   # 計畫的忙碌指示: 在證據影格上挑框
         frame = busy["frame"]
         tgt = {k: v for k, v in busy.items() if k not in ("frame", "rect")}
@@ -121,6 +124,12 @@ def measure(p, checker, busy=None, shifts=None):
         out.busy = dict(busy)
     out.shared = checker.resolve_shared(p.shared_rects)
     return out
+
+
+def loosened(p):
+    """宣告了`停點差`或`遞補方向`的找圖 → [(步驟索引, "drift"/"shift", 方向)] (依流程順序)."""
+    return [(i, k, ev[k]) for i, ev in enumerate(p.evidence) if ev
+            for k in ("drift", "shift") if ev.get(k)]
 
 
 def shared_members(p, steps):

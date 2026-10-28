@@ -191,6 +191,25 @@ def _busy_line(busy):
     return "沒有（補做只看固定的補做間隔；計畫不能勾忙碌檢查）"
 
 
+_DRIFT_ZH = {"vertical": "直向", "horizontal": "橫向"}
+_SHIFT_ZH = {"left": ("往左", "左"), "right": ("往右", "右"), "up": ("往上", "上"),
+             "down": ("往下", "下")}
+
+
+def loosened_text(kind, value):
+    """`停點差`／`遞補方向`的一句說明 (kind: "drift"/"shift")."""
+    if kind == "drift":
+        return (f"容許停點差（{_DRIFT_ZH[value]}每邊至少外推 {verify_mod.DRIFT_MARGIN} px，"
+                "吸收拖曳停點每次不同）")
+    way, end = _SHIFT_ZH[value]
+    return f"遞補方向{way}（框的{end}端拉到影片邊緣）"
+
+
+def loosened_lines(steps, items):
+    """[(索引, 鍵, 值)] → 每步一行「<內容指稱>：<說明>」."""
+    return [f"{labels.label(steps[i])}：{loosened_text(k, v)}" for i, k, v in items]
+
+
 def _bullets(items, empty="無。"):
     return [f"- {x}" for x in items] or [empty]
 
@@ -291,9 +310,10 @@ def _retake_rows(res, names, used_in=None, sec_map=None):
     return rows
 
 
-_SCROLL_HELP = ("這些找圖步驟所在的段落有拖曳，但計畫沒宣告捲動軸：固定矩形只在影片那一次的位置"
-                "外推 50%。如果它們其實在捲動清單裡（內容每次會變），請在 app 把框沿捲動方向拉長，"
-                "或在計畫補 scroll 重新組裝。")
+_SCROLL_HELP = ("這些找圖步驟所在的段落有拖曳，但計畫沒宣告捲動軸或停點差：固定矩形只在影片那一次的"
+                "位置外推 50%。如果它們其實在捲動清單裡（內容每次會變），請在 app 把框沿捲動方向拉長，"
+                "或在計畫補 scroll 重新組裝；在被拖過的清單裡、內容不變只是停點每次不同，補 drift"
+                "（停點差）。")
 
 
 def _confirm_block(scroll, unseen, unchecked):
@@ -325,7 +345,9 @@ def _overview(res, plan, secs, by_sec, used_in, sec_map, homes):
     else:
         lines.append("- 自我驗證：每張範本都用引擎（粗篩＋深度驗證）對影格重跑過；每個找圖目標都有"
                      "固定矩形（挑中的框每邊外推 50%"
-                     + ("；共用矩形的成員用容器框算，見下面「共用矩形」" if homes else "") + "）")
+                     + ("；共用矩形的成員用容器框算，見下面「共用矩形」" if homes else "")
+                     + ("；容許停點差、用了遞補方向的另外放寬，見各段報告「怎麼建的」"
+                        if res.get("loosened") else "") + "）")
     if res["unused"]:
         lines.append(f"- 沒有步驟引用、沒放進流程的範本：{'、'.join(res['unused'])}")
     lines += ["", "## 各段報告（依流程順序）", ""]
@@ -369,6 +391,11 @@ def _section_file(res, sec, steps, mine, plan):
         f = res["frames"].get(i)
         if f is not None:
             lines.append(f"- {describe(steps[i])}：第 {f} 幀")
+    mine_loose = [x for x in res.get("loosened") or [] if sec.start <= x[0] < sec.end]
+    if mine_loose:
+        lines += ["", "固定矩形另外放寬的找圖（落在被拖過的清單或只往一邊遞補的一排裡，影片轉流程判斷的，"
+                  "請確認）：", ""]
+        lines += _bullets(loosened_lines(steps, mine_loose))
     if mine["shared"]:
         lines += ["", SHARED, ""]
         if any(full for full, _ in mine["shared"]):   # 只有指過去的那幾行就不重複說明
@@ -399,8 +426,29 @@ def write(folder, files):
 
 # ================= 補充: 更新插入處那份與總覽 =================
 
+_NONE = re.compile(r"無(。|——|$)")
+EXTRA = "### 補充"
+
+
+def _drop_empty(block):
+    """拿掉寫「無」的那幾行 (「無。」「無——…」) 與因此變空的 ### 小節, 連續空行併成一行."""
+    block = [r for r in block if not _NONE.match(r.strip())]
+    out = []
+    for k, r in enumerate(block):
+        if r.startswith("### "):
+            rest = block[k + 1:]
+            nxt = next((j for j, x in enumerate(rest) if x.startswith("### ")), len(rest))
+            if not any(x.strip() for x in rest[:nxt]):
+                continue
+        if not r.strip() and out and not out[-1].strip():
+            continue
+        out.append(r)
+    return out
+
+
 def add_under(text, heading, lines):
-    """在 `heading` 這一節的尾端加幾行 (節裡只有「無。」時換掉它); 沒有這節就加在檔尾."""
+    """在 `heading` 這一節的尾端加幾行 (拿掉原本寫「無」的那行與空的小節; 節裡還有別的 ### 小節時
+    加在「### 補充」底下, 不讓新條目看起來屬於最後一個小節); 沒有這節就加在檔尾."""
     rows = text.split("\n")
     try:
         h = rows.index(heading)
@@ -409,15 +457,35 @@ def add_under(text, heading, lines):
         return body + "\n\n" + heading + "\n\n" + "\n".join(lines) + "\n"
     end = next((j for j in range(h + 1, len(rows)) if re.match(r"#{1,2} ", rows[j])),
                len(rows))
-    block = rows[h + 1:end]
-    if [r for r in block if r.strip()] in (["無。"], ["無"]):
-        block = [""]
+    block = _drop_empty(rows[h + 1:end])
     while block and not block[-1].strip():
         block.pop()
-    if not block:
-        block = [""]
-    block += lines + [""]
+    subs = [r for r in block if r.startswith("### ")]
+    if subs and subs[-1] != EXTRA:
+        block += ["", EXTRA]
+    # 接在既有條目後面不空行 (同一個清單); 接在小節標題或說明文字後面空一行
+    gap = [""] if block and not block[-1].startswith("- ") else []
+    block = (block or [""]) + gap + lines + [""]
     return "\n".join(rows[:h + 1] + block + rows[end:])
+
+
+def insert_link(text, heading, line, after=None, before=None):
+    """在 `heading` 清單裡照流程順序放一行連結: 放在連到 after 那一行之後, 不然 before 那一行之前,
+    都找不到才接在最後 (after / before: 前後段落的檔名)."""
+    rows = text.split("\n")
+    try:
+        h = rows.index(heading)
+    except ValueError:
+        return add_under(text, heading, [line])
+    end = next((j for j in range(h + 1, len(rows)) if re.match(r"#{1,2} ", rows[j])),
+               len(rows))
+    for target, offset in ((after, 1), (before, 0)):
+        if target is None:
+            continue
+        at = next((j for j in range(h + 1, end) if f"]({target})" in rows[j]), None)
+        if at is not None:
+            return "\n".join(rows[:at + offset] + [line] + rows[at + offset:])
+    return add_under(text, heading, [line])
 
 
 def replace_under(text, heading, lines):
@@ -443,35 +511,74 @@ def _read(path):
 _MARKERS = ("repeat_end", "branch_or", "branch_end")
 
 
+def segment_section(folder, old_steps, steps, seg):
+    """插入段寫進哪一份段落報告 → (Section (名稱＝檔名), 是否新開一份).
+
+    插入段併進既有的頂層段落時用那段**插入前**的檔名 (插入不會讓別段的序號位移而寫錯檔);
+    插入段自成一個頂層區段時開一份新的 (名字避開已有的檔)。"""
+    d = os.path.join(folder, DIR)
+    new_sec = section_of(sections(steps), seg[0])
+    if new_sec.start == seg[0] and new_sec.end == seg[1]:
+        taken = [fn[:-3] for fn in (os.listdir(d) if os.path.isdir(d) else [])
+                 if fn.endswith(".md")] + [x.name for x in sections(old_steps)]
+        return Section(flowfile.free_name(new_sec.name, taken), new_sec.kind,
+                       new_sec.start, new_sec.end), True
+    # 插入點前一步 (插入前後索引相同); 插在最前面就用原本的第一步
+    old_sec = section_of(sections(old_steps), max(seg[0] - 1, 0))
+    return Section(old_sec.name, new_sec.kind, new_sec.start, new_sec.end), False
+
+
+def file_of(old_steps, seg, sec):
+    """插入後第 i 步 (平面) 寫在哪一份段落報告 (檔名): 插入處那份是 sec, 其他照插入前的段落."""
+    old_secs = sections(old_steps)
+    n = seg[1] - seg[0]
+
+    def where(i):
+        if sec.start <= i < sec.end:
+            return sec.file
+        return section_of(old_secs, i if i < seg[0] else i - n).file
+    return where
+
+
+def template_uses(old_steps, steps, seg, sec, name):
+    """插入後的流程裡引用範本 name 的步驟 (找圖目標或確認圖) → (步驟數, [段落報告檔名, 依流程順序])."""
+    where = file_of(old_steps, seg, sec)
+    idx = [i for i, s in enumerate(steps)
+           if (findtarget.is_find(s) and findtarget.template(s) == name)
+           or (findtarget.uses_confirm_target(s) and findtarget.confirm_template(s) == name)]
+    return len(idx), list(dict.fromkeys(where(i) for i in idx))
+
+
+def file_link(fn):
+    return f"[{fn[:-3]}]({fn})"
+
+
+def join_steps(texts):
+    """步驟描述接成一句 (「；」分隔; 區段開頭「分岔：」「重複 N 次：」後面不再加分隔號)."""
+    out = ""
+    for t in texts:
+        if out and not out.endswith("："):
+            out += "；"
+        out += t
+    return out
+
+
 def supplement(folder, old_steps, steps, seg, note, retake, confirm, shared=()):
     """補充插入後更新 `交付報告/`: 插入處那份與總覽 (沒有就建一份最小的).
 
     old_steps / steps: 插入前後的整份步驟; seg: 插入段在插入後的平面索引 [start, end);
     note: 這次補充的一行說明; retake: [(範本, 原因)]; confirm: [(標題, 文字)];
     shared: [(名, 共用矩形說明 (見 `shared_line`))]。
-    插入處那份: 插入段併進既有的頂層段落時用那段**插入前**的檔名 (插入不會讓別段的序號位移
-    而寫錯檔); 插入段自成一個頂層區段時開一份新的 (名字避開已有的檔)。那份的「這段做什麼」
-    照插入後的流程重寫, 說明寫進「補充」。回傳 {檔名: 新文字}——呼叫端負責寫檔。
+    插入處那份見 `segment_section`; 那份的「這段做什麼」照插入後的流程重寫, 說明寫進「補充」;
+    新開的那份照流程順序插進總覽的清單。回傳 {檔名: 新文字}——呼叫端負責寫檔。
     """
     d = os.path.join(folder, DIR)
-    secs = sections(steps)
-    new_sec = section_of(secs, seg[0])
-    if new_sec.start == seg[0] and new_sec.end == seg[1]:
-        taken = [fn[:-3] for fn in (os.listdir(d) if os.path.isdir(d) else [])
-                 if fn.endswith(".md")] + [x.name for x in sections(old_steps)]
-        sec = Section(flowfile.free_name(new_sec.name, taken), new_sec.kind,
-                      new_sec.start, new_sec.end)
-        old = None
-    else:
-        old_secs = sections(old_steps)
-        # 插入點前一步 (插入前後索引相同); 插在最前面就用原本的第一步
-        old_sec = section_of(old_secs, max(seg[0] - 1, 0))
-        sec = Section(old_sec.name, new_sec.kind, new_sec.start, new_sec.end)
-        old = _read(os.path.join(d, sec.file))
+    sec, fresh = segment_section(folder, old_steps, steps, seg)
+    old = None if fresh else _read(os.path.join(d, sec.file))
     if old is None:
         old = f"# {sec.name}\n\n[← 總覽]({OVERVIEW})\n\n## 這段做什麼\n"
     text = replace_under(old, "## 這段做什麼", outline(steps, sec.start, sec.end))
-    seg_text = "；".join(describe(s) for s in steps[seg[0]:seg[1]] if s["type"] not in _MARKERS)
+    seg_text = join_steps(describe(s) for s in steps[seg[0]:seg[1]] if s["type"] not in _MARKERS)
     before = next((describe(steps[j]) for j in range(seg[0] - 1, -1, -1)
                    if steps[j]["type"] not in _MARKERS), "流程開頭")
     text = add_under(text, "## 補充", [f"- 在「{before}」之後插入：{seg_text}。{note}"])
@@ -485,12 +592,17 @@ def supplement(folder, old_steps, steps, seg, note, retake, confirm, shared=()):
         text = add_under(text, SHARED, [f"- {shared_line(n_, info)}" for n_, info in shared])
     files = {sec.file: text}
     ov = _read(os.path.join(d, OVERVIEW))
+    listed = "## 各段報告（依流程順序）"
     if ov is None:
         ov = (f"# 交付報告：{os.path.basename(folder)}\n\n總覽；每個頂層區段另有一份。\n\n"
-              "## 各段報告（依流程順序）\n\n"
-              + "\n".join(f"- {_link(s)}" for s in secs if s is not new_sec) + "\n")
+              f"{listed}\n\n"
+              + "\n".join(f"- {_link(s)}" for s in sections(steps) if s.start != sec.start)
+              + "\n")
     if f"]({sec.file})" not in ov:
-        ov = add_under(ov, "## 各段報告（依流程順序）", [f"- {_link(sec)}"])
+        where = file_of(old_steps, seg, sec)
+        ov = insert_link(ov, listed, f"- {_link(sec)}",
+                         after=where(sec.start - 1) if sec.start > 0 else None,
+                         before=where(sec.end) if sec.end < len(steps) else None)
     ov = add_under(ov, "## 補充", [f"- {_link(sec)}：插入 {seg_text}。{note}"])
     if retake:
         ov = add_under(ov, "## 待重拍", [f"- {n_}（{_link(sec)}）：{'；'.join(why)}"

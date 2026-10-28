@@ -7,6 +7,7 @@ __pycache__/
 autoclick.log
 autoclick.log.1
 # 流程存放區 (使用者自己的流程資料夾: 範本圖、快取、個人調整; ADR 0017)
+# 2026-10-22 四份流程一次性快照已進 git; 之後新增的檔案照樣不進 (已追蹤檔案的改動仍會顯示)
 /flows/
 # 原始碼執行的本機狀態資料夾 (state.json、autoclick.log、未存檔快取; apppaths)
 .local/

@@ -5,6 +5,11 @@ Status: accepted（2026-10-18）。取代 project-cleanup 票 09
 `%USERPROFILE%\AutoClick\`」那一條；票 09 其餘佈局（打包版資料夾裡沒有使用者資料、本機
 狀態與日誌的位置）不變。ADR 0015 只說「開檔選任何位置的流程資料夾」，不受影響。
 
+**2026-10-22 補充**：四份日常流程（早/晚 × 繁中/簡中）以一次性快照進 git 當備份（`flow.yaml`、
+`templates/`、`交付報告/`，不含可重建的 `.cache/`）。決策 1 不變：`.gitignore` 仍整個排除 `/flows/`，
+之後新增的檔案（新範本圖、新流程）不會進 git；已追蹤檔案的改動會出現在 `git status`，要不要再 commit
+由使用者決定，不自動跟。
+
 ## 背景
 
 `流程存放區`（`apppaths.flows_root()`，詞彙見 `app/GLOSSARY.md`）是開檔、新流程第一次存檔的
@@ -28,7 +33,7 @@ Status: accepted（2026-10-18）。取代 project-cleanup 票 09
 - 記號用專案原始檔而不是 `.git`：別的 git repo 不會誤認，沒有 `.git` 的專案複本也認得。
   代價是改名或搬走 `app/apppaths.py` 時要一起改記號。
 - 流程在 repo 裡卻不進版控：看起來像「忘了 commit」，其實是刻意的（別把 `flows/` 從
-  `.gitignore` 拿掉）。流程的備份不靠 git。
+  `.gitignore` 拿掉）。流程的備份不靠 git；2026-10-22 的一次性快照是例外，見上。
 - 重新打包整個換掉 `dist\` 不會碰到流程，因為流程不在 dist 裡。
 
 ## 替代方案

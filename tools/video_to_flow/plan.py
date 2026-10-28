@@ -7,8 +7,8 @@
 
 - 位置是**影片像素的畫面位置**: `click` 的值、`drag` 的值與 `to`、找圖的 `at`、
   `pick: {near: [x, y]}`; 偏移由工具依`原點`規則算, 不寫 `offset`。
-- 影片證據: 步驟的 `frame`、找圖的 `scroll` (捲動軸)、`confirm: {appear, frame}`;
-  `within` 不寫 (`固定矩形`由工具從影格上挑中的框算)。
+- 影片證據: 步驟的 `frame`、找圖的 `scroll` (捲動軸)、`drift` (`停點差`)、`shift`
+  (`遞補方向`)、`confirm: {appear, frame}`; `within` 不寫 (`固定矩形`由工具從影格上挑中的框算)。
 - `共用矩形`: 最外層 `shared_rects` 宣告, 找圖的 `rect`、`confirm: {appear, rect}`、
   `busy: {rect}` 引用 (組裝時展開成各成員的 `within`; flow.yaml 不記組別)。
 
@@ -34,6 +34,11 @@ _TOP = {ASSEMBLE: {"video", "name", "out", "templates", "steps", "calibration",
                  "scale_image", "align", "shared_rects"}}
 TEMPLATE_FIELDS = {"frame", "box", "present", "absent", "clean"}
 SCROLL = ("vertical", "horizontal")
+DRIFT = ("vertical", "horizontal")
+SHIFT = ("left", "right", "up", "down")
+# 找圖的固定矩形從哪來, 一步只能寫一個 (報錯時照這個順序指名)
+RECT_KEYS = ("rect", "scroll", "drift", "shift")
+_RECT_WHAT = {"scroll": "scroll（捲動軸）", "drift": "drift（停點差）", "shift": "shift（遞補方向）"}
 
 _RETIRED_TOP = {
     "busyTarget": "改寫 busy（{template, color, pick, frame}）",
@@ -80,8 +85,8 @@ class Plan:
     video: str
     templates: dict
     steps: list                 # 記憶體的完整步驟 (平面), 位置是影片像素
-    evidence: list              # 與 steps 同索引: {frame, at, scroll, rect, confirm_frame,
-                                #                   confirm_rect} 或 None
+    evidence: list              # 與 steps 同索引: {frame, at, scroll, rect, drift, shift,
+                                #                   confirm_frame, confirm_rect} 或 None
     report: dict
     name: str = ""
     out: str | None = None
@@ -181,6 +186,7 @@ def load(plan, mode=ASSEMBLE):
         _shared_refs(p)
         _references(p, set(templates))
         precheck(p.steps, p.busy)
+        check_drift(p)
     else:
         _insert_point(p, raw)
         if raw.get("scale_image") is not None:
@@ -248,8 +254,8 @@ def _strip(no, head, item):
     """拿掉計畫專用的影片證據欄位; 回傳 (證據, 給 flowfile 驗證的一步)."""
     where = f"步驟 {no}"
     item = dict(item)
-    ev = {"frame": None, "at": None, "scroll": None, "rect": None, "confirm_frame": None,
-          "confirm_rect": None}
+    ev = {"frame": None, "at": None, "scroll": None, "rect": None, "drift": None,
+          "shift": None, "confirm_frame": None, "confirm_rect": None}
     if "frame" in item:
         ev["frame"] = _frame(where + " frame", item.pop("frame"))
     if "at" in item:
@@ -257,19 +263,33 @@ def _strip(no, head, item):
             _err(where, "at 只用在找圖（點擊或原點的位置）；座標點擊的位置寫在 click 的值、"
                  "拖曳寫在 drag 與 to")
         ev["at"] = _xy(where + " at", item.pop("at"))
+    if "rect" in item and head not in findtarget.FIND_TYPES:
+        _err(where, "rect（共用矩形）只用在找圖步驟；確認圖寫在 confirm: {appear, rect}、"
+             "忙碌指示寫在 busy 裡；gone 與 next 沿用別步的目標，不另寫")
+    for k in ("scroll", "drift", "shift"):
+        if k in item and head not in findtarget.FIND_TYPES:
+            _err(where, f"{_RECT_WHAT[k]}只用在找圖步驟")
+    both = [k for k in RECT_KEYS if k in item]
+    if len(both) > 1:
+        a, b = both[:2]
+        _err(where, f"{a} 跟 {b} 不能同寫：固定矩形的來源一步只能有一個"
+             + ("（捲動軸寫在共用矩形的宣告裡）" if a == "rect" and b == "scroll" else ""))
     if "scroll" in item:
-        if head not in findtarget.FIND_TYPES:
-            _err(where, "scroll（捲動軸）只用在找圖步驟")
         if item["scroll"] not in SCROLL:
             _err(where, f"scroll 只能是 vertical（直向）或 horizontal（橫向），"
                  f"收到 {item['scroll']!r}")
         ev["scroll"] = item.pop("scroll")
+    if "drift" in item:
+        if item["drift"] not in DRIFT:
+            _err(where, f"drift 只能是 vertical（直向）或 horizontal（橫向）：清單被拖曳的方向，"
+                 f"收到 {item['drift']!r}")
+        ev["drift"] = item.pop("drift")
+    if "shift" in item:
+        if item["shift"] not in SHIFT:
+            _err(where, f"shift 只能是 left、right、up、down（項目往哪一端遞補），"
+                 f"收到 {item['shift']!r}")
+        ev["shift"] = item.pop("shift")
     if "rect" in item:
-        if head not in findtarget.FIND_TYPES:
-            _err(where, "rect（共用矩形）只用在找圖步驟；確認圖寫在 confirm: {appear, rect}、"
-                 "忙碌指示寫在 busy 裡；gone 與 next 沿用別步的目標，不另寫")
-        if ev["scroll"] is not None:
-            _err(where, "rect 跟 scroll 不能同寫：捲動軸寫在共用矩形的宣告裡")
         ev["rect"] = _rect_name(where + " rect", item.pop("rect"))
     c = item.get("confirm")
     if isinstance(c, dict):
@@ -382,6 +402,17 @@ def precheck(steps, busy):
         errs.append(f"步驟 {bad[0] + 1}：勾了 busy_check，但沒有忙碌指示（busy）")
     if errs:
         raise ToolError("轉換計畫有誤：" + "；".join(errs))
+
+
+def check_drift(p, before=()):
+    """宣告`停點差`的找圖, 結果流程裡它之前要有拖曳 (before: 補充時插入點前的既有步驟)."""
+    dragged = any(s["type"] == "drag" for s in before)
+    for i, (s, ev) in enumerate(zip(p.steps, p.evidence)):
+        if ev and ev.get("drift") and not dragged:
+            _err(f"步驟 {i + 1}", "宣告了 drift（停點差），但流程裡它之前沒有拖曳：停點差只發生在"
+                 "被拖過的清單裡——確認這一步真的在拖過的清單裡，不是就拿掉 drift")
+        if s["type"] == "drag":
+            dragged = True
 
 
 def check_references(p, existing=()):
