@@ -45,7 +45,7 @@ Status: accepted(2026-08-15)
 ## 後續影響
 
 - repo 從單一 context 變成兩個(引擎 / 自動化應用):app 落地時把
-  autoClick 的 CONTEXT.md 一併搬入 `app/`,根目錄建 `CONTEXT-MAP.md`;
+  autoClick 的 GLOSSARY.md 一併搬入 `app/`,根目錄建 `GLOSSARY-MAP.md`;
   兩邊字彙需對齊(engine「模板」vs app「範本」、engine「搜尋區域」
   (查詢輸入的裁切影像)vs app「搜尋範圍」(使用者設定的螢幕矩形))。
 - 驗收:非並行舊測試全數移植且綠、引擎 bench 38/38 維持不增、

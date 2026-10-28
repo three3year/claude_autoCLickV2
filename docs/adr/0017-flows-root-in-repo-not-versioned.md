@@ -7,7 +7,7 @@ Status: accepted（2026-10-18）。取代 project-cleanup 票 09
 
 ## 背景
 
-`流程存放區`（`apppaths.flows_root()`，詞彙見 `app/CONTEXT.md`）是開檔、新流程第一次存檔的
+`流程存放區`（`apppaths.flows_root()`，詞彙見 `app/GLOSSARY.md`）是開檔、新流程第一次存檔的
 對話框起點，也是影片轉流程沒指定輸出位置時的預設。票 09 把它放在使用者資料夾底下的
 `AutoClick`，跟專案分開。使用者想把日常在用的流程集中在專案裡（開專案就看得到），
 但流程含範本圖、快取與個人調整，屬於使用資料，不該上傳到 git。

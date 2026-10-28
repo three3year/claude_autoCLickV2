@@ -1,6 +1,6 @@
 """`校準`模組純邏輯: 流程層級的校準資料、倍率貼齊、量測 (ADR 0009).
 
-詞彙見 app/CONTEXT.md「尺度與畫面倍率」; 量測照 harness 的假 query 直接餵。
+詞彙見 app/GLOSSARY.md「尺度與畫面倍率」; 量測照 harness 的假 query 直接餵。
 """
 import os
 import sys

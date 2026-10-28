@@ -2,7 +2,7 @@
 
 不是 app 功能, 也不進打包版: 由 Claude 依專案 skill `video-measure` (經 video-to-flow、
 edit-flow 兩個入口) 呼叫。
-對外是掃描、組裝、補充三個入口 (外加給掃描用的學游標樣本), 中間由 Claude 判斷 (詞彙見 app/CONTEXT.md「影片轉流程」)::
+對外是掃描、組裝、補充三個入口 (外加給掃描用的學游標樣本), 中間由 Claude 判斷 (詞彙見 app/GLOSSARY.md「影片轉流程」)::
 
     scan(video, out_dir, sample=None, frames=())
         示範影片 → 候選點擊清單 (candidates.json) + 每個候選前後數幀的縮圖

@@ -1,7 +1,7 @@
 # app/ — AutoClick 自動化應用層
 
 Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全走主體偵測引擎（`src/subject_detection/`）。
-與使用者對話一律用繁體中文。詞彙以 [app/CONTEXT.md](CONTEXT.md) 為準（範本、流程尺度、座標基準點、
+與使用者對話一律用繁體中文。詞彙以 [app/GLOSSARY.md](GLOSSARY.md) 為準（範本、流程尺度、座標基準點、
 清場、辨識中…），flow.yaml 的欄位與執行語意正本是 [docs/flow-format.md](../docs/flow-format.md)。
 
 ## 架構地圖

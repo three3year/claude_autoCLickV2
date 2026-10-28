@@ -1,7 +1,7 @@
 # flow.yaml 格式規範
 
 寫流程（手改 `flow.yaml`、寫影片轉流程的計畫）時讀這一份就夠，不必讀 app 的開發文件。
-這是 flow.yaml 唯一的正本：欄位、執行語意、常見寫法。詞彙的定義在 [`app/CONTEXT.md`](../app/CONTEXT.md)，
+這是 flow.yaml 唯一的正本：欄位、執行語意、常見寫法。詞彙的定義在 [`app/GLOSSARY.md`](../app/GLOSSARY.md)，
 這裡用到的`找圖目標`、`原點`、`座標基準點`等詞照它的意思，不另外定義。
 
 一份流程＝一個資料夾：

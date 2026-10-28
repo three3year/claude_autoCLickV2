@@ -46,7 +46,7 @@ def cal(pair=CAL_PAIR, baseline=CAL_BASELINE):
     return {"pair": list(pair), "baseline": float(baseline)}
 
 
-# ---------- 步驟建構器 (鍵名與單位跟 flow.yaml 相同; 見 app/CONTEXT.md) ----------
+# ---------- 步驟建構器 (鍵名與單位跟 flow.yaml 相同; 見 app/GLOSSARY.md) ----------
 # 記憶體裡的步驟一律是完整步驟 (讀檔與新增步驟時照「沒寫＝」表補齊), 建構器也一樣
 
 _full = flowdefaults.complete

@@ -37,8 +37,8 @@ import flowfile
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 # docs/agents/ 既有三份 (issue-tracker、triage-labels、domain) 是 skill 的協定檔, 不對照
 _AGENT_DOCS_EXEMPT = {"issue-tracker.md", "triage-labels.md", "domain.md"}
-DOCS = ["README.md", "CLAUDE.md", "CONTEXT.md", "CONTEXT-MAP.md",
-        "app/CLAUDE.md", "app/CONTEXT.md",
+DOCS = ["README.md", "CLAUDE.md", "GLOSSARY.md", "GLOSSARY-MAP.md",
+        "app/CLAUDE.md", "app/GLOSSARY.md",
         *sorted("docs/agents/" + os.path.basename(p)
                 for p in glob.glob(os.path.join(ROOT, "docs", "agents", "*.md"))
                 if os.path.basename(p) not in _AGENT_DOCS_EXEMPT)]

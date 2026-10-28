@@ -33,7 +33,7 @@ Case folder contract (adding a case = dropping files, no code change):
 Folders starting with "_" are assets, not cases; registration artifacts are
 cached under <benchmark>/_registered/. A "miss" is a present-case reported
 not-found; a wrong position or a hit on an absent-case are both "false_alarm"
-(per CONTEXT.md both are equally unacceptable).
+(per GLOSSARY.md both are equally unacceptable).
 
 CLI: python -m subject_detection.bench [benchmark_dir] [-v]
      (default: the repo's benchmark/; exit status 1 when any case that is not

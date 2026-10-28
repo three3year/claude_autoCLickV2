@@ -1,7 +1,7 @@
 """引擎生命週期: 狀態 (載入中/就緒/失敗) + `範本清單`綁定 + 查詢/預載接縫.
 
 「視窗可操作」與「`引擎就緒`」是兩個時間點 (ADR 0004; 詞彙見
-app/CONTEXT.md「啟動與就緒」)。App 與 runner 都只透過這個介面使用
+app/GLOSSARY.md「啟動與就緒」)。App 與 runner 都只透過這個介面使用
 主體偵測引擎——它是 runner 偵測接縫 (query) 的超集, 測試假件
 (tests/harness.py 的 Vision) 與它同形狀, 是全 repo 唯一的假件點。
 

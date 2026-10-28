@@ -2,7 +2,7 @@
 
     python tools/flow_check <流程資料夾> [--normalize]
 
-只呼叫 app 既有的東西 (詞彙見 app/CONTEXT.md, 格式見 docs/flow-format.md):
+只呼叫 app 既有的東西 (詞彙見 app/GLOSSARY.md, 格式見 docs/flow-format.md):
 
 1. 讀檔 `flowfile.read_flow`: 鍵、型別、`format`;
 2. `automation.flowcheck.flow_errors`: 校準對、區段結構、相對座標前的原點、

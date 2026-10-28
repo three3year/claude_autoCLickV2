@@ -2,8 +2,8 @@
 
 兩個部分、一個 repo:**AutoClick**(Windows 桌面按鍵精靈:找圖點擊、步驟序列自動執行,`app/`)
 與它用來找圖的**主體偵測引擎**(遊戲無關,`src/subject_detection/`)。上半給要跑 AutoClick 的人,
-下半給要改引擎的人。詞彙:引擎看 [CONTEXT.md](CONTEXT.md)、應用看 [app/CONTEXT.md](app/CONTEXT.md),
-兩邊對照見 [CONTEXT-MAP.md](CONTEXT-MAP.md)。
+下半給要改引擎的人。詞彙:引擎看 [GLOSSARY.md](GLOSSARY.md)、應用看 [app/GLOSSARY.md](app/GLOSSARY.md),
+兩邊對照見 [GLOSSARY-MAP.md](GLOSSARY-MAP.md)。
 
 ## AutoClick
 

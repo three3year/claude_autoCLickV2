@@ -1,4 +1,4 @@
-"""app 用到的固定位置 (詞彙見 app/CONTEXT.md「存檔與快取」; 佈局見 ADR 0015、0017 與
+"""app 用到的固定位置 (詞彙見 app/GLOSSARY.md「存檔與快取」; 佈局見 ADR 0015、0017 與
 .scratch/project-cleanup/issues/09-packaged-layout-and-flow-location.md).
 
     流程存放區                         流程資料夾的預設位置 (開檔與新流程第一次存檔的對話框從這裡開)
