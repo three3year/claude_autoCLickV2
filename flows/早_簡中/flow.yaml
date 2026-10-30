@@ -37,7 +37,7 @@ template_pos:
   确定: [1202, 686]
   签到关闭: [1442, 141]
   线索: [295, 838]
-  线索交流结果: [668, 154]
+  线索交流结果: [38, 231]
   获得物资: [827, 141]
   解锁线索: [869, 771]
   订单交付: [400, 861]
@@ -99,7 +99,7 @@ steps:
   - {find_click: 线索, within: [243, 781, 120, 114], timeout: 15}    # 49
   - {wait: 1}    # 50
   - branch:    # 51
-      - if: {find: 线索交流结果, within: [210, 91, 840, 150], timeout: 1.5, on_fail: skip}    # 52
+      - if: {find: 线索交流结果, within: [-20, 146, 116, 170], timeout: 1.5, on_fail: skip}    # 52
         then:
           - {find_click: 返回, within: [-28, -9, 117, 132], on_fail: break}    # 53
           - {wait: 0.8}    # 54
