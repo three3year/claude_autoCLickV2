@@ -1,4 +1,3 @@
-"""影片尺度就是流程尺度 (ADR 0009)."""
 import os
 
 import cv2

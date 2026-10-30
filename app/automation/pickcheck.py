@@ -45,7 +45,6 @@ class PickWarning:
 
 
 def margin_px(size):
-    """範本一邊的長度 → 那一邊兩側各至少要多的像素."""
     return math.ceil(round(size * RECT_MARGIN, 6))
 
 
@@ -146,7 +145,6 @@ def scale_margin(detector, screen, screen_origin, tgt, anchor=None, scale=1.0,
 
 
 def exempt_from_unique(tgt):
-    """設了「第 N 個」「最接近」這類挑選規則的找圖目標已宣告會有多個匹配, 不查唯一."""
     return findtarget.pick_rule(tgt)[0] in ("top", "left", "near")
 
 

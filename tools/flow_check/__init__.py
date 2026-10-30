@@ -55,7 +55,6 @@ def check(folder):
 
 
 def normalize(folder):
-    """檢查; 沒有錯誤時經 app 的寫檔排版把 flow.yaml 重寫 (內容不變的話不寫)."""
     res = check(folder)
     if not res.ok:
         return res
@@ -70,7 +69,6 @@ def normalize(folder):
 
 
 def report(res):
-    """給人看的結果文字 (一行一則)."""
     lines = []
     if res.errors:
         lines.append(f"錯誤（{len(res.errors)}）：")

@@ -51,7 +51,6 @@ def has_wait(step):
 
 
 def defaults(step):
-    """這一步的「沒寫＝」值 (依種類, 有等待才含 WAIT)."""
     d = dict(STEP.get(step.get("type"), {}))
     if has_wait(step):
         d.update(WAIT)

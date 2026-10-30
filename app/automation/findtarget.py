@@ -154,13 +154,6 @@ def needs_anchor(tgt):
 
 
 def limit_rect(tgt, region, origin, scale=1.0, anchor=None):
-    """`限定範圍`的螢幕矩形 (x, y, w, h), 已裁到搜尋範圍 region 內.
-
-    None＝不限定 (整個搜尋範圍); 裁完沒有交集時寬高為 0。`固定矩形`＝`座標基準點` +
-    偏移×`畫面倍率` (ADR 0012), 落在搜尋範圍外的部分照裁 (範圍框太小時被裁掉那塊裡的
-    圖就找不到)。設定壞掉 (欄位不是整數、寬高不正) 時寬高為 0——不找, 絕不退成整個
-    範圍。呼叫端保證固定矩形時 anchor 不是 None。
-    """
     lim = tgt.get("within")
     rx, ry, rw, rh = region
     if lim is None:

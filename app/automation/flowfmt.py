@@ -49,11 +49,6 @@ def rect_from_screen(box, anchor, k=1.0):
 
 
 def remap_flow(data, rect_fn):
-    """整份流程資料裡相對座標基準點的矩形逐個重算 (就地); 回傳改動筆數.
-
-    rect_fn([x, y, w, h]) → 新矩形: `固定矩形` (步驟的找圖目標、確認圖、流程層級的
-    忙碌指示)。相對座標與指定點相對原點, 不動。
-    """
     changed = 0
     steps = data.get("steps") or []
     targets = [s.get(k) for s in steps for k in ("target", "confirm_target")]

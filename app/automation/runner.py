@@ -49,10 +49,6 @@ POINTER_TYPES = findtarget.POINTER_TYPES
 
 
 def effect_confirm(step):
-    """步驟實際生效的`生效確認`方式: none / gone / appear / next.
-
-    找圖只有找到就點 (find_click) 時有意義; 座標點擊與拖曳一律可設; 其他步驟沒有。
-    """
     if step.get("type") not in findtarget.CONFIRMABLE:
         return "none"
     return step["confirm"]
@@ -137,12 +133,6 @@ GATE_ZH = findtarget.GATE_ZH
 
 
 class GateBest:
-    """輪詢期間各關的最高分 (執行紀錄「哪一關沒過」用).
-
-    每輪沒挑到時 `see(f)` 記下那一關的分數; 比色那一關記比色分數與它的圖形分數
-    (本尊比色沒過時使用者要同時看到兩個數字才知道該調範本還是比色)。
-    """
-
     def __init__(self):
         self.best = {}
 
@@ -161,7 +151,6 @@ class GateBest:
             self.best[gate] = (score, graphic)
 
     def text(self, f):
-        """沒挑到的那一關與該關分數的一句話 (沒有＝空字串)."""
         if f is None:
             return ""
         failed = f.failed
@@ -182,11 +171,6 @@ class GateBest:
 
 
 def gate_fields(f):
-    """檔案紀錄的「最高分」與「沒過的那一關」兩欄 (找圖與生效確認共用的欄位名).
-
-    沒挑到: 最後一次查詢的最高分與未過的關卡; 挑到了但該離開的沒離開 (原點的圖離開、
-    目標圖消失): 分數是仍在原位那個匹配的, 關卡寫 still_there。
-    """
     if f is None:
         return {"best": "-", "failed": "-"}
     if f.picked is not None:
@@ -196,13 +180,6 @@ def gate_fields(f):
 
 
 class WaitClock:
-    """找圖等待共用的等待時鐘: 截止時間、輪詢間隔、逾時判定.
-
-    分岔的輪詢、一般找圖、生效確認、忙碌檢查 (另有`忙碌出現等候`) 都用它
-    判斷逾時。逾時照常計時, 不因忙碌指示延後 (ADR 0011)。start: 起算時間
-    (monotonic), 沒給＝現在 (忙碌檢查從送出輸入的時間起算)。
-    """
-
     def __init__(self, timeout, interval, appear_limit=None, start=None):
         now = time.monotonic() if start is None else start
         self.timeout = timeout
@@ -214,12 +191,10 @@ class WaitClock:
         return time.monotonic() >= self._deadline
 
     def appear_expired(self):
-        """`忙碌出現等候`到了沒 (沒設＝永遠沒到)."""
         return (self._appear_by is not None
                 and time.monotonic() >= self._appear_by)
 
     def nap(self, appear=False):
-        """下一輪前該睡多久: 輪詢間隔, 但不超過截止時間 (appear＝忙碌出現等候)."""
         by = self._appear_by if appear and self._appear_by is not None else self._deadline
         return max(0.0, min(self.interval, by - time.monotonic()))
 

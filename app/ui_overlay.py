@@ -228,9 +228,6 @@ def screen_clear(root, extra=()):
             ui_grab.coord.clear_finished()
             applog.log("clear.exit", count=len(plan))
             ui_grab.apply_grab("clear-exit")
-            # 前景交接: 此時覆蓋層仍是本程序的前景視窗, focus_force
-            # (SetForegroundWindow) 必被允許, 且會把整個擁有鏈 (對話框+主視窗)
-            # 一起帶到其他應用程式 (如遊戲) 之上
             try:
                 root.lift()
                 target = ui_grab.top_window()

@@ -310,7 +310,6 @@ def drag(x1, y1, x2, y2, button="left", duration_ms=300, hold_ms=0,
 
 
 def press_keys(combo):
-    """按下組合鍵, 例如 'enter'、'ctrl+v'、'alt+f4'."""
     from pynput.keyboard import Controller, Key
 
     kb = Controller()

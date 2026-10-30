@@ -142,9 +142,6 @@ class RowIcons:
         lb.bind("<MouseWheel>", lambda e: lb.after(10, self.refresh), add=True)
 
     def refresh(self):
-        if getattr(self.lb, "drag_guard", lambda: False)():
-            self.bar.place_forget()  # 拖曳排序中不定位 (bbox 強制版面同步會卡)
-            return
         sel = self.lb.curselection()
         bb = self.lb.bbox(sel[0]) if sel else None
         if not bb:
@@ -245,6 +242,8 @@ class SegListbox(tk.Text):
         return max(0, min(i, self._n - 1))
 
     def bbox(self, i):
+        if self.drag_guard():
+            return None
         self.update_idletasks()  # dlineinfo 需版面已排定
         info = self.dlineinfo(f"{i + 1}.0")
         return tuple(info[:4]) if info else None
@@ -1037,7 +1036,6 @@ class App:
         if (self._region_prev is not None
                 and getattr(self._region_prev, "_region", None) == self.scan_region):
             return
-        # 建立新 Toplevel 會把 modal 對話框既有的 grab 打掉, 建完交還堆頂
         self._hide_region_preview()
         x, y, w, h = self.scan_region
         b = 3
@@ -1422,7 +1420,7 @@ class App:
 
     def _handle_cursor(self, e):
         if self._drag_idxs is not None:
-            return  # 拖曳中不做把手偵測 (bbox 會強制版面同步, 拖大量步驟會卡)
+            return
         self.step_list.configure(cursor="fleur" if self._on_handle(e) else "")
 
     def _drag_start(self, e):
