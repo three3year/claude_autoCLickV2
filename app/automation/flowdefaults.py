@@ -90,5 +90,6 @@ def new_step(t):
             "click": {"click": [0, 0]},
             "drag": {"drag": [0, 0], "to": [0, -100]},
             "wait": {"wait": 1},
+            "external": {"external": ""},
             "repeat_start": {"repeat": 3}}.get(t, {})
     return complete(dict(base, type=t))

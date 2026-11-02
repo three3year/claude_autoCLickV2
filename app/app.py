@@ -34,7 +34,8 @@ from automation.runner import (Runner, has_busy_check, confirm_next_connected,
                                origin_source, uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
 
-ADD_CHIPS = (("find_click", "找圖"), ("click", "點擊"), ("drag", "拖曳"), ("wait", "等待"))
+ADD_CHIPS = (("find_click", "找圖"), ("click", "點擊"), ("drag", "拖曳"), ("wait", "等待"),
+             ("external", "外部"))
 SECTION_TYPES = ("repeat_start", "repeat_end", None,
                  "branch_start", "branch_or", "branch_end")
 MARKER_TYPES = {"repeat_end", "branch_start", "branch_or", "branch_end"}
@@ -47,6 +48,7 @@ LABEL_COLORS = {
     "click": C["accent"],
     "drag": "#A78BFA",
     "wait": C["muted"],
+    "external": "#F472B6",
 }
 LOG_COLORS = {"info": "#CBD5E1", "ok": C["accent"],
               "warn": C["warn"], "error": C["danger"]}

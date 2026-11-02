@@ -37,6 +37,15 @@ def test_分岔分支開頭不是找圖():
     assert flowcheck.section_error(steps) == "分岔的每個分支開頭必須是「找圖點擊」步驟"
 
 
+def test_外部步驟當分支開頭_跟其他非找圖步驟一樣被擋():
+    ext = st("external", external="公開招募")
+    steps = [st("branch_start"), st("find"), st("branch_or"), ext, st("branch_end")]
+    assert flowcheck.section_error(steps) == "分岔的每個分支開頭必須是「找圖點擊」步驟"
+    steps = [st("branch_start"), st("find"), ext, st("branch_or"), st("find_click"),
+             st("branch_end")]
+    assert flowcheck.section_error(steps) is None, "分支裡非開頭的位置可以放"
+
+
 def test_或不在分岔內():
     steps = [st("repeat_start", repeat=2), st("find"), st("branch_or"),
              st("repeat_end")]

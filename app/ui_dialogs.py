@@ -19,6 +19,7 @@ STEP_TITLES = {
     "wait_gone": "找圖點擊",
     "drag": "滑鼠拖曳",
     "wait": "等待",
+    "external": "外部步驟",
     "repeat_start": "重複開始",
     "repeat_end": "重複結束",
     "branch_end": "分岔結束",
@@ -872,6 +873,9 @@ TIP = {
     "repeat": "「重複開始」到「重複結束」之間的步驟跑幾次；區段可以巢狀",
     "brk": "內層「找不到 → 跳出目前區段」跳到這裡時，要不要再往外跳一層"
            "（例：重複裡的分岔找不到，直接跳出整個重複）",
+    "ext_tool": "流程資料夾 external_tools.yaml 登錄的工具名稱；可以先寫步驟、之後再補登錄",
+    "ext_args": "交給工具的參數，一行一個；空行不算",
+    "note": "給人看的說明，不影響執行",
 }
 
 
@@ -1145,6 +1149,7 @@ CARD_W = (436, 460)
 CARD_GAP = 12
 PV_W, PV_H = 230, 100
 CFM_W = 18
+EXT_W = 32
 ACT_ZH = {"find_click": "點擊該圖片", "find": "不點擊（僅等待出現）",
           "wait_gone": "不點擊（等待消失）"}
 CFM_ZH = {"none": "不確認（點一次）", "gone": "點到目標圖消失為止",
@@ -1552,10 +1557,28 @@ class _StepEditor:
             fr = rows.add("重複次數", TIP["repeat"]).frame
             _num(fr, v["repeat"], 1, 99999, 1, width=8)
             _text(fr, "次")
+        elif t == "external":
+            self._build_external(rows)
         else:
             v["on_break"] = tk.StringVar(value=step["on_break"])
             _combo(rows.add("跳出到此時", TIP["brk"]).frame, v["on_break"], BRK_ZH,
                    18).pack(side="left")
+
+    def _build_external(self, rows):
+        v, step = self.v, self.step
+        v["external"] = tk.StringVar(value=step["external"])
+        ttk.Combobox(rows.add("工具名稱", TIP["ext_tool"]).frame, textvariable=v["external"],
+                     values=self.app.flow_tools.names(), width=EXT_W).pack(side="left")
+        box = self.args_box = tk.Text(
+            rows.add("參數", TIP["ext_args"]).frame, width=EXT_W, height=5, font=FONT,
+            bg=C["panel"], fg=C["text"], insertbackground=C["text"], relief="flat",
+            highlightthickness=1, highlightbackground=C["border"],
+            highlightcolor=C["border"], padx=6, pady=3, wrap="none")
+        box.insert("1.0", "\n".join(step["args"]))
+        box.bind("<Return>", lambda e: box.insert("insert", "\n") or "break")
+        box.pack(side="left")
+        v["note"] = tk.StringVar(value=step["note"])
+        _entry(rows.add("備註", TIP["note"]).frame, v["note"], width=EXT_W)
 
     def _apply_simple(self, s):
         v, t = self.v, self.t
@@ -1563,6 +1586,13 @@ class _StepEditor:
             s.update(wait=max(0.01, v["wait"].get()))
         elif t == "repeat_start":
             s.update(repeat=max(1, v["repeat"].get()))
+        elif t == "external":
+            name = v["external"].get().strip()
+            if not name:
+                raise ValueError("請填工具名稱")
+            args = [ln for ln in self.args_box.get("1.0", "end-1c").split("\n")
+                    if ln.strip()]
+            s.update(external=name, args=args, note=v["note"].get())
         else:
             s.update(on_break=v["on_break"].get())
 

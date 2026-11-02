@@ -119,7 +119,8 @@ def apply(root):
               arrowcolor=[("active", C["text"])])
 
     style.configure("TCombobox", fieldbackground=C["panel"], background=C["panel2"],
-                    foreground=C["text"], arrowcolor=C["muted"], padding=(6, 3))
+                    foreground=C["text"], arrowcolor=C["muted"], padding=(6, 3),
+                    insertcolor=C["text"])
     style.map("TCombobox",
               # active 需列在 readonly 之前, hover 才有反白 (先匹配者優先)
               fieldbackground=[("active", HOVER), ("readonly", C["panel"])],

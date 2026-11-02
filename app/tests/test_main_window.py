@@ -154,18 +154,18 @@ def test_步驟標題列_寬時一排新增鈕_窄時收成一顆新增選單(ma
     a = main_app
     resize(a, 1400)
     assert mapped_buttons(step_head(a)) == sorted(
-        ["測試選取", "找圖", "點擊", "拖曳", "等待", "區段 ▾"])
+        ["測試選取", "找圖", "點擊", "拖曳", "等待", "外部", "區段 ▾"])
     resize(a, 760)
     assert mapped_buttons(step_head(a)) == sorted(["測試選取", "＋ 新增 ▾"])
     resize(a, 1400)
     assert "找圖" in mapped_buttons(step_head(a)), "寬度回來時換回一排鈕"
 
 
-def test_收合的新增選單列出全部九項_點了新增對應種類(main_app, monkeypatch):
+def test_收合的新增選單列出全部十項_點了新增對應種類(main_app, monkeypatch):
     a = main_app
     menu, items = _menu_of(a, "＋ 新增 ▾")
     assert list(items) == [label_of(t) for t in (
-        "find_click", "click", "drag", "wait", "repeat_start", "repeat_end",
+        "find_click", "click", "drag", "wait", "external", "repeat_start", "repeat_end",
         "branch_start", "branch_or", "branch_end")]
     menu.tk.call(menu.entrycget(items[label_of("branch_or")], "command"))
     assert [s["type"] for s in a.steps] == ["branch_or"]
