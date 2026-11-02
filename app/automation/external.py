@@ -23,6 +23,14 @@ class ToolRegistry:
         self.tools = {n: dict(v) for n, v in (tools or {}).items()}
         self.problem = problem
 
+    def __eq__(self, other):
+        """流程 dict 整份比較 (存檔再讀回的往返測試) 時, tools 照內容比."""
+        return (isinstance(other, ToolRegistry) and self.tools == other.tools
+                and self.problem == other.problem)
+
+    def __repr__(self):
+        return f"ToolRegistry({self.tools!r}, problem={self.problem!r})"
+
     def names(self):
         return sorted(self.tools)
 
