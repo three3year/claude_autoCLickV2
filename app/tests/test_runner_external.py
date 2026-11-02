@@ -80,6 +80,61 @@ def test_工具沒登錄_執行到這一步時失敗並說明原因(harness, lau
     assert "外部工具「公開招募」沒有登錄" in harness.log_text()
 
 
+class Windows:
+    """換掉 automation.win.top_window_at: 記下被問的點, 回答安排好的視窗."""
+
+    def __init__(self, hwnd):
+        self.hwnd = hwnd
+        self.asked = []
+
+    def __call__(self, x, y):
+        self.asked.append((x, y))
+        return self.hwnd
+
+
+@pytest.fixture
+def windows(monkeypatch):
+    import automation.runner as runner_mod
+    w = Windows(0x2A0B1C)
+    monkeypatch.setattr(runner_mod.win, "top_window_at", w)
+    return w
+
+
+def test_hwnd佔位符_詢問與正式執行都收到搜尋範圍中心的視窗(harness, launcher, tools, windows):
+    r = harness.run([external("公開招募", "--hwnd", "{hwnd}")],
+                    tools=tools, scan_region=[100, 200, 800, 600])
+    assert r.ended == "done"
+    assert windows.asked == [(500, 500)]
+    assert [args for _, args, _ in launcher.launches] == [
+        ["--hwnd", "2755356", "--expected-time"], ["--hwnd", "2755356"]]
+
+
+def test_參數不含hwnd_不查視窗(harness, launcher, tools, windows):
+    r = harness.run([external("公開招募", "--n", "3")], tools=tools)
+    assert r.ended == "done"
+    assert windows.asked == []
+
+
+def test_佔位符在參數的一部分也代入(harness, launcher, tools, windows):
+    harness.run([external("公開招募", "--hwnd={hwnd}", "x{hwnd}y")], tools=tools)
+    assert launcher.launches[-1][1] == ["--hwnd=2755356", "x2755356y"]
+
+
+def test_沒限定搜尋範圍_取整個桌面的中心(harness, launcher, tools, windows):
+    harness.run([external("公開招募", "{hwnd}")], tools=tools, scan_region=None)
+    assert windows.asked == [(960, 540)]
+
+
+def test_中心點找不到視窗_整次失敗_不啟動工具(harness, launcher, tools, windows):
+    windows.hwnd = None
+    r = harness.run([external("公開招募", "{hwnd}")], tools=tools,
+                    scan_region=[100, 200, 800, 600])
+    assert r.ended == "error"
+    assert launcher.launches == []
+    text = harness.log_text()
+    assert "公開招募" in text and "(500, 500)" in text and "找不到視窗" in text
+
+
 def test_外部步驟在重複區段裡_每次都執行(harness, launcher, tools):
     r = harness.run([find("a"), repeat(2), external("公開招募"), repeat_end()],
                     tools=tools)
