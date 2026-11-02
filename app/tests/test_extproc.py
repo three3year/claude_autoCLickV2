@@ -60,3 +60,78 @@ def test_從沒有主控台的程式啟動_也不開主控台視窗(tmp_path):
     subprocess.run([sys.executable, "-c", code], timeout=20,
                    creationflags=subprocess.DETACHED_PROCESS)
     assert out.read_text(encoding="utf-8") == "console=0"
+
+
+def wait_end(p, limit=5.0):
+    end = time.monotonic() + limit
+    while (code := p.poll()) is None:
+        assert time.monotonic() < end, "假工具沒有在時限內結束"
+        time.sleep(0.05)
+    return code
+
+
+def wait_first_line(p, limit=5.0):
+    end = time.monotonic() + limit
+    while not p.tail(1):
+        assert time.monotonic() < end, "假工具沒有在時限內印出第一行"
+        time.sleep(0.05)
+    return p.tail(1)[0]
+
+
+def alive(pid):
+    import ctypes
+    k32 = ctypes.windll.kernel32
+    h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        k32.GetExitCodeProcess(h, ctypes.byref(code))
+        return code.value == 259  # STILL_ACTIVE
+    finally:
+        k32.CloseHandle(h)
+
+
+def test_寫一行stop_工具收到後以非0結束(tmp_path):
+    p = extproc.start(sys.executable, [FAKE, "listen"], str(tmp_path))
+    assert wait_first_line(p) == "等待中"
+    p.send_line("stop")
+    assert wait_end(p) != 0
+    assert p.tail(1) == ["收到停止"]
+
+
+DYING = """
+import os, sys, time
+sys.path.insert(0, {app!r})
+from automation import extproc
+p = extproc.start(sys.executable, [{fake!r}, "print-pid", "listen"], {cwd!r})
+end = time.monotonic() + 5
+while len(p.tail(2)) < 2 and time.monotonic() < end:
+    time.sleep(0.05)
+open({out!r}, "w", encoding="utf-8").write(p.tail(2)[0])
+os._exit(0)
+"""
+
+
+def test_啟動它的程式不在了_標準輸入關閉_工具自己結束(tmp_path):
+    # AutoClick 掛掉時管線的寫入端跟著關掉, 工具讀到 EOF 要當作 stop
+    import subprocess
+    out = tmp_path / "pid.txt"
+    app = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    code = DYING.format(app=app, fake=FAKE, cwd=str(tmp_path), out=str(out))
+    subprocess.run([sys.executable, "-c", code], timeout=20,
+                   creationflags=subprocess.CREATE_NO_WINDOW)
+    pid = int(out.read_text(encoding="utf-8").removeprefix("pid="))
+    end = time.monotonic() + 5
+    while alive(pid):
+        assert time.monotonic() < end, "標準輸入關閉後工具沒有結束"
+        time.sleep(0.05)
+
+
+def test_結束行程樹_工具和它開的孫程序都不在了(tmp_path):
+    p = extproc.start(sys.executable, [FAKE, "grandchild"], str(tmp_path))
+    grandchild = int(wait_first_line(p).removeprefix("grandchild="))
+    assert alive(grandchild)
+    p.kill_tree()
+    assert p.poll() is not None
+    assert not alive(grandchild)
