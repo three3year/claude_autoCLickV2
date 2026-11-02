@@ -2018,7 +2018,8 @@ class App:
                                    parent=self.root)
             return
         registry = self.tool_registry()
-        tools = [m for m, _ in flowcheck.tool_problems(steps, registry)]
+        errors, warnings = flowcheck.tool_problems(steps, registry)
+        tools = errors + warnings
         if tools:
             messagebox.showwarning("執行", "外部工具找不到：\n" + "\n".join(tools),
                                    parent=self.root)

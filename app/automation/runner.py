@@ -566,71 +566,54 @@ class Runner:
     def _exec_external(self, no, step):
         """`外部步驟`: 先問預期時間, 再正式執行並等它結束 (docs/external-step-api.md)."""
         name = step["external"]
-        args = list(step["args"])
+        who = f"[{no}] 外部工具「{name}」"
         try:
             exe, cwd = self.tools.locate(name)
         except LookupError as e:
             raise RuntimeError(f"[{no}] {e} → 停止執行") from None
-        args = self._fill_hwnd(no, name, args)
+        args = self._fill_hwnd(no, who, list(step["args"]))
         rec = dict(step=no, tool=name)
-        self.log(f"[{no}] 外部 {name}：詢問預期時間")
-        query = extproc.start(exe, args + [external.QUERY_FLAG], cwd)
-        code, timed_out = self._wait_process(
-            query, external.QUERY_LIMIT, on_stop=lambda p: p.kill_tree())
-        lines = query.tail(external.TAIL_LINES)
-        if self._stop.is_set():
-            self._log_file("external", **rec, result="query_stopped", exit="killed",
-                           tail=" | ".join(lines))
-            raise StopRequested(f"[{no}] 外部 {name}：詢問期間停止，已結束詢問程序 → 已停止")
+
+        self.log(f"{who}：詢問預期時間")
+        code, timed_out, stopped, lines = self._run_tool(
+            exe, args + [external.QUERY_FLAG], cwd, external.QUERY_LIMIT,
+            on_stop=lambda p: p.kill_tree())
+        if stopped:
+            self._log_external(rec, "query_stopped", "killed", lines, show=False)
+            raise StopRequested(f"{who}：詢問期間停止，已結束詢問程序 → 已停止")
         try:
             if timed_out:
-                code = "killed"
                 raise ValueError(f"超過 {external.QUERY_LIMIT:g} 秒沒有回答，已結束它")
             if code != 0:
                 raise ValueError(f"結束碼 {code}")
             expected = external.parse_expected(lines)
         except ValueError as e:
-            self._log_file("external", **rec, result="query_failed", exit=code,
-                           tail=" | ".join(lines))
-            self._log_tail(no, lines)
-            raise RuntimeError(f"[{no}] 外部工具「{name}」詢問預期時間失敗：{e}"
-                               " → 停止執行") from None
+            self._log_external(rec, "query_failed", code, lines)
+            raise RuntimeError(f"{who}詢問預期時間失敗：{e} → 停止執行") from None
+
         rec["expected"] = f"{expected:g}"
-        self.log(f"[{no}] 外部 {name}：預期 {expected:g} 秒，開始執行")
+        self.log(f"{who}：預期 {expected:g} 秒，開始執行")
         limit = expected + external.RUN_MARGIN
 
         def notify_stop(p):
             p.send_line(external.STOP_LINE)
-            self.log(f"[{no}] 外部 {name}：已通知工具停止，等它收尾"
-                     f"（最多到啟動後 {limit:g} 秒）", "warn")
+            self.log(f"{who}：已通知工具停止，等它收尾（最多到啟動後 {limit:g} 秒）", "warn")
 
-        proc = extproc.start(exe, args, cwd)
-        code, timed_out = self._wait_process(proc, limit, on_stop=notify_stop)
-        lines = proc.tail(external.TAIL_LINES)
-        stopped = self._stop.is_set()
-        if timed_out:
-            code = "killed"
+        code, timed_out, stopped, lines = self._run_tool(exe, args, cwd, limit, notify_stop)
+        result = ("stopped" if stopped else "timeout" if timed_out
+                  else "done" if code == 0 else "failed")
+        self._log_external(rec, result, code, lines)
         if stopped:
-            result = "stopped"
-        elif timed_out:
-            result = "timeout"
-        else:
-            result = "done" if code == 0 else "failed"
-        self._log_file("external", **rec, result=result, exit=code,
-                       tail=" | ".join(lines))
-        self._log_tail(no, lines)
-        if stopped:
-            how = ("外部工具未回應停止，逾時後已結束它" if timed_out
-                   else f"工具已收尾結束（結束碼 {code}）")
-            raise StopRequested(f"[{no}] 外部 {name}：{how} → 已停止")
+            how = ("未回應停止，逾時後已結束它" if timed_out
+                   else f"已收尾結束（結束碼 {code}）")
+            raise StopRequested(f"{who}{how} → 已停止")
         if timed_out:
-            raise RuntimeError(f"[{no}] 外部工具「{name}」逾時（超過 {limit:g} 秒）"
-                               "，已結束它 → 停止執行")
+            raise RuntimeError(f"{who}逾時（超過 {limit:g} 秒），已結束它 → 停止執行")
         if code != 0:
-            raise RuntimeError(f"[{no}] 外部工具「{name}」結束碼 {code} → 停止執行")
-        self.log(f"[{no}] 外部 {name} 完成（結束碼 0）", "ok")
+            raise RuntimeError(f"{who}結束碼 {code} → 停止執行")
+        self.log(f"{who}完成（結束碼 0）", "ok")
 
-    def _fill_hwnd(self, no, name, args):
+    def _fill_hwnd(self, no, who, args):
         """參數裡的 `{hwnd}` 換成`搜尋範圍`中心點所在的頂層視窗 (十進位).
 
         沒限定搜尋範圍＝整個虛擬桌面, 取它的中心。
@@ -645,18 +628,21 @@ class Runner:
         cx, cy = x + w // 2, y + h // 2
         hwnd = win.top_window_at(cx, cy)
         if not hwnd:
-            raise RuntimeError(f"[{no}] 外部工具「{name}」要代入 {external.HWND}，"
+            raise RuntimeError(f"{who}要代入 {external.HWND}，"
                                f"但搜尋範圍中心 ({cx}, {cy}) 找不到視窗 → 停止執行")
         self.log(f"[{no}] {external.HWND} ＝ {hwnd}（搜尋範圍中心 ({cx}, {cy}) 的視窗）")
         return [a.replace(external.HWND, str(hwnd)) for a in args]
 
-    def _wait_process(self, proc, limit, on_stop):
-        """等 proc 結束, 回 (結束碼, 是否逾時); 超過 limit 秒就結束它的行程樹.
+    def _run_tool(self, exe, args, cwd, limit, on_stop):
+        """啟動工具並等它結束, 回 (結束碼, 是否逾時, 是否急停, 輸出尾行).
 
-        急停不丟例外: 第一次看到時呼叫 on_stop(proc), 之後照樣等到結束或逾時。
+        超過 limit 秒就結束它的行程樹, 結束碼記 "killed"。急停不丟例外: 第一次看到時
+        呼叫 on_stop(proc), 之後照樣等到結束或逾時。
         """
+        proc = extproc.start(exe, args, cwd)
         deadline = time.monotonic() + limit
         stop_seen = False
+        timed_out = False
         while (code := proc.poll()) is None:
             if not stop_seen and self._stop.is_set():
                 stop_seen = True
@@ -665,13 +651,17 @@ class Runner:
             left = deadline - time.monotonic()
             if left <= 0:
                 proc.kill_tree()
-                return proc.poll(), True
+                code, timed_out = "killed", True
+                break
             time.sleep(min(EXTERNAL_POLL, left))
-        return code, False
+        return code, timed_out, self._stop.is_set(), proc.tail(external.TAIL_LINES)
 
-    def _log_tail(self, no, lines):
-        for line in lines:
-            self.log(f"[{no}]   │ {line}")
+    def _log_external(self, rec, result, code, lines, show=True):
+        """一筆外部步驟的執行紀錄; show: 輸出尾行也印到執行紀錄視窗."""
+        self._log_file("external", **rec, result=result, exit=code, tail=" | ".join(lines))
+        if show:
+            for line in lines:
+                self.log(f"[{rec['step']}]   │ {line}")
 
     def _exec_pointer(self, steps, idx):
         step = steps[idx]

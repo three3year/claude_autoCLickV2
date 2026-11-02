@@ -105,23 +105,26 @@ def busy_check_bad(steps, busy):
 
 
 def tool_problems(steps, tools):
-    """步驟引用的`外部工具`在登錄裡找不到的原因, [(訊息, 是不是只缺路徑)], 一個工具一則.
+    """步驟引用的`外部工具`在登錄裡找不到的原因, (錯誤, 警告) 兩個訊息清單, 一個工具一則.
 
-    登錄檔格式錯只列一則。開始前檢查全部都擋; flow_check 把只缺路徑 (資料夾或
-    入口檔不存在) 當警告, 因為換電腦檢查時路徑可能不同。
+    警告＝只缺路徑 (資料夾或入口檔不存在), 換電腦檢查時路徑可能不同; 其餘是錯誤。
+    登錄檔格式錯只列一則。開始前檢查兩種都擋; flow_check 只有錯誤影響結束碼。
     """
     names = list(dict.fromkeys(s["external"] for s in steps
                                if s["type"] == "external"))
-    out = []
+    errors, warnings = [], []
     for name in names[:1] if tools.problem else names:
         try:
             tools.locate(name)
+        except external.PathMissing as e:
+            warnings.append(str(e))
         except LookupError as e:
-            out.append((str(e), isinstance(e, external.PathMissing)))
-    return out
+            errors.append(str(e))
+    return errors, warnings
 
 
 def _flow_tools(flow):
+    """手寫的流程 dict (測試) 可以沒有 tools 鍵; read_flow/new_flow 一定有."""
     return flow.get("tools") or external.ToolRegistry()
 
 
@@ -161,11 +164,11 @@ def flow_errors(flow):
     if bad:
         out.append(f"步驟 {_nos(bad)}：勾了忙碌檢查（busy_check），但流程沒有設忙碌指示"
                    "（busy）")
-    out += [m for m, path in tool_problems(steps, _flow_tools(flow)) if not path]
+    out += tool_problems(steps, _flow_tools(flow))[0]
     return out
 
 
 def flow_warnings(flow):
     """整份流程在這台電腦上執行會被擋、換台電腦卻可能沒事的問題: 外部工具登錄的路徑不存在."""
     steps = flow.get("steps") or []
-    return [m for m, path in tool_problems(steps, _flow_tools(flow)) if path]
+    return tool_problems(steps, _flow_tools(flow))[1]

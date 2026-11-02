@@ -203,7 +203,7 @@ def test_F12後工具不理會_等到逾時才結束它_記stopped(harness, laun
     run_proc = launcher.procs[1]
     assert run_proc.inputs == ["stop"] and run_proc.killed
     assert 30 <= harness.clock.t - t0 < 32
-    assert "外部工具未回應停止" in harness.log_text()
+    assert "外部工具「公開招募」未回應停止" in harness.log_text()
     assert ext_record(harness)["result"] == "stopped"
 
 

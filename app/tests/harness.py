@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from subject_detection.engine import Match, QueryResult  # noqa: E402
 
 import enginehub  # noqa: E402
-from automation import flowdefaults  # noqa: E402
+from automation import external as external_mod, flowdefaults  # noqa: E402
 from automation import runner as runner_mod  # noqa: E402
 
 
@@ -322,7 +322,7 @@ class FakeProc:
 
     def send_line(self, text):
         self.inputs.append(text)
-        if text == "stop" and self.on_stop is not None and self.poll() is None:
+        if text == external_mod.STOP_LINE and self.on_stop is not None and self.poll() is None:
             self.code = self.on_stop
             self.ends_at = self.clock.t + self.stop_after
 
