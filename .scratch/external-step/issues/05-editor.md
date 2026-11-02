@@ -8,7 +8,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-03)
 
 - [x] 新增列有「外部」，加入後打開編輯窗（UI 照 `docs/agents/app-ui-conventions.md`）
 - [x] 下拉列出登錄裡的工具名；流程還沒有資料夾或沒有登錄時下拉是空的，但可以打字

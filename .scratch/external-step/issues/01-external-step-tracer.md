@@ -6,7 +6,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-03)
 
 - [x] `flow.yaml` 的 `{external: 名稱, args: [...], note: ...}` 能讀進來、原樣寫回（往返測試）。`args` 沒寫就等於空清單，等於預設的值不寫出來
 - [x] 讀流程時一起讀 `external_tools.yaml`，執行時交給 runner 用

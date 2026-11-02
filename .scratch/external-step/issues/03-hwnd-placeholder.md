@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-03)
 
 - [x] 參數含 `{hwnd}` → 詢問與正式執行收到同一個十進位 handle（runner 測試，視窗查詢換成假的）
 - [x] 參數不含 `{hwnd}` → 不查視窗
