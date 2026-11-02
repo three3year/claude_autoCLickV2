@@ -206,6 +206,9 @@ def read_tools(folder):
                 and all(isinstance(entry[k], str) and entry[k] for k in TOOLS_KEYS)):
             return external.ToolRegistry(
                 problem=f"「{name}」要寫成 {{dir: 資料夾, exe: 入口檔名}}，收到 {entry!r}")
+        if not os.path.isabs(entry["dir"]):
+            return external.ToolRegistry(
+                problem=f"「{name}」的 dir 要是絕對路徑，收到 {entry['dir']!r}")
         tools[str(name)] = {k: entry[k] for k in TOOLS_KEYS}
     return external.ToolRegistry(tools)
 

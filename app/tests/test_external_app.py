@@ -1,4 +1,5 @@
 """app 開含外部步驟的流程: 讀進登錄、執行時交給執行器、步驟清單看得到 (Tk, 隱藏桌面跑)."""
+import app as app_mod
 import enginehub
 import flowfile
 from automation import imgio
@@ -40,12 +41,41 @@ def test_開流程讀進登錄_執行時交給執行器(main_app, tmp_path, monk
     assert kw["tools"].locate("公開招募") == (str(d / "recruit-step.exe"), str(d))
 
 
-def test_新流程沒有登錄(main_app, tmp_path):
+def test_開著流程補寫登錄_不必重開就照新登錄執行(main_app, tmp_path, monkeypatch):
+    a = main_app
+    folder, d = _flow_folder(tmp_path)
+    (folder / flowfile.TOOLS_YAML).unlink()
+    assert a.open_flow_folder(str(folder))
+    started, warned = [], []
+    monkeypatch.setattr(a.runner, "start", lambda steps, *x, **kw: started.append(kw))
+    monkeypatch.setattr(a, "ensure_registered", lambda: None)
+    monkeypatch.setattr(a, "_show_mini", lambda: None)
+    monkeypatch.setattr(app_mod.messagebox, "showwarning",
+                        lambda title, msg, **kw: warned.append(msg))
+    a.hub.state = enginehub.READY
+    a.start_run()
+    assert started == [] and "沒有登錄" in warned[0]
+    (folder / flowfile.TOOLS_YAML).write_text(
+        f"公開招募:\n  dir: {d}\n  exe: recruit-step.exe\n", encoding="utf-8")
+    a.start_run()
+    [kw] = started
+    assert kw["tools"].locate("公開招募") == (str(d / "recruit-step.exe"), str(d))
+
+
+def test_新流程沒有登錄(main_app, tmp_path, monkeypatch):
     a = main_app
     folder, _ = _flow_folder(tmp_path)
     assert a.open_flow_folder(str(folder))
     a.new_flow()
-    assert a.flow_tools.names() == []
+    warned = []
+    monkeypatch.setattr(app_mod.messagebox, "showwarning",
+                        lambda title, msg, **kw: warned.append(msg))
+    monkeypatch.setattr(a, "ensure_registered", lambda: None)
+    a.hub.state = enginehub.READY
+    a.flow_cal = {"pair": [], "baseline": 100.0}
+    a.steps = flowfile.parse_steps([{"external": "公開招募"}])
+    a.start_run()
+    assert any("公開招募" in m and "沒有登錄" in m for m in warned), warned
 
 
 def test_步驟清單顯示外部步驟與參數(main_app, tmp_path):
@@ -54,4 +84,4 @@ def test_步驟清單顯示外部步驟與參數(main_app, tmp_path):
     assert a.open_flow_folder(str(folder))
     row = a.step_list.get("1.0", "end").splitlines()[0]
     assert STEP_LABELS["external"] in row
-    assert "外部 公開招募 --hwnd {hwnd}" in row
+    assert row.endswith("］公開招募 --hwnd {hwnd}"), row

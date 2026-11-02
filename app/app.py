@@ -27,8 +27,8 @@ import ui_dialogs
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import (capture, findtarget, flowcheck, flowdefaults, flowfmt, hotkey,
-                        imgio, pickcheck, win)
+from automation import (capture, external, findtarget, flowcheck, flowdefaults, flowfmt,
+                        hotkey, imgio, pickcheck, win)
 from automation.flowcheck import STEP_LABELS
 from automation.runner import (Runner, has_busy_check, confirm_next_connected,
                                origin_source, uses_confirm_next, uses_origin_leaves)
@@ -116,7 +116,7 @@ def _step_body(s):
     if t == "wait":
         return f"{float(s['wait']):g} 秒"
     if t == "external":
-        return " ".join(["外部", s["external"], *s["args"]])
+        return " ".join([s["external"], *s["args"]])
     if t == "repeat_start":
         return f"×{s['repeat']} 次"
     if t == "branch_start":
@@ -298,7 +298,6 @@ class App:
     def __init__(self, root):
         self.root = root
         self.steps = []
-        self.flow_tools = flowfile.new_flow()["tools"]
         self.last_seq = 0
         self.scan_region = None
         self._mini = None
@@ -1814,9 +1813,14 @@ class App:
     def flow_name(self):
         return os.path.basename(self.store.folder) if self.store.folder else "未命名"
 
+    def tool_registry(self):
+        """這份流程的`外部工具登錄`, 每次從流程資料夾重讀 (開著 app 補寫登錄不必重開流程);
+        還沒存過的新流程＝空登錄."""
+        folder = self.store.folder
+        return flowfile.read_tools(folder) if folder else external.ToolRegistry()
+
     def _apply_flow(self, flow):
         self.steps = flow["steps"]
-        self.flow_tools = flow["tools"]
         self.flow_cal = flow["calibration"]
         self.busy_target = flow["busy"]
         self._settings_changed()
@@ -2013,7 +2017,8 @@ class App:
             messagebox.showwarning("執行", "範本不存在：\n" + "\n".join(missing),
                                    parent=self.root)
             return
-        tools = [m for m, _ in flowcheck.tool_problems(steps, self.flow_tools)]
+        registry = self.tool_registry()
+        tools = [m for m, _ in flowcheck.tool_problems(steps, registry)]
         if tools:
             messagebox.showwarning("執行", "外部工具找不到：\n" + "\n".join(tools),
                                    parent=self.root)
@@ -2060,7 +2065,7 @@ class App:
                               calibration=self.flow_cal,
                               busy=self.busy_target,
                               pressed_at=pressed_at,
-                              tools=self.flow_tools)
+                              tools=registry)
         except RuntimeError as e:
             messagebox.showwarning("執行", str(e), parent=self.root)
             return

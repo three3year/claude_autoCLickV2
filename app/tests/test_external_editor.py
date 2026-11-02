@@ -64,6 +64,20 @@ def test_工具名下拉列出登錄裡的工具(main_app, tmp_path):
     assert seen["values"] == ["公開招募"]
 
 
+def test_開著流程補寫登錄_下拉跟著列出(main_app, tmp_path):
+    a = main_app
+    folder, d = _flow_folder(tmp_path)
+    assert a.open_flow_folder(str(folder))
+    (folder / flowfile.TOOLS_YAML).write_text(
+        f"公開招募:\n  dir: {d}\n  exe: recruit-step.exe\n"
+        f"基建:\n  dir: {d}\n  exe: recruit-step.exe\n", encoding="utf-8")
+    seen = {}
+    dr = _drive(a, TITLE_NEW, lambda dr: _values(dr, seen), lambda dr: dr.press("取消"))
+    _btn_in(step_head(a), "外部").invoke()
+    _raise(dr)
+    assert seen["values"] == ["公開招募", "基建"]
+
+
 def test_新流程沒有登錄_下拉是空的_照樣可以打字(main_app):
     a = main_app
     seen = {}
@@ -167,4 +181,4 @@ def test_步驟清單標籤是外部步驟的顏色_描述含工具名與參數(
     start = lb.search("［外部步驟］", "1.0", "1.end")
     [tag] = [t for t in lb.tag_names(start) if t.startswith("c")]
     assert str(lb.tag_cget(tag, "foreground")).upper() == "#F472B6"
-    assert row.endswith("外部 公開招募 --hwnd {hwnd}")
+    assert row.endswith("［外部步驟］公開招募 --hwnd {hwnd}"), row

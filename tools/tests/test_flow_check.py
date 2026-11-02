@@ -206,3 +206,12 @@ def test_登錄檔格式錯_結束碼1(tmp_path, capsys):
     code, out = run(folder, capsys=capsys)
     assert code == 1, out
     assert "格式錯" in out, out
+
+
+def test_登錄的dir是相對路徑_算格式錯_結束碼1(tmp_path, capsys):
+    folder = make_flow(tmp_path, EXT)
+    (folder / "external_tools.yaml").write_text(
+        "公開招募:\n  dir: RecruitHelper\n  exe: recruit-step.exe\n", encoding="utf-8")
+    code, out = run(folder, capsys=capsys)
+    assert code == 1, out
+    assert "格式錯" in out and "絕對路徑" in out, out

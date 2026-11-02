@@ -1568,7 +1568,7 @@ class _StepEditor:
         v, step = self.v, self.step
         v["external"] = tk.StringVar(value=step["external"])
         ttk.Combobox(rows.add("工具名稱", TIP["ext_tool"]).frame, textvariable=v["external"],
-                     values=self.app.flow_tools.names(), width=EXT_W).pack(side="left")
+                     values=self.app.tool_registry().names(), width=EXT_W).pack(side="left")
         box = self.args_box = tk.Text(
             rows.add("參數", TIP["ext_args"]).frame, width=EXT_W, height=5, font=FONT,
             bg=C["panel"], fg=C["text"], insertbackground=C["text"], relief="flat",
