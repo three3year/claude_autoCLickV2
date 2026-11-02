@@ -6,6 +6,7 @@ import harness
 
 import app as app_mod
 import enginehub
+import flowfile
 
 
 class _FakeRunner:
@@ -34,6 +35,7 @@ class _GateApp(app_mod.App):
         self.steps = [{"type": "wait", "wait": 0.01}]
         self.scan_region = None
         self.flow_cal = {"pair": ["a", "b"], "baseline": 100.0}
+        self.flow_tools = flowfile.new_flow()["tools"]
         self._pending_templates = set()
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")
 

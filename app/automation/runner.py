@@ -3,7 +3,7 @@ import time
 
 import calibration as calib
 
-from . import capture, findtarget, flowdefaults, flowfmt, win
+from . import capture, external, extproc, findtarget, flowdefaults, flowfmt, win
 
 
 class StopRequested(Exception):
@@ -115,6 +115,7 @@ BUSY_GONE_CAP = 60.0
 START_DELAY = 3.0
 RETRY_INTERVAL = 1.0
 BUSY_APPEAR = 1.0
+EXTERNAL_POLL = 0.2
 BUSY_CHECK_KEY = "busy_check"
 BUSY_CHECK_TYPES = ("click", "drag", "find_click")
 
@@ -250,11 +251,12 @@ class Runner:
         }
 
     def start(self, steps, run_mode="count", run_count=1, scan_region=None,
-              calibration=None, busy=None, pressed_at=None,
+              calibration=None, busy=None, pressed_at=None, tools=None,
               start_delay=START_DELAY, retry_interval=RETRY_INTERVAL,
               busy_appear=BUSY_APPEAR):
         """pressed_at: 按下「執行」的時間 (monotonic); `開始延遲`從這時起算,
-        沒給＝現在。start_delay / retry_interval / busy_appear 是固定行為
+        沒給＝現在。tools: 這份流程的`外部工具登錄` (external.ToolRegistry)。
+        start_delay / retry_interval / busy_appear 是固定行為
         (START_DELAY、RETRY_INTERVAL、BUSY_APPEAR), app 不傳; 參數只留給測試
         縮短虛擬時間。"""
         if self.running:
@@ -270,6 +272,7 @@ class Runner:
         self.retry_interval = max(0.0, float(retry_interval))
         self.busy = busy if busy and busy.get("template") else None
         self.busy_appear = max(0.0, float(busy_appear))
+        self.tools = tools if tools is not None else external.ToolRegistry()
         self._last_input = None
         self._last_click = None
         self._origin_src = None
@@ -554,8 +557,55 @@ class Runner:
         elif t in findtarget.FIND_TYPES:
             return self._exec_find(steps, idx)
 
+        elif t == "external":
+            self._exec_external(no, step)
+
         else:
             self.log(f"[{no}] 未知步驟類型: {t}", "warn")
+
+    def _exec_external(self, no, step):
+        """`外部步驟`: 先問預期時間, 再正式執行並等它結束 (docs/external-step-api.md)."""
+        name = step["external"]
+        args = list(step["args"])
+        try:
+            exe, cwd = self.tools.locate(name)
+        except LookupError as e:
+            raise RuntimeError(f"[{no}] {e} → 停止執行") from None
+        rec = dict(step=no, tool=name)
+        self.log(f"[{no}] 外部 {name}：詢問預期時間")
+        query = extproc.start(exe, args + [external.QUERY_FLAG], cwd)
+        code = self._wait_process(query)
+        lines = query.tail(external.TAIL_LINES)
+        try:
+            if code != 0:
+                raise ValueError(f"結束碼 {code}")
+            expected = external.parse_expected(lines)
+        except ValueError as e:
+            self._log_file("external", **rec, result="query_failed", exit=code,
+                           tail=" | ".join(lines))
+            self._log_tail(no, lines)
+            raise RuntimeError(f"[{no}] 外部工具「{name}」詢問預期時間失敗：{e}"
+                               " → 停止執行") from None
+        rec["expected"] = f"{expected:g}"
+        self.log(f"[{no}] 外部 {name}：預期 {expected:g} 秒，開始執行")
+        proc = extproc.start(exe, args, cwd)
+        code = self._wait_process(proc)
+        lines = proc.tail(external.TAIL_LINES)
+        self._log_file("external", **rec, result="done" if code == 0 else "failed",
+                       exit=code, tail=" | ".join(lines))
+        self._log_tail(no, lines)
+        if code != 0:
+            raise RuntimeError(f"[{no}] 外部工具「{name}」結束碼 {code} → 停止執行")
+        self.log(f"[{no}] 外部 {name} 完成（結束碼 0）", "ok")
+
+    def _wait_process(self, proc):
+        while (code := proc.poll()) is None:
+            self._sleep(EXTERNAL_POLL)
+        return code
+
+    def _log_tail(self, no, lines):
+        for line in lines:
+            self.log(f"[{no}]   │ {line}")
 
     def _exec_pointer(self, steps, idx):
         step = steps[idx]

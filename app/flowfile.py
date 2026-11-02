@@ -3,6 +3,7 @@
 **一份`流程`＝一個資料夾** (ADR 0014)::
 
     <流程名>/flow.yaml              步驟與流程層級設定 (區段巢狀、一步一行、預設不寫、時間一律秒)
+    <流程名>/external_tools.yaml    `外部工具登錄` (手寫; 讀流程時一起讀, 存檔不動它)
     <流程名>/templates/<範本名>.png  被引用的範本圖 (檔名即範本名)
     <流程名>/.cache/                可重建的`快取`: 引擎的登錄產物 (registered/)、
                                    還沒存檔的截圖 (shots/)
@@ -21,7 +22,7 @@ import re
 import shutil
 
 import calibration
-from automation import findtarget, flowdefaults
+from automation import external, findtarget, flowdefaults
 
 
 def strip_ext(name):
@@ -81,12 +82,13 @@ def _blob(src):
 
 
 FLOW_YAML = "flow.yaml"
+TOOLS_YAML = "external_tools.yaml"
 TEMPLATES_DIR = "templates"
 CACHE_DIR = ".cache"
 FLOW_FORMAT = 1
 
-HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "repeat",
-         "branch")
+HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "external",
+         "repeat", "branch")
 TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy",
             "template_pos", "engine", "steps")
 TARGET_ATTRS = ("within", "pick", "color")
@@ -130,7 +132,7 @@ def template_name_problem(name):
 def new_flow():
     return {"run": flowdefaults.FLOW["run"], "scan_region": None,
             "calibration": None, "busy": None, "template_pos": {},
-            "engine": {}, "steps": []}
+            "engine": {}, "steps": [], "tools": external.ToolRegistry()}
 
 
 def _flow_level_slots(flow):
@@ -171,7 +173,41 @@ def read_flow(folder):
             text = f.read()
     except OSError as e:
         raise FlowError(f"讀不到 {path}（{e.strerror or e}）") from None
-    return parse_flow(text)
+    flow = parse_flow(text)
+    flow["tools"] = read_tools(folder)
+    return flow
+
+
+TOOLS_KEYS = ("dir", "exe")
+
+
+def read_tools(folder):
+    """流程資料夾的 external_tools.yaml → `外部工具登錄`; 沒有檔＝空登錄.
+
+    格式錯不丟例外 (流程照樣開得起來), 記在登錄的 problem, 用到工具時才擋。
+    存檔不寫這個檔: 它是流程作者手寫的, app 原樣保留。
+    """
+    import yaml
+    path = os.path.join(str(folder), TOOLS_YAML)
+    if not os.path.isfile(path):
+        return external.ToolRegistry()
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            doc = yaml.safe_load(f.read())
+    except (OSError, yaml.YAMLError) as e:
+        return external.ToolRegistry(problem=f"讀不進來（{e}）")
+    if doc is None:
+        return external.ToolRegistry()
+    if not isinstance(doc, dict):
+        return external.ToolRegistry(problem="最外層要是 {工具名: {dir, exe}}")
+    tools = {}
+    for name, entry in doc.items():
+        if not (isinstance(entry, dict) and set(entry) == set(TOOLS_KEYS)
+                and all(isinstance(entry[k], str) and entry[k] for k in TOOLS_KEYS)):
+            return external.ToolRegistry(
+                problem=f"「{name}」要寫成 {{dir: 資料夾, exe: 入口檔名}}，收到 {entry!r}")
+        tools[str(name)] = {k: entry[k] for k in TOOLS_KEYS}
+    return external.ToolRegistry(tools)
 
 
 def missing_templates(folder, flow):
@@ -269,6 +305,12 @@ def _name(where, v):
     problem = template_name_problem(v)
     if problem:
         raise FlowError(f"{where}：{problem}")
+    return v
+
+
+def _tool_name(where, v):
+    if not isinstance(v, str) or not v.strip():
+        raise FlowError(f"{where} 的 external 要寫外部工具名稱，收到 {v!r}")
     return v
 
 
@@ -455,6 +497,17 @@ def _parse_step(where, head, item):
         if not _num(item["wait"]) or item["wait"] < 0:
             raise FlowError(f"{where} 的 wait 要是秒數，收到 {item['wait']!r}")
         s["wait"] = item["wait"]
+    elif t == "external":
+        s["external"] = _tool_name(where, item["external"])
+        if "args" in item:
+            args = item["args"]
+            if not (isinstance(args, list) and all(isinstance(a, str) for a in args)):
+                raise FlowError(f"{where} 的 args 要是字串清單（數字要加引號），收到 {args!r}")
+            s["args"] = list(args)
+        if "note" in item:
+            if not isinstance(item["note"], str):
+                raise FlowError(f"{where} 的 note 要是文字，收到 {item['note']!r}")
+            s["note"] = item["note"]
     if "offset" in item:
         s["offset"] = _xy(f"{where} 的 offset", item["offset"])
     if "confirm" in item:
@@ -568,7 +621,7 @@ def _target_yaml(tgt, head):
 
 
 _ORDER = ("offset", "duration", "hold", "confirm", "timeout", "interval", "on_fail",
-          "busy_check", "update_origin")
+          "busy_check", "update_origin", "args", "note")
 
 
 def _step_yaml(step):
@@ -581,6 +634,8 @@ def _step_yaml(step):
     elif t == "drag":
         out = {"drag": [int(v) for v in step["drag"]],
                "to": [int(v) for v in step["to"]]}
+    elif t == "external":
+        out = {"external": step["external"]}
     else:
         out = {"wait": _number(step["wait"])}
     for k in _ORDER:
@@ -592,6 +647,8 @@ def _step_yaml(step):
                 v = _target_yaml(step.get("confirm_target") or {}, "appear")
         elif k == "offset":
             v = [int(c) for c in v]
+        elif k == "args":
+            v = list(v)
         elif k in ("duration", "hold", "timeout", "interval"):
             v = _number(v)
         out[k] = v

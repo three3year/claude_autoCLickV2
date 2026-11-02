@@ -49,6 +49,10 @@ def here(**kw):
     return find(HERE, type="find", **kw)
 
 
+def external(name, *args, **kw):
+    return _full(dict({"type": "external", "external": name, "args": list(args)}, **kw))
+
+
 def repeat(n):
     return _full({"type": "repeat_start", "repeat": n})
 
@@ -288,6 +292,44 @@ class Input:
         return (0, 0, 1920, 1080)
 
 
+class FakeProc:
+    """假的外部工具程序: 啟動後 after 秒 (虛擬時鐘) 以 code 結束, 輸出是 lines."""
+
+    def __init__(self, clock, code=0, lines=(), after=0.0):
+        self.clock = clock
+        self.code = code
+        self.lines = list(lines)
+        self.ends_at = clock.t + after
+
+    def poll(self):
+        return self.code if self.clock.t >= self.ends_at else None
+
+    def tail(self, n):
+        return self.lines[-n:] if n > 0 else []
+
+
+class Launcher:
+    """換掉 automation.extproc.start: 記下每次啟動, 詢問與正式執行各照安排演出."""
+
+    def __init__(self, clock):
+        self.clock = clock
+        self.launches = []
+        self._query = dict(code=0, lines=["5"], after=0.2)
+        self._run = dict(code=0, lines=[], after=1.0)
+
+    def query(self, **kw):
+        self._query.update(kw)
+
+    def run(self, **kw):
+        self._run.update(kw)
+
+    def start(self, exe, args, cwd):
+        from automation.external import QUERY_FLAG
+        self.launches.append((exe, list(args), cwd))
+        spec = self._query if QUERY_FLAG in args else self._run
+        return FakeProc(self.clock, **spec)
+
+
 class FileLog:
     def __init__(self):
         self.records = []
@@ -309,6 +351,8 @@ class Harness:
         self.input = Input(self.events, self.lock, self.clock)
         monkeypatch.setattr(runner_mod, "time", self.clock)
         monkeypatch.setattr(runner_mod.capture, "grab", self.vision.grab)
+        self.launcher = Launcher(self.clock)
+        monkeypatch.setattr(runner_mod.extproc, "start", self.launcher.start)
         for name in ("click", "drag", "move", "park", "cursor_pos",
                      "virtual_screen", "monitor_rect_at"):
             monkeypatch.setattr(runner_mod.win, name, getattr(self.input, name))

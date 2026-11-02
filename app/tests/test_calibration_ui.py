@@ -33,7 +33,8 @@ class _CalApp(app_mod.App):
         self._pending_templates = set()
         self.run_mode = SimpleNamespace(get=lambda: "執行次數")
         self.flow_cal = cal
-        self._names = (list(cal["pair"]) if cal else []) if names is None \
+        self.flow_tools = flowfile.new_flow()["tools"]
+        self._names =(list(cal["pair"]) if cal else []) if names is None \
             else names
 
     def _run_count(self):

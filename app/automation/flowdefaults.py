@@ -19,6 +19,7 @@ STEP = {
     "drag": {"duration": 0.5, "hold": 0.5, "confirm": "none", "busy_check": False},
     "repeat_end": {"on_break": "continue"},
     "branch_end": {"on_break": "continue"},
+    "external": {"args": [], "note": ""},
 }
 
 FLOW = {"run": 1}
@@ -34,6 +35,7 @@ KEYS = {
     "click": {"type", "click", "update_origin"} | _CONFIRM_KEYS,
     "drag": {"type", "drag", "to", "duration", "hold"} | _CONFIRM_KEYS,
     "wait": {"type", "wait"},
+    "external": {"type", "external", "args", "note"},
     "repeat_start": {"type", "repeat"},
     "repeat_end": {"type", "on_break"},
     "branch_start": {"type"},

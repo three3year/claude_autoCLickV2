@@ -113,6 +113,8 @@ def _step_body(s):
                 f"{_pointer_confirm_desc(s)}")
     if t == "wait":
         return f"{float(s['wait']):g} 秒"
+    if t == "external":
+        return " ".join(["外部", s["external"], *s["args"]])
     if t == "repeat_start":
         return f"×{s['repeat']} 次"
     if t == "branch_start":
@@ -294,6 +296,7 @@ class App:
     def __init__(self, root):
         self.root = root
         self.steps = []
+        self.flow_tools = flowfile.new_flow()["tools"]
         self.last_seq = 0
         self.scan_region = None
         self._mini = None
@@ -1811,6 +1814,7 @@ class App:
 
     def _apply_flow(self, flow):
         self.steps = flow["steps"]
+        self.flow_tools = flow["tools"]
         self.flow_cal = flow["calibration"]
         self.busy_target = flow["busy"]
         self._settings_changed()
@@ -2048,7 +2052,8 @@ class App:
                               scan_region=self.scan_region,
                               calibration=self.flow_cal,
                               busy=self.busy_target,
-                              pressed_at=pressed_at)
+                              pressed_at=pressed_at,
+                              tools=self.flow_tools)
         except RuntimeError as e:
             messagebox.showwarning("執行", str(e), parent=self.root)
             return

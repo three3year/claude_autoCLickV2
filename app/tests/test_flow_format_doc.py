@@ -19,8 +19,7 @@ def expected_keys():
             "busy": {"template", *flowfile.TARGET_ATTRS},
             "confirm.appear": {"appear", *flowfile.TARGET_ATTRS},
             "branch.分支": set(flowfile.ARM_KEYS)}
-    for head in ("find_click", "find", "wait_gone", "click", "drag", "wait",
-                 "repeat", "branch"):
+    for head in flowfile.HEADS:
         keys[head] = flowfile.step_keys(head)
     return keys
 

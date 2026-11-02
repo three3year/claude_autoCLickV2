@@ -13,6 +13,7 @@ STEP_LABELS = {
     "click": "座標點擊",
     "drag": "滑鼠拖曳",
     "wait": "等待",
+    "external": "外部步驟",
     "repeat_start": "重複開始",
     "repeat_end": "重複結束",
     "branch_start": "分岔開始",
