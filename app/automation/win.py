@@ -90,6 +90,14 @@ user32.MonitorFromPoint.restype = wintypes.HMONITOR
 user32.GetAncestor.restype = wintypes.HWND
 
 
+def top_window_at(x, y):
+    """螢幕點 (x, y) 上的頂層視窗 handle (int); 那裡沒有視窗＝None."""
+    h = user32.WindowFromPoint(_POINT(int(x), int(y)))
+    if not h:
+        return None
+    return user32.GetAncestor(h, GA_ROOT) or h
+
+
 def is_window_covered(tk_winfo_id):
     """視窗是否被「其他程序」的視窗完全遮住 (取樣點檢查).
 

@@ -2,7 +2,7 @@
 
 輸入是記憶體裡的完整步驟清單 (平面標記, 見 flowfile), 回傳給人看的錯誤訊息。
 """
-from . import findtarget
+from . import external, findtarget
 from .runner import (branch_layout, confirm_next_connected, has_busy_check,
                      origin_source, uses_confirm_next, uses_origin_leaves)
 
@@ -104,6 +104,27 @@ def busy_check_bad(steps, busy):
     return [i for i, s in enumerate(steps) if has_busy_check(s)]
 
 
+def tool_problems(steps, tools):
+    """步驟引用的`外部工具`在登錄裡找不到的原因, [(訊息, 是不是只缺路徑)], 一個工具一則.
+
+    登錄檔格式錯只列一則。開始前檢查全部都擋; flow_check 把只缺路徑 (資料夾或
+    入口檔不存在) 當警告, 因為換電腦檢查時路徑可能不同。
+    """
+    names = list(dict.fromkeys(s["external"] for s in steps
+                               if s["type"] == "external"))
+    out = []
+    for name in names[:1] if tools.problem else names:
+        try:
+            tools.locate(name)
+        except LookupError as e:
+            out.append((str(e), isinstance(e, external.PathMissing)))
+    return out
+
+
+def _flow_tools(flow):
+    return flow.get("tools") or external.ToolRegistry()
+
+
 def _nos(idx):
     return "、".join(str(i + 1) for i in idx)
 
@@ -113,7 +134,8 @@ def flow_errors(flow):
 
     與 app 執行前的檢查同一套判斷: 沒有校準對、區段結構、相對座標前沒有原點、
     「原點的圖離開」的原點不是找圖、「點到下一步的圖出現」不相連、勾了忙碌檢查
-    卻沒設忙碌指示。缺圖不在這裡 (那是檔案的事)。
+    卻沒設忙碌指示、外部工具沒登錄或登錄檔格式錯。缺圖不在這裡 (那是檔案的事);
+    外部工具的路徑不存在在 flow_warnings。
     """
     steps = flow.get("steps") or []
     out = []
@@ -139,4 +161,11 @@ def flow_errors(flow):
     if bad:
         out.append(f"步驟 {_nos(bad)}：勾了忙碌檢查（busy_check），但流程沒有設忙碌指示"
                    "（busy）")
+    out += [m for m, path in tool_problems(steps, _flow_tools(flow)) if not path]
     return out
+
+
+def flow_warnings(flow):
+    """整份流程在這台電腦上執行會被擋、換台電腦卻可能沒事的問題: 外部工具登錄的路徑不存在."""
+    steps = flow.get("steps") or []
+    return [m for m, path in tool_problems(steps, _flow_tools(flow)) if path]

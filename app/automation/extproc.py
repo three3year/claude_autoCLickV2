@@ -9,6 +9,7 @@ import threading
 
 KEEP = 200
 _READER_GRACE = 2.0
+_KILL_WAIT = 10.0
 
 
 def start(exe, args, cwd):
@@ -45,6 +46,28 @@ class Process:
             except OSError:
                 pass
         return code
+
+    def send_line(self, text):
+        """寫一行到標準輸入; 程序已結束、管線已關就算了."""
+        try:
+            self._p.stdin.write((text + "\n").encode("utf-8"))
+            self._p.stdin.flush()
+        except (OSError, ValueError):
+            pass
+
+    def kill_tree(self):
+        """強制結束這個程序和它開的所有子孫程序 (taskkill /T), 等它真的結束才回來."""
+        if self._p.poll() is None:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(self._p.pid)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           creationflags=subprocess.CREATE_NO_WINDOW,
+                           timeout=_KILL_WAIT)
+        try:
+            self._p.wait(_KILL_WAIT)
+        except subprocess.TimeoutExpired:
+            self._p.kill()
+            self._p.wait(_KILL_WAIT)
+        self.poll()
 
     def tail(self, n):
         """合併輸出的最後 n 行 (不含換行)."""

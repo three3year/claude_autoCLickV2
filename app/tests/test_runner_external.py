@@ -80,8 +80,147 @@ def test_工具沒登錄_執行到這一步時失敗並說明原因(harness, lau
     assert "外部工具「公開招募」沒有登錄" in harness.log_text()
 
 
+class Windows:
+    """換掉 automation.win.top_window_at: 記下被問的點, 回答安排好的視窗."""
+
+    def __init__(self, hwnd):
+        self.hwnd = hwnd
+        self.asked = []
+
+    def __call__(self, x, y):
+        self.asked.append((x, y))
+        return self.hwnd
+
+
+@pytest.fixture
+def windows(monkeypatch):
+    import automation.runner as runner_mod
+    w = Windows(0x2A0B1C)
+    monkeypatch.setattr(runner_mod.win, "top_window_at", w)
+    return w
+
+
+def test_hwnd佔位符_詢問與正式執行都收到搜尋範圍中心的視窗(harness, launcher, tools, windows):
+    r = harness.run([external("公開招募", "--hwnd", "{hwnd}")],
+                    tools=tools, scan_region=[100, 200, 800, 600])
+    assert r.ended == "done"
+    assert windows.asked == [(500, 500)]
+    assert [args for _, args, _ in launcher.launches] == [
+        ["--hwnd", "2755356", "--expected-time"], ["--hwnd", "2755356"]]
+
+
+def test_參數不含hwnd_不查視窗(harness, launcher, tools, windows):
+    r = harness.run([external("公開招募", "--n", "3")], tools=tools)
+    assert r.ended == "done"
+    assert windows.asked == []
+
+
+def test_佔位符在參數的一部分也代入(harness, launcher, tools, windows):
+    harness.run([external("公開招募", "--hwnd={hwnd}", "x{hwnd}y")], tools=tools)
+    assert launcher.launches[-1][1] == ["--hwnd=2755356", "x2755356y"]
+
+
+def test_沒限定搜尋範圍_取整個桌面的中心(harness, launcher, tools, windows):
+    harness.run([external("公開招募", "{hwnd}")], tools=tools, scan_region=None)
+    assert windows.asked == [(960, 540)]
+
+
+def test_中心點找不到視窗_整次失敗_不啟動工具(harness, launcher, tools, windows):
+    windows.hwnd = None
+    r = harness.run([external("公開招募", "{hwnd}")], tools=tools,
+                    scan_region=[100, 200, 800, 600])
+    assert r.ended == "error"
+    assert launcher.launches == []
+    text = harness.log_text()
+    assert "公開招募" in text and "(500, 500)" in text and "找不到視窗" in text
+
+
 def test_外部步驟在重複區段裡_每次都執行(harness, launcher, tools):
     r = harness.run([find("a"), repeat(2), external("公開招募"), repeat_end()],
                     tools=tools)
     assert r.ended == "done"
     assert len(launcher.launches) == 4
+
+
+def test_正式執行超過預期時間加10秒_結束行程樹_整次失敗(harness, launcher, tools):
+    launcher.query(lines=["20"])
+    launcher.run(after=None, lines=["卡在載入"])
+    t0 = harness.clock.t
+    r = harness.run([find("a"), external("公開招募"), click(5, 0)], tools=tools)
+    assert r.ended == "error"
+    run_proc = launcher.procs[1]
+    assert run_proc.killed
+    assert 30 <= harness.clock.t - t0 < 32
+    assert harness.kinds() == ["click"]
+    assert "逾時" in harness.log_text() and "卡在載入" in harness.log_text()
+
+
+def test_詢問超過10秒_整次失敗_不啟動正式執行(harness, launcher, tools):
+    launcher.query(after=None, lines=[])
+    t0 = harness.clock.t
+    r = harness.run([find("a"), external("公開招募"), click(5, 0)], tools=tools)
+    assert r.ended == "error"
+    assert len(launcher.launches) == 1 and launcher.procs[0].killed
+    assert 10 <= harness.clock.t - t0 < 12
+    assert "預期時間" in harness.log_text() and "10 秒" in harness.log_text()
+    assert harness.kinds() == ["click"]
+
+
+def press_f12_during_run(harness, launcher, after=3.0):
+    """正式執行啟動 after 秒 (虛擬時鐘) 後按 F12."""
+    started = {}
+
+    def tick(_n):
+        if len(launcher.launches) == 2:
+            started.setdefault("t", harness.clock.t)
+            if harness.clock.t - started["t"] >= after:
+                harness.runner.stop()
+
+    harness.clock.on_sleep = tick
+
+
+def test_執行中按F12_只寫一次stop_工具非0結束記stopped(harness, launcher, tools):
+    launcher.query(lines=["60"])
+    launcher.run(after=None, on_stop=2, stop_after=1.0, lines=["收到停止"])
+    press_f12_during_run(harness, launcher)
+    r = harness.run([find("a"), external("公開招募"), click(5, 0)], tools=tools)
+    assert r.ended == "stopped"
+    run_proc = launcher.procs[1]
+    assert run_proc.inputs == ["stop"]
+    assert not run_proc.killed
+    assert harness.kinds() == ["click"]
+    assert "收到停止" in harness.log_text()
+    assert ext_record(harness)["result"] == "stopped"
+
+
+def test_F12後工具不理會_等到逾時才結束它_記stopped(harness, launcher, tools):
+    launcher.query(lines=["20"])
+    launcher.run(after=None)
+    press_f12_during_run(harness, launcher, after=3.0)
+    t0 = harness.clock.t
+    r = harness.run([find("a"), external("公開招募"), click(5, 0)], tools=tools)
+    assert r.ended == "stopped"
+    run_proc = launcher.procs[1]
+    assert run_proc.inputs == ["stop"] and run_proc.killed
+    assert 30 <= harness.clock.t - t0 < 32
+    assert "外部工具未回應停止" in harness.log_text()
+    assert ext_record(harness)["result"] == "stopped"
+
+
+def test_詢問期間按F12_結束詢問程序_記stopped_不啟動正式執行(harness, launcher, tools):
+    launcher.query(after=None, lines=[])
+
+    def tick(_n):
+        if launcher.launches:
+            harness.runner.stop()
+
+    harness.clock.on_sleep = tick
+    t0 = harness.clock.t
+    r = harness.run([find("a"), external("公開招募"), click(5, 0)], tools=tools)
+    assert r.ended == "stopped"
+    assert len(launcher.launches) == 1
+    query = launcher.procs[0]
+    assert query.killed and query.inputs == []
+    assert harness.clock.t - t0 < 2
+    assert harness.kinds() == ["click"]
+    assert ext_record(harness)["result"] == "query_stopped"
