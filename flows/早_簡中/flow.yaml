@@ -32,7 +32,6 @@ template_pos:
   收取信用: [1437, 63]
   无人机加速: [1622, 653]
   最多: [1131, 429]
-  每日线索: [1503, 166]
   活动关闭: [1464, 173]
   确定: [1202, 686]
   签到关闭: [1442, 141]
@@ -50,6 +49,7 @@ template_pos:
   非工作区: [1479, 61]
   領取: [1004, 693]
   材料产出: [762, 862]
+  每日線索: [1592, 215]
 engine: {scale_range: [0.6, 1.5]}
 steps:
   - repeat: 6    # 1
@@ -103,7 +103,7 @@ steps:
         then:
           - {find_click: 返回, within: [-28, -9, 117, 132], on_fail: break}    # 53
           - {wait: 0.8}    # 54
-  - {find_click: 每日线索, within: [1530, 163, 122, 120], timeout: 3, on_fail: skip}    # 56
+  - {find_click: 每日線索, within: [1532, 151, 134, 123], timeout: 3, on_fail: skip}    # 56
   - {find_click: 領取, within: [869, 627, 286, 132], confirm: gone, timeout: 3, on_fail: skip}    # 57
   - branch:    # 58
       - if: {find_click: 接收线索, within: [1525, 259, 131, 125], confirm: {appear: 全部收取, within: [1318, 793, 250, 108]}, on_fail: break}    # 59
