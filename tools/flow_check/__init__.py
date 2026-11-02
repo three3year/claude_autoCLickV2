@@ -2,8 +2,9 @@
 
     python tools/flow_check <流程資料夾> [--normalize]
 
-輸出分兩類: **錯誤** (讀不進來或執行時一定被擋; 以 1 結束) 與**缺圖** (列成「要在 app 截的
-範本」; 缺圖本身不算錯, 以 0 結束)。預設一個檔都不寫; `--normalize` 且沒有錯誤時, 經 app 的
+輸出分三類: **錯誤** (讀不進來或執行時一定被擋; 以 1 結束)、**警告** (外部工具登錄的資料夾或
+入口檔在這台電腦不存在; 換電腦路徑可能不同, 不算錯) 與**缺圖** (列成「要在 app 截的範本」;
+缺圖本身不算錯, 以 0 結束)。預設一個檔都不寫; `--normalize` 且沒有錯誤時, 經 app 的
 `flowfile.dump_flow` 把 flow.yaml 重寫一次 (行尾步驟編號與排版回到標準; templates/ 不動)。
 """
 from __future__ import annotations
@@ -26,6 +27,7 @@ from automation import flowcheck  # noqa: E402
 class Result:
     folder: str
     errors: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
     missing: list = field(default_factory=list)
     unused: list = field(default_factory=list)
     flow: dict | None = None
@@ -47,6 +49,7 @@ def check(folder):
         return res
     res.flow = flow
     res.errors += flowcheck.flow_errors(flow)
+    res.warnings = flowcheck.flow_warnings(flow)
     res.missing = flowfile.missing_templates(folder, flow)
     refs = {n.casefold() for n in flowfile.template_refs(flow)}
     res.unused = [n for n in flowfile.folder_template_names(folder)
@@ -73,6 +76,9 @@ def report(res):
     if res.errors:
         lines.append(f"錯誤（{len(res.errors)}）：")
         lines += [f"  {e}" for e in res.errors]
+    if res.warnings:
+        lines.append(f"警告（{len(res.warnings)}，這台電腦上 app 會擋下不執行）：")
+        lines += [f"  {w}" for w in res.warnings]
     if res.missing:
         lines.append("要在 app 截的範本（引用了但 templates/ 裡沒有）：")
         lines += [f"  {n}" for n in res.missing]

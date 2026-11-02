@@ -2011,6 +2011,11 @@ class App:
             messagebox.showwarning("執行", "範本不存在：\n" + "\n".join(missing),
                                    parent=self.root)
             return
+        tools = [m for m, _ in flowcheck.tool_problems(steps, self.flow_tools)]
+        if tools:
+            messagebox.showwarning("執行", "外部工具找不到：\n" + "\n".join(tools),
+                                   parent=self.root)
+            return
         checked = [i + 1 for i in flowcheck.busy_check_bad(steps, self.busy_target)]
         if checked:
             messagebox.showwarning(

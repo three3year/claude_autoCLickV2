@@ -30,7 +30,8 @@ class ToolRegistry:
         return sorted(self.tools)
 
     def locate(self, name):
-        """工具的 (入口檔路徑, 工作目錄); 找不到丟 LookupError, 訊息說明缺什麼."""
+        """工具的 (入口檔路徑, 工作目錄); 找不到丟 LookupError, 訊息說明缺什麼
+        (資料夾或入口檔不存在是子類 PathMissing)."""
         if self.problem:
             raise LookupError(f"外部工具登錄（external_tools.yaml）格式錯：{self.problem}")
         entry = self.tools.get(name)
@@ -38,11 +39,15 @@ class ToolRegistry:
             raise LookupError(f"外部工具「{name}」沒有登錄（流程資料夾的 external_tools.yaml）")
         folder = entry["dir"]
         if not os.path.isdir(folder):
-            raise LookupError(f"外部工具「{name}」登錄的資料夾不存在：{folder}")
+            raise PathMissing(f"外部工具「{name}」登錄的資料夾不存在：{folder}")
         exe = os.path.join(folder, entry["exe"])
         if not os.path.isfile(exe):
-            raise LookupError(f"外部工具「{name}」的入口檔不存在：{exe}")
+            raise PathMissing(f"外部工具「{name}」的入口檔不存在：{exe}")
         return exe, folder
+
+
+class PathMissing(LookupError):
+    """登錄寫對了, 但這台電腦上沒有那個資料夾或入口檔 (換電腦檢查時可能只是路徑不同)."""
 
 
 def parse_expected(lines):

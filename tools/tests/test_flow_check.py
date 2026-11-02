@@ -142,3 +142,67 @@ def test_命令列子程序(tmp_path):
     out = proc.stdout.decode("utf-8", "replace")
     assert proc.returncode == 1, proc.stderr.decode("utf-8", "replace")
     assert "步驟 1" in out
+
+
+EXT = "  - {external: 公開招募, args: [--hwnd, '{hwnd}']}\n"
+
+
+def register(folder, tmp_path, make_dir=True, make_exe=True):
+    d = tmp_path / "RecruitHelper"
+    if make_dir:
+        d.mkdir(exist_ok=True)
+        if make_exe:
+            (d / "recruit-step.exe").write_bytes(b"")
+    (folder / "external_tools.yaml").write_text(
+        f"公開招募:\n  dir: {d}\n  exe: recruit-step.exe\n", encoding="utf-8")
+    return d
+
+
+@pytest.mark.parametrize("steps, want", [
+    ("  - {external: 公開招募, argz: []}\n", ["步驟 1", "argz"]),
+    ("  - {external: 公開招募, args: [--n, 3]}\n", ["步驟 1", "args", "字串清單"]),
+    ("  - {external: 公開招募, args: --n}\n", ["步驟 1", "args", "字串清單"]),
+], ids=["鍵錯", "args有數字", "args不是清單"])
+def test_外部步驟寫錯_結束碼1(tmp_path, capsys, steps, want):
+    folder = make_flow(tmp_path, steps)
+    register(folder, tmp_path)
+    code, out = run(folder, capsys=capsys)
+    assert code == 1, out
+    for w in want:
+        assert w in out, out
+
+
+def test_外部工具沒登錄_結束碼1(tmp_path, capsys):
+    folder = make_flow(tmp_path, EXT)
+    code, out = run(folder, capsys=capsys)
+    assert code == 1, out
+    assert out.startswith("錯誤")
+    assert "公開招募" in out and "沒有登錄" in out, out
+
+
+@pytest.mark.parametrize("make_dir, make_exe, want", [
+    (False, False, "資料夾不存在"),
+    (True, False, "入口檔不存在"),
+], ids=["資料夾不存在", "入口檔不存在"])
+def test_登錄的路徑不存在_只是警告_結束碼0(tmp_path, capsys, make_dir, make_exe, want):
+    folder = make_flow(tmp_path, EXT)
+    register(folder, tmp_path, make_dir=make_dir, make_exe=make_exe)
+    code, out = run(folder, capsys=capsys)
+    assert code == 0, out
+    assert "警告" in out and "公開招募" in out and want in out, out
+    assert "沒有錯誤（1 步）" in out
+
+
+def test_登錄齊全_沒有警告(tmp_path, capsys):
+    folder = make_flow(tmp_path, EXT)
+    register(folder, tmp_path)
+    code, out = run(folder, capsys=capsys)
+    assert code == 0 and "警告" not in out, out
+
+
+def test_登錄檔格式錯_結束碼1(tmp_path, capsys):
+    folder = make_flow(tmp_path, EXT)
+    (folder / "external_tools.yaml").write_text("公開招募: 不是對照表\n", encoding="utf-8")
+    code, out = run(folder, capsys=capsys)
+    assert code == 1, out
+    assert "格式錯" in out, out
