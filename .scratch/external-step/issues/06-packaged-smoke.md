@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 03, 04, 05
 
-**Status:** ready-for-agent
+**Status:** done (2026-11-03)
 
 - [x] 照 `app/CLAUDE.md` 的 agent 打包法重新打包（打到 dist-new 再換上）
 - [x] 開打包版前先確認使用者在不在、是不是在玩遊戲（見記憶「打包版冒煙前先確認使用者在不在」）
