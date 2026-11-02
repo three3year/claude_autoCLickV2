@@ -571,6 +571,7 @@ class Runner:
             exe, cwd = self.tools.locate(name)
         except LookupError as e:
             raise RuntimeError(f"[{no}] {e} → 停止執行") from None
+        args = self._fill_hwnd(no, name, args)
         rec = dict(step=no, tool=name)
         self.log(f"[{no}] 外部 {name}：詢問預期時間")
         query = extproc.start(exe, args + [external.QUERY_FLAG], cwd)
@@ -597,6 +598,26 @@ class Runner:
         if code != 0:
             raise RuntimeError(f"[{no}] 外部工具「{name}」結束碼 {code} → 停止執行")
         self.log(f"[{no}] 外部 {name} 完成（結束碼 0）", "ok")
+
+    def _fill_hwnd(self, no, name, args):
+        """參數裡的 `{hwnd}` 換成`搜尋範圍`中心點所在的頂層視窗 (十進位).
+
+        沒限定搜尋範圍＝整個虛擬桌面, 取它的中心。
+        """
+        if not any(external.HWND in a for a in args):
+            return args
+        if self.scan_region:
+            x, y, w, h = (int(v) for v in self.scan_region)
+        else:
+            vs = win.virtual_screen()
+            x, y, w, h = vs["x"], vs["y"], vs["w"], vs["h"]
+        cx, cy = x + w // 2, y + h // 2
+        hwnd = win.top_window_at(cx, cy)
+        if not hwnd:
+            raise RuntimeError(f"[{no}] 外部工具「{name}」要代入 {external.HWND}，"
+                               f"但搜尋範圍中心 ({cx}, {cy}) 找不到視窗 → 停止執行")
+        self.log(f"[{no}] {external.HWND} ＝ {hwnd}（搜尋範圍中心 ({cx}, {cy}) 的視窗）")
+        return [a.replace(external.HWND, str(hwnd)) for a in args]
 
     def _wait_process(self, proc):
         while (code := proc.poll()) is None:

@@ -7,6 +7,7 @@ import os
 
 QUERY_FLAG = "--expected-time"
 TAIL_LINES = 5
+HWND = "{hwnd}"
 
 
 class ToolRegistry:
