@@ -574,9 +574,17 @@ class Runner:
         rec = dict(step=no, tool=name)
         self.log(f"[{no}] 外部 {name}：詢問預期時間")
         query = extproc.start(exe, args + [external.QUERY_FLAG], cwd)
-        code = self._wait_process(query)
+        code, timed_out = self._wait_process(
+            query, external.QUERY_LIMIT, on_stop=lambda p: p.kill_tree())
         lines = query.tail(external.TAIL_LINES)
+        if self._stop.is_set():
+            self._log_file("external", **rec, result="query_stopped", exit="killed",
+                           tail=" | ".join(lines))
+            raise StopRequested(f"[{no}] 外部 {name}：詢問期間停止，已結束詢問程序 → 已停止")
         try:
+            if timed_out:
+                code = "killed"
+                raise ValueError(f"超過 {external.QUERY_LIMIT:g} 秒沒有回答，已結束它")
             if code != 0:
                 raise ValueError(f"結束碼 {code}")
             expected = external.parse_expected(lines)
@@ -588,20 +596,57 @@ class Runner:
                                " → 停止執行") from None
         rec["expected"] = f"{expected:g}"
         self.log(f"[{no}] 外部 {name}：預期 {expected:g} 秒，開始執行")
+        limit = expected + external.RUN_MARGIN
+
+        def notify_stop(p):
+            p.send_line(external.STOP_LINE)
+            self.log(f"[{no}] 外部 {name}：已通知工具停止，等它收尾"
+                     f"（最多到啟動後 {limit:g} 秒）", "warn")
+
         proc = extproc.start(exe, args, cwd)
-        code = self._wait_process(proc)
+        code, timed_out = self._wait_process(proc, limit, on_stop=notify_stop)
         lines = proc.tail(external.TAIL_LINES)
-        self._log_file("external", **rec, result="done" if code == 0 else "failed",
-                       exit=code, tail=" | ".join(lines))
+        stopped = self._stop.is_set()
+        if timed_out:
+            code = "killed"
+        if stopped:
+            result = "stopped"
+        elif timed_out:
+            result = "timeout"
+        else:
+            result = "done" if code == 0 else "failed"
+        self._log_file("external", **rec, result=result, exit=code,
+                       tail=" | ".join(lines))
         self._log_tail(no, lines)
+        if stopped:
+            how = ("外部工具未回應停止，逾時後已結束它" if timed_out
+                   else f"工具已收尾結束（結束碼 {code}）")
+            raise StopRequested(f"[{no}] 外部 {name}：{how} → 已停止")
+        if timed_out:
+            raise RuntimeError(f"[{no}] 外部工具「{name}」逾時（超過 {limit:g} 秒）"
+                               "，已結束它 → 停止執行")
         if code != 0:
             raise RuntimeError(f"[{no}] 外部工具「{name}」結束碼 {code} → 停止執行")
         self.log(f"[{no}] 外部 {name} 完成（結束碼 0）", "ok")
 
-    def _wait_process(self, proc):
+    def _wait_process(self, proc, limit, on_stop):
+        """等 proc 結束, 回 (結束碼, 是否逾時); 超過 limit 秒就結束它的行程樹.
+
+        急停不丟例外: 第一次看到時呼叫 on_stop(proc), 之後照樣等到結束或逾時。
+        """
+        deadline = time.monotonic() + limit
+        stop_seen = False
         while (code := proc.poll()) is None:
-            self._sleep(EXTERNAL_POLL)
-        return code
+            if not stop_seen and self._stop.is_set():
+                stop_seen = True
+                on_stop(proc)
+                continue
+            left = deadline - time.monotonic()
+            if left <= 0:
+                proc.kill_tree()
+                return proc.poll(), True
+            time.sleep(min(EXTERNAL_POLL, left))
+        return code, False
 
     def _log_tail(self, no, lines):
         for line in lines:

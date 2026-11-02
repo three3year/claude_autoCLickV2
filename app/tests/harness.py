@@ -293,19 +293,44 @@ class Input:
 
 
 class FakeProc:
-    """假的外部工具程序: 啟動後 after 秒 (虛擬時鐘) 以 code 結束, 輸出是 lines."""
+    """假的外部工具程序: 啟動後 after 秒 (虛擬時鐘) 以 code 結束, 輸出是 lines.
 
-    def __init__(self, clock, code=0, lines=(), after=0.0):
+    after=None＝卡住不自己結束。on_stop=N: 收到一行 stop 後 stop_after 秒以 N 結束;
+    沒給＝不理會 stop。killed: 被結束行程樹過; inputs: 寫進標準輸入的每一行。
+    """
+
+    KILLED_CODE = 1
+
+    def __init__(self, clock, code=0, lines=(), after=0.0, on_stop=None,
+                 stop_after=0.5):
         self.clock = clock
         self.code = code
         self.lines = list(lines)
-        self.ends_at = clock.t + after
+        self.ends_at = None if after is None else clock.t + after
+        self.on_stop = on_stop
+        self.stop_after = stop_after
+        self.inputs = []
+        self.killed = False
 
     def poll(self):
-        return self.code if self.clock.t >= self.ends_at else None
+        if self.ends_at is not None and self.clock.t >= self.ends_at:
+            return self.code
+        return None
 
     def tail(self, n):
         return self.lines[-n:] if n > 0 else []
+
+    def send_line(self, text):
+        self.inputs.append(text)
+        if text == "stop" and self.on_stop is not None and self.poll() is None:
+            self.code = self.on_stop
+            self.ends_at = self.clock.t + self.stop_after
+
+    def kill_tree(self):
+        if self.poll() is None:
+            self.killed = True
+            self.code = self.KILLED_CODE
+            self.ends_at = self.clock.t
 
 
 class Launcher:
@@ -314,6 +339,7 @@ class Launcher:
     def __init__(self, clock):
         self.clock = clock
         self.launches = []
+        self.procs = []
         self._query = dict(code=0, lines=["5"], after=0.2)
         self._run = dict(code=0, lines=[], after=1.0)
 
@@ -327,7 +353,9 @@ class Launcher:
         from automation.external import QUERY_FLAG
         self.launches.append((exe, list(args), cwd))
         spec = self._query if QUERY_FLAG in args else self._run
-        return FakeProc(self.clock, **spec)
+        proc = FakeProc(self.clock, **spec)
+        self.procs.append(proc)
+        return proc
 
 
 class FileLog:

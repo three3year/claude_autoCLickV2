@@ -7,6 +7,9 @@ import os
 
 QUERY_FLAG = "--expected-time"
 TAIL_LINES = 5
+QUERY_LIMIT = 10.0
+RUN_MARGIN = 10.0
+STOP_LINE = "stop"
 
 
 class ToolRegistry:
