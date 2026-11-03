@@ -278,3 +278,4 @@ steps:
         on_break: break
   - {find_click: 導航, within: [244, 0, 148, 127], confirm: next, timeout: 10}    # 230
   - {find_click: 公開招募, within: [1260, 299, 142, 143], timeout: 10}    # 231
+  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 232

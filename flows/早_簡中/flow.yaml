@@ -321,3 +321,4 @@ steps:
         on_break: break
   - {find_click: 导航（好友基建）, within: [189, -11, 150, 127], offset: [0, -1], confirm: next, timeout: 10}    # 271
   - {find_click: 公开招募, within: [1045, 176, 220, 200], offset: [-3, -3], timeout: 10}    # 272
+  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 273

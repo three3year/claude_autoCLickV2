@@ -85,3 +85,4 @@ steps:
   - {wait: 0.5}    # 59
   - {find_click: 導航, within: [204, -66, 148, 126], confirm: next, timeout: 10}    # 60
   - {find_click: 公開招募, within: [1220, 237, 142, 138], timeout: 10}    # 61
+  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 62
