@@ -6,6 +6,7 @@ calibration:
   fallback: {pair: [主画面设置钮, 主画面仓库], baseline: 1719.2, offset: [-33, -61]}
 busy: {template: 忙碌指示, within: [880, 780, 333, 101]}
 template_pos:
+  公开招募画面: [275, 213]
   主画面仓库: [1596, 778]
   主画面设置钮: [33, 61]
   今日配给: [827, 141]
@@ -320,5 +321,6 @@ steps:
               - {click: [-16, 642], confirm: gone, timeout: 10}    # 268
         on_break: break
   - {find_click: 导航（好友基建）, within: [189, -11, 150, 127], offset: [0, -1], confirm: next, timeout: 10}    # 271
-  - {find_click: 公开招募, within: [1045, 176, 220, 200], offset: [-3, -3], timeout: 10}    # 272
-  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 273
+  - {find_click: 公开招募, within: [1045, 176, 220, 200], offset: [-3, -3], confirm: next, timeout: 10}    # 272
+  - {find: 公开招募画面, within: [23, 149, 504, 128], timeout: 10}    # 273
+  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 274

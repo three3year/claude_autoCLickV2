@@ -6,6 +6,7 @@ calibration:
   fallback: {pair: [標題列圖示, 標題列關閉鈕], baseline: 1868.0, offset: [40, 67]}
 busy: {template: 忙碌指示, within: [954, 818, 382, 105]}
 template_pos:
+  公開招募畫面: [271, 170]
   主畫面倉庫: [1760, 824]
   主畫面設定鈕: [0, 0]
   公開招募: [1291, 306]
@@ -84,5 +85,6 @@ steps:
   - {find_click: 幹員休息, within: [1552, 804, 164, 134], timeout: 3, on_fail: skip}    # 58
   - {wait: 0.5}    # 59
   - {find_click: 導航, within: [204, -66, 148, 126], confirm: next, timeout: 10}    # 60
-  - {find_click: 公開招募, within: [1220, 237, 142, 138], timeout: 10}    # 61
-  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 62
+  - {find_click: 公開招募, within: [1220, 237, 142, 138], confirm: next, timeout: 10}    # 61
+  - {find: 公開招募畫面, within: [-14, 98, 571, 144], timeout: 10}    # 62
+  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 63
