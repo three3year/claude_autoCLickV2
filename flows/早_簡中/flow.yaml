@@ -58,7 +58,7 @@ steps:
       - branch:    # 2
           - if: {find_click: 签到关闭, within: [1101, 49, 453, 221], offset: [8, -5], confirm: gone, timeout: 10, on_fail: skip, busy_check: true}    # 3
           - if: {find_click: 活动关闭, within: [1404, 105, 136, 136], confirm: gone, timeout: 10, on_fail: skip, busy_check: true}    # 5
-          - if: {find_click: 公告关闭, within: [1449, 36, 136, 136], confirm: gone, timeout: 10, on_fail: skip, busy_check: true}    # 7
+          - if: {find_click: 公告关闭, within: [1272, 49, 337, 257], confirm: gone, timeout: 10, on_fail: skip, busy_check: true}    # 7
           - if: {find: 今日配给, within: [730, 31, 210, 220], timeout: 10, on_fail: skip}    # 9
             then:
               - {click: [23, 632], confirm: gone, timeout: 10}    # 10
