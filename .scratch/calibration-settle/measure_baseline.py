@@ -104,7 +104,9 @@ def run(cal, query, peek, grab, wait, say=print):
         wait)
     ms = s.value
     if any(not m.ok for m in ms.values()):
-        raise Abort(f"移開游標後量不到（量了 {s.reads} 次）：{describe(ms)}")
+        e = Abort(f"移開游標後量不到（量了 {s.reads} 次）：{describe(ms)}")
+        e.screen = s.screen  # 給呼叫端存檔, 看移開游標後畫面變成什麼樣
+        raise e
     m_main, m_title = ms["main"], ms["title"]
     k_title = m_title.distance / title["baseline"]
     new_baseline = round(m_main.distance / k_title, 1)
@@ -212,6 +214,9 @@ def main(argv=None):
     def grab():
         moved.append(True)
         Runner._avoid_cursor(parker, region)
+        if win.cursor_pos() == home:
+            # 遊戲以系統管理員執行時, 非管理員程序的 SetCursorPos 會被 UIPI 擋掉, 量到的是游標沒移開的畫面
+            raise Abort(f"游標移不動（還在 {home}）：遊戲可能以系統管理員執行，請用系統管理員身分跑這支腳本")
         return capture.grab(region)
 
     home = win.cursor_pos()
@@ -221,6 +226,14 @@ def main(argv=None):
         r, s = run(cal, hub.query, lambda: capture.grab(region), grab, time.sleep)
         park = win.cursor_pos()
     except Abort as e:
+        if getattr(e, "screen", None) is not None:
+            import cv2
+            os.makedirs(tmp, exist_ok=True)
+            fail = os.path.join(tmp, f"baseline_{a.flow}_failed.png")
+            ok, buf = cv2.imencode(".png", e.screen)
+            if ok:
+                buf.tofile(fail)
+                print(f"最後一次的截圖：{fail}")
         sys.exit(f"中止：{e}")
     finally:
         if moved:
