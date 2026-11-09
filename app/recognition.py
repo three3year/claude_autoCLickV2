@@ -172,6 +172,22 @@ class Recognition:
         applog.log("recog.end", title=job.title, result=result,
                    seconds=f"{time.monotonic() - job.t0:.2f}")
 
+    def wait(self, job):
+        """不卡介面地等背景那段做完: 巢狀事件迴圈, 介面執行緒照常處理事件.
+        清場中等主畫面停穩用 (視窗藏著, 背景截圖、量測、每秒等一次)."""
+        # 掛在 Tk 本體上: 等待中主視窗被銷毀 (它的 after 命令跟著被刪) 也照樣等得到
+        root = self.app.root._root()
+        finished = tk.BooleanVar(master=root)
+
+        def poll():
+            if job.step is None or job.step.finished or not _alive(self.app.root):
+                finished.set(True)
+            else:
+                root.after(WATCH_MS, poll)
+        poll()
+        if not finished.get():
+            root.wait_variable(finished)
+
     def _launch(self, job, work):
         job.step = _Step(work)
         self.executor.launch(self, job.step)

@@ -376,7 +376,7 @@ def test_校準量測查詢不帶預期尺度(tkroot, monkeypatch, tmp_path):
     vision.plan("舊圖示", [(100, 50)])
     vision.plan("舊關閉", [(1000, 50)])
     a.test_calibration()
-    assert vision.expected_scales == [("舊圖示", None), ("舊關閉", None)]
+    assert vision.expected_scales == [("舊圖示", None), ("舊關閉", None)] * 2, "等停穩: 量兩次"
 
 
 def test_校準只在搜尋範圍內截圖(tkroot, monkeypatch, tmp_path):
@@ -392,7 +392,7 @@ def test_校準只在搜尋範圍內截圖(tkroot, monkeypatch, tmp_path):
     vision.plan("舊圖示", [(100, 100)])
     vision.plan("舊關閉", [(700, 100)])
     a.test_calibration()
-    assert grabs == [[50, 60, 700, 500]]
+    assert grabs == [[50, 60, 700, 500]] * 2, "等停穩: 截兩張, 都只截搜尋範圍"
     assert any("(100, 100)" in m for m in a.logged), "中心是螢幕座標"
 
 

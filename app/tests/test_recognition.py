@@ -242,22 +242,54 @@ def _in_settings(a, *actions):
         raise d.error
 
 
-def test_測試校準對_清場中查詢0次_紀錄照舊(flow_app, monkeypatch):
+def while_settling(a, h, look):
+    """校準鈕等停穩那段 (清場中, 介面執行緒在巢狀事件迴圈裡等背景) 時看一眼, 再放行背景那段."""
+    def peek():
+        if not h.held:  # 清場進場時的 update 也會跑到這裡: 背景那段還沒派出去
+            a.root.after(10, peek)
+            return
+        try:
+            look()
+        finally:
+            h.release()
+    a.root.after(10, peek)
+
+
+def _log_depths(monkeypatch, a, probe):
+    """寫紀錄區時在不在清場裡."""
+    rec = []
+    log_ui = a.log_ui
+
+    def logged(msg, level="info"):
+        rec.append(probe.depth > 0)
+        return log_ui(msg, level)
+    monkeypatch.setattr(a, "log_ui", logged)
+    return rec
+
+
+def test_測試校準對_等停穩在清場中量_還原後才寫紀錄(flow_app, monkeypatch):
     a = flow_app
     probe = ClearProbe(monkeypatch, a)
+    depths = _log_depths(monkeypatch, a, probe)
     a.test_calibration()
-    assert probe.calls and probe.in_clear() == []
+    assert probe.calls and probe.in_clear() == [n for n, _ in probe.calls], \
+        "量測都在清場中 (視窗藏著等停穩)"
+    assert depths and not any(depths), "結果在還原後才寫"
     assert any("測試校準對：目前畫面倍率 ×1.000" in m and "(100, 50)" in m for m in _logs(a))
 
 
-def test_測試校準對_扣住時流程設定顯示辨識中_圖片類反灰_關閉無效_放行後解除(flow_app):
+def test_測試校準對_等停穩時流程設定顯示辨識中_圖片類反灰_關閉無效_放行後解除(flow_app):
     a = flow_app
     h = held(a)
     seen = {}
 
     def press_test(dr):
+        while_settling(a, h, lambda: look(dr))
         _row_button(dr.dlg, 0, "測試").invoke()
         dr._update()
+        seen["after"] = (_disabled(_btn_in(dr.dlg, "關閉")),
+                         _disabled(_row_button(dr.dlg, 0, "測試")),
+                         _disabled(_btn_in(a.root, "存檔")))
 
     def look(dr):
         dlg = dr.dlg
@@ -272,16 +304,10 @@ def test_測試校準對_扣住時流程設定顯示辨識中_圖片類反灰_�
                                                                "截圖新增", "重截", "測試選取")]
         seen["run"] = _disabled(a.btn_run)
         seen["main_status"] = a.status_lbl.cget("text")
-        dlg.event_generate("<Escape>")
         dlg.tk.call(dlg.protocol("WM_DELETE_WINDOW"))
-        dr._update()
         seen["alive"] = dlg.winfo_exists()
         seen["logged_before"] = any("測試校準對：" in m for m in _logs(a))
-        h.release()
-        dr._update()
-        seen["after"] = (_disabled(_btn_in(dlg, "關閉")), _disabled(_row_button(dlg, 0, "測試")),
-                         _disabled(_btn_in(a.root, "存檔")))
-    _in_settings(a, press_test, look)
+    _in_settings(a, press_test)
     assert recognition.BUSY_TEXT in seen["status"]
     assert seen["image"] == [True] * 5
     assert seen["other"] == [False] * 4, "非圖片類照常可用"
@@ -305,14 +331,16 @@ def test_測試校準對_量測丟例外_辨識中解除並寫紀錄(flow_app, m
     assert any("測試校準對失敗" in m and "引擎炸了" in m for m in _logs(a))
 
 
-def test_測試備用校準對_清場中查詢0次(flow_app, monkeypatch):
+def test_測試備用校準對_等停穩在清場中量_還原後才寫紀錄(flow_app, monkeypatch):
     a = flow_app
     a.flow_cal[calibration.FALLBACK_KEY] = calibration.make_fallback(list(FB), 500.0, (0, 0))
     a.vision.plan(FB[0], [(100, 10)])
     a.vision.plan(FB[1], [(600, 10)])
     probe = ClearProbe(monkeypatch, a)
+    depths = _log_depths(monkeypatch, a, probe)
     a.test_fallback_calibration()
-    assert probe.calls and probe.in_clear() == []
+    assert probe.calls and probe.in_clear() == [n for n, _ in probe.calls]
+    assert depths and not any(depths)
     assert any("測試備用校準對：畫面倍率 ×1.000" in m for m in _logs(a))
 
 
@@ -320,7 +348,7 @@ def _pick_pair(monkeypatch, pair):
     monkeypatch.setattr(app_mod.ui_dialogs, "pick_cal_pair", lambda app, fallback=False: pair)
 
 
-def test_設定校準對_清場中查詢0次_扣住時資料沒變_放行後才平移(flow_app, monkeypatch):
+def test_設定校準對_等停穩時資料沒變_還原後才平移(flow_app, monkeypatch):
     a = flow_app
     a.store.set_pos(PAIR[0], [10, 20])
     _pick_pair(monkeypatch, ("新左", "新右"))
@@ -329,11 +357,15 @@ def test_設定校準對_清場中查詢0次_扣住時資料沒變_放行後才�
     probe = ClearProbe(monkeypatch, a)
     h = held(a)
     old = a.flow_cal
+    seen = {}
+
+    def look():
+        seen["busy"] = a.recognition.busy
+        seen["same"] = a.flow_cal is old and a.store.pos_of(PAIR[0]) == [10, 20]
+    while_settling(a, h, look)
     a.designate_pair()
-    assert a.recognition.busy
-    assert a.flow_cal is old and a.store.pos_of(PAIR[0]) == [10, 20], "扣住時還沒變"
-    h.release()
-    assert probe.in_clear() == [] and probe.calls
+    assert seen == {"busy": True, "same": True}, "等停穩時還沒變"
+    assert probe.calls and probe.in_clear() == [n for n, _ in probe.calls]
     assert a.flow_cal["pair"] == ["新左", "新右"] and a.flow_cal["baseline"] == 500.0
     assert a.store.pos_of(PAIR[0]) == [-90, -30], "存下的座標跟著平移"
     assert not a.recognition.busy
@@ -349,17 +381,18 @@ def test_設定校準對_舊對量不到_拒絕_資料不動(flow_app, monkeypat
     assert any(PAIR[1] in m for m in no_real_dialogs["warning"])
 
 
-def test_設定備用校準對_清場中查詢0次_放行後才存(flow_app, monkeypatch):
+def test_設定備用校準對_等停穩時還沒存_還原後才存(flow_app, monkeypatch):
     a = flow_app
     _pick_pair(monkeypatch, FB)
     a.vision.plan(FB[0], [(100, 10)])
     a.vision.plan(FB[1], [(600, 10)])
     probe = ClearProbe(monkeypatch, a)
     h = held(a)
+    seen = []
+    while_settling(a, h, lambda: seen.append(calibration.fallback_pair(a.flow_cal)))
     a.designate_fallback_pair()
-    assert calibration.fallback_pair(a.flow_cal) is None
-    h.release()
-    assert probe.calls and probe.in_clear() == []
+    assert seen == [None]
+    assert probe.calls and probe.in_clear() == [n for n, _ in probe.calls]
     fb = calibration.fallback_pair(a.flow_cal)
     assert fb["pair"] == list(FB) and fb["offset"] == [0, 40]
 
@@ -392,17 +425,19 @@ def test_辨識中關掉主視窗_不出錯_結果不套用(flow_app, monkeypatc
     a.vision.plan("新右", [(700, 100)])
     h = held(a)
     old = a.flow_cal
+
+    def close():
+        a.dirty = False
+        a.on_close()
+    while_settling(a, h, close)
     a.designate_pair()
-    a.dirty = False
-    a.on_close()
     assert not a.root.winfo_exists()
-    h.release()
     assert not a.recognition.busy
     assert a.flow_cal is old, "結果不套用"
 
 
 @pytest.mark.parametrize("row,text", [(0, "設定…"), (1, "設定…"), (1, "測試")])
-def test_流程設定其他量測入口_扣住時也是辨識中_關閉無效(flow_app, monkeypatch, row, text):
+def test_流程設定其他量測入口_等停穩時也是辨識中_關閉無效(flow_app, monkeypatch, row, text):
     a = flow_app
     if row == 1 and text == "測試":
         a.flow_cal[calibration.FALLBACK_KEY] = calibration.make_fallback(list(FB), 500.0, (0, 0))
@@ -414,8 +449,10 @@ def test_流程設定其他量測入口_扣住時也是辨識中_關閉無效(fl
     seen = {}
 
     def press(dr):
+        while_settling(a, h, lambda: look(dr))
         _row_button(dr.dlg, row, text).invoke()
         dr._update()
+        seen["after"] = _disabled(_btn_in(dr.dlg, "關閉"))
 
     def look(dr):
         seen["busy"] = recognition.BUSY_TEXT in [w.cget("text") for w in _all(dr.dlg)
@@ -423,10 +460,6 @@ def test_流程設定其他量測入口_扣住時也是辨識中_關閉無效(fl
         seen["close"] = _disabled(_btn_in(dr.dlg, "關閉"))
         seen["image"] = _disabled(_row_button(dr.dlg, 0, "測試"))
         dr.dlg.tk.call(dr.dlg.protocol("WM_DELETE_WINDOW"))
-        dr._update()
         seen["alive"] = dr.dlg.winfo_exists()
-        h.release()
-        dr._update()
-        seen["after"] = _disabled(_btn_in(dr.dlg, "關閉"))
-    _in_settings(a, press, look)
+    _in_settings(a, press)
     assert seen == {"busy": True, "close": True, "image": True, "alive": True, "after": False}

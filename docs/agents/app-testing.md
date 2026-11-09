@@ -16,6 +16,10 @@
 - 流程資料夾讀寫與本流程的範本是純檔案邏輯，用暫存目錄真測不 mock（`test_flowfolder.py`、`test_flowfile.py`、
   `test_flow_open_save.py`）；斷言資料夾與快取的檔案狀態、讀回來的流程。conftest 把本機狀態資料夾與流程存放區
   換到暫存目錄（`local_paths`），測試不碰 repo 的 `.local/` 與使用者的流程。
+- 游標一律是假的：conftest 的 autouse `fake_cursor` 把 `automation.win` 的 move／park／cursor_pos（與螢幕配置）換成
+  `harness.Input`（編輯器等停穩也會`避開游標`）；要看游標停在哪，測試直接拿 `fake_cursor` 讀 `cursor_pos()`／`events`。
+  校準鈕等停穩時介面執行緒在 `Recognition.wait` 的巢狀事件迴圈裡：配 `Held` 要看等待中的樣子，先 `root.after` 排一個
+  「看一眼再 `release()`」（`test_recognition.while_settling`），再按鈕——不然會一直等下去。
 - 測 runner 點擊邏輯時 monkeypatch `automation.runner.win.click`，不要真的動使用者滑鼠。
 - 真的主視窗用 conftest 的 `main_app`（引擎不載入、不掛 F12 與視窗鉤子、不跑輪詢）。測試裡會被 `after` 排程的東西
   不要換成 lambda：Tkinter 以「id＋函式名」當 Tcl 命令名，視窗關掉後名字釋出、被下一個視窗的 lambda 重用，留著的

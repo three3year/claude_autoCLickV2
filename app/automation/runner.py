@@ -15,6 +15,32 @@ def _applog(event, **fields):
     applog.log(event, **fields)
 
 
+def park_point(region):
+    """`避開游標`的停點: `搜尋範圍`左下角外側; 沒設範圍＝虛擬桌面左下角. 夾在該螢幕內.
+
+    多螢幕大小不一時虛擬桌面的角落可能根本不在螢幕上, SetCursorPos 到不了。
+    """
+    if region:
+        x, y = region[0] - 2, region[1] + region[3] + 1
+        cx, cy = region[0] + region[2] / 2.0, region[1] + region[3] / 2.0
+    else:
+        vs = win.virtual_screen()
+        cx, cy = vs["x"] + vs["w"] / 2.0, vs["y"] + vs["h"] / 2.0
+        x, y = vs["x"], vs["y"] + vs["h"]
+    x1, y1, x2, y2 = win.monitor_rect_at(cx, cy)
+    return min(max(x, x1), x2 - 1), min(max(y, y1), y2 - 1)
+
+
+def avoid_cursor(region, sleep):
+    """`避開游標` (執行器與編輯器每次截圖前): 截圖本身不含游標 (GDI), 但游標停留會讓
+    底下 UI 反白, 干擾比對。已在停點就不動; sleep 是呼叫端的等待."""
+    x, y = park_point(region)
+    if win.cursor_pos() == (x, y):
+        return
+    win.park(x, y)
+    sleep(0.08)
+
+
 def branch_layout(steps, start):
     """解析 start (branch_start 索引) 的分岔結構.
 
@@ -833,27 +859,8 @@ class Runner:
                 continue
             return end + 1
 
-    def _avoid_cursor(self, region):
-        """截圖本身不含游標 (GDI), 但游標停留會讓底下 UI 反白, 干擾比對.
-
-        多螢幕大小不一時虛擬桌面的角落可能根本不在螢幕上, SetCursorPos 到不了。
-        """
-        if region:
-            x, y = region[0] - 2, region[1] + region[3] + 1
-            cx, cy = region[0] + region[2] / 2.0, region[1] + region[3] / 2.0
-        else:
-            vs = win.virtual_screen()
-            cx, cy = vs["x"] + vs["w"] / 2.0, vs["y"] + vs["h"] / 2.0
-            x, y = vs["x"], vs["y"] + vs["h"]
-        x1, y1, x2, y2 = win.monitor_rect_at(cx, cy)
-        x, y = min(max(x, x1), x2 - 1), min(max(y, y1), y2 - 1)
-        if win.cursor_pos() == (x, y):
-            return
-        win.park(x, y)
-        self._sleep(0.08)
-
     def _grab(self, region):
-        self._avoid_cursor(region)
+        avoid_cursor(region, self._sleep)
         return capture.grab(region)
 
     def _find(self, no, tgt, screen, org, origin, kind="範本"):
