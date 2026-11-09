@@ -1,7 +1,7 @@
 import numpy as np
 
 import harness
-from harness import CAL_PAIR, miss
+from harness import CAL_PAIR, Held, miss
 
 import recognition
 import ui_dialogs
@@ -27,6 +27,36 @@ def _overlay(monkeypatch, result, probe=None):
     return calls
 
 
+class _SettleThenHold(Held):
+    """每件辨識的第一段 (等主畫面停穩: 清場中量校準, 介面執行緒在巢狀事件迴圈裡等) 當場做完,
+    接著的背景那段 (推算 ◎、拾取檢查…) 扣住, release() 才做."""
+
+    def __init__(self):
+        super().__init__()
+        self._started = []
+
+    def launch(self, rec, step):
+        if rec.job not in self._started:
+            self._started.append(rec.job)
+            step.run()
+            rec._pump()
+            return
+        super().launch(rec, step)
+
+
+def held_after_settle(app):
+    h = app.recognition.executor = _SettleThenHold()
+    return h
+
+
+CALIBRATION = {*CAL_PAIR, *PAIR}
+
+
+def only_calibration_in_clear(probe):
+    """清場中只有等停穩時量校準對 (含載入校準圖); 其他辨識都在還原後."""
+    return set(probe.in_clear()) <= CALIBRATION
+
+
 def _labels(dlg):
     return [str(w.cget("text")) for w in _all(dlg) if w.winfo_class() == "TLabel"]
 
@@ -43,16 +73,16 @@ def _new_templates(app):
     return [n for n in app.store.names() if n.startswith("tmpl_")]
 
 
-def test_截圖新增_覆蓋層先出現_放行後才存範本並查縮放餘裕_清場中查詢0次(make_app, monkeypatch):
+def test_截圖新增_覆蓋層先出現_放行後才存範本並查縮放餘裕_清場中只量校準(make_app, monkeypatch):
     app = make_app(2.0)
     _engine(app, monkeypatch)
     app.vision.plan("tmpl_001", [miss("match", 0.6), (300, 400)])
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     calls = _overlay(monkeypatch, _shot(40, 20, 210, 250), probe)
     app.capture_template()
     assert [(c["mode"], c["status"], c["clearing"]) for c in calls] == \
-        [("region", "pending", True)], "覆蓋層出現時背景校準還沒放行"
+        [("region", "pending", True)], "覆蓋層出現時校準已停穩量好, 其餘背景那段還沒放行"
     assert calls[0]["kw"]["shot"][1] == (0, 0), "覆蓋層顯示清場中截的整張圖"
     assert app.recognition.busy
     assert _new_templates(app) == [] and app.pick_warnings() == {}, "扣住時沒有新範本也沒有 ⚠"
@@ -61,22 +91,17 @@ def test_截圖新增_覆蓋層先出現_放行後才存範本並查縮放餘裕
     assert imgio.imread(app.store.path_of(name)).shape[:2] == (10, 20)
     assert app.store.pos_of(name) == [40, 15]
     assert name in app.pick_warnings(), "縮放餘裕在同一件辨識裡"
-    assert probe.calls and probe.in_clear() == []
+    assert probe.calls and only_calibration_in_clear(probe)
     assert not app.recognition.busy
 
 
-def test_截圖新增_覆蓋層顯示中校準失敗_立刻中止_還原後警告_什麼都不存(make_app, monkeypatch,
+def test_截圖新增_停穩後校準失敗_不叫覆蓋層_還原後警告_什麼都不存(make_app, monkeypatch,
                                                 no_real_dialogs):
     app = make_app(1.0)
     app.vision.plan(CAL_PAIR[0], [None])
-    h = held(app)
-
-    def fail_while_shown(kw):
-        h.release()
-        assert kw["pending"].status() == "failed"
-        return ui_overlay.ABORT
-    _overlay(monkeypatch, fail_while_shown)
+    calls = _overlay(monkeypatch, _shot(40, 20))
     app.capture_template()
+    assert calls == []
     assert _new_templates(app) == []
     assert any("搜尋範圍" in m and CAL_PAIR[0] in m for m in no_real_dialogs["warning"])
     assert not app.recognition.busy
@@ -84,7 +109,7 @@ def test_截圖新增_覆蓋層顯示中校準失敗_立刻中止_還原後警�
 
 def test_截圖新增_Esc取消_背景結果作廢(make_app, monkeypatch):
     app = make_app(1.0)
-    h = held(app)
+    h = held_after_settle(app)
     _overlay(monkeypatch, None)
     app.capture_template()
     assert app.recognition.busy, "背景那段還在跑"
@@ -103,7 +128,7 @@ def test_沒有校準對_截範本照常_倍率1不記位置(make_app, monkeypat
     assert app.store.pos_of(name) is None
 
 
-def test_重截_清場中查詢0次_放行後才換圖(flow_app, monkeypatch):
+def test_重截_清場中只量校準_放行後才換圖(flow_app, monkeypatch):
     a = flow_app
     from automation import pickcheck
     monkeypatch.setattr(pickcheck, "resize_image", lambda img, s: img.resized(s))
@@ -111,20 +136,20 @@ def test_重截_清場中查詢0次_放行後才換圖(flow_app, monkeypatch):
     i = a._tmpl_names.index("新左")
     a.tmpl_list.selection_set(i)
     probe = ClearProbe(monkeypatch, a)
-    h = held(a)
+    h = held_after_settle(a)
     _overlay(monkeypatch, _shot(40, 20, 210, 250), probe)
     _btn_in(a.tmpl_list.master, "重截").invoke()
     assert a.store.path_of("新左") == before and not a.dirty
     assert _btn_in(a.tmpl_list.master, "重截").instate(["disabled"])
     h.release()
     assert imgio.imread(a.store.path_of("新左")).shape[:2] == (20, 40)
-    assert a.dirty and probe.in_clear() == [] and probe.calls
+    assert a.dirty and only_calibration_in_clear(probe) and probe.calls
     assert not _btn_in(a.tmpl_list.master, "重截").instate(["disabled"])
 
 
 def test_截圖新增中關掉主視窗_不出錯_結果不套用(flow_app, monkeypatch):
     a = flow_app
-    h = held(a)
+    h = held_after_settle(a)
     _overlay(monkeypatch, _shot(40, 20, 210, 250))
     a.capture_template()
     a.dirty = False
@@ -136,7 +161,7 @@ def test_截圖新增中關掉主視窗_不出錯_結果不套用(flow_app, monk
 def test_選範本對話框截圖_辨識中對話框關不掉_放行後才暫存(make_app, monkeypatch):
     app = make_app(1.0)
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     _overlay(monkeypatch, _shot(40, 20, 170, 240), probe)
     seen = {}
 
@@ -156,7 +181,7 @@ def test_選範本對話框截圖_辨識中對話框關不掉_放行後才暫存
     assert seen == {"ok": True, "cancel": True, "shoot": True, "busy": True, "alive": True,
                     "after": (False, False)}
     assert got == "tmpl_001" and app.store.pos_of(got) == [40, 20]
-    assert probe.in_clear() == [] and probe.calls
+    assert only_calibration_in_clear(probe) and probe.calls
 
 
 def _target_dialog(app, tgt, *actions, origin_fn=None):
@@ -171,10 +196,10 @@ def _target_dialog(app, tgt, *actions, origin_fn=None):
 BOX = {"screenX": 300, "screenY": 350, "w": 400, "h": 150}
 
 
-def test_固定矩形_清場中查詢0次_扣住時確定反灰_放行後換算照舊(make_app, monkeypatch):
+def test_固定矩形_清場中只量校準_扣住時確定反灰_放行後換算照舊(make_app, monkeypatch):
     app = make_app(1.0)
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     calls = _overlay(monkeypatch, dict(BOX), probe)
     seen = {}
 
@@ -189,7 +214,7 @@ def test_固定矩形_清場中查詢0次_扣住時確定反灰_放行後換算�
     assert calls[0]["status"] == "pending" and calls[0]["clearing"]
     assert seen == {"ok": True, "rect": True, "ok_after": False}
     assert got["within"] == RECT
-    assert probe.calls and probe.in_clear() == []
+    assert probe.calls and only_calibration_in_clear(probe)
 
 
 def test_固定矩形_校準失敗_矩形不變(make_app, monkeypatch, no_real_dialogs):
@@ -219,7 +244,7 @@ def _pointer_app(make_app, monkeypatch, scale=1.0):
 def test_拾取座標_扣住時以點一下模式叫出_先點_放行後才填_紀錄區寫原點(make_app, monkeypatch):
     app = _pointer_app(make_app, monkeypatch)
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     calls = _overlay(monkeypatch, {"endX": 450, "endY": 330, "early": True}, probe)
     seen = {}
 
@@ -239,13 +264,13 @@ def test_拾取座標_扣住時以點一下模式叫出_先點_放行後才填_�
     assert seen["after"] == ["50", "30"]
     assert got["click"] == [50, 30]
     assert any("原點 ◎ 在 (400, 300)" in m for _lvl, m in app.logged)
-    assert probe.in_clear() == [] and ("a", False) in probe.calls, \
+    assert only_calibration_in_clear(probe) and ("a", False) in probe.calls, \
         "即時找上一步的圖在背景、用拾取那張截圖"
 
 
 def test_拾取座標_先點之後推不出原點_警告_欄位不變(make_app, monkeypatch, no_real_dialogs):
     app = make_app(1.0)
-    h = held(app)
+    h = held_after_settle(app)
     _overlay(monkeypatch, {"endX": 450, "endY": 330, "early": True})
 
     def release(dr):
@@ -266,10 +291,10 @@ def test_拾取座標_原點已算好_照現在一樣標出原點(make_app, monk
     assert got["click"] == [25, -15]
 
 
-def test_拖曳_清場中查詢0次_先拖_放行後換算(make_app, monkeypatch):
+def test_拖曳_清場中只量校準_先拖_放行後換算(make_app, monkeypatch):
     app = _pointer_app(make_app, monkeypatch)
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     calls = _overlay(monkeypatch, {"startX": 410, "startY": 310, "endX": 460, "endY": 400,
                                    "dx": 50, "dy": 90, "early": True}, probe)
 
@@ -280,13 +305,13 @@ def test_拖曳_清場中查詢0次_先拖_放行後換算(make_app, monkeypatch
                 _press("截圖拾取"), release, _press("確定"), title="新增：滑鼠拖曳")
     assert [(c["mode"], c["kw"].get("late")) for c in calls] == [("line", "mark")]
     assert (got["drag"], got["to"]) == ([10, 10], [60, 100])
-    assert probe.calls and probe.in_clear() == []
+    assert probe.calls and only_calibration_in_clear(probe)
 
 
 def test_指定點_先點_放行後才填_除以倍率(make_app, monkeypatch):
     app = make_app(2.0)
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     calls = _overlay(monkeypatch, {"screenX": 560, "screenY": 440, "early": True}, probe)
     seen = {}
 
@@ -301,7 +326,7 @@ def test_指定點_先點_放行後才填_除以倍率(make_app, monkeypatch):
     assert seen["ok"] is True
     assert got["pick"] == {"near": [30, -30]}
     assert any("原點 ◎ 在 (500, 500)" in m for _lvl, m in app.logged)
-    assert probe.in_clear() == []
+    assert only_calibration_in_clear(probe)
 
 
 def test_指定點_原點確定推不出且還沒點_先請你點原點(make_app, monkeypatch):
@@ -320,13 +345,13 @@ def test_指定點_原點確定推不出且還沒點_先請你點原點(make_app
     assert got["pick"] == {"near": [30, -10]}
 
 
-def test_比對測試_清場中查詢0次_扣住時結果視窗還沒開_發起的對話框關不掉(make_app, monkeypatch):
+def test_比對測試_清場中只量校準_扣住時結果視窗還沒開_發起的對話框關不掉(make_app, monkeypatch):
     app = _pointer_app(make_app, monkeypatch)
     monkeypatch.setattr(ui_dialogs, "_annotate_find",
                         lambda screen, org, f, origin=None, anchor=None:
                         np.zeros((60, 80, 3), np.uint8))
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     calls = _overlay(monkeypatch, {"screenX": 400, "screenY": 300}, probe)
     seen = {}
 
@@ -349,7 +374,7 @@ def test_比對測試_清場中查詢0次_扣住時結果視窗還沒開_發起�
     assert [(c["mode"], c["status"], c["clearing"], c["kw"].get("late")) for c in calls] == \
         [("point", "pending", True, "origin")]
     assert seen == {"before": (False, True), "after": True}
-    assert probe.calls and probe.in_clear() == []
+    assert probe.calls and only_calibration_in_clear(probe)
 
 
 def test_比對測試_引擎沒就緒_不進清場也不進辨識中(make_app, monkeypatch, no_real_dialogs):
@@ -385,7 +410,7 @@ def test_比對測試_推不出原點_在剛截的圖上請你點原點_再背�
                         lambda screen, org, f, origin=None, anchor=None:
                         np.zeros((60, 80, 3), np.uint8))
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     calls = _overlay(monkeypatch, {"screenX": 300, "screenY": 300}, probe)
     seen = []
     real_find = findtarget.find
@@ -401,7 +426,7 @@ def test_比對測試_推不出原點_在剛截的圖上請你點原點_再背�
     h.release()
     assert calls[0]["kw"]["shot"] is not None, "點在剛截的那張圖上"
     assert seen and seen[0] == (300, 300)
-    assert probe.in_clear() == []
+    assert only_calibration_in_clear(probe)
     for w in app.root.winfo_children():
         if getattr(w, "title", lambda: "")() == "比對測試結果":
             w.destroy()
@@ -434,7 +459,7 @@ def test_找圖設定按確定_對話框先關_主視窗辨識中_放行後才�
     monkeypatch.setattr(pickcheck, "resize_image", lambda img, s: img.resized(s))
     a.vision.plan("新左", [[(300, 400), (500, 400)]])
     probe = ClearProbe(monkeypatch, a)
-    h = held(a)
+    h = held_after_settle(a)
     d = _Driver(a.root, "找圖設定")
     d.run(_press("確定"))
     got = ui_dialogs.edit_target_opts(a, a.root, {"template": "新左"}, "找圖設定")
@@ -452,26 +477,26 @@ def test_找圖設定按確定_對話框先關_主視窗辨識中_放行後才�
     assert "新左" in a.pick_warnings()
     assert any("拾取檢查「新左」" in m and "2 個匹配" in m for m in _logs(a))
     assert any("⚠ 新左" in r for r, _fg in _rows(a))
-    assert probe.calls and probe.in_clear() == []
+    assert probe.calls and only_calibration_in_clear(probe)
     a.run_poll()
     assert a.status_lbl.cget("text") != recognition.BUSY_TEXT
     assert not _btn_in(a.root, "存檔").instate(["disabled"])
 
 
-def test_步驟編輯器按確定_步驟照存_檢查清場中查詢0次(make_app, monkeypatch):
+def test_步驟編輯器按確定_步驟照存_檢查清場中只量校準(make_app, monkeypatch):
     app = make_app(1.0)
     _engine(app, monkeypatch)
     _template(app, "a", 50, 50)
     app.vision.plan("a", [[(300, 400), (500, 400)]])
     probe = ClearProbe(monkeypatch, app)
-    h = held(app)
+    h = held_after_settle(app)
     got = _edit(app, {"type": "find_click", "target": {"template": "a"}, "_index": 0},
                 _press("確定"), title="新增：找圖點擊")
     assert findtarget.template(got) == "a", "對話框照關、步驟照存"
     assert app.recognition.holds(app.root)
     h.release()
     assert "a" in app.pick_warnings()
-    assert probe.calls and probe.in_clear() == []
+    assert probe.calls and only_calibration_in_clear(probe)
 
 
 def test_按確定時引擎沒就緒_安靜略過_不進辨識中(make_app, monkeypatch, no_real_dialogs):

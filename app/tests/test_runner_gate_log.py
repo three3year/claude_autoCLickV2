@@ -109,10 +109,7 @@ def test_找圖點擊目標圖沒消失_紀錄帶still_there(harness):
 
 
 def _stop_at(harness, n_sleep):
-    def interrupt(n):
-        if n >= n_sleep:
-            harness.runner.stop()
-    harness.clock.on_sleep = interrupt
+    harness.stop_after_calibration(harness.runner, n_sleep)
 
 
 def _run_stopping(harness, steps, n_sleep=3, **kw):

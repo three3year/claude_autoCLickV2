@@ -198,7 +198,7 @@ def test_截圖框選走拾取當下的校準(make_app, monkeypatch):
     [name] = [n for n in app.store.names() if n not in CAL_PAIR]
     assert imgio.imread(app.store.path_of(name)).shape[:2] == (10, 20)
     assert app.store.pos_of(name) == [40, 15]
-    assert app.vision.lookups == list(CAL_PAIR)
+    assert app.vision.lookups == list(CAL_PAIR) * 2, "等停穩: 第 0、1 秒各量一次就一致"
 
 
 def test_沒有校準對時截圖不縮放_不記拍攝位置(make_app, monkeypatch):

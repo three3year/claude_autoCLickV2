@@ -63,7 +63,7 @@ def test_選固定矩形_框選_確定_存成相對基準點的偏移(make_app, 
                          _press("框選"), _press("確定"))
     assert got["within"] == RECT
     assert calls == [("region", True)], "region 模式, 在清場裡框選"
-    assert app.vision.lookups == list(CAL_PAIR), "框選當下量了校準對"
+    assert app.vision.lookups == list(CAL_PAIR) * 2, "框選前等停穩量了校準對 (兩次一致)"
 
 
 def test_倍率不是1時換回流程尺度(make_app, monkeypatch):

@@ -77,5 +77,6 @@ def test_校準只在搜尋範圍內找_範圍內找不到就一個輸入都不�
     assert r.ended == "error"
     assert harness.kinds() == []
     assert "找不到校準圖" in harness.log_text(r)
-    assert harness.vision.grabs == [(600, 500, 800, 400)], "只在範圍內截圖找"
+    assert harness.vision.grabs, "有截圖"
+    assert set(harness.vision.grabs) == {(600, 500, 800, 400)}, "只在範圍內截圖找"
     assert harness.lookups() == []

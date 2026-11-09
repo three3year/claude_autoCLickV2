@@ -13,7 +13,9 @@
   事件驅動奪回。建立會打掉 grab 的 Toplevel（如預覽框）後呼叫 `ui_grab.apply_grab()` 交還堆頂即可。
 - 清場期間不得以已隱藏的視窗為 parent 彈 messagebox（會隱形卡死等確認）——檢查類提示一律在進入清場前做。
 - 在清場裡校準、找圖、`hub.ensure_template` 就是「視窗不見」，還原後在介面執行緒做就是「全白」：辨識只能在背景
-  （契約「清場中不做任何辨識」）。
+  （契約「清場中不做任何辨識」）。唯一例外是等主畫面停穩：量測在背景、介面執行緒用 `Recognition.start_and_wait` 等，
+  不在介面執行緒睡或量；收尾（彈窗、寫紀錄、改資料）一律等還原後才做（`App.recognize_settled`、`ui_dialogs.measured_pick`
+  都在清場外才 `then(...)`）。
 - 隱藏視窗去截圖前，視窗必須已用 `ui_theme.disable_transitions()` 停用 DWM 淡出動畫，否則截圖有半透明殘影。
 - 覆蓋層生命週期：point／預設原點 line 拾取必須在「放開」才完成（按下就結束會把 release 事件漏給底下的應用程式）；
   完成時不能立刻銷毀覆蓋層（等待用 `wait_variable` 非 `wait_window`）——它是本程序的前景視窗，先銷毀會把前景讓給

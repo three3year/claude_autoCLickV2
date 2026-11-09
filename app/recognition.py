@@ -6,6 +6,7 @@ import applog
 
 BUSY_TEXT = "辨識中…"
 WATCH_MS = 20
+CLEAR_DELAY = 0.12
 
 
 class _Step:
@@ -45,8 +46,12 @@ class Job:
         return self
 
     def chain(self, work, done):
-        self.rec._launch(self, work)
+        self.follow(work)
         return self.then(done)
+
+    def follow(self, work):
+        """前一段做完、還沒收尾時, 接著在背景做下一段 (同一件辨識, 辨識中不解除)."""
+        self.rec._launch(self, work)
 
     def cancel(self):
         self.cancelled = True
@@ -171,6 +176,41 @@ class Recognition:
                 del self._wants[w]
         applog.log("recog.end", title=job.title, result=result,
                    seconds=f"{time.monotonic() - job.t0:.2f}")
+
+    def start_and_wait(self, title, work, origin=None):
+        """清場中 (呼叫端已進 `ui_overlay.screen_clear`) 派背景辨識, 不卡介面地等它做完 → job;
+        收尾留給呼叫端還原後再 `then`。等主畫面停穩用 (視窗藏著, 背景截圖、量測、每秒等一次)。
+
+        背景先等 CLEAR_DELAY 讓隱藏的視窗真的從畫面消失 (同 `App.grab_frame`) 再做 work;
+        介面執行緒在巢狀事件迴圈裡照常處理事件, 不睡也不量。等待中出例外就取消這件辨識。
+        """
+        def after_clear():
+            time.sleep(CLEAR_DELAY)
+            return work()
+        self.app.root.update()
+        job = self.start(title, after_clear, origin)
+        try:
+            self._wait(job)
+        except BaseException:
+            job.cancel()
+            raise
+        return job
+
+    def _wait(self, job):
+        # 掛在 Tk 本體上: 等待中主視窗被銷毀 (它的 after 命令跟著被刪) 也照樣等得到
+        root = self.app.root._root()
+        finished = tk.BooleanVar(master=root)
+
+        def poll():
+            if job.step is None or job.step.finished or not _alive(self.app.root):
+                finished.set(True)
+            else:
+                root.after(WATCH_MS, poll)
+        poll()
+        if not finished.get():
+            root.wait_variable(finished)
+        # poll 排自己＝循環參照: 斷開, finished 才在介面執行緒釋放 (留給 GC 可能在別的執行緒刪 Tk 變數而報錯)
+        del poll
 
     def _launch(self, job, work):
         job.step = _Step(work)

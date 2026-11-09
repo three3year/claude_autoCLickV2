@@ -1,0 +1,31 @@
+# 01: 執行開頭的校準等主畫面停穩
+
+**What to build:** 執行流程時，開頭`校準`不再只截一張圖。程式先`避開游標`，接著每 1 秒量一次，連續兩次結果一致才採用，所以倍率不再跟著使用者按「開始」時游標停的位置亂跳。結果一致有兩種情況：
+- 都量成功：用的是同一組校準對，`座標基準點`與每張圖的中心各差 ≤1px。
+- 都失敗：失敗原因與缺的圖相同。
+
+在第 0、1、…、10 秒各量一次，第 10 秒那次量完仍不一致，就用那一次的值，並印警告。等待期間按停止要能立刻停下。執行紀錄的 `calibrate` 一行要加上停穩方式（`settle=stable` 或 `settle=timeout`）與量測次數（`reads=N`）。
+
+「等停穩再量」要放在校準模組，做成共用的入口，參數是截圖函式、單次量測函式、等待函式。票 03、04 的編輯器和票 05 的量測腳本也會用它。細節見規格 Implementation Decisions 的「共用的停穩量測」「停點」「執行器」三條。
+
+規格：`.scratch/calibration-settle/spec.md`
+
+**Blocked by:** None (can start immediately)
+
+**Status:** resolved
+
+- [x] 用執行器測試骨架（假時鐘、依序回傳的假辨識）測試以下情況：
+  - 倉庫位置逐次收斂時，用的是停穩那一次的倍率，落點也照那個倍率算。
+  - 前兩次就一致時，只多等 1 秒。
+  - 一直不一致時，第 10 秒後用最後一次的值，紀錄寫 `settle=timeout`，執行訊息有警告。
+  - 等待期間按停止，流程停下，沒有任何點擊。
+  - 第一次主對缺圖改用備用對、第二次主對找到，不算一致，要繼續量。
+  - 兩次都缺同一張圖時，照現在的方式不執行，並說明原因。
+  - 標題列對第一次就穩定時，總共量兩次。
+- [x] 現有執行器測試因為校準多量一次會多 1 秒假時間，有斷言時間的要調整預期值，但不能改掉測試要驗證的行為。
+- [x] app 全套測試通過。會開 Tk 視窗的測試，照 app 測試文件的做法在隱藏桌面跑。
+- [x] 沒有改到 `src/subject_detection/`，所以不用跑基準測試集。
+
+## Comments
+
+- 2026-11-10（agent）：完成。共用入口 `calibration.settle(grab, read, wait)` 回傳 `Settled`（value／reading／reads／timed_out／screen／origin）；單次量測包成 `calibration.Reading(value, points, group, failure)`，`agrees` 判一致；執行器用 `calibrated_reading` 包 `calibrate`、等待傳 `Runner._sleep`。`calibrate` 日誌加 `settle=`、`reads=`，逾時印警告。harness：`grabs()` 改跳過校準的 `reads` 張，新增 `cal_reads()`、`stop_after_calibration()`（gate_log、steps 的停止時機改成校準後才數，原本會停在校準等待裡）。app 全套 844 passed（隱藏桌面）。

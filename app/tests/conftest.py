@@ -36,6 +36,17 @@ def inline_recognition(monkeypatch):
     monkeypatch.setattr(recognition, "DEFAULT_EXECUTOR", Inline)
 
 
+@pytest.fixture(autouse=True)
+def fake_cursor(monkeypatch):
+    """編輯器的`避開游標`也會動游標: 測試一律換成假游標, 不動使用者的滑鼠 (harness 會再換成它自己的)."""
+    from harness import Input
+    from automation import win
+    cur = Input([])
+    for name in ("move", "park", "cursor_pos", "virtual_screen", "monitor_rect_at"):
+        monkeypatch.setattr(win, name, getattr(cur, name))
+    return cur
+
+
 @pytest.fixture
 def harness(monkeypatch):
     return Harness(monkeypatch)

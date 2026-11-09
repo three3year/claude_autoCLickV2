@@ -9,12 +9,7 @@ def test_等待確實停留指定時間(harness):
 
 def test_等待可被急停中斷(harness):
     r = harness.make_runner()
-
-    def interrupt(n):
-        if n >= 5:
-            r.stop()
-
-    harness.clock.on_sleep = interrupt
+    harness.stop_after_calibration(r, 5)
     t0 = harness.clock.t
     harness.start(r, [wait(60), click(1, 1)])
     r._thread.join(10)
