@@ -18,7 +18,7 @@
   換到暫存目錄（`local_paths`），測試不碰 repo 的 `.local/` 與使用者的流程。
 - 游標一律是假的：conftest 的 autouse `fake_cursor` 把 `automation.win` 的 move／park／cursor_pos（與螢幕配置）換成
   `harness.Input`（編輯器等停穩也會`避開游標`）；要看游標停在哪，測試直接拿 `fake_cursor` 讀 `cursor_pos()`／`events`。
-  校準鈕等停穩時介面執行緒在 `Recognition.wait` 的巢狀事件迴圈裡：配 `Held` 要看等待中的樣子，先 `root.after` 排一個
+  校準鈕等停穩時介面執行緒在 `Recognition.start_and_wait` 的巢狀事件迴圈裡：配 `Held` 要看等待中的樣子，先 `root.after` 排一個
   「看一眼再 `release()`」（`test_recognition.while_settling`），再按鈕——不然會一直等下去。拾取（`measured_pick`）
   也先在清場中等停穩，再接著派背景那段：要看覆蓋層出現時或`辨識中`的樣子，用 `test_recognize_pick.held_after_settle`
   （每件辨識的停穩那段當場做完、後面那段扣住）。

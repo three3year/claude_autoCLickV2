@@ -75,9 +75,10 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 一次得出`畫面倍率`與`座標基準點`（`Runner.anchor`＝校準對第一張中心，ADR 0012），校準查詢不帶預期尺度、只在
 搜尋範圍內截圖；量不到、沒有校準對、或倍率在`支援倍率範圍`外（`Calibrated.in_range`，兩端常數
 `calibration.SCALE_LOW`、`SCALE_HIGH`）都零輸入結束並寫 `calibrate` 日誌；執行中不重量。
-**校準一律等主畫面停穩**：`calibration.settle(截圖, 單次量測, 等待)` 每 1 秒量一次、連續兩次一致（`Reading.agrees`）
-才定案，10 秒上限（日誌 `settle=`／`reads=`）；執行器、編輯器、量測腳本共用，單次量測各自包成 `Reading`
-（執行器用 `calibration.calibrated_reading`），等待由呼叫端給（執行器可中斷、編輯器不卡介面）。編輯器量到區間外只警告、
+**校準一律等主畫面停穩**：`calibration.settle(截圖, 單次量測, 等待, 時鐘)` 照截止時間在第 0、1、…、10 秒各量一次
+（辨識花的時間不另外加；辨識慢就量完馬上量下一次、不補量），連續兩次一致（`Reading.agrees`）才定案，最久約 10 秒＋
+最後一次辨識（日誌 `settle=`／`reads=`）；執行器、編輯器、量測腳本共用，單次量測各自包成 `Reading`
+（執行器用 `calibration.calibrated_reading`），等待與時鐘由呼叫端給（執行器可中斷、測試用假時鐘、編輯器不卡介面）。編輯器量到區間外只警告、
 照常拾取（ADR 0013）。改倍率相關測試時倍率要取區間內的值。
 `備用校準對`（ADR 0013，`calibration.fallback_pair`／`make_fallback`）：`calibration.calibrate` 主對缺一張才量備用，
 `Calibrated.used` 說用的是哪組，用備用時基準點＝備用第一張中心＋偏移×倍率，存下的座標永遠相對同一個基準點；
@@ -91,19 +92,19 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 一對純函式。程序啟動即 `win.set_dpi_aware()`，全程實體像素；多螢幕虛擬桌面原點可為負、配置會變，用
 `win.virtual_screen()` 查當下配置，不要混入未設 DPI-aware 程序的座標。改座標相關程式碼前先確認自己在哪個座標系。
 
-**清場中不做任何辨識（例外只有等主畫面停穩，見下）；新增辨識入口一律走背景辨識**（詞彙見 CONTEXT「清場」「辨識中」）：清場只截圖與讓使用者在
+**清場中不做任何辨識（例外只有等主畫面停穩，見下）；新增辨識入口一律走背景辨識**（詞彙見 `app/GLOSSARY.md`「清場」「辨識中」）：清場只截圖與讓使用者在
 覆蓋層上操作，辨識交 `App.recognition`（`recognition.Recognition`）在背景執行緒做。拾取類一律走
 `ui_dialogs.measured_pick`：清場前檢查（`App.calibration_ready`）→ 清場中先等主畫面停穩（例外，見下：記下游標位置，
 背景 `calibration.settle` 每次`避開游標`後截整個虛擬桌面、裁出搜尋範圍 `App.scan_frame` 量校準，介面執行緒
-`Recognition.wait`；停穩那張就是凍結的畫面，量完游標移回原位；沒有校準對＝不等、直接 `App.grab_shot`）→
+`Recognition.start_and_wait`；停穩那張就是凍結的畫面，量完游標移回原位；沒有校準對＝不等、直接 `App.grab_shot`）→
 同一件辨識 `Job.follow` 接著在背景推算 ◎、拾取檢查，同時叫覆蓋層（`ui_overlay.pick(shot=, pending=)`）→ 還原 →
 背景沒做完就`辨識中`等它 → 收尾在介面執行緒。拾取到的座標、截下的範本（`imgio.to_flow_scale`）、拍攝位置
 （`ui_dialogs.template_pos_from_shot`）都用當下的倍率與基準點換回；量不到＝不存並提示重框搜尋範圍；沒有校準對＝
 需要基準點的拾取（固定矩形）擋下。◎ 可以晚到（覆蓋層 `late=`），推不出且還沒點＝改走「先點原點」或拖線
 （同一次清場，不還原再隱藏）；叫覆蓋層一律經 `ui_dialogs.overlay_pick`。只量不框的（流程設定的測試與設定）清場
 中等主畫面停穩再量（例外：這段辨識在清場中做，視窗藏著等），走 `App.recognize_settled(title, names, read, done)`：
-背景跑 `calibration.settle`，每次截圖前 `automation.runner.avoid_cursor`（停點 `runner.park_point`，與執行器相同），
-介面執行緒用 `Recognition.wait(job)` 的巢狀事件迴圈等、不卡介面，還原後才在介面執行緒收尾。介面執行緒只做 `ensure_registered`、就緒檢查、modal、寫紀錄區、
+背景跑 `calibration.settle`，截圖一律 `automation.runner.grab_clear`（先`避開游標`，停點 `runner.park_point`，與執行器相同），
+介面執行緒用 `Recognition.start_and_wait` 的巢狀事件迴圈等、不睡不卡介面（清場生效的等待在背景），還原後才在介面執行緒收尾。介面執行緒只做 `ensure_registered`、就緒檢查、modal、寫紀錄區、
 填欄位、改流程資料；背景不碰 Tk（表單值、步驟清單在派工前讀好）。圖片類動作登記在 `Recognition.register`，
 辨識中一律反灰——反灰規則只有那一份；登記的元件平常改可用與否走 `Recognition.want`。發起辨識的對話框用
 `ui_dialogs.busy_foot` 登記底列與關閉類按鈕，做完前關不掉。**新增拾取、截圖或比對測試入口一律走 `measured_pick`**。

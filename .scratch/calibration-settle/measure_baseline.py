@@ -82,12 +82,12 @@ def describe(ms):
                     for tag, m in ms.items() if not m.ok)
 
 
-def run(cal, query, peek, grab, wait, say=print):
+def run(cal, query, peek, grab, wait, now, say=print):
     """量一次 → (結果 dict, 停穩那次的 Settled).
 
     peek() → (截圖, 左上角): 不動游標的截圖, 先確認畫面上有遊戲;
     grab() → (截圖, 左上角): 先`避開游標`再截 (會移動游標), 確認過才會呼叫;
-    wait(秒): 兩次量測之間的等待。
+    wait(秒): 兩次量測之間的等待; now() → 秒, 跟 wait 同一個時鐘。
     """
     main, title = pick_pairs(cal)
     say(f"主畫面那一對：{main['pair']}（{main['key']} = {main['baseline']:.1f}）")
@@ -101,7 +101,7 @@ def run(cal, query, peek, grab, wait, say=print):
     s = calib.settle(
         grab,
         lambda sc, og: both_reading(measure_both(query, sc, og, main, title)),
-        wait)
+        wait, now)
     ms = s.value
     if any(not m.ok for m in ms.values()):
         e = Abort(f"移開游標後量不到（量了 {s.reads} 次）：{describe(ms)}")
@@ -113,6 +113,7 @@ def run(cal, query, peek, grab, wait, say=print):
     result = {
         "settle": "timeout" if s.timed_out else "stable",
         "reads": s.reads,
+        "seconds": round(s.elapsed, 2),
         "main_screen_pair": {
             "pair": main["pair"], "flow_key": main["key"],
             "centers": {n: list(m_main.centers[n]) for n in main["pair"]},
@@ -137,7 +138,8 @@ def run(cal, query, peek, grab, wait, say=print):
 def report(r, say=print):
     mp, tp = r["main_screen_pair"], r["title_pair"]
     if r["settle"] == "timeout":
-        say(f"警告：畫面 {r['reads'] - 1} 秒都沒停穩，用的是最後一次的值，建議重跑")
+        say(f"警告：畫面 {r['seconds']:.1f} 秒都沒停穩（量了 {r['reads']} 次），"
+            "用的是最後一次的值，建議重跑")
     else:
         say(f"停穩：量了 {r['reads']} 次")
     say(f"主畫面那一對停穩距離：{mp['settled_distance']:.2f}px"
@@ -222,7 +224,8 @@ def main(argv=None):
     t_move = None
     try:
         t_move = time.perf_counter()
-        r, s = run(cal, hub.query, lambda: capture.grab(region), grab, time.sleep)
+        r, s = run(cal, hub.query, lambda: capture.grab(region), grab, time.sleep,
+                   time.monotonic)
         park = win.cursor_pos()
     except Abort as e:
         if getattr(e, "screen", None) is not None:

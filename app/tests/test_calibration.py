@@ -1,6 +1,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import calibration  # noqa: E402
@@ -97,3 +99,53 @@ def test_量測得出的倍率貼齊1():
     assert m.scale(1000.0) == 1.0
     v.plan("b", [(900, 0)])
     assert calibration.measure(v.query, _grab(v), ("a", "b")).scale(1000.0) == 0.9
+
+
+class _SlowRecognition:
+    """假時鐘＋每次辨識花 cost 秒 (辨識會推進時鐘); 預設每次量到的位置都不同＝一直沒停穩."""
+
+    def __init__(self, cost, steady=False):
+        self.t, self.cost, self.steady, self.grab_times = 0.0, cost, steady, []
+
+    def now(self):
+        return self.t
+
+    def wait(self, s):
+        self.t += max(0.0, s)
+
+    def grab(self):
+        self.grab_times.append(self.t)
+        return None, (0, 0)
+
+    def read(self, screen, origin):
+        self.t += self.cost
+        n = len(self.grab_times)
+        return calibration.Reading(n, {"倉庫": (0 if self.steady else 100 * n, 0)})
+
+    def settle(self):
+        return calibration.settle(self.grab, self.read, self.wait, self.now)
+
+
+def test_停穩照截止時間量_辨識花的時間不拉長每秒一次的節奏():
+    fake = _SlowRecognition(0.4)
+    s = fake.settle()
+    assert s.timed_out and s.reads == 11
+    assert fake.grab_times == pytest.approx([float(i) for i in range(11)])
+    assert fake.t == pytest.approx(10.4), "上限＝10 秒＋最後一次辨識"
+    assert s.elapsed == pytest.approx(10.0)
+
+
+def test_辨識比間隔還慢_不補量追趕_超過第10秒就不再量():
+    fake = _SlowRecognition(1.5)
+    s = fake.settle()
+    assert s.timed_out
+    assert fake.grab_times == pytest.approx([0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0])
+    assert s.reads == 7 and s.value == 7, "用最後一次"
+    assert fake.t == pytest.approx(10.5), "最多約 10 秒＋最後一次辨識"
+
+
+def test_兩次一致就定案_第1秒那次():
+    fake = _SlowRecognition(0.3, steady=True)
+    s = fake.settle()
+    assert not s.timed_out and s.reads == 2 and s.value == 2
+    assert fake.grab_times == pytest.approx([0.0, 1.0])

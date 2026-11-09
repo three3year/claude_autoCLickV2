@@ -48,6 +48,20 @@ class Screens:
         return types.SimpleNamespace(found=False, score=0.12, box=None)
 
 
+class Clock:
+    """假時鐘: wait 推進時間並記下每次等多久."""
+
+    def __init__(self):
+        self.t, self.waits = 0.0, []
+
+    def now(self):
+        return self.t
+
+    def wait(self, s):
+        self.waits.append(s)
+        self.t += s
+
+
 def flow_cal(name):
     return flowfile.read_flow(os.path.join(mb.ROOT, "flows", name))["calibration"]
 
@@ -73,7 +87,7 @@ def _run_no_move(lay):
 
     try:
         mb.run(flow_cal("晚_繁中"), sc.query, lambda: (blank, (0, 0)), grab,
-               lambda s: None, say=lambda *a: None)
+               lambda s: None, Clock().now, say=lambda *a: None)
     except mb.Abort as e:
         return str(e)
     raise AssertionError("應該中止")
@@ -95,15 +109,16 @@ def test_settles_and_computes_baseline():
     sc = Screens()
     pre = sc.make(layout(1850, 1.132))
     seq = [sc.make(layout(x, 1.132)) for x in (1860, 1840, 1832, 1832)]
-    grabs, waits = [], []
+    grabs, clock = [], Clock()
 
     def grab():
         grabs.append(1)
         return seq[len(grabs) - 1], (0, 0)
 
     r, s = mb.run(flow_cal("晚_繁中"), sc.query, lambda: (pre, (0, 0)), grab,
-                  waits.append, say=lambda *a: None)
-    assert r["settle"] == "stable" and r["reads"] == 4 and len(waits) == 3, r
+                  clock.wait, clock.now, say=lambda *a: None)
+    assert r["settle"] == "stable" and r["reads"] == 4 and clock.waits == [1.0] * 3, r
+    assert r["seconds"] == 3.0, r
     assert s.screen is seq[3]
     k = round(1868.0 * 1.132) / 1868.0
     assert r["title_pair"]["scale"] == round(k, 4), r
@@ -122,7 +137,7 @@ def test_timeout_flagged():
         return sc.make(layout(1800 + 5 * n[0])), (0, 0)
 
     r, _ = mb.run(flow_cal("早_繁中"), sc.query, lambda: (pre, (0, 0)), grab,
-                  lambda s: None, say=lambda *a: None)
+                  lambda s: None, Clock().now, say=lambda *a: None)
     assert r["settle"] == "timeout" and r["reads"] == calib.SETTLE_READS, r
     assert r["main_screen_pair"]["flow_key"] == "calibration.fallback.baseline"
 
