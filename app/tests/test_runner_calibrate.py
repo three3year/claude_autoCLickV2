@@ -41,7 +41,8 @@ def test_校準本身的查詢不帶預期尺度(harness):
     run(harness, [click(1, 1)])
     cal_queries = [(n, s) for n, s in harness.vision.expected_scales
                    if n in PAIR]
-    assert cal_queries == [(PAIR[0], None), (PAIR[1], None)]
+    assert {n for n, _ in cal_queries} == set(PAIR)
+    assert all(s is None for _, s in cal_queries), cal_queries
 
 
 def test_倍率1時落點與原本完全相同(harness):

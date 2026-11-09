@@ -385,6 +385,17 @@ class Harness:
                      "virtual_screen", "monitor_rect_at"):
             monkeypatch.setattr(runner_mod.win, name, getattr(self.input, name))
 
+    def stop_after_calibration(self, runner, n_sleep):
+        """開頭校準做完後的第 n_sleep 次虛擬睡眠時按停止 (校準本身的等待不算)."""
+        seen = []
+
+        def interrupt(_n):
+            if self.filelog.of("calibrate"):
+                seen.append(1)
+                if len(seen) >= n_sleep:
+                    runner.stop()
+        self.clock.on_sleep = interrupt
+
     def make_runner(self):
         return runner_mod.Runner(self.vision, filelog=self.filelog)
 
@@ -431,8 +442,14 @@ class Harness:
         skip = self._cal_names() | {HERE}
         return [n for n in self.vision.lookups if n not in skip]
 
+    def cal_reads(self):
+        """開頭校準截了幾張 (等停穩量了幾次; 沒校準＝0)."""
+        recs = [r for r in self.filelog.of("calibrate") if "reads" in r]
+        return recs[0]["reads"] if recs else 0
+
     def grabs(self):
-        return self.vision.grabs[1:] if self._cal_names() else self.vision.grabs
+        """開頭校準之後的截圖範圍."""
+        return self.vision.grabs[self.cal_reads():]
 
     def expected_scales(self):
         skip = self._cal_names()

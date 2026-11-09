@@ -74,7 +74,10 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 （`Runner.start(calibration=…)` → `Runner._calibrate`，開始延遲之後、第一個動作之前）：`calibration.calibrate`
 一次得出`畫面倍率`與`座標基準點`（`Runner.anchor`＝校準對第一張中心，ADR 0012），校準查詢不帶預期尺度、只在
 搜尋範圍內截圖；量不到、沒有校準對、或倍率在`支援倍率範圍`外（`Calibrated.in_range`，兩端常數
-`calibration.SCALE_LOW`、`SCALE_HIGH`）都零輸入結束並寫 `calibrate` 日誌；執行中不重量。編輯器量到區間外只警告、
+`calibration.SCALE_LOW`、`SCALE_HIGH`）都零輸入結束並寫 `calibrate` 日誌；執行中不重量。
+**校準一律等主畫面停穩**：`calibration.settle(截圖, 單次量測, 等待)` 每 1 秒量一次、連續兩次一致（`Reading.agrees`）
+才定案，10 秒上限（日誌 `settle=`／`reads=`）；執行器、編輯器、量測腳本共用，單次量測各自包成 `Reading`
+（執行器用 `calibration.calibrated_reading`），等待由呼叫端給（執行器可中斷、編輯器不卡介面）。編輯器量到區間外只警告、
 照常拾取（ADR 0013）。改倍率相關測試時倍率要取區間內的值。
 `備用校準對`（ADR 0013，`calibration.fallback_pair`／`make_fallback`）：`calibration.calibrate` 主對缺一張才量備用，
 `Calibrated.used` 說用的是哪組，用備用時基準點＝備用第一張中心＋偏移×倍率，存下的座標永遠相對同一個基準點；
