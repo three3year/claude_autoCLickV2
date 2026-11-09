@@ -93,8 +93,10 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 
 **清場中不做任何辨識（例外只有等主畫面停穩，見下）；新增辨識入口一律走背景辨識**（詞彙見 CONTEXT「清場」「辨識中」）：清場只截圖與讓使用者在
 覆蓋層上操作，辨識交 `App.recognition`（`recognition.Recognition`）在背景執行緒做。拾取類一律走
-`ui_dialogs.measured_pick`：清場前檢查（`App.calibration_ready`）→ 清場中只截一張整個虛擬桌面的圖（`App.grab_shot`）、
-派背景辨識（裁出搜尋範圍 `App.scan_frame` 量校準、推算 ◎）、叫覆蓋層（`ui_overlay.pick(shot=, pending=)`）→ 還原 →
+`ui_dialogs.measured_pick`：清場前檢查（`App.calibration_ready`）→ 清場中先等主畫面停穩（例外，見下：記下游標位置，
+背景 `calibration.settle` 每次`避開游標`後截整個虛擬桌面、裁出搜尋範圍 `App.scan_frame` 量校準，介面執行緒
+`Recognition.wait`；停穩那張就是凍結的畫面，量完游標移回原位；沒有校準對＝不等、直接 `App.grab_shot`）→
+同一件辨識 `Job.follow` 接著在背景推算 ◎、拾取檢查，同時叫覆蓋層（`ui_overlay.pick(shot=, pending=)`）→ 還原 →
 背景沒做完就`辨識中`等它 → 收尾在介面執行緒。拾取到的座標、截下的範本（`imgio.to_flow_scale`）、拍攝位置
 （`ui_dialogs.template_pos_from_shot`）都用當下的倍率與基準點換回；量不到＝不存並提示重框搜尋範圍；沒有校準對＝
 需要基準點的拾取（固定矩形）擋下。◎ 可以晚到（覆蓋層 `late=`），推不出且還沒點＝改走「先點原點」或拖線

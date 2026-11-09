@@ -351,16 +351,19 @@ def test_拾取檢查的安靜量測_備用對的範本也先確認載得起來(
         ["標題左", "標題右"], 500.0, (0, 0))
     known, loaded = [], []
     measured = SimpleNamespace(ok=True, used="main", anchor=(1, 2), scale=1.0,
-                               in_range=True)
+                               in_range=True, pair=("舊圖示", "舊關閉"),
+                               measurement=SimpleNamespace(
+                                   centers={"舊圖示": (1, 2), "舊關閉": (101, 2)}))
     monkeypatch.setattr(ui_dialogs.calibration, "calibrate", lambda *a: measured)
+    monkeypatch.setattr(ui_dialogs.capture, "grab", lambda region=None: ("frame", (0, 0)))
+    monkeypatch.setattr(ui_dialogs.time, "sleep", lambda s: None)
     app = SimpleNamespace(
         root=tkroot, flow_cal=cal, hub=SimpleNamespace(ready=True),
-        detector=SimpleNamespace(query=None),
+        detector=SimpleNamespace(query=None), scan_region=None,
         templates_known=lambda names: known.extend(names) or True,
         load_problem=lambda names: loaded.extend(names),
         calibration_ready=lambda *a, **k: (_ for _ in ()).throw(AssertionError("quiet 不該走這裡")),
         ensure_registered=lambda: None,
-        grab_frame=lambda: ("frame", (0, 0)),
         log_ui=lambda msg, level="info": None)
     app.calibration_names = lambda: app_mod.App.calibration_names(app)
     app.recognition = recognition.Recognition(app)

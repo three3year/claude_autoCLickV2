@@ -8,8 +8,9 @@ import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowdefaults, flowfmt, pickcheck, win
-from automation.runner import (BUSY_CHECK_KEY, confirm_next_connected, origin_source,
-                               sends_input, uses_confirm_next, uses_origin_leaves)
+from automation.runner import (BUSY_CHECK_KEY, avoid_cursor, confirm_next_connected,
+                               origin_source, sends_input, uses_confirm_next,
+                               uses_origin_leaves)
 from ui_theme import C, FONT, FONT_BOLD
 
 STEP_TITLES = {
@@ -601,19 +602,44 @@ class _Pending:
         return m.base if m is not None else None
 
 
-def _measure(app, cal, names, frame, shot, resolve, extra):
-    m = Measured(frame, shot)
-    if cal is not None:
-        m.problem = app.load_problem(names)
-        if m.problem is not None:
+def _settled_measure(app, cal, names, quiet, home):
+    """背景: `避開游標`後等主畫面停穩再量校準 (`calibration.settle`), 停穩那張就是凍結的畫面;
+    量完把游標移回 home (按拾取時的位置)。quiet＝只截搜尋範圍 (拾取檢查), 否則截整個桌面再裁."""
+    region, query = app.scan_region, app.detector.query
+    shots = []
+
+    def grab():
+        avoid_cursor(region, time.sleep)
+        if quiet:
+            shots.append(None)
+            return capture.grab(region)
+        shots.append(capture.grab(None))
+        return app.scan_frame(shots[-1])
+
+    def read(screen, org):
+        return calibration.calibrated_reading(calibration.calibrate(query, screen, org, cal))
+    try:
+        problem = app.load_problem(names)
+        if problem is not None:
+            m = Measured(None)
+            m.problem = problem
             return m
-        screen, org = frame
-        m.c = calibration.calibrate(app.detector.query, screen, org, cal)
-        if not m.c.ok:
-            return m
+        s = calibration.settle(grab, read, time.sleep)
+    finally:
+        if win.cursor_pos() != tuple(home):
+            win.park(*home)
+    m = Measured((s.screen, s.origin), shots[-1])
+    m.c = s.value
+    if m.c.ok:
         m.anchor, m.k = m.c.anchor, m.c.scale
+    return m
+
+
+def _complete_measure(m, resolve, extra):
+    if m.failed:
+        return m
     if resolve is not None:
-        m.base = resolve(frame, m.anchor, m.k)
+        m.base = resolve(m.frame, m.anchor, m.k)
     if extra is not None:
         m.extra = extra(m)
     return m
@@ -641,27 +667,6 @@ def measured_pick(app, parent, title, done, overlay=None, need_anchor=False, hid
     if app.hub.ready:
         app.ensure_registered()
     resolve = origin() if origin is not None else None
-    job = None
-    try:
-        with ui_overlay.screen_clear(app.root, extra=hide):
-            if quiet:
-                shot, frame = None, app.grab_frame()
-            else:
-                shot = app.grab_shot()
-                frame = app.scan_frame(shot)
-            job = app.recognition.start(
-                title, lambda: _measure(app, cal, names, frame, shot, resolve, extra),
-                origin=parent)
-            if cleared is not None:
-                cleared()
-            r = overlay(shot, _Pending(job)) if overlay is not None else True
-    except BaseException:
-        if job is not None:
-            job.cancel()
-        raise
-    if r is None:
-        job.cancel()
-        return None
 
     def finish(m):
         m.job = job
@@ -689,6 +694,44 @@ def measured_pick(app, parent, title, done, overlay=None, need_anchor=False, hid
         if _not_picked(r):
             return
         done(r, m)
+
+    job, r = None, True
+    try:
+        with ui_overlay.screen_clear(app.root, extra=hide):
+            if cal is None:
+                if quiet:
+                    shot, frame = None, app.grab_frame()
+                else:
+                    shot = app.grab_shot()
+                    frame = app.scan_frame(shot)
+                m = Measured(frame, shot)
+                job = app.recognition.start(
+                    title, lambda: _complete_measure(m, resolve, extra), origin=parent)
+            else:
+                # 等主畫面停穩 (清場中唯一做辨識的例外): 背景量, 介面執行緒不卡著等
+                app.root.update()
+                time.sleep(0.12)
+                home = win.cursor_pos()
+                job = app.recognition.start(
+                    title, lambda: _settled_measure(app, cal, names, quiet, home),
+                    origin=parent)
+                app.recognition.wait(job)
+                settled, m, err = job.peek()
+                if settled and err is None:
+                    job.follow(lambda: _complete_measure(m, resolve, extra))
+                else:
+                    m = None  # 出錯 (收尾時寫紀錄) 或等待中主視窗關了: 不叫覆蓋層
+            if cleared is not None:
+                cleared()
+            if overlay is not None and m is not None:
+                r = overlay(m.shot, _Pending(job))
+    except BaseException:
+        if job is not None:
+            job.cancel()
+        raise
+    if r is None:
+        job.cancel()
+        return None
     return job.then(finish)
 
 
