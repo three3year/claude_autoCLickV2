@@ -45,8 +45,12 @@ class Job:
         return self
 
     def chain(self, work, done):
-        self.rec._launch(self, work)
+        self.follow(work)
         return self.then(done)
+
+    def follow(self, work):
+        """前一段做完、還沒收尾時, 接著在背景做下一段 (同一件辨識, 辨識中不解除)."""
+        self.rec._launch(self, work)
 
     def cancel(self):
         self.cancelled = True
@@ -187,6 +191,8 @@ class Recognition:
         poll()
         if not finished.get():
             root.wait_variable(finished)
+        # poll 排自己＝循環參照: 斷開, finished 才在介面執行緒釋放 (留給 GC 可能在別的執行緒刪 Tk 變數而報錯)
+        del poll
 
     def _launch(self, job, work):
         job.step = _Step(work)
