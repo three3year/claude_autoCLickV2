@@ -8,7 +8,7 @@ BUSY = tgt("busy", within=[640, 720, 640, 360])
 
 
 def span(harness):
-    times = harness.vision.grab_times[1:]
+    times = harness.vision.grab_times[harness.cal_reads():]
     return times[-1] - times[0]
 
 

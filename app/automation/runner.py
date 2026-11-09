@@ -407,9 +407,18 @@ class Runner:
             raise RuntimeError("這份流程沒有校準對（舊格式或尚未設定）→ 不執行；"
                                "請先在編輯器設定校準對")
         region = getattr(self, "scan_region", None)
-        screen, org = self._grab(region)
-        c = calib.calibrate(self.detector.query, screen, org, cal)
+        s = calib.settle(
+            lambda: self._grab(region),
+            lambda screen, org: calib.calibrated_reading(
+                calib.calibrate(self.detector.query, screen, org, cal)),
+            self._sleep)
+        c = s.value
         m = c.measurement
+        settled = dict(settle="timeout" if s.timed_out else "stable",
+                       reads=s.reads)
+        if s.timed_out:
+            self.log(f"開頭校準：畫面 {s.reads - 1:g} 秒都沒停穩，照最後一次量到的值繼續",
+                     "warn")
         used = ({"used": "fallback", "main_missing": ",".join(c.main.missing)}
                 if c.used == "fallback" else {})
         if c.problem == "missing":
@@ -420,17 +429,17 @@ class Runner:
             if c.fallback is not None:
                 fields.update(fallback_pair=",".join(c.pair),
                               fallback_missing=",".join(m.missing))
-            self._log_calibrate(**fields)
+            self._log_calibrate(**fields, **settled)
             raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行；"
                                "請確認搜尋範圍框住了遊戲畫面、畫面上看得到校準對")
         centers = ";".join(f"({x},{y})" for x, y in (m.centers[n] for n in c.pair))
         if c.problem == "too_close":
             self._log_calibrate(result="too_close", pair=",".join(c.pair),
-                                centers=centers, **used)
+                                centers=centers, **used, **settled)
             raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行")
         measured = dict(pair=",".join(c.pair), centers=centers,
                         distance=f"{m.distance:.1f}", baseline=f"{c.baseline:.1f}",
-                        scale=f"{c.scale:.3f}", **used)
+                        scale=f"{c.scale:.3f}", **used, **settled)
         if not c.in_range:
             self._log_calibrate(result="out_of_range", **measured)
             raise RuntimeError(f"開頭校準：{calib.out_of_range_text(c.scale)} → 不執行")

@@ -233,6 +233,84 @@ class Calibrated:
                 f"備用校準對：{self.fallback.describe()}")
 
 
+SETTLE_INTERVAL = 1.0
+SETTLE_READS = 11
+SETTLE_TOLERANCE = 1
+
+
+class Reading:
+    """`等停穩再量`的一次量測: 呼叫端要的結果 value, 加上判斷兩次是否一致用的比對面.
+
+    points: {名稱: (x, y)} 這次量到的每一張圖中心 (與座標基準點), 螢幕座標;
+    group: 用的是哪一組 (例: "main" / "fallback"); failure: None＝量成功,
+    否則是可比較的失敗描述 (原因與缺的圖), 兩次相同才算一致。
+    """
+
+    def __init__(self, value, points=None, group=None, failure=None):
+        self.value = value
+        self.points = dict(points or {})
+        self.group = group
+        self.failure = failure
+
+    def agrees(self, other):
+        """跟另一次量測一致: 都成功＝同一組、同一批圖、每點各差 ≤1px; 都失敗＝失敗描述相同."""
+        if self.failure is not None or other.failure is not None:
+            return self.failure == other.failure
+        if self.group != other.group or self.points.keys() != other.points.keys():
+            return False
+        return all(abs(x - other.points[k][0]) <= SETTLE_TOLERANCE
+                   and abs(y - other.points[k][1]) <= SETTLE_TOLERANCE
+                   for k, (x, y) in self.points.items())
+
+
+class Settled:
+    """`等停穩再量`的結論: reading 定案那次的量測 (value＝它的結果); reads 量了幾次;
+    timed_out 量到上限仍不一致 (用的是最後一次); screen / origin 定案那次的截圖與左上角螢幕座標."""
+
+    def __init__(self, reading, reads, timed_out, screen, origin):
+        self.reading = reading
+        self.value = reading.value
+        self.reads = reads
+        self.timed_out = timed_out
+        self.screen = screen
+        self.origin = origin
+
+
+def settle(grab, read, wait):
+    """等主畫面停穩再量 (執行開頭、編輯器、量測腳本共用的入口).
+
+    grab() → (截圖, 左上角螢幕座標), 每次都先`避開游標`再截; read(截圖, 左上角) →
+    `Reading`; wait(秒) 是呼叫端的等待 (執行器可中斷, 編輯器不卡介面)。
+    第 0、1、…、10 秒各量一次, 跟前一次一致就回傳這一次; 第 10 秒那次仍不一致就回傳
+    那一次並標記逾時。
+    """
+    prev = None
+    for i in range(1, SETTLE_READS + 1):
+        screen, origin = grab()
+        cur = read(screen, origin)
+        if prev is not None and cur.agrees(prev):
+            return Settled(cur, i, False, screen, origin)
+        if i == SETTLE_READS:
+            return Settled(cur, i, True, screen, origin)
+        prev = cur
+        wait(SETTLE_INTERVAL)
+
+
+ANCHOR_POINT = "座標基準點"
+
+
+def calibrated_reading(c):
+    """把一次 `Calibrated` 包成停穩比對用的 `Reading`: 用的那一組兩張圖中心＋座標基準點;
+    失敗時比對原因與主對、備用對各缺哪幾張."""
+    if not c.ok:
+        fb_missing = tuple(c.fallback.missing) if c.fallback is not None else None
+        return Reading(c, group=c.used,
+                       failure=(c.problem, tuple(c.main.missing), fb_missing))
+    points = {n: c.measurement.centers[n] for n in c.pair}
+    points[ANCHOR_POINT] = c.anchor
+    return Reading(c, points, group=c.used)
+
+
 def calibrate(query, screen, origin, cal):
     """用流程的校準資料 cal ({pair, baseline[, fallback]}) 在一張`搜尋範圍`截圖上量一次
     (回傳 `Calibrated`).
