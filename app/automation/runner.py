@@ -41,6 +41,13 @@ def avoid_cursor(region, sleep):
     sleep(0.08)
 
 
+def grab_clear(region, sleep, whole=False):
+    """先`避開游標` (停點照`搜尋範圍` region) 再截圖 → (截圖, 左上角螢幕座標).
+    whole＝截整個虛擬桌面 (拾取要給覆蓋層用), 否則只截 region."""
+    avoid_cursor(region, sleep)
+    return capture.grab(None if whole else region)
+
+
 def branch_layout(steps, start):
     """解析 start (branch_start 索引) 的分岔結構.
 
@@ -434,16 +441,16 @@ class Runner:
                                "請先在編輯器設定校準對")
         region = getattr(self, "scan_region", None)
         s = calib.settle(
-            lambda: self._grab(region),
+            lambda: grab_clear(region, self._sleep),
             lambda screen, org: calib.calibrated_reading(
                 calib.calibrate(self.detector.query, screen, org, cal)),
-            self._sleep)
+            self._sleep, time.monotonic)
         c = s.value
         m = c.measurement
-        settled = dict(settle="timeout" if s.timed_out else "stable",
-                       reads=s.reads)
+        settle_fields = dict(settle="timeout" if s.timed_out else "stable",
+                             reads=s.reads)
         if s.timed_out:
-            self.log(f"開頭校準：畫面 {s.reads - 1:g} 秒都沒停穩，照最後一次量到的值繼續",
+            self.log(f"開頭校準：畫面 {s.elapsed:.1f} 秒都沒停穩，照最後一次量到的值繼續",
                      "warn")
         used = ({"used": "fallback", "main_missing": ",".join(c.main.missing)}
                 if c.used == "fallback" else {})
@@ -455,17 +462,17 @@ class Runner:
             if c.fallback is not None:
                 fields.update(fallback_pair=",".join(c.pair),
                               fallback_missing=",".join(m.missing))
-            self._log_calibrate(**fields, **settled)
+            self._log_calibrate(**fields, **settle_fields)
             raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行；"
                                "請確認搜尋範圍框住了遊戲畫面、畫面上看得到校準對")
         centers = ";".join(f"({x},{y})" for x, y in (m.centers[n] for n in c.pair))
         if c.problem == "too_close":
             self._log_calibrate(result="too_close", pair=",".join(c.pair),
-                                centers=centers, **used, **settled)
+                                centers=centers, **used, **settle_fields)
             raise RuntimeError(f"開頭校準失敗：{c.describe()} → 不執行")
         measured = dict(pair=",".join(c.pair), centers=centers,
                         distance=f"{m.distance:.1f}", baseline=f"{c.baseline:.1f}",
-                        scale=f"{c.scale:.3f}", **used, **settled)
+                        scale=f"{c.scale:.3f}", **used, **settle_fields)
         if not c.in_range:
             self._log_calibrate(result="out_of_range", **measured)
             raise RuntimeError(f"開頭校準：{calib.out_of_range_text(c.scale)} → 不執行")
@@ -522,7 +529,7 @@ class Runner:
         polls = 0
         while True:
             self._check_stop()
-            screen, org = self._grab(region)
+            screen, org = grab_clear(region, self._sleep)
             polls += 1
             f = self._find(no, self.busy, screen, org, self._last_click,
                            kind="忙碌指示")
@@ -825,7 +832,7 @@ class Runner:
             while True:
                 self._sleep(clock.interval)
                 self._check_stop()
-                screen, org = self._grab(region)
+                screen, org = grab_clear(region, self._sleep)
                 polls += 1
                 ok, last = check(screen, org)
                 if ok:
@@ -858,10 +865,6 @@ class Runner:
                 pos = end
                 continue
             return end + 1
-
-    def _grab(self, region):
-        avoid_cursor(region, self._sleep)
-        return capture.grab(region)
 
     def _find(self, no, tgt, screen, org, origin, kind="範本"):
         try:
@@ -923,7 +926,7 @@ class Runner:
         try:
             while True:
                 self._check_stop()
-                screen, org = self._grab(region)
+                screen, org = grab_clear(region, self._sleep)
                 polls += 1
                 for k, t in enumerate(tgts):
                     f = last[k] = self._find(segs[k] + 1, t, screen, org, origin)
@@ -988,7 +991,7 @@ class Runner:
             try:
                 while True:
                     self._check_stop()
-                    screen, org = self._grab(region)
+                    screen, org = grab_clear(region, self._sleep)
                     polls += 1
                     f = self._find(no, tgt, screen, org, origin)
                     gates.see(f)
@@ -1033,7 +1036,7 @@ class Runner:
         try:
             while True:
                 self._check_stop()
-                screen, org = self._grab(region)
+                screen, org = grab_clear(region, self._sleep)
                 polls += 1
                 f = self._find(no, tgt, screen, org, origin)
                 gates.see(f)

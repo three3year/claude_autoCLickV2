@@ -30,7 +30,7 @@ import ui_theme
 from automation import (capture, external, findtarget, flowcheck, flowdefaults, flowfmt,
                         hotkey, imgio, pickcheck, win)
 from automation.flowcheck import STEP_LABELS
-from automation.runner import (Runner, avoid_cursor, has_busy_check, confirm_next_connected,
+from automation.runner import (Runner, grab_clear, has_busy_check, confirm_next_connected,
                                origin_source, uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
 
@@ -609,26 +609,14 @@ class App:
             return None
         origin, region = self._parent(), self.scan_region
 
-        def grab():
-            avoid_cursor(region, time.sleep)
-            return capture.grab(region)
-
         def work():
             problem = self.load_problem(names)
             if problem:
                 return problem, None
-            return None, calibration.settle(grab, read, time.sleep)
-        job = None
-        try:
-            with ui_overlay.screen_clear(self.root):
-                self.root.update()
-                time.sleep(0.12)
-                job = self.recognition.start(title, work, origin)
-                self.recognition.wait(job)
-        except BaseException:
-            if job is not None:
-                job.cancel()
-            raise
+            return None, calibration.settle(lambda: grab_clear(region, time.sleep), read,
+                                            time.sleep, time.monotonic)
+        with ui_overlay.screen_clear(self.root):
+            job = self.recognition.start_and_wait(title, work, origin)
         return job.then(done)
 
     def designate_pair(self):
@@ -650,16 +638,7 @@ class App:
         query = self.detector.query
 
         def read(screen, org):
-            c, parts = None, []
-            if old:
-                c = calibration.calibrate(query, screen, org,
-                                          calibration.make(old["pair"], old["baseline"]))
-                parts.append(("old", calibration.calibrated_reading(c)))
-                if not c.ok:
-                    return calibration.joint_reading((c, None), parts)
-            m = calibration.measure(query, screen, list(pair), org)
-            parts.append(("new", calibration.measurement_reading(m)))
-            return calibration.joint_reading((c, m), parts)
+            return calibration.pair_reading(query, screen, org, pair, ref=old)
 
         def done(res):
             problem, settled = res
@@ -727,14 +706,7 @@ class App:
         query = self.detector.query
 
         def read(screen, org):
-            c = calibration.calibrate(query, screen, org,
-                                      calibration.make(main["pair"], main["baseline"]))
-            parts = [("main", calibration.calibrated_reading(c))]
-            if not c.ok:
-                return calibration.joint_reading((c, None), parts)
-            m = calibration.measure(query, screen, list(pair), org)
-            parts.append(("fallback", calibration.measurement_reading(m)))
-            return calibration.joint_reading((c, m), parts)
+            return calibration.pair_reading(query, screen, org, pair, ref=main)
 
         def done(res):
             problem, settled = res
@@ -847,8 +819,8 @@ class App:
         cal, query = self.flow_cal, self.detector.query
 
         def read(screen, org):
-            got = calibration.measure_fallback(query, screen, org, cal)
-            return calibration.measurement_reading(got[0], value=got)
+            m, k, anchor = calibration.measure_fallback(query, screen, org, cal)
+            return calibration.measurement_reading(m, result=(m, k, anchor))
 
         def done(res):
             problem, settled = res

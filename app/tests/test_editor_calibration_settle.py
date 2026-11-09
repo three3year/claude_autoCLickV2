@@ -25,9 +25,20 @@ def _record_grabs(monkeypatch, fake_cursor):
     return seen
 
 
-def _sleeps(monkeypatch):
-    rec = []
-    monkeypatch.setattr(app_mod.time, "sleep", lambda s: rec.append(s))
+def _sleeps(monkeypatch, on_wait=None, ui_sleeps=None):
+    """假時鐘: time.sleep 不真的睡, 推進 time.monotonic 並記下每次等多久;
+    on_wait() 在每次 ≥0.5 秒的等待 (等停穩的每秒間隔) 時呼叫; ui_sleeps 收介面執行緒上的睡."""
+    rec, now = [], [1000.0]
+
+    def sleep(s):
+        rec.append(s)
+        if ui_sleeps is not None and threading.current_thread() is threading.main_thread():
+            ui_sleeps.append(s)
+        now[0] += s
+        if on_wait is not None and s >= 0.5:
+            on_wait()
+    monkeypatch.setattr(app_mod.time, "sleep", sleep)
+    monkeypatch.setattr(app_mod.time, "monotonic", lambda: now[0])
     return rec
 
 
@@ -99,17 +110,17 @@ def test_等停穩的每秒等待不卡介面執行緒_介面事件照常處理(
         tick.set()
         timer[:] = [tkroot.after(5, ui_event)]
 
-    def sleep(s):
-        if s < 1:
-            return
+    def per_second_wait():
         tick.clear()
         waited.append(tick.wait(2))
-    monkeypatch.setattr(app_mod.time, "sleep", sleep)
+    ui_sleeps = []
+    _sleeps(monkeypatch, per_second_wait, ui_sleeps)
     timer.append(tkroot.after(5, ui_event))
     try:
         a.test_calibration()
     finally:
         tkroot.after_cancel(timer[0])
     assert waited == [True, True], "每秒等待期間介面執行緒都處理了事件"
+    assert ui_sleeps == [], "介面執行緒不睡 (清場生效的等待也在背景)"
     assert any("×1.100" in m for m in a.logged), a.logged
     assert not a.recognition.busy

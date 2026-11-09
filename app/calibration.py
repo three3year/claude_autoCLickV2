@@ -243,7 +243,8 @@ class Reading:
 
     points: {名稱: (x, y)} 這次量到的每一張圖中心 (與座標基準點), 螢幕座標;
     group: 用的是哪一組 (例: "main" / "fallback"); failure: None＝量成功,
-    否則是可比較的失敗描述 (原因與缺的圖), 兩次相同才算一致。
+    否則是失敗描述 (原因與缺的圖)。group 與 failure 都只拿來跟前一次比相等, 內容形狀由包裝
+    的函式 (`calibrated_reading` 等) 自訂, 同一個呼叫端每次都由同一個函式產生。
     """
 
     def __init__(self, value, points=None, group=None, failure=None):
@@ -265,35 +266,46 @@ class Reading:
 
 class Settled:
     """`等停穩再量`的結論: reading 定案那次的量測 (value＝它的結果); reads 量了幾次;
-    timed_out 量到上限仍不一致 (用的是最後一次); screen / origin 定案那次的截圖與左上角螢幕座標."""
+    timed_out 量到上限仍不一致 (用的是最後一次); elapsed 第一次到定案那次截圖隔了幾秒;
+    screen / origin 定案那次的截圖與左上角螢幕座標."""
 
-    def __init__(self, reading, reads, timed_out, screen, origin):
+    def __init__(self, reading, reads, timed_out, elapsed, screen, origin):
         self.reading = reading
         self.value = reading.value
         self.reads = reads
         self.timed_out = timed_out
+        self.elapsed = elapsed
         self.screen = screen
         self.origin = origin
 
 
-def settle(grab, read, wait):
+def settle(grab, read, wait, now):
     """等主畫面停穩再量 (執行開頭、編輯器、量測腳本共用的入口).
 
     grab() → (截圖, 左上角螢幕座標), 每次都先`避開游標`再截; read(截圖, 左上角) →
-    `Reading`; wait(秒) 是呼叫端的等待 (執行器可中斷, 編輯器不卡介面)。
-    第 0、1、…、10 秒各量一次, 跟前一次一致就回傳這一次; 第 10 秒那次仍不一致就回傳
-    那一次並標記逾時。
+    `Reading`; wait(秒) 是呼叫端的等待 (執行器可中斷, 編輯器不卡介面); now() → 秒,
+    跟 wait 同一個時鐘。
+    以第一次截圖為第 0 秒, 第 i 次截圖排在第 i 秒 (等到截止時間, 辨識花的時間不另外加),
+    跟前一次一致就回傳這一次。辨識慢到錯過截止時間就量完馬上量下一次, 不補量追趕;
+    最多 SETTLE_READS 次, 開始下一次前已超過第 10 秒也不再量——回傳最後一次並標記逾時。
+    所以最久約 10 秒＋最後一次辨識。
     """
-    prev = None
-    for i in range(1, SETTLE_READS + 1):
+    limit = SETTLE_INTERVAL * (SETTLE_READS - 1)
+    prev, t0 = None, None
+    for i in range(SETTLE_READS):
+        if prev is not None:
+            if now() - t0 > limit:
+                break
+            wait(max(0.0, t0 + i * SETTLE_INTERVAL - now()))
         screen, origin = grab()
+        t = now()
+        t0 = t if t0 is None else t0
         cur = read(screen, origin)
         if prev is not None and cur.agrees(prev):
-            return Settled(cur, i, False, screen, origin)
-        if i == SETTLE_READS:
-            return Settled(cur, i, True, screen, origin)
-        prev = cur
-        wait(SETTLE_INTERVAL)
+            return Settled(cur, i + 1, False, t - t0, screen, origin)
+        prev, last = cur, (i + 1, t - t0, screen, origin)
+    reads, elapsed, screen, origin = last
+    return Settled(prev, reads, True, elapsed, screen, origin)
 
 
 ANCHOR_POINT = "座標基準點"
@@ -311,10 +323,10 @@ def calibrated_reading(c):
     return Reading(c, points, group=c.used)
 
 
-def measurement_reading(m, value=None):
-    """把一次 `Measurement` 包成停穩比對用的 `Reading` (value 預設是它自己): 兩張圖中心;
-    失敗時比對原因與缺的圖."""
-    value = m if value is None else value
+def measurement_reading(m, result=None):
+    """把一次 `Measurement` 包成停穩比對用的 `Reading`: 比對 m 的兩張圖中心, 失敗時比對原因與缺的圖;
+    result 是停穩後交給呼叫端的結果 (`Reading.value`), 預設是 m 自己."""
+    value = m if result is None else result
     if not m.ok:
         return Reading(value, failure=(m.problem, tuple(m.missing)))
     return Reading(value, dict(m.centers))
@@ -326,10 +338,25 @@ def joint_reading(value, parts):
     points, groups = {}, []
     for tag, r in parts:
         if r.failure is not None:
-            return Reading(value, group=tag, failure=(tag, r.failure))
+            return Reading(value, failure=(tag, r.failure))
         points.update({(tag, k): p for k, p in r.points.items()})
         groups.append(r.group)
     return Reading(value, points, group=tuple(groups))
+
+
+def pair_reading(query, screen, origin, pair, ref=None):
+    """設定校準對／備用校準對的單次量測: 先用 ref ({pair, baseline}; None＝沒有, 倍率當 1)
+    量倍率與基準點, 量得到才量要設定的兩張 pair。→ `Reading`, value＝(ref 的 `Calibrated`
+    或 None, pair 的 `Measurement` 或 None (ref 量不到)); 兩組都停穩才算一致."""
+    c, parts = None, []
+    if ref:
+        c = calibrate(query, screen, origin, make(ref["pair"], ref["baseline"]))
+        parts.append(("ref", calibrated_reading(c)))
+        if not c.ok:
+            return joint_reading((c, None), parts)
+    m = measure(query, screen, list(pair), origin)
+    parts.append(("pair", measurement_reading(m)))
+    return joint_reading((c, m), parts)
 
 
 def calibrate(query, screen, origin, cal):

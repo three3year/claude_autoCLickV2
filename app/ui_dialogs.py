@@ -8,7 +8,7 @@ import ui_grab
 import ui_overlay
 import ui_theme
 from automation import capture, findtarget, flowdefaults, flowfmt, pickcheck, win
-from automation.runner import (BUSY_CHECK_KEY, avoid_cursor, confirm_next_connected,
+from automation.runner import (BUSY_CHECK_KEY, confirm_next_connected, grab_clear,
                                origin_source, sends_input, uses_confirm_next,
                                uses_origin_leaves)
 from ui_theme import C, FONT, FONT_BOLD
@@ -609,12 +609,9 @@ def _settled_measure(app, cal, names, quiet, home):
     shots = []
 
     def grab():
-        avoid_cursor(region, time.sleep)
-        if quiet:
-            shots.append(None)
-            return capture.grab(region)
-        shots.append(capture.grab(None))
-        return app.scan_frame(shots[-1])
+        got = grab_clear(region, time.sleep, whole=not quiet)
+        shots.append(None if quiet else got)
+        return got if quiet else app.scan_frame(got)
 
     def read(screen, org):
         return calibration.calibrated_reading(calibration.calibrate(query, screen, org, cal))
@@ -624,7 +621,7 @@ def _settled_measure(app, cal, names, quiet, home):
             m = Measured(None)
             m.problem = problem
             return m
-        s = calibration.settle(grab, read, time.sleep)
+        s = calibration.settle(grab, read, time.sleep, time.monotonic)
     finally:
         if win.cursor_pos() != tuple(home):
             win.park(*home)
@@ -709,15 +706,12 @@ def measured_pick(app, parent, title, done, overlay=None, need_anchor=False, hid
                     title, lambda: _complete_measure(m, resolve, extra), origin=parent)
             else:
                 # 等主畫面停穩 (清場中唯一做辨識的例外): 背景量, 介面執行緒不卡著等
-                app.root.update()
-                time.sleep(0.12)
                 home = win.cursor_pos()
-                job = app.recognition.start(
+                job = app.recognition.start_and_wait(
                     title, lambda: _settled_measure(app, cal, names, quiet, home),
                     origin=parent)
-                app.recognition.wait(job)
-                settled, m, err = job.peek()
-                if settled and err is None:
+                finished, m, err = job.peek()
+                if finished and err is None:
                     job.follow(lambda: _complete_measure(m, resolve, extra))
                 else:
                     m = None  # 出錯 (收尾時寫紀錄) 或等待中主視窗關了: 不叫覆蓋層
