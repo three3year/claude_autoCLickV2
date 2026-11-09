@@ -2,9 +2,9 @@ format: 1
 scan_region: [77, 31, 1718, 920]
 calibration:
   pair: [主画面设置钮, 主画面仓库]
-  baseline: 1719.2
+  baseline: 1709.1
   fallback: {pair: [標題列圖示, 標題列關閉鈕], baseline: 1650.0, offset: [33, 61]}
-busy: {template: 忙碌指示, within: [847, 719, 333, 101]}
+busy: {template: 忙碌指示, within: [847, 719, 333, 121]}
 template_pos:
   公开招募画面: [242, 152]
   主画面仓库: [1563, 717]
@@ -29,13 +29,13 @@ engine: {scale_range: [0.6, 1.5]}
 steps:
   - {find_click: 公告关闭, within: [1416, -25, 136, 136], confirm: gone, timeout: 2, on_fail: skip, busy_check: true}    # 1
   - {find_click: 基建图标, within: [1217, 611, 152, 158], confirm: gone, timeout: 30}    # 2
-  - {find_click: 待办铃铛, within: [1503, 2, 114, 167], confirm: {appear: 待辦事項, within: [-64, 738, 214, 102]}, timeout: 15, on_fail: skip}    # 3
+  - {find_click: 待办铃铛, within: [1503, 2, 114, 167], confirm: {appear: 待辦事項, within: [-64, 738, 214, 122]}, timeout: 15, on_fail: skip}    # 3
   - repeat: 3    # 4
     steps:
       - branch:    # 5
-          - if: {find_click: 可收获, within: [85, 732, 220, 108], confirm: gone, timeout: 3, on_fail: skip, busy_check: true}    # 6
-          - if: {find_click: 订单交付, within: [88, 732, 225, 108], confirm: gone, timeout: 3, on_fail: skip}    # 8
-          - if: {find_click: 干员信赖, within: [84, 732, 228, 108], confirm: gone, timeout: 3, on_fail: skip, busy_check: true}    # 10
+          - if: {find_click: 可收获, within: [85, 732, 220, 128], confirm: gone, timeout: 3, on_fail: skip, busy_check: true}    # 6
+          - if: {find_click: 订单交付, within: [88, 732, 400, 128], confirm: gone, timeout: 3, on_fail: skip}    # 8
+          - if: {find_click: 干员信赖, within: [84, 732, 228, 128], confirm: gone, timeout: 3, on_fail: skip, busy_check: true}    # 10
         on_break: break
   - {find: 返回, within: [-61, -70, 117, 132]}    # 13
   - {click: [419, 142]}    # 14
