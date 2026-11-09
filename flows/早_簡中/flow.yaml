@@ -3,7 +3,7 @@ scan_region: [71, 37, 1718, 920]
 calibration:
   pair: [標題列圖示, 標題列關閉鈕]
   baseline: 1650.0
-  fallback: {pair: [主画面设置钮, 主画面仓库], baseline: 1719.2, offset: [-33, -61]}
+  fallback: {pair: [主画面设置钮, 主画面仓库], baseline: 1709.1, offset: [-33, -61]}
 busy: {template: 忙碌指示, within: [880, 780, 333, 101]}
 template_pos:
   公开招募画面: [275, 213]
