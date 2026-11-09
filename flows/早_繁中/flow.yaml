@@ -3,7 +3,7 @@ scan_region: [-8, 0, 1928, 1034]
 calibration:
   pair: [標題列圖示, 標題列關閉鈕]
   baseline: 1868.0
-  fallback: {pair: [主畫面設定鈕, 主畫面倉庫], baseline: 1942.4, offset: [-40, -67]}
+  fallback: {pair: [主畫面設定鈕, 主畫面倉庫], baseline: 1933.6, offset: [-40, -67]}
 busy: {template: 忙碌指示, within: [994, 885, 382, 105]}
 template_pos:
   公開招募畫面: [311, 237]
