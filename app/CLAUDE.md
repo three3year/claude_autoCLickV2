@@ -91,7 +91,7 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 一對純函式。程序啟動即 `win.set_dpi_aware()`，全程實體像素；多螢幕虛擬桌面原點可為負、配置會變，用
 `win.virtual_screen()` 查當下配置，不要混入未設 DPI-aware 程序的座標。改座標相關程式碼前先確認自己在哪個座標系。
 
-**清場中不做任何辨識；新增辨識入口一律走背景辨識**（詞彙見 CONTEXT「清場」「辨識中」）：清場只截圖與讓使用者在
+**清場中不做任何辨識（例外只有等主畫面停穩，見下）；新增辨識入口一律走背景辨識**（詞彙見 CONTEXT「清場」「辨識中」）：清場只截圖與讓使用者在
 覆蓋層上操作，辨識交 `App.recognition`（`recognition.Recognition`）在背景執行緒做。拾取類一律走
 `ui_dialogs.measured_pick`：清場前檢查（`App.calibration_ready`）→ 清場中只截一張整個虛擬桌面的圖（`App.grab_shot`）、
 派背景辨識（裁出搜尋範圍 `App.scan_frame` 量校準、推算 ◎）、叫覆蓋層（`ui_overlay.pick(shot=, pending=)`）→ 還原 →
@@ -99,7 +99,9 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 （`ui_dialogs.template_pos_from_shot`）都用當下的倍率與基準點換回；量不到＝不存並提示重框搜尋範圍；沒有校準對＝
 需要基準點的拾取（固定矩形）擋下。◎ 可以晚到（覆蓋層 `late=`），推不出且還沒點＝改走「先點原點」或拖線
 （同一次清場，不還原再隱藏）；叫覆蓋層一律經 `ui_dialogs.overlay_pick`。只量不框的（流程設定的測試與設定）清場
-只截圖再 `App.recognize(title, work, done, origin)`。介面執行緒只做 `ensure_registered`、就緒檢查、modal、寫紀錄區、
+中等主畫面停穩再量（例外：這段辨識在清場中做，視窗藏著等），走 `App.recognize_settled(title, names, read, done)`：
+背景跑 `calibration.settle`，每次截圖前 `automation.runner.avoid_cursor`（停點 `runner.park_point`，與執行器相同），
+介面執行緒用 `Recognition.wait(job)` 的巢狀事件迴圈等、不卡介面，還原後才在介面執行緒收尾。介面執行緒只做 `ensure_registered`、就緒檢查、modal、寫紀錄區、
 填欄位、改流程資料；背景不碰 Tk（表單值、步驟清單在派工前讀好）。圖片類動作登記在 `Recognition.register`，
 辨識中一律反灰——反灰規則只有那一份；登記的元件平常改可用與否走 `Recognition.want`。發起辨識的對話框用
 `ui_dialogs.busy_foot` 登記底列與關閉類按鈕，做完前關不掉。**新增拾取、截圖或比對測試入口一律走 `measured_pick`**。

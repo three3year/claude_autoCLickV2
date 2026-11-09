@@ -30,7 +30,7 @@ import ui_theme
 from automation import (capture, external, findtarget, flowcheck, flowdefaults, flowfmt,
                         hotkey, imgio, pickcheck, win)
 from automation.flowcheck import STEP_LABELS
-from automation.runner import (Runner, has_busy_check, confirm_next_connected,
+from automation.runner import (Runner, avoid_cursor, has_busy_check, confirm_next_connected,
                                origin_source, uses_confirm_next, uses_origin_leaves)
 from ui_theme import C, FONT, FONT_MONO
 
@@ -597,14 +597,39 @@ class App:
         messagebox.showwarning(title, f"校準圖載入失敗：{name}（{e}）",
                                parent=self._parent())
 
-    def _grab_measure_work(self, names, measure):
-        with ui_overlay.screen_clear(self.root):
-            screen, org = self.grab_frame()
+    def recognize_settled(self, title, names, read, done):
+        """設定／測試校準鈕的量法: 清場中在背景等主畫面停穩再量 (`calibration.settle`,
+        每次截圖前先`避開游標`, 停點跟執行器相同), 介面執行緒照常處理事件;
+        還原後在介面執行緒 done((載入問題, Settled)).
+
+        read(截圖, 左上角) → `calibration.Reading`; names 是要先確認載得起來的範本。
+        """
+        if self.recognition.busy:
+            self.log_ui(f"{title}略過：上一件辨識還沒做完", "warn")
+            return None
+        origin, region = self._parent(), self.scan_region
+
+        def grab():
+            avoid_cursor(region, time.sleep)
+            return capture.grab(region)
 
         def work():
             problem = self.load_problem(names)
-            return problem, (None if problem else measure(screen, org))
-        return work
+            if problem:
+                return problem, None
+            return None, calibration.settle(grab, read, time.sleep)
+        job = None
+        try:
+            with ui_overlay.screen_clear(self.root):
+                self.root.update()
+                time.sleep(0.12)
+                job = self.recognition.start(title, work, origin)
+                self.recognition.wait(job)
+        except BaseException:
+            if job is not None:
+                job.cancel()
+            raise
+        return job.then(done)
 
     def designate_pair(self):
         if self.recognition.busy or not self.engine_gate(self._parent()):
@@ -624,21 +649,24 @@ class App:
             return
         query = self.detector.query
 
-        def measure(screen, org):
-            c = None
+        def read(screen, org):
+            c, parts = None, []
             if old:
                 c = calibration.calibrate(query, screen, org,
                                           calibration.make(old["pair"], old["baseline"]))
+                parts.append(("old", calibration.calibrated_reading(c)))
                 if not c.ok:
-                    return c, None
-            return c, calibration.measure(query, screen, list(pair), org)
+                    return calibration.joint_reading((c, None), parts)
+            m = calibration.measure(query, screen, list(pair), org)
+            parts.append(("new", calibration.measurement_reading(m)))
+            return calibration.joint_reading((c, m), parts)
 
         def done(res):
-            problem, got = res
+            problem, settled = res
             if problem:
                 self._warn_load(title, problem)
                 return
-            c, m = got
+            c, m = settled.value
             if c is not None and not c.ok:
                 self._warn_measure("設定校準對（先用原本的校準對量倍率與基準點）", c)
                 return
@@ -650,8 +678,7 @@ class App:
                 return
             self._apply_pair(pair, old, fb, c, m)
 
-        self.recognize(title, self._grab_measure_work(names, measure), done,
-                       origin=self._parent())
+        self.recognize_settled(title, names, read, done)
 
     def _apply_pair(self, pair, old, fb, c, m):
         k, old_anchor = (c.scale, c.anchor) if c is not None else (1.0, None)
@@ -699,19 +726,22 @@ class App:
             return
         query = self.detector.query
 
-        def measure(screen, org):
+        def read(screen, org):
             c = calibration.calibrate(query, screen, org,
                                       calibration.make(main["pair"], main["baseline"]))
+            parts = [("main", calibration.calibrated_reading(c))]
             if not c.ok:
-                return c, None
-            return c, calibration.measure(query, screen, list(pair), org)
+                return calibration.joint_reading((c, None), parts)
+            m = calibration.measure(query, screen, list(pair), org)
+            parts.append(("fallback", calibration.measurement_reading(m)))
+            return calibration.joint_reading((c, m), parts)
 
         def done(res):
-            problem, got = res
+            problem, settled = res
             if problem:
                 self._warn_load(title, problem)
                 return
-            c, m = got
+            c, m = settled.value
             if not c.ok:
                 self._warn_measure("設定備用校準對（先用校準對量倍率與基準點）", c)
                 return
@@ -732,8 +762,7 @@ class App:
                         f"({fb['offset'][0]:+d},{fb['offset'][1]:+d})（目前畫面倍率 ×{k:.3f}）；"
                         "主校準對找不到時執行會改用它", "ok")
 
-        self.recognize(title, self._grab_measure_work(names, measure), done,
-                       origin=self._parent())
+        self.recognize_settled(title, names, read, done)
 
     def clear_calibration(self):
         cal = self.flow_cal
@@ -783,10 +812,11 @@ class App:
         cal, query = self.flow_cal, self.detector.query
 
         def done(res):
-            problem, c = res
+            problem, settled = res
             if problem:
                 self._warn_load(title, problem)
                 return
+            c = settled.value
             if not c.ok:
                 self.log_ui(f"{title}：{c.describe()}（搜尋範圍要框住校準對兩張圖）", "warn")
                 return
@@ -799,10 +829,10 @@ class App:
             if not c.in_range:
                 self.log_ui(f"{title}：{ui_dialogs.out_of_range_warning(c.scale)}", "warn")
 
-        work = self._grab_measure_work(self.calibration_names(),
-                                 lambda screen, org: calibration.calibrate(
-                                     query, screen, org, cal))
-        self.recognize(title, work, done, origin=self._parent())
+        self.recognize_settled(
+            title, self.calibration_names(),
+            lambda screen, org: calibration.calibrated_reading(
+                calibration.calibrate(query, screen, org, cal)), done)
 
     def test_fallback_calibration(self):
         title = "測試備用校準對"
@@ -816,12 +846,16 @@ class App:
             return
         cal, query = self.flow_cal, self.detector.query
 
+        def read(screen, org):
+            got = calibration.measure_fallback(query, screen, org, cal)
+            return calibration.measurement_reading(got[0], value=got)
+
         def done(res):
-            problem, got = res
+            problem, settled = res
             if problem:
                 self._warn_load(title, problem)
                 return
-            m, k, anchor = got
+            m, k, anchor = settled.value
             if not m.ok:
                 self.log_ui(f"{title}：{m.describe()}", "warn")
                 return
@@ -831,10 +865,7 @@ class App:
             if not calibration.in_supported_range(k):
                 self.log_ui(f"{title}：{ui_dialogs.out_of_range_warning(k)}", "warn")
 
-        work = self._grab_measure_work(list(fb["pair"]),
-                                 lambda screen, org: calibration.measure_fallback(
-                                     query, screen, org, cal))
-        self.recognize(title, work, done, origin=self._parent())
+        self.recognize_settled(title, list(fb["pair"]), read, done)
 
     def set_busy_indicator(self):
         cur = self.busy_target

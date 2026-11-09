@@ -311,6 +311,27 @@ def calibrated_reading(c):
     return Reading(c, points, group=c.used)
 
 
+def measurement_reading(m, value=None):
+    """把一次 `Measurement` 包成停穩比對用的 `Reading` (value 預設是它自己): 兩張圖中心;
+    失敗時比對原因與缺的圖."""
+    value = m if value is None else value
+    if not m.ok:
+        return Reading(value, failure=(m.problem, tuple(m.missing)))
+    return Reading(value, dict(m.centers))
+
+
+def joint_reading(value, parts):
+    """幾次量測合成一次 `Reading` (例: 設定校準對時的舊對＋新對): parts 是 [(名稱, Reading)],
+    每一張圖都停穩才算一致; 任一次失敗＝整次失敗 (比對哪一次、原因)."""
+    points, groups = {}, []
+    for tag, r in parts:
+        if r.failure is not None:
+            return Reading(value, group=tag, failure=(tag, r.failure))
+        points.update({(tag, k): p for k, p in r.points.items()})
+        groups.append(r.group)
+    return Reading(value, points, group=tuple(groups))
+
+
 def calibrate(query, screen, origin, cal):
     """用流程的校準資料 cal ({pair, baseline[, fallback]}) 在一張`搜尋範圍`截圖上量一次
     (回傳 `Calibrated`).

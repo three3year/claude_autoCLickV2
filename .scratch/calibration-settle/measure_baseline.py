@@ -5,7 +5,7 @@
 遊戲開著、停在主畫面。腳本先載入引擎, 倒數 --delay 秒 (讓你切到遊戲), 然後:
   1. 不動游標, 截流程的搜尋範圍一次, 主畫面那一對和標題列對四張圖都要找得到;
      任一張找不到 (畫面上沒有遊戲、不是主畫面、被別的視窗擋住) 就中止, 游標完全沒動過。
-  2. 用跟執行器一樣的`等停穩再量` (calibration.settle) 和停點 (Runner._avoid_cursor:
+  2. 用跟執行器一樣的`等停穩再量` (calibration.settle) 和停點 (automation.runner.avoid_cursor:
      搜尋範圍左下角外), 每 1 秒量一次兩對, 連續兩次四張圖中心各差 ≤1px 才定案, 最多 10 秒。
   3. 印出主畫面那一對的停穩距離、標題列對的倍率、新基準距離 ＝ 停穩距離 ÷ 標題列倍率,
      寫成 json; 游標移回原位。
@@ -179,7 +179,7 @@ def main(argv=None):
     print(f"流程 {a.flow}　搜尋範圍 {region}")
 
     from automation import capture, win
-    from automation.runner import Runner
+    from automation.runner import avoid_cursor
     import enginehub
     from subject_detection.library import load_default_config
     win.set_dpi_aware()
@@ -207,13 +207,12 @@ def main(argv=None):
         print(f"{left} 秒後開始，請切到遊戲主畫面…", flush=True)
         time.sleep(1)
 
-    # 停點與執行器相同: 直接借用執行器的避開游標 (搜尋範圍左下角外, 夾在該螢幕內)
-    parker = type("Parker", (), {"_sleep": staticmethod(time.sleep)})()
+    # 停點與執行器相同: 執行器與編輯器共用的避開游標 (搜尋範圍左下角外, 夾在該螢幕內)
     moved = []
 
     def grab():
         moved.append(True)
-        Runner._avoid_cursor(parker, region)
+        avoid_cursor(region, time.sleep)
         if win.cursor_pos() == home:
             # 遊戲以系統管理員執行時, 非管理員程序的 SetCursorPos 會被 UIPI 擋掉, 量到的是游標沒移開的畫面
             raise Abort(f"游標移不動（還在 {home}）：遊戲可能以系統管理員執行，請用系統管理員身分跑這支腳本")
