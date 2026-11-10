@@ -1,5 +1,5 @@
 format: 1
-scan_region: [77, 31, 1718, 920]
+scan_region: [-8, 0, 1928, 1038]
 calibration:
   pair: [主画面设置钮, 主画面仓库]
   baseline: 1709.1
@@ -30,61 +30,65 @@ steps:
   - {find_click: 公告关闭, within: [1416, -25, 136, 136], confirm: gone, timeout: 2, on_fail: skip, busy_check: true}    # 1
   - {find_click: 基建图标, within: [1217, 611, 152, 158], confirm: gone, timeout: 30}    # 2
   - {find_click: 待办铃铛, within: [1503, 2, 114, 167], confirm: {appear: 待辦事項, within: [-64, 738, 214, 122]}, timeout: 15, on_fail: skip}    # 3
-  - repeat: 3    # 4
+  - repeat: 4    # 4
     steps:
       - branch:    # 5
           - if: {find_click: 可收获, within: [85, 732, 220, 128], confirm: gone, timeout: 3, on_fail: skip, busy_check: true}    # 6
           - if: {find_click: 订单交付, within: [88, 732, 400, 128], confirm: gone, timeout: 3, on_fail: skip}    # 8
           - if: {find_click: 干员信赖, within: [84, 732, 228, 128], confirm: gone, timeout: 3, on_fail: skip, busy_check: true}    # 10
+          - if: {find_click: 材料产出, within: [-18, 827, 1696, 64], confirm: next, timeout: 3, on_fail: skip, busy_check: true}    # 12
+            then:
+              - {find: 获得物资, within: [704, -2, 260, 280], on_fail: break}    # 13
+              - {click: [15, 618], confirm: gone, timeout: 10, on_fail: break}    # 14
         on_break: break
-  - {find: 返回, within: [-61, -70, 117, 132]}    # 13
-  - {click: [419, 142]}    # 14
-  - {wait: 0.5}    # 15
-  - {find: 进驻总览, within: [37, 18, 202, 140], timeout: 10}    # 16
-  - {click: [265, 472], confirm: next, timeout: 10}    # 17
-  - {find_click: 制造中, confirm: next, timeout: 15}    # 18
-  - {find_click: 无人机加速, within: [1532, 527, 125, 130], confirm: next, timeout: 10}    # 19
-  - {find_click: 最多, within: [979, 300, 254, 136], offset: [43, -1], timeout: 10}    # 20
-  - {wait: 0.3}    # 21
-  - {find_click: 确定, within: [995, 560, 364, 130], confirm: gone, timeout: 10, busy_check: true}    # 22
-  - {find_click: 收取, within: [1349, 651, 230, 140], offset: [1, 0], timeout: 3, on_fail: skip}    # 23
-  - {wait: 0.5}    # 24
-  - {find_click: 返回, within: [-61, -63, 112, 122], timeout: 10}    # 25
-  - {wait: 1}    # 26
-  - {find_click: 返回, within: [-61, -70, 117, 132], offset: [0, 2], confirm: next, timeout: 10}    # 27
-  - {find_click: 进驻总览, within: [37, 18, 202, 140], timeout: 15}    # 28
-  - {find: 非工作区, within: [1354, -60, 200, 120], timeout: 10}    # 29
-  - {wait: 0.5}    # 30
-  - {click: [117, 381], busy_check: true}    # 31
-  - {find: 标题_制造站, within: [689, 396, 148, 204], pick: {top: 1}, timeout: 10}    # 32
-  - {drag: [650, 182], to: [650, -142], confirm: gone, timeout: 10, busy_check: true}    # 33
-  - {find: 标题_制造站, within: [689, 72, 148, 204], pick: {top: 1}, timeout: 10}    # 34
-  - {drag: [650, 494], to: [650, 170], confirm: gone, timeout: 10, busy_check: true}    # 35
-  - branch:    # 36
-      - if: {find: 标题_贸易站, within: [689, 484, 148, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 37
+  - {find: 返回, within: [-61, -70, 117, 132]}    # 17
+  - {click: [419, 142]}    # 18
+  - {wait: 0.5}    # 19
+  - {find: 进驻总览, within: [37, 18, 202, 140], timeout: 10}    # 20
+  - {click: [265, 472], confirm: next, timeout: 10}    # 21
+  - {find_click: 制造中, confirm: next, timeout: 15}    # 22
+  - {find_click: 无人机加速, within: [1532, 527, 125, 130], confirm: next, timeout: 10}    # 23
+  - {find_click: 最多, within: [979, 300, 254, 136], offset: [43, -1], timeout: 10}    # 24
+  - {wait: 0.3}    # 25
+  - {find_click: 确定, within: [995, 560, 364, 130], confirm: gone, timeout: 10, busy_check: true}    # 26
+  - {find_click: 收取, within: [1349, 651, 230, 140], offset: [1, 0], timeout: 3, on_fail: skip}    # 27
+  - {wait: 0.5}    # 28
+  - {find_click: 返回, within: [-61, -63, 112, 122], timeout: 10}    # 29
+  - {wait: 1}    # 30
+  - {find_click: 返回, within: [-61, -70, 117, 132], offset: [0, 2], confirm: next, timeout: 10}    # 31
+  - {find_click: 进驻总览, within: [37, 18, 202, 140], timeout: 15}    # 32
+  - {find: 非工作区, within: [1354, -60, 200, 120], timeout: 10}    # 33
+  - {wait: 0.5}    # 34
+  - {click: [117, 381], busy_check: true}    # 35
+  - {find: 标题_制造站, within: [689, 396, 148, 204], pick: {top: 1}, timeout: 10}    # 36
+  - {drag: [650, 182], to: [650, -142], confirm: gone, timeout: 10, busy_check: true}    # 37
+  - {find: 标题_制造站, within: [689, 72, 148, 204], pick: {top: 1}, timeout: 10}    # 38
+  - {drag: [650, 494], to: [650, 170], confirm: gone, timeout: 10, busy_check: true}    # 39
+  - branch:    # 40
+      - if: {find: 标题_贸易站, within: [689, 484, 148, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 41
         then:
-          - {click: [795, -290], busy_check: true}    # 38
-          - {click: [0, 175], busy_check: true}    # 39
-  - {find: 标题_贸易站, within: [689, 484, 148, 204], pick: {top: 1}, timeout: 10}    # 41
-  - {drag: [650, 71], to: [650, -261], confirm: gone, timeout: 10, busy_check: true}    # 42
-  - {find: 标题_贸易站, within: [689, 152, 148, 204], pick: {top: 1}, timeout: 10}    # 43
-  - {drag: [650, 390], to: [650, 57], confirm: gone, timeout: 10, busy_check: true}    # 44
-  - branch:    # 45
-      - if: {find: 标题_发电站, within: [689, 209, 148, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 46
+          - {click: [795, -290], busy_check: true}    # 42
+          - {click: [0, 175], busy_check: true}    # 43
+  - {find: 标题_贸易站, within: [689, 484, 148, 204], pick: {top: 1}, timeout: 10}    # 45
+  - {drag: [650, 71], to: [650, -261], confirm: gone, timeout: 10, busy_check: true}    # 46
+  - {find: 标题_贸易站, within: [689, 152, 148, 204], pick: {top: 1}, timeout: 10}    # 47
+  - {drag: [650, 390], to: [650, 57], confirm: gone, timeout: 10, busy_check: true}    # 48
+  - branch:    # 49
+      - if: {find: 标题_发电站, within: [689, 209, 148, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 50
         then:
-          - {click: [802, -119], busy_check: true}    # 47
-          - {click: [0, 219], busy_check: true}    # 48
-          - {click: [0, 172], busy_check: true}    # 49
-  - {find: 标题_发电站, within: [689, 209, 148, 204], pick: {top: 1}, timeout: 10}    # 51
-  - {drag: [650, 202], to: [650, 58], confirm: gone, timeout: 10, busy_check: true}    # 52
-  - branch:    # 53
-      - if: {find: 标题_发电站, within: [689, 65, 148, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 54
+          - {click: [802, -119], busy_check: true}    # 51
+          - {click: [0, 219], busy_check: true}    # 52
+          - {click: [0, 172], busy_check: true}    # 53
+  - {find: 标题_发电站, within: [689, 209, 148, 204], pick: {top: 1}, timeout: 10}    # 55
+  - {drag: [650, 202], to: [650, 58], confirm: gone, timeout: 10, busy_check: true}    # 56
+  - branch:    # 57
+      - if: {find: 标题_发电站, within: [689, 65, 148, 204], pick: {top: 1}, timeout: 3, on_fail: skip}    # 58
         then:
-          - {click: [802, 444], busy_check: true}    # 55
-  - {find_click: 非工作区, within: [1354, -60, 200, 120], timeout: 10}    # 57
-  - {find_click: 干员休整, within: [1396, 709, 230, 130], offset: [1, 0], timeout: 3, on_fail: skip}    # 58
-  - {wait: 0.5}    # 59
-  - {find_click: 导航, within: [171, -61, 150, 126], confirm: next, timeout: 10}    # 60
-  - {find_click: 公开招募, within: [1042, 159, 200, 170], confirm: next, timeout: 10}    # 61
-  - {find: 公开招募画面, within: [-10, 88, 504, 128], timeout: 10}    # 62
-  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 63
+          - {click: [802, 444], busy_check: true}    # 59
+  - {find_click: 非工作区, within: [1354, -60, 200, 120], timeout: 10}    # 61
+  - {find_click: 干员休整, within: [1396, 709, 230, 130], offset: [1, 0], timeout: 3, on_fail: skip}    # 62
+  - {wait: 0.5}    # 63
+  - {find_click: 导航, within: [171, -61, 150, 126], confirm: next, timeout: 10}    # 64
+  - {find_click: 公开招募, within: [1042, 159, 200, 170], confirm: next, timeout: 10}    # 65
+  - {find: 公开招募画面, within: [-10, 88, 504, 128], timeout: 10}    # 66
+  - {external: 公開招募, args: [--hwnd, '{hwnd}']}    # 67

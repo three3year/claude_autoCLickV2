@@ -1,5 +1,5 @@
 format: 1
-scan_region: [71, 37, 1718, 920]
+scan_region: [-8, 0, 1928, 1038]
 calibration:
   pair: [標題列圖示, 標題列關閉鈕]
   baseline: 1650.0
