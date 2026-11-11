@@ -1,0 +1,106 @@
+"""`串接`的進行規則 (automation/chain.py): 純資料進、純資料出, 不碰 Tk、Win32、執行器."""
+from automation import chain
+from automation.chain import Entry
+
+TC = r"C:\Program Files\GRYPHLINK\games\Arknights_TC\Arknights.exe"
+CN = r"C:\Program Files\Arknights bilibili\games\Arknights Game\Arknights.exe"
+
+
+def test_空串接不開始():
+    assert chain.blocker_text(chain.blockers([], {}, [TC])) == "串接裡沒有流程"
+
+
+def test_各份問題_未設目標程式_程式沒在執行_依流程分組列出():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 2, None), Entry("晚_簡中", 1, CN)]
+    problems = {"早_繁中": ["範本不存在：\nA\nB（校準對）"], "早_簡中": [], "晚_簡中": []}
+    found = chain.blockers(entries, problems, running=[TC])
+    assert [(b.flow, b.problems) for b in found] == [
+        ("早_繁中", ("範本不存在：\nA\nB（校準對）",)),
+        ("早_簡中", ("未設目標程式",)),
+        ("晚_簡中", (f"目標程式沒在執行：{CN}",))]
+    assert chain.blocker_text(found) == (
+        "「早_繁中」\n・範本不存在：\n　A\n　B（校準對）\n\n"
+        "「早_簡中」\n・未設目標程式\n\n"
+        f"「晚_簡中」\n・目標程式沒在執行：{CN}")
+
+
+def test_都沒問題_可以開始_執行中的路徑大小寫與斜線不同也算():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN)]
+    running = [TC.upper(), CN.replace("\\", "/"), r"C:\Windows\explorer.exe"]
+    assert chain.blockers(entries, {"早_繁中": [], "早_簡中": []}, running) == []
+
+
+def test_同一份流程出現兩次_問題只列一次():
+    entries = [Entry("早_繁中", 1, None), Entry("早_簡中", 1, CN), Entry("早_繁中", 3, None)]
+    found = chain.blockers(entries, {}, running=[CN])
+    assert [(b.flow, b.problems) for b in found] == [("早_繁中", ("未設目標程式",))]
+
+
+def test_讀不到的流程只報讀不到():
+    entries = [Entry("壞掉", 1, None, read_error="format 要是 1")]
+    found = chain.blockers(entries, {}, running=[])
+    assert chain.blocker_text(found) == "「壞掉」\n・讀不到流程：format 要是 1"
+
+
+def _run_all(c, outcomes):
+    """照順序交出每一份並回報結果; 回傳 (交出的流程名與輪數, 當時的進度文字)."""
+    handed = []
+    for out in outcomes:
+        turn = c.next()
+        if turn is None:
+            break
+        handed.append(((turn.entry.flow, turn.entry.run), c.progress()))
+        c.report(out)
+    return handed
+
+
+def test_全部完成_依序交出_進度與總結每份一行():
+    entries = [Entry("早_繁中", 2, TC), Entry("早_簡中", 1, CN), Entry("收尾", 3, TC)]
+    c = chain.Chain(entries)
+    assert c.total == 3 and not c.finished
+    handed = _run_all(c, [chain.DONE] * 3)
+    assert handed == [(("早_繁中", 2), "串接 1/3：早_繁中"),
+                      (("早_簡中", 1), "串接 2/3：早_簡中"),
+                      (("收尾", 3), "串接 3/3：收尾")]
+    assert c.next() is None and c.finished
+    assert c.summary() == ["1. 早_繁中：完成", "2. 早_簡中：完成", "3. 收尾：完成"]
+    assert (c.last_ran.no, c.last_ran.entry.flow) == (3, "收尾")
+
+
+def test_同一份流程出現兩次_兩次都交出_總結各一行():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN), Entry("早_繁中", 2, TC)]
+    c = chain.Chain(entries)
+    handed = _run_all(c, [chain.DONE] * 3)
+    assert [h[1] for h in handed] == ["串接 1/3：早_繁中", "串接 2/3：早_簡中",
+                                      "串接 3/3：早_繁中"]
+    assert handed[2][0] == ("早_繁中", 2)
+    assert c.summary() == ["1. 早_繁中：完成", "2. 早_簡中：完成", "3. 早_繁中：完成"]
+    assert c.last_ran.no == 3
+
+
+def test_執行器的結果對成串接的結果():
+    assert chain.outcome("done", None) == chain.DONE
+    assert chain.outcome("stopped", None) == chain.STOPPED
+    assert chain.outcome("error", "找不到圖：開始") == chain.failed("找不到圖：開始")
+
+
+def test_一份失敗_整條結束_不再交出下一份():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN), Entry("收尾", 1, CN)]
+    c = chain.Chain(entries)
+    handed = _run_all(c, [chain.DONE, chain.failed("移不到前景"), chain.DONE])
+    assert [h[0][0] for h in handed] == ["早_繁中", "早_簡中"]
+    assert c.next() is None and c.finished
+    assert c.summary() == ["1. 早_繁中：完成", "2. 早_簡中：失敗（移不到前景）",
+                           "3. 收尾：未執行（第 2 份失敗，串接結束）"]
+    assert c.last_ran.no == 2
+
+
+def test_急停_正在跑的記中斷_其餘記未執行_不再交出下一份():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN), Entry("收尾", 1, CN)]
+    c = chain.Chain(entries)
+    handed = _run_all(c, [chain.STOPPED, chain.DONE])
+    assert [h[0][0] for h in handed] == ["早_繁中"]
+    assert c.next() is None and c.finished
+    assert c.summary() == ["1. 早_繁中：中斷（急停）", "2. 早_簡中：未執行（急停）",
+                           "3. 收尾：未執行（急停）"]
+    assert c.last_ran.no == 1

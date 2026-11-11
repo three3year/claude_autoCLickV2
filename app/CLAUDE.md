@@ -17,6 +17,7 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 - `ui_dialogs.py` 步驟編輯與各對話框、拾取入口；`ui_overlay.py` 全螢幕截圖選取層與清場；
   `ui_chain.py` 串接編輯對話框（主視窗「串接…」，⚠ 只提示不擋存檔）；`ui_theme.py` 深色主題；`window_coord.py` modal 堆疊＋清場還原清單的純狀態機；`ui_grab.py` 堆疊的 Tk 執行層
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：`runner.py` 步驟執行緒；
+  `chain.py` `串接`的進行規則（純邏輯：準備檢查 `blockers`、`Chain` 交出下一份／收結果／進度／總結；主視窗「執行串接」`App.start_chain` 讀檔與檢查後交給它，`App._poll` 看到執行器結束就回報、接下一份）；
   `findtarget.py` 找圖目標的存取、限定範圍／挑選規則／位置是否仍有匹配的唯一實作（執行器、編輯器比對測試、
   影片轉流程三處共用）；`flowcheck.py` 執行前的結構檢查；`flowdefaults.py` 步驟與流程的「沒寫＝」表；
   `flowfmt.py` 存檔座標⇄螢幕座標；`pickcheck.py` 拾取檢查；`capture.py` mss 截圖；`win.py` ctypes 滑鼠／DPI／視窗（含`目標程式`的列視窗、依路徑挑視窗、移到最上層）；
