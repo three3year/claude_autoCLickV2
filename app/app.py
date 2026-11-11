@@ -1,4 +1,5 @@
 import json
+import ntpath
 import os
 import queue
 import re
@@ -61,7 +62,24 @@ FALLBACK_TIP = ("校準對被彈窗擋住時改用的兩張圖（例：標題列
                 "設定時校準對也要在畫面上；清除校準對時一起清除")
 BUSY_TIP = ("畫面上有它＝遊戲忙碌中：先不補做；勾了忙碌檢查的步驟送出後等它消失。"
             "測試＝照它的找圖設定比對一次")
+PROGRAM_TIP = ("串接輪到這份流程時要移到最上層的程式（從開著的程式清單選，記完整路徑）。"
+               "單獨執行不使用。測試＝把它移到最上層約 2 秒再回到 AutoClick")
+PROGRAM_UNSET = "未設定（串接時必須有）"
+PROGRAM_TEXT_MAX = 44
+PROGRAM_TEST_HOLD_MS = 2000
 UNREF_MARK = "（未引用）"
+
+
+def program_text(path, limit=PROGRAM_TEXT_MAX):
+    """`目標程式`的顯示文字「檔名（所在資料夾）」; 太長就省略資料夾的中間."""
+    name, folder = ntpath.basename(path), ntpath.dirname(path)
+    text = f"{name}（{folder}）"
+    room = limit - len(name) - 3
+    if len(text) <= limit or room < 2:
+        return text
+    head = room // 3
+    return f"{name}（{folder[:head]}…{folder[len(folder) - (room - head):]}）"
+
 
 FUSE_INTERVAL_MS = 1000
 FUSE_TRIP = 3
@@ -294,6 +312,7 @@ class SegListbox(tk.Text):
 class App:
     flow_cal = None
     busy_target = None
+    program = None
 
     def __init__(self, root):
         self.root = root
@@ -459,6 +478,9 @@ class App:
     def _busy_text(self):
         return self.busy_target["template"] if self.busy_target else "不設"
 
+    def _program_text(self):
+        return program_text(self.program) if self.program else PROGRAM_UNSET
+
     def _settings_summary(self):
         return (f"校準對 {'✓' if self.flow_cal else '✗'}　"
                 f"忙碌指示 {'✓' if self.busy_target else '—'}")
@@ -488,7 +510,11 @@ class App:
                  self.test_fallback_calibration),
                 ("忙碌指示", BUSY_TIP, self._busy_text,
                  self.set_busy_indicator, self.clear_busy_indicator,
-                 self.test_busy_indicator))
+                 self.test_busy_indicator),
+                ("目標程式", PROGRAM_TIP, self._program_text,
+                 self.set_program, self.clear_program, self.test_program))
+        # 圖片類動作 (辨識中反灰) 登記在 recognition; 目標程式跟圖片無關, 一個都不登記
+        image_actions = ({"設定…", "測試"}, {"設定…", "測試"}, {"測試"}, set())
         shown = []
         rec = self.recognition
         for r, (title, tip, text_of, set_fn, clear_fn, test_fn) in enumerate(rows):
@@ -505,8 +531,9 @@ class App:
                 b = ttk.Button(body, text=text, style="Small.TButton", takefocus=False,
                                command=fn)
                 b.grid(row=r, column=2 + c, padx=(0, 4), pady=pad)
-                if text == "測試" or (text == "設定…" and r < 2):
+                if text in image_actions[r]:
                     rec.register(b)
+        ui_dialogs.hover_tip(shown[3][0], lambda: self.program or "")
         body.columnconfigure(1, minsize=260)
 
         def refresh():
@@ -882,6 +909,46 @@ class App:
             self.log_ui("測試忙碌指示：忙碌指示還沒設定", "warn")
             return
         ui_dialogs.show_match_test(self, self.busy_target)
+
+    def set_program(self):
+        path = ui_dialogs.pick_program(self, self.program)
+        if path is None or path == self.program:
+            return
+        self.program = path
+        self._mark_dirty()
+        self._settings_changed()
+        self.log_ui(f"已設定目標程式：{path}（串接輪到這份流程時移到最上層；"
+                    "單獨執行不使用）", "ok")
+
+    def clear_program(self):
+        if not self.program:
+            self.log_ui("目標程式還沒設定，沒有可清除的", "info")
+            return
+        self.program = None
+        self._mark_dirty()
+        self._settings_changed()
+        self.log_ui("已清除目標程式", "ok")
+
+    def test_program(self):
+        """把目標程式移到最上層, 約 2 秒後把 AutoClick 移回前景 (跟串接同一條移上去的路)."""
+        path = self.program
+        if not path:
+            self.log_ui("測試目標程式：目標程式還沒設定", "warn")
+            return
+        w = win.pick_window(ui_dialogs.other_windows(), path)
+        if w is None:
+            self.log_ui(f"找不到：{path}沒在執行", "warn")
+            return
+        name = f"{ntpath.basename(w.path)}（{ui_dialogs.size_text(w.size)}）"
+        if win.bring_to_front(w.hwnd):
+            self.log_ui(f"目標程式已移到最上層：{name}", "ok")
+        else:
+            self.log_ui(f"目標程式移不到最上層：{name}（約 2 秒內沒有成為前景視窗）", "warn")
+
+        def return_to_autoclick():
+            if self.root.winfo_exists():
+                win.bring_to_front(win.root_hwnd(self._parent().winfo_id()))
+        self.root.after(PROGRAM_TEST_HOLD_MS, return_to_autoclick)
 
     def _build_menu(self):
         self.root.bind("<Control-s>", lambda e: self.recognition.busy or self.save_flow())
@@ -1807,7 +1874,7 @@ class App:
     def _flow_data(self):
         return {"run": self._run_value(), "scan_region": self.scan_region,
                 "calibration": self.flow_cal, "busy": self.busy_target,
-                "template_pos": self.store.pos(), "engine": dict(self.flow_engine),
+                "program": self.program, "template_pos": self.store.pos(), "engine": dict(self.flow_engine),
                 "steps": self.steps}
 
     def referenced_templates(self):
@@ -1826,6 +1893,7 @@ class App:
         self.steps = flow["steps"]
         self.flow_cal = flow["calibration"]
         self.busy_target = flow["busy"]
+        self.program = flow["program"]
         self._settings_changed()
         self.flow_engine = dict(flow["engine"])
         forever = flow["run"] == "forever"

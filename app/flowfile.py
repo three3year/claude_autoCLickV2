@@ -89,7 +89,7 @@ FLOW_FORMAT = 1
 
 HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "external",
          "repeat", "branch")
-TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy",
+TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy", "program",
             "template_pos", "engine", "steps")
 TARGET_ATTRS = ("within", "pick", "color")
 CALIBRATION_KEYS = ("pair", "baseline", "fallback")
@@ -131,7 +131,7 @@ def template_name_problem(name):
 
 def new_flow():
     return {"run": flowdefaults.FLOW["run"], "scan_region": None,
-            "calibration": None, "busy": None, "template_pos": {},
+            "calibration": None, "busy": None, "program": None, "template_pos": {},
             "engine": {}, "steps": [], "tools": external.ToolRegistry()}
 
 
@@ -251,6 +251,8 @@ def parse_flow(text):
         flow["calibration"] = _calibration(doc["calibration"])
     if doc.get("busy") is not None:
         flow["busy"] = _yaml_target("busy", doc["busy"], "template")
+    if doc.get("program") is not None:
+        flow["program"] = _program(doc["program"])
     if doc.get("template_pos") is not None:
         flow["template_pos"] = _template_pos(doc["template_pos"])
     if doc.get("engine") is not None:
@@ -351,6 +353,12 @@ def _pair(where, c):
     if not _num(base) or base <= 0:
         raise FlowError(f"{where}.baseline 要是大於 0 的數字，收到 {base!r}")
     return {"pair": list(pair), "baseline": float(base)}
+
+
+def _program(v):
+    if not isinstance(v, str) or not v.strip():
+        raise FlowError(f"program 要是目標程式的完整路徑（字串），收到 {v!r}")
+    return v
 
 
 def _template_pos(tp):
@@ -580,6 +588,8 @@ def dump_flow(flow):
     busy = flow.get("busy")
     if busy:
         lines.append(f"busy: {_flow_style(_target_yaml(busy, 'template'))}")
+    if flow.get("program"):
+        lines.append(f"program: {_flow_style(flow['program'])}")
     refs = set(template_refs(flow))
     pos = {n: p for n, p in (flow.get("template_pos") or {}).items() if n in refs}
     if pos:
