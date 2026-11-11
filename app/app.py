@@ -24,6 +24,7 @@ import calibration
 import enginehub
 import flowfile
 import recognition
+import ui_chain
 import ui_dialogs
 import ui_grab
 import ui_overlay
@@ -950,6 +951,9 @@ class App:
                 win.bring_to_front(win.root_hwnd(self._parent().winfo_id()))
         self.root.after(PROGRAM_TEST_HOLD_MS, return_to_autoclick)
 
+    def open_chains(self):
+        ui_chain.edit_chains(self)
+
     def _build_menu(self):
         self.root.bind("<Control-s>", lambda e: self.recognition.busy or self.save_flow())
         self.root.bind("<Control-o>", lambda e: self.recognition.busy or self.open_flow())
@@ -984,6 +988,8 @@ class App:
         bar2 = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         bar2.pack(fill="x")
         ttk.Label(bar2, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
+        ttk.Button(bar2, text="串接…", style="Small.TButton", takefocus=False,
+                   command=self.open_chains).pack(side="right", padx=(0, 12))
         ttk.Label(bar2, text="模式").pack(side="left")
         self.run_mode = ttk.Combobox(bar2, width=8, state="readonly",
                                      values=["執行次數", "直到停止"])
