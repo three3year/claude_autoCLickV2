@@ -52,5 +52,5 @@
 - 步驟多選拖曳：把手按在已選取列上＝整組拖曳（不連續選取會併攏成連續區塊、相對順序不變），按列內文仍縮成單選；
   新增步驟插在選取列（收合區段算整段）之後，無選取才接在最後。
 - 「測試選取」＝只執行清單選取片段（跳選補滿頭尾、收合算整段、一律單次），共用 `start_run(steps=…, test=True)`
-  與 `_flow_error(steps)`；迷你視窗摘要對照 `_run_steps`（實際在跑的清單），不是 `self.steps`；片段內相對座標步驟
+  與執行前檢查 `flowcheck.run_problems`（片段當作流程的步驟）；迷你視窗摘要對照 `_run_steps`（實際在跑的清單），不是 `self.steps`；片段內相對座標步驟
   若在任何原點來源之前，執行前即擋下（`_fragment_origin_error` → `flowcheck.no_origin`）。

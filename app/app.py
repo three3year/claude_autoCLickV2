@@ -1982,9 +1982,6 @@ class App:
         except (ValueError, tk.TclError):
             return 1
 
-    def _flow_error(self, steps=None):
-        return flowcheck.section_error(self.steps if steps is None else steps)
-
     def start_run(self, steps=None, test=False):
         pressed_at = time.monotonic()
         if self.recognition.busy:
@@ -1993,70 +1990,14 @@ class App:
             return
         self.ensure_registered()
         steps = self.steps if steps is None else steps
-        if not steps:
-            messagebox.showinfo("執行", "請先新增步驟", parent=self.root)
-            return
-        names = set(self.list_template_names())
-        missing = []
-        for s in steps:
-            if (findtarget.is_find(s)
-                    and findtarget.template(s) not in names):
-                missing.append(findtarget.template(s) or "(未選擇)")
-            if (findtarget.uses_confirm_target(s)
-                    and findtarget.confirm_template(s) not in names):
-                missing.append((findtarget.confirm_template(s) or "(未選擇)")
-                               + "（確認圖）")
-        if self.flow_cal is None:
-            messagebox.showwarning(
-                "執行", "這份流程沒有校準對（尚未設定），不能執行。\n"
-                "請先在「流程設定…」設定校準對（遊戲畫面內兩張相距夠遠的固定圖）",
-                parent=self.root)
-            return
-        missing += [f"{n}（校準對）" for n in self.flow_cal["pair"]
-                    if n not in names]
-        if self.busy_target and self.busy_target["template"] not in names:
-            missing.append(f"{self.busy_target['template']}（忙碌指示）")
-        if missing:
-            messagebox.showwarning("執行", "範本不存在：\n" + "\n".join(missing),
-                                   parent=self.root)
-            return
         registry = self.tool_registry()
-        errors, warnings = flowcheck.tool_problems(steps, registry)
-        tools = errors + warnings
-        if tools:
-            messagebox.showwarning("執行", "外部工具找不到：\n" + "\n".join(tools),
-                                   parent=self.root)
-            return
-        checked = [i + 1 for i in flowcheck.busy_check_bad(steps, self.busy_target)]
-        if checked:
-            messagebox.showwarning(
-                "執行",
-                "有步驟勾了「忙碌檢查」，但這份流程沒有設定忙碌指示：\n"
-                f"步驟 {', '.join(map(str, checked))}\n"
-                "請先在「流程設定…」設定忙碌指示，或取消這些步驟的勾選",
-                parent=self.root)
-            return
-        err = self._flow_error(steps)
-        if err:
-            messagebox.showwarning("執行", err, parent=self.root)
-            return
-        bad = [i + 1 for i in self._origin_leaves_bad(steps)]
-        if bad:
-            messagebox.showwarning(
-                "執行",
-                "「原點的圖離開」需要原點來自找圖步驟：\n"
-                f"步驟 {', '.join(map(str, bad))} 前面最近的原點來自點擊／拖曳"
-                "（或沒有原點）。\n請在它前面放找圖步驟當原點，或改用確認圖",
-                parent=self.root)
-            return
-        bad = [i + 1 for i in self._confirm_next_bad(steps)]
-        if bad:
-            messagebox.showwarning(
-                "執行",
-                "「點到下一步的圖出現」需要下一個步驟是找圖步驟：\n"
-                f"步驟 {', '.join(map(str, bad))} 的下一步不是找圖"
-                "（或已是最後一步）。\n請把下一個找圖步驟排在其後",
-                parent=self.root)
+        flow = {"steps": steps, "calibration": self.flow_cal, "busy": self.busy_target}
+        problems = flowcheck.run_problems(flow, self.list_template_names(), registry)
+        if problems:
+            p = problems[0]
+            show = (messagebox.showinfo if p.category == flowcheck.NO_STEPS
+                    else messagebox.showwarning)
+            show(p.title, p.text, parent=self.root)
             return
         if test:
             mode, count = "count", 1
