@@ -1,3 +1,4 @@
+import ntpath
 import os
 import time
 import tkinter as tk
@@ -131,10 +132,18 @@ TIP_WRAP = 320
 def info_tip(parent, text, bg=None):
     lbl = tk.Label(parent, text="ⓘ", bg=bg or C["panel"], fg=C["muted"],
                    cursor="question_arrow", font=(FONT[0], 10))
+    return hover_tip(lbl, lambda: text)
+
+
+def hover_tip(lbl, text_of):
+    """滑鼠移到元件上時浮出 text_of() 的文字 (空字串＝不浮出)."""
     tip = []
 
     def show(e):
         hide()
+        text = text_of()
+        if not text:
+            return
         t = tk.Toplevel(lbl)
         t.withdraw()
         t.overrideredirect(True)
@@ -543,6 +552,100 @@ def pick_template(app, title="選擇範本", initial=None):
     dlg.bind("<Escape>", unless_busy(app, dlg, dlg.destroy))
 
     render(select=(CUR_FLOW_LABEL, initial) if initial else None)
+    _center(dlg, root)
+    ui_theme.disable_transitions(dlg)
+    make_modal(dlg)
+    dlg.focus_force()
+    root.wait_window(dlg)
+    return result[0]
+
+
+def other_windows():
+    """開著的程式視窗, 不含 AutoClick 自己這個程序 (以程序判斷: 從原始碼執行時路徑是
+    python.exe, 以路徑排除會連別的 Python 視窗一起藏掉)."""
+    me = os.getpid()
+    return [w for w in win.list_windows() if w.pid != me]
+
+
+def size_text(size):
+    return f"{size[0]}×{size[1]}"
+
+
+PROGRAM_COLUMNS = (("title", "標題", 220), ("exe", "程式", 120), ("size", "大小", 90),
+                   ("path", "路徑", 420))
+
+
+def pick_program(app, current=None):
+    """從開著的程式視窗選`目標程式`, 回傳完整路徑; 取消回 None."""
+    root = app.root
+    dlg = tk.Toplevel(root)
+    dlg.title("選擇目標程式")
+    dlg.configure(bg=C["panel"])
+    dlg.transient(root)
+    result = [None]
+    paths = {}  # 列 → 路徑; 不能選的列是 None
+
+    body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
+    body.pack(fill="both", expand=True)
+    tree = ttk.Treeview(body, columns=[c for c, _h, _w in PROGRAM_COLUMNS],
+                        show="headings", selectmode="browse", height=12)
+    for col, head, width in PROGRAM_COLUMNS:
+        tree.heading(col, text=head, anchor="w")
+        tree.column(col, width=width, anchor="w", stretch=col == "path")
+    tree.tag_configure("off", foreground=C["muted"])
+    bar = ttk.Scrollbar(body, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=bar.set)
+    tree.pack(side="left", fill="both", expand=True)
+    bar.pack(side="left", fill="y")
+
+    def fill():
+        tree.delete(*tree.get_children())
+        paths.clear()
+        wins = other_windows()
+        chosen = win.pick_window(wins, current) if current else None
+        if current and chosen is None:
+            name = ntpath.basename(current)
+            iid = tree.insert("", "end", tags=("off",),
+                              values=(f"目前設定：{name}（沒在執行）", name, "", current))
+            paths[iid] = None
+        for w in wins:
+            iid = tree.insert("", "end", tags=() if w.path else ("off",), values=(
+                w.title, ntpath.basename(w.path) if w.path else "—", size_text(w.size),
+                w.path or "讀不到（權限不足或程式已結束）"))
+            paths[iid] = w.path
+            if w is chosen:
+                tree.selection_set(iid)
+                tree.see(iid)
+
+    def on_select(_e=None):
+        off = [i for i in tree.selection() if paths.get(i) is None]
+        if off:
+            tree.selection_remove(*off)
+        err.configure(text="")
+
+    def on_ok(_e=None):
+        sel = [i for i in tree.selection() if paths.get(i)]
+        if not sel:
+            err.configure(text="請先選一個讀得到路徑的程式")
+            return
+        result[0] = paths[sel[0]]
+        dlg.destroy()
+
+    foot = ttk.Frame(dlg, style="Panel.TFrame", padding=(16, 0, 16, 14))
+    foot.pack(fill="x")
+    ttk.Button(foot, text="重新整理", style="Small.TButton", takefocus=False,
+               command=fill).pack(side="left")
+    info_tip(foot, "串接輪到這份流程時，把這個程式的視窗移到最上層。記的是完整路徑：兩個同名、"
+                   "同標題的程式靠路徑分辨。反灰的列不能選").pack(side="left", padx=(8, 0))
+    err = ttk.Label(foot, style="Panel.TLabel", foreground=C["danger"])
+    err.pack(side="left", padx=(8, 0))
+    ttk.Button(foot, text="取消", command=dlg.destroy).pack(side="right", padx=(8, 0))
+    ttk.Button(foot, text="確定", style="Run.TButton", command=on_ok).pack(side="right")
+    tree.bind("<<TreeviewSelect>>", on_select)
+    tree.bind("<Double-Button-1>", on_ok)
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+    fill()
     _center(dlg, root)
     ui_theme.disable_transitions(dlg)
     make_modal(dlg)

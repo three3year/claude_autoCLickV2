@@ -228,28 +228,30 @@ def _logs(a):
     return a.log_text.get("1.0", "end").splitlines()
 
 
-def test_流程設定三列_名稱說明圖示與現狀(main_app):
+def test_流程設定四列_名稱說明圖示與現狀(main_app):
     a = main_app
     a.flow_cal = dict(CAL_FB)
     a.busy_target = {"template": "忙"}
+    a.program = r"C:\Games\a.exe"
     seen = {}
 
     def look(dr):
-        seen["rows"] = [_row_texts(dr.dlg, r) for r in range(3)]
+        seen["rows"] = [_row_texts(dr.dlg, r) for r in range(4)]
         seen["tips"] = len(tips(dr.dlg))
         seen["buttons"] = sorted(texts(dr.dlg, ("TButton",)))
     _settings(a, look)
     assert seen["rows"] == [["左 × 右（基準 300 px）"],
-                            ["圖示 × 關閉（基準 500 px）"], ["忙"]]
-    assert seen["tips"] == 3
-    assert seen["buttons"] == sorted(["設定…", "清除", "測試"] * 3 + ["關閉"])
+                            ["圖示 × 關閉（基準 500 px）"], ["忙"], [r"a.exe（C:\Games）"]]
+    assert seen["tips"] == 4
+    assert seen["buttons"] == sorted(["設定…", "清除", "測試"] * 4 + ["關閉"])
 
 
 def test_流程設定沒設時的現狀文字(main_app):
     seen = {}
     _settings(main_app, lambda dr: seen.update(
-        rows=[_row_texts(dr.dlg, r) for r in range(3)]))
-    assert seen["rows"] == [["沒有（不能執行）"], ["沒有"], ["不設"]]
+        rows=[_row_texts(dr.dlg, r) for r in range(4)]))
+    assert seen["rows"] == [["沒有（不能執行）"], ["沒有"], ["不設"],
+                            ["未設定（串接時必須有）"]]
 
 
 def test_清除主校準對_有備用時先確認_回答否不清(main_app, no_real_dialogs):

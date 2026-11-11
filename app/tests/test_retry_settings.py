@@ -110,7 +110,8 @@ def test_流程資料帶忙碌指示_不帶固定行為_開流程時讀回(tkroo
     a.flow_engine = {}
     data = a._flow_data()
     assert data["busy"] == BUSY
-    assert set(data) == {"run", "scan_region", "calibration", "busy", "template_pos",
+    assert set(data) == {"run", "scan_region", "calibration", "busy", "program",
+                         "template_pos",
                          "engine", "steps"}, "固定行為不進流程"
     for attr in ("run_mode", "run_count"):
         setattr(a, attr, SimpleNamespace(set=lambda v: None, get=lambda: 1))

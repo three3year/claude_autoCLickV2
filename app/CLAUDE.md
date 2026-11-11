@@ -18,7 +18,7 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：`runner.py` 步驟執行緒；
   `findtarget.py` 找圖目標的存取、限定範圍／挑選規則／位置是否仍有匹配的唯一實作（執行器、編輯器比對測試、
   影片轉流程三處共用）；`flowcheck.py` 執行前的結構檢查；`flowdefaults.py` 步驟與流程的「沒寫＝」表；
-  `flowfmt.py` 存檔座標⇄螢幕座標；`pickcheck.py` 拾取檢查；`capture.py` mss 截圖；`win.py` ctypes 滑鼠／DPI／視窗；
+  `flowfmt.py` 存檔座標⇄螢幕座標；`pickcheck.py` 拾取檢查；`capture.py` mss 截圖；`win.py` ctypes 滑鼠／DPI／視窗（含`目標程式`的列視窗、依路徑挑視窗、移到最上層）；
   `hotkey.py` F12 急停；`imgio.py` 中文路徑圖片讀寫；`extproc.py` 啟動`外部工具`（runner 只透過它碰行程，
   測試 harness 換掉 `extproc.start`）；`external.py` 外部步驟的約定常數與`外部工具登錄`（`ToolRegistry`，
   登錄檔的讀檔驗證在 `flowfile.read_tools`）

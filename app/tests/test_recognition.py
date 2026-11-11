@@ -297,8 +297,9 @@ def test_測試校準對_等停穩時流程設定顯示辨識中_圖片類反灰
         seen["image"] = [_disabled(_row_button(dlg, r, t))
                          for r, t in ((0, "設定…"), (0, "測試"), (1, "設定…"), (1, "測試"),
                                       (2, "測試"))]
-        seen["other"] = [_disabled(_row_button(dlg, r, "清除")) for r in range(3)] + \
-            [_disabled(_row_button(dlg, 2, "設定…"))]
+        seen["other"] = [_disabled(_row_button(dlg, r, "清除")) for r in range(4)] + \
+            [_disabled(_row_button(dlg, r, t)) for r, t in ((2, "設定…"), (3, "設定…"),
+                                                            (3, "測試"))]
         seen["close"] = _disabled(_btn_in(dlg, "關閉"))
         seen["main"] = [_disabled(_btn_in(a.root, t)) for t in ("存檔", "開檔", "新流程",
                                                                "截圖新增", "重截", "測試選取")]
@@ -310,7 +311,7 @@ def test_測試校準對_等停穩時流程設定顯示辨識中_圖片類反灰
     _in_settings(a, press_test)
     assert recognition.BUSY_TEXT in seen["status"]
     assert seen["image"] == [True] * 5
-    assert seen["other"] == [False] * 4, "非圖片類照常可用"
+    assert seen["other"] == [False] * 7, "非圖片類照常可用（含目標程式整列）"
     assert seen["close"] and seen["alive"]
     assert seen["main"] == [True] * 6 and seen["run"]
     assert seen["main_status"] != recognition.BUSY_TEXT, "辨識中…只在發起的視窗"
