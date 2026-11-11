@@ -395,7 +395,7 @@ class App:
         return self.recognition.start(title, work, origin).then(done)
 
     def _on_hotkey(self):
-        if self.runner.status()["running"] or self.hub.ready:
+        if self.runner.status()["running"] or self.hub.ready or self._chain is not None:
             self.stop_all()
         else:
             self.root.after(0, self.engine_gate)
@@ -2106,6 +2106,11 @@ class App:
         self._show_mini()
 
     def stop_all(self):
+        """F12／停止鈕 (F12 從鍵盤監聽的執行緒呼叫). 串接要另外記住急停:
+        兩份之間按下時執行器還沒開始, 停止旗標會被下一份的 start 清掉."""
+        c = self._chain
+        if c is not None:
+            c.stop()
         self.runner.stop()
 
     def start_chain(self):
@@ -2156,27 +2161,29 @@ class App:
         self._chain_next()
 
     def _chain_next(self):
-        """接下一份; 這份開不起來 (讀不到、找不到視窗、移不到前景) 就記為失敗再問下一份.
-        沒有下一份＝整條結束, 收尾."""
+        """接下一份; 這份開不起來 (讀不到、找不到視窗、移不到前景) 就記為失敗、
+        急停了就記為急停, 再問下一份. 沒有下一份 (含急停) ＝整條結束, 收尾."""
         while True:
             turn = self._chain.next()
             if turn is None:
                 self._finish_chain()
                 return
-            reason = self._chain_launch(turn.entry)
-            if reason is None:
+            result = self._chain_launch(turn.entry)
+            if result is None:
                 return
-            self.log_ui(f"{self._chain.progress()} 失敗：{reason}", "error")
-            self._chain.report(chain.failed(reason))
+            if result.kind == "failed":
+                self.log_ui(f"{self._chain.progress()} 失敗：{result.reason}", "error")
+            self._chain.report(result)
 
     def _chain_launch(self, entry):
         """切到這份流程 (不跳對話框: 開始時已問過存或丟) → 目標程式移到最上層 →
-        以串接檔的輪數、次數模式啟動執行器 (不讀主視窗的輪數欄位). 開不起來回原因."""
+        以串接檔的輪數、次數模式啟動執行器 (不讀主視窗的輪數欄位).
+        開起來回 None; 開不起來回 chain.failed(原因); 途中急停回 chain.STOPPED."""
         folder = os.path.join(apppaths.flows_root(), entry.flow)
         try:
             flow = flowfile.read_flow(folder)
         except flowfile.FlowError as e:
-            return f"讀不到流程：{e}"
+            return chain.failed(f"讀不到流程：{e}")
         self._switch_flow(folder, flow)
         self.log_ui(f"{self._chain.progress()}（{entry.run} 輪）", "info")
         # 迷你視窗要在移到最上層之前出現: 之後才開的置頂視窗可能把前景搶回來
@@ -2185,9 +2192,13 @@ class App:
         self._mini_chain.configure(text=self._chain.progress())
         w = win.pick_window(ui_dialogs.other_windows(), entry.program)
         if w is None:
-            return f"找不到視窗：{entry.program}沒在執行"
-        if not win.bring_to_front(w.hwnd):
-            return "移不到前景（約 2 秒內沒有成為前景視窗）"
+            return chain.failed(f"找不到視窗：{entry.program}沒在執行")
+        # 移到最上層在介面執行緒上最多等約 2 秒, 這段時間按的 F12 只有串接記得
+        fronted = win.bring_to_front(w.hwnd)
+        if self._chain.stopped:
+            return chain.STOPPED
+        if not fronted:
+            return chain.failed("移不到前景（約 2 秒內沒有成為前景視窗）")
         self.ensure_registered()
         try:
             self.runner.start(self.steps, "count", entry.run,
@@ -2196,8 +2207,10 @@ class App:
                               busy=self.busy_target,
                               tools=self.tool_registry())
         except RuntimeError as e:
-            return str(e)
+            return chain.failed(str(e))
         self._run_steps = self.steps
+        if self._chain.stopped:
+            self.runner.stop()  # F12 剛好落在上面的檢查與 start 之間: start 清掉了它的停止旗標
         return None
 
     def _chain_turn_ended(self):

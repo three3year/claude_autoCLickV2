@@ -84,15 +84,19 @@ def test_執行器的結果對成串接的結果():
     assert chain.outcome("error", "找不到圖：開始") == chain.failed("找不到圖：開始")
 
 
-def test_一份失敗_整條結束_不再交出下一份():
-    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN), Entry("收尾", 1, CN)]
+def test_一份失敗_後面同目標程式的跳過_路徑大小寫斜線不同也算_不同目標程式照跑():
+    tc_other_spelling = TC.upper().replace("\\", "/")
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN),
+               Entry("晚_繁中", 1, tc_other_spelling), Entry("收尾", 1, CN)]
     c = chain.Chain(entries)
-    handed = _run_all(c, [chain.DONE, chain.failed("移不到前景"), chain.DONE])
-    assert [h[0][0] for h in handed] == ["早_繁中", "早_簡中"]
+    handed = _run_all(c, [chain.failed("找不到圖：開始"), chain.DONE, chain.DONE])
+    assert [h[0][0] for h in handed] == ["早_繁中", "早_簡中", "收尾"]
+    assert [h[1] for h in handed] == ["串接 1/4：早_繁中", "串接 2/4：早_簡中",
+                                      "串接 4/4：收尾"]
     assert c.next() is None and c.finished
-    assert c.summary() == ["1. 早_繁中：完成", "2. 早_簡中：失敗（移不到前景）",
-                           "3. 收尾：未執行（第 2 份失敗，串接結束）"]
-    assert c.last_ran.no == 2
+    assert c.summary() == ["1. 早_繁中：失敗（找不到圖：開始）", "2. 早_簡中：完成",
+                           "3. 晚_繁中：跳過（因為第 1 份「早_繁中」失敗）",
+                           "4. 收尾：完成"]
 
 
 def test_急停_正在跑的記中斷_其餘記未執行_不再交出下一份():
@@ -104,3 +108,66 @@ def test_急停_正在跑的記中斷_其餘記未執行_不再交出下一份()
     assert c.summary() == ["1. 早_繁中：中斷（急停）", "2. 早_簡中：未執行（急停）",
                            "3. 收尾：未執行（急停）"]
     assert c.last_ran.no == 1
+
+
+def test_最後一項被跳過_最後實際跑過的是它前面跑過的那份():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN), Entry("晚_繁中", 1, TC)]
+    c = chain.Chain(entries)
+    _run_all(c, [chain.failed("移不到前景"), chain.DONE])
+    assert c.next() is None and c.finished
+    assert (c.last_ran.no, c.last_ran.entry.flow) == (2, "早_簡中")
+
+
+def test_一份都沒交出就結束_沒有最後實際跑過的():
+    c = chain.Chain([Entry("早_繁中", 1, TC)])
+    c.stop()
+    assert c.next() is None and c.finished
+    assert c.last_ran is None
+    assert c.summary() == ["1. 早_繁中：未執行（急停）"]
+
+
+def test_兩份之間急停_不再交出下一份_其餘記未執行():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN), Entry("收尾", 1, CN)]
+    c = chain.Chain(entries)
+    assert c.next().no == 1
+    c.report(chain.DONE)
+    c.stop()
+    assert c.next() is None and c.finished
+    assert c.summary() == ["1. 早_繁中：完成", "2. 早_簡中：未執行（急停）",
+                           "3. 收尾：未執行（急停）"]
+    assert c.last_ran.no == 1
+
+
+def test_執行中急停_還沒回報結果_這份記中斷():
+    """交出去還沒回報 (例: 正在移到最上層) 時急停: 那份記中斷, 不再交出任何一份."""
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN)]
+    c = chain.Chain(entries)
+    c.next()
+    c.stop()
+    assert c.next() is None and c.finished
+    assert c.summary() == ["1. 早_繁中：中斷（急停）", "2. 早_簡中：未執行（急停）"]
+
+
+def test_急停時已跳過的維持跳過():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN),
+               Entry("晚_繁中", 1, TC), Entry("收尾", 1, CN)]
+    c = chain.Chain(entries)
+    c.next()
+    c.report(chain.failed("找不到視窗"))
+    assert c.next().no == 2
+    c.stop()
+    c.report(chain.STOPPED)
+    assert c.next() is None and c.finished
+    assert c.summary() == ["1. 早_繁中：失敗（找不到視窗）", "2. 早_簡中：中斷（急停）",
+                           "3. 晚_繁中：跳過（因為第 1 份「早_繁中」失敗）",
+                           "4. 收尾：未執行（急停）"]
+
+
+def test_急停後才回報完成_這份記完成_其餘未執行():
+    """急停與這份剛好自己跑完同時發生: 照實記完成."""
+    c = chain.Chain([Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN)])
+    c.next()
+    c.stop()
+    c.report(chain.DONE)
+    assert c.next() is None
+    assert c.summary() == ["1. 早_繁中：完成", "2. 早_簡中：未執行（急停）"]
