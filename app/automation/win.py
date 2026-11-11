@@ -399,34 +399,39 @@ class _WINDOWPLACEMENT(ctypes.Structure):
                 ("ptMaxPosition", _POINT), ("rcNormalPosition", wintypes.RECT)]
 
 
+# 自己的 DLL 物件: windll.user32 是全程序共用的, 在它上面設 argtypes 會改到別的模組
+# (ui_overlay 用自己的 callback 型別呼叫 EnumWindows)
+_u32 = ctypes.WinDLL("user32")
+_k32 = ctypes.WinDLL("kernel32")
 _WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-user32.EnumWindows.argtypes = [_WNDENUMPROC, wintypes.LPARAM]
-user32.GetForegroundWindow.restype = wintypes.HWND
-user32.MonitorFromRect.argtypes = [ctypes.POINTER(wintypes.RECT), ctypes.c_ulong]
-user32.MonitorFromRect.restype = wintypes.HMONITOR
-kernel32.OpenProcess.restype = wintypes.HANDLE
-kernel32.QueryFullProcessImageNameW.argtypes = [
+_u32.EnumWindows.argtypes = [_WNDENUMPROC, wintypes.LPARAM]
+_u32.GetForegroundWindow.restype = wintypes.HWND
+_u32.GetAncestor.restype = wintypes.HWND
+_u32.MonitorFromRect.argtypes = [ctypes.POINTER(wintypes.RECT), ctypes.c_ulong]
+_u32.MonitorFromRect.restype = wintypes.HMONITOR
+_k32.OpenProcess.restype = wintypes.HANDLE
+_k32.QueryFullProcessImageNameW.argtypes = [
     wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
-kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+_k32.CloseHandle.argtypes = [wintypes.HANDLE]
 
 
 def root_hwnd(tk_winfo_id):
     """Tk 元件的 winfo_id() → 它所在的 OS 頂層視窗."""
-    return user32.GetAncestor(tk_winfo_id, GA_ROOT) or tk_winfo_id
+    return _u32.GetAncestor(tk_winfo_id, GA_ROOT) or tk_winfo_id
 
 
 def _process_path(pid):
-    h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    h = _k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not h:
         return None
     try:
         buf = ctypes.create_unicode_buffer(32768)
         n = wintypes.DWORD(len(buf))
-        if not kernel32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(n)):
+        if not _k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(n)):
             return None
         return buf.value or None
     finally:
-        kernel32.CloseHandle(h)
+        _k32.CloseHandle(h)
 
 
 def _cloaked(hwnd):
@@ -442,19 +447,19 @@ def _cloaked(hwnd):
 def _restored_size(hwnd, minimized):
     if not minimized:
         r = wintypes.RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(r))
+        _u32.GetWindowRect(hwnd, ctypes.byref(r))
         return (r.right - r.left, r.bottom - r.top)
     wp = _WINDOWPLACEMENT()
     wp.length = ctypes.sizeof(_WINDOWPLACEMENT)
-    if not user32.GetWindowPlacement(hwnd, ctypes.byref(wp)):
+    if not _u32.GetWindowPlacement(hwnd, ctypes.byref(wp)):
         return (0, 0)
     r = wp.rcNormalPosition
     if wp.flags & WPF_RESTORETOMAXIMIZED:
         # 最大化時最小化的: 還原後蓋滿那台螢幕的工作區
-        mon = user32.MonitorFromRect(ctypes.byref(r), MONITOR_DEFAULTTONEAREST)
+        mon = _u32.MonitorFromRect(ctypes.byref(r), MONITOR_DEFAULTTONEAREST)
         mi = _MONITORINFO()
         mi.cbSize = ctypes.sizeof(_MONITORINFO)
-        if mon and user32.GetMonitorInfoW(mon, ctypes.byref(mi)):
+        if mon and _u32.GetMonitorInfoW(mon, ctypes.byref(mi)):
             x1, y1, x2, y2 = mi.rcWork
             return (x2 - x1, y2 - y1)
     return (r.right - r.left, r.bottom - r.top)
@@ -462,23 +467,23 @@ def _restored_size(hwnd, minimized):
 
 def list_windows():
     """所有可見、有標題的頂層視窗 (含最小化), 不含工具視窗與被隱藏 (cloaked) 的視窗."""
-    get_l = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
+    get_l = getattr(_u32, "GetWindowLongPtrW", _u32.GetWindowLongW)
     found = []
 
     def each(hwnd, _lp):
         try:
-            if not hwnd or not user32.IsWindowVisible(hwnd):
+            if not hwnd or not _u32.IsWindowVisible(hwnd):
                 return True
             if get_l(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW or _cloaked(hwnd):
                 return True
-            n = user32.GetWindowTextLengthW(hwnd)
+            n = _u32.GetWindowTextLengthW(hwnd)
             if n <= 0:
                 return True
             buf = ctypes.create_unicode_buffer(n + 1)
-            user32.GetWindowTextW(hwnd, buf, n + 1)
+            _u32.GetWindowTextW(hwnd, buf, n + 1)
             pid = wintypes.DWORD()
-            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-            minimized = bool(user32.IsIconic(hwnd))
+            _u32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            minimized = bool(_u32.IsIconic(hwnd))
             found.append(Window(hwnd=int(hwnd), pid=pid.value, title=buf.value,
                                 size=_restored_size(hwnd, minimized),
                                 path=_process_path(pid.value), minimized=minimized))
@@ -486,7 +491,7 @@ def list_windows():
             pass
         return True
 
-    user32.EnumWindows(_WNDENUMPROC(each), 0)
+    _u32.EnumWindows(_WNDENUMPROC(each), 0)
     return found
 
 
@@ -494,33 +499,33 @@ def _try_foreground(hwnd):
     """一次「設為前景」嘗試. Windows 限制非前景程序搶前景: 先送一個無害的按鍵事件
     (虛擬鍵 0, 沒有對應的鍵), 再把輸入佇列暫時掛到目前前景視窗的執行緒上。
     成不成功不看回傳值, 由呼叫端輪詢前景確認。"""
-    fg = user32.GetForegroundWindow()
+    fg = _u32.GetForegroundWindow()
     if fg == hwnd:
         return
-    user32.keybd_event(0, 0, 0, 0)
-    user32.keybd_event(0, 0, KEYEVENTF_KEYUP, 0)
-    me = kernel32.GetCurrentThreadId()
-    other = user32.GetWindowThreadProcessId(fg, None) if fg else 0
-    attached = bool(other) and other != me and bool(user32.AttachThreadInput(me, other, True))
+    _u32.keybd_event(0, 0, 0, 0)
+    _u32.keybd_event(0, 0, KEYEVENTF_KEYUP, 0)
+    me = _k32.GetCurrentThreadId()
+    other = _u32.GetWindowThreadProcessId(fg, None) if fg else 0
+    attached = bool(other) and other != me and bool(_u32.AttachThreadInput(me, other, True))
     try:
-        user32.BringWindowToTop(hwnd)
-        user32.SetForegroundWindow(hwnd)
+        _u32.BringWindowToTop(hwnd)
+        _u32.SetForegroundWindow(hwnd)
     finally:
         if attached:
-            user32.AttachThreadInput(me, other, False)
+            _u32.AttachThreadInput(me, other, False)
 
 
 def bring_to_front(hwnd, timeout=FRONT_TIMEOUT, sleep=time.sleep, clock=time.monotonic):
     """把視窗移到最上層並確認它成為前景: 最小化就先還原 (不改大小與位置);
     約 timeout 秒內前景確實是它回 True, 否則 False."""
     hwnd = int(hwnd)
-    if user32.IsIconic(hwnd):
-        user32.ShowWindow(hwnd, SW_RESTORE)
+    if _u32.IsIconic(hwnd):
+        _u32.ShowWindow(hwnd, SW_RESTORE)
     deadline = clock() + timeout
     while True:
         _try_foreground(hwnd)
         sleep(FRONT_POLL)
-        if user32.GetForegroundWindow() == hwnd:
+        if _u32.GetForegroundWindow() == hwnd:
             return True
         if clock() >= deadline:
             return False
