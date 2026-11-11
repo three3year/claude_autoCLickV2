@@ -188,9 +188,12 @@ CONFIRM_NEXT_NOT_FIND = "點到下一步的圖出現的下一步不是找圖"
 
 @dataclass(frozen=True)
 class RunProblem:
+    """text: 單獨執行彈窗的文字; brief: 串接準備檢查列在流程名下的文字;
+    notice: 只是提醒 (資訊窗), 不是警告."""
     category: str
-    title: str
     text: str
+    brief: str
+    notice: bool = False
 
 
 def run_problems(flow, templates, tools):
@@ -203,10 +206,10 @@ def run_problems(flow, templates, tools):
     out = []
 
     def add(category, text):
-        out.append(RunProblem(category, "執行", text))
+        out.append(RunProblem(category, text, text))
 
     if not steps:
-        add(NO_STEPS, "請先新增步驟")
+        out.append(RunProblem(NO_STEPS, "請先新增步驟", NO_STEPS, notice=True))
     cal = flow.get("calibration")
     if not cal:
         add(NO_CALIBRATION, "這份流程沒有校準對（尚未設定），不能執行。\n"

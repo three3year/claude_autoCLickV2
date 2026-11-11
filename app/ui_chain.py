@@ -6,12 +6,11 @@ import apppaths
 import flowfile
 import ui_dialogs
 import ui_theme
+from automation.chain import NO_PROGRAM, UNREADABLE
 from ui_theme import C
 
 TITLE = "串接編輯"
 ADD_TITLE = "加入流程"
-NO_PROGRAM = "未設目標程式"
-UNREADABLE = "讀不到流程"
 NOT_IN_STORE = "流程不在存放區"
 RUN_MAX = 99999
 COLUMNS = (("flow", "流程", 200), ("run", "輪數", 60), ("warn", "提示", 200))

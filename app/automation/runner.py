@@ -1,9 +1,12 @@
 import threading
 import time
+from typing import Literal, Optional
 
 import calibration as calib
 
 from . import capture, external, extproc, findtarget, flowdefaults, flowfmt, win
+
+Ended = Literal["done", "stopped", "error"]
 
 
 class StopRequested(Exception):
@@ -237,7 +240,7 @@ class Runner:
     def __init__(self, detector, filelog=None):
         self.detector = detector
         self.filelog = filelog or _applog
-        self.ended = None
+        self.ended: Optional[Ended] = None
         self.error_reason = None
         self._thread = None
         self._stop = threading.Event()
@@ -287,15 +290,17 @@ class Runner:
     def start(self, steps, run_mode="count", run_count=1, scan_region=None,
               calibration=None, busy=None, pressed_at=None, tools=None,
               start_delay=START_DELAY, retry_interval=RETRY_INTERVAL,
-              busy_appear=BUSY_APPEAR):
+              busy_appear=BUSY_APPEAR, stop=None):
         """pressed_at: 按下「執行」的時間 (monotonic); `開始延遲`從這時起算,
         沒給＝現在。tools: 這份流程的`外部工具登錄` (external.ToolRegistry)。
+        stop: 呼叫端擁有的停止旗標 (串接整條共用一個), 開始前已設就一開始就停;
+        沒給＝這次執行自己一個新的, 上一次的停止不會擋住這次。
         start_delay / retry_interval / busy_appear 是固定行為
         (START_DELAY、RETRY_INTERVAL、BUSY_APPEAR), app 不傳; 參數只留給測試
         縮短虛擬時間。"""
         if self.running:
             raise RuntimeError("已在執行中")
-        self._stop.clear()
+        self._stop = stop if stop is not None else threading.Event()
         self.ended = None
         self.error_reason = None
         self.running = True

@@ -1,4 +1,5 @@
 from automation import win
+from automation.programpath import same_program
 
 TC = r"C:\Program Files\GRYPHLINK\games\Arknights_TC\Arknights.exe"
 CN = r"C:\Program Files\Arknights bilibili\games\Arknights Game\Arknights.exe"
@@ -22,12 +23,12 @@ def test_路徑比對不分大小寫與斜線():
     windows = [window(1, CN, (1600, 900)), window(2, TC, (1280, 720))]
     got = win.pick_window(windows, "c:/program files/gryphlink/GAMES/arknights_tc/ARKNIGHTS.EXE")
     assert got.hwnd == 2
-    assert win.same_program(TC, TC.lower().replace("\\", "/"))
-    assert not win.same_program(TC, CN)
+    assert same_program(TC, TC.lower().replace("\\", "/"))
+    assert not same_program(TC, CN)
 
 
 def test_沒有符合的就回報找不到_讀不到路徑的不算():
     windows = [window(1, CN, (1600, 900)), window(2, None, (1280, 720))]
     assert win.pick_window(windows, TC) is None
     assert win.pick_window([], TC) is None
-    assert not win.same_program(None, None)
+    assert not same_program(None, None)

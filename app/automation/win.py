@@ -1,10 +1,11 @@
 import ctypes
-import ntpath
 import os
 import threading
 import time
 from ctypes import wintypes
 from typing import NamedTuple, Optional
+
+from .programpath import same_program
 
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
@@ -365,14 +366,6 @@ class Window(NamedTuple):
         return self.size[0] * self.size[1]
 
 
-def program_key(path):
-    return ntpath.normpath(str(path)).casefold()
-
-
-def same_program(a, b):
-    return bool(a) and bool(b) and program_key(a) == program_key(b)
-
-
 def pick_window(windows, path):
     """路徑相同的視窗中, 還原後面積最大的那個; 沒有就回 None (讀不到路徑的不算)."""
     hits = [w for w in windows if same_program(w.path, path)]
@@ -509,17 +502,17 @@ def _try_foreground(hwnd):
             _u32.AttachThreadInput(me, other, False)
 
 
-def bring_to_front(hwnd, timeout=FRONT_TIMEOUT, sleep=time.sleep, clock=time.monotonic):
+def bring_to_front(hwnd, timeout=FRONT_TIMEOUT):
     """把視窗移到最上層並確認它成為前景: 最小化就先還原 (不改大小與位置);
     約 timeout 秒內前景確實是它回 True, 否則 False."""
     hwnd = int(hwnd)
     if _u32.IsIconic(hwnd):
         _u32.ShowWindow(hwnd, SW_RESTORE)
-    deadline = clock() + timeout
+    deadline = time.monotonic() + timeout
     while True:
         _try_foreground(hwnd)
-        sleep(FRONT_POLL)
+        time.sleep(FRONT_POLL)
         if _u32.GetForegroundWindow() == hwnd:
             return True
-        if clock() >= deadline:
+        if time.monotonic() >= deadline:
             return False
