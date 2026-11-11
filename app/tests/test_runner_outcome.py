@@ -1,3 +1,5 @@
+import threading
+
 from harness import CAL_PAIR, cal, click, find, wait
 
 ERROR_PREFIX = "執行錯誤: "
@@ -66,6 +68,21 @@ def test_錯誤結束後再執行一次被停止_結果是停止且沒有錯誤�
     run_again(harness, r, [wait(60), click(1, 1)])
     assert r.ended == "stopped"
     assert r.error_reason is None
+
+
+def test_開始前就設了的外部停止旗標_開始後立刻停止_不會被清掉(harness):
+    stop = threading.Event()
+    stop.set()
+    r = harness.run([click(10, 10)], stop=stop)
+    assert r.ended == "stopped"
+    assert stop.is_set()
+
+
+def test_單獨執行_上一次按過停止不會擋住下一次(harness):
+    r = harness.make_runner()
+    r.stop()
+    run_again(harness, r, [click(10, 10)])
+    assert r.ended == "done"
 
 
 def test_執行中讀到的結果是還沒結束_不是上一次的結果(harness):

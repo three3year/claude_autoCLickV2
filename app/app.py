@@ -9,6 +9,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
+from typing import Callable, NamedTuple, Optional
 
 import apppaths
 
@@ -70,6 +71,13 @@ PROGRAM_TEXT_MAX = 44
 PROGRAM_TEST_HOLD_MS = 2000
 UNREF_MARK = "（未引用）"
 CHAIN_TITLE = "執行串接"
+MIN_WIDTH, MIN_HEIGHT = 960, 560
+
+
+class Act(NamedTuple):
+    """流程設定一列的一個鈕. recognizes: 會做影像辨識 (背景辨識進行中停用)."""
+    command: Callable
+    recognizes: bool = False
 
 
 def program_text(path, limit=PROGRAM_TEXT_MAX):
@@ -314,7 +322,7 @@ class App:
     flow_cal = None
     busy_target = None
     program = None
-    _chain = None
+    _chain: Optional[chain.Chain] = None
 
     def __init__(self, root):
         self.root = root
@@ -343,7 +351,7 @@ class App:
 
         self._update_title()
         root.geometry("1120x700")
-        root.minsize(960, 560)
+        root.minsize(MIN_WIDTH, MIN_HEIGHT)
         ui_theme.apply(root)
 
         self._build_menu()
@@ -506,19 +514,20 @@ class App:
         body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
         body.pack(fill="both", expand=True)
         rows = (("校準對", CAL_TIP, self._cal_text,
-                 self.designate_pair, self.clear_calibration, self.test_calibration),
+                 (Act(self.designate_pair, recognizes=True), Act(self.clear_calibration),
+                  Act(self.test_calibration, recognizes=True))),
                 ("備用校準對", FALLBACK_TIP, self._fb_text,
-                 self.designate_fallback_pair, self.clear_fallback,
-                 self.test_fallback_calibration),
+                 (Act(self.designate_fallback_pair, recognizes=True), Act(self.clear_fallback),
+                  Act(self.test_fallback_calibration, recognizes=True))),
                 ("忙碌指示", BUSY_TIP, self._busy_text,
-                 self.set_busy_indicator, self.clear_busy_indicator,
-                 self.test_busy_indicator),
+                 (Act(self.set_busy_indicator), Act(self.clear_busy_indicator),
+                  Act(self.test_busy_indicator, recognizes=True))),
                 ("目標程式", PROGRAM_TIP, self._program_text,
-                 self.set_program, self.clear_program, self.test_program))
-        image_actions = ({"設定…", "測試"}, {"設定…", "測試"}, {"測試"}, set())
+                 (Act(self.set_program), Act(self.clear_program),
+                  Act(self.test_program))))
         shown = []
         rec = self.recognition
-        for r, (title, tip, text_of, set_fn, clear_fn, test_fn) in enumerate(rows):
+        for r, (title, tip, text_of, actions) in enumerate(rows):
             pad = (8 if r else 0, 0)
             cell = ttk.Frame(body, style="Panel.TFrame")
             cell.grid(row=r, column=0, sticky="w", pady=pad)
@@ -527,12 +536,11 @@ class App:
             lbl = ttk.Label(body, style="Muted.TLabel")
             lbl.grid(row=r, column=1, sticky="w", padx=(8, 16), pady=pad)
             shown.append((lbl, text_of))
-            for c, (text, fn) in enumerate((("設定…", set_fn), ("清除", clear_fn),
-                                            ("測試", test_fn))):
+            for c, (text, act) in enumerate(zip(("設定…", "清除", "測試"), actions)):
                 b = ttk.Button(body, text=text, style="Small.TButton", takefocus=False,
-                               command=fn)
+                               command=act.command)
                 b.grid(row=r, column=2 + c, padx=(0, 4), pady=pad)
-                if text in image_actions[r]:
+                if act.recognizes:
                     rec.register(b)
         ui_dialogs.hover_tip(shown[3][0], lambda: self.program or "")
         body.columnconfigure(1, minsize=260)
@@ -935,12 +943,12 @@ class App:
         if not path:
             self.log_ui("測試目標程式：目標程式還沒設定", "warn")
             return
-        w = win.pick_window(ui_dialogs.other_windows(), path)
+        w, fronted = self._bring_program_to_front(path)
         if w is None:
             self.log_ui(f"找不到：{path}沒在執行", "warn")
             return
         name = f"{ntpath.basename(w.path)}（{ui_dialogs.size_text(w.size)}）"
-        if win.bring_to_front(w.hwnd):
+        if fronted:
             self.log_ui(f"目標程式已移到最上層：{name}", "ok")
         else:
             self.log_ui(f"目標程式移不到最上層：{name}（約 2 秒內沒有成為前景視窗）", "warn")
@@ -949,6 +957,12 @@ class App:
             if self.root.winfo_exists():
                 win.bring_to_front(win.root_hwnd(self._parent().winfo_id()))
         self.root.after(PROGRAM_TEST_HOLD_MS, return_to_autoclick)
+
+    @staticmethod
+    def _bring_program_to_front(path):
+        """把`目標程式`的視窗移到最上層; 回傳 (挑中的視窗, 有沒有成為前景), 沒在執行是 (None, False)."""
+        w = win.pick_window(ui_dialogs.other_windows(), path)
+        return w, w is not None and win.bring_to_front(w.hwnd)
 
     def open_chains(self):
         ui_chain.edit_chains(self)
@@ -2080,9 +2094,8 @@ class App:
         problems = flowcheck.run_problems(flow, self.list_template_names(), registry)
         if problems:
             p = problems[0]
-            show = (messagebox.showinfo if p.category == flowcheck.NO_STEPS
-                    else messagebox.showwarning)
-            show(p.title, p.text, parent=self.root)
+            show = messagebox.showinfo if p.notice else messagebox.showwarning
+            show("執行", p.text, parent=self.root)
             return
         if test:
             mode, count = "count", 1
@@ -2138,8 +2151,7 @@ class App:
             entries.append(chain.Entry(item["flow"], item["run"], flow["program"]))
             found = flowcheck.run_problems(flow, flowfile.folder_template_names(folder),
                                            flow["tools"])
-            problems[item["flow"]] = [p.category if p.category == flowcheck.NO_STEPS
-                                      else p.text for p in found]
+            problems[item["flow"]] = [p.brief for p in found]
         running = [w.path for w in ui_dialogs.other_windows() if w.path]
         blocked = chain.blockers(entries, problems, running)
         if blocked:
@@ -2153,50 +2165,58 @@ class App:
         self._chain_next()
 
     def _chain_next(self):
-        while True:
-            turn = self._chain.next()
-            if turn is None:
-                self._finish_chain()
+        c = self._chain
+        while (turn := c.next()) is not None:
+            if self._chain_launch(turn.entry):
                 return
-            result = self._chain_launch(turn.entry)
-            if result is None:
-                return
-            if result.kind == "failed":
-                self.log_ui(f"{self._chain.progress()} 失敗：{result.reason}", "error")
-            self._chain.report(result)
+        self._finish_chain()
 
-    def _chain_launch(self, entry):
+    def _chain_launch(self, entry) -> bool:
+        """換上這份流程、把目標程式移到最上層、啟動執行器; 回傳執行器有沒有啟動
+        (沒啟動時這份的結果已回報給串接)."""
+        c = self._chain
         folder = os.path.join(apppaths.flows_root(), entry.flow)
         try:
             flow = flowfile.read_flow(folder)
         except flowfile.FlowError as e:
-            return chain.failed(f"讀不到流程：{e}")
+            return self._chain_not_launched(f"讀不到流程：{e}")
         self._switch_flow(folder, flow)
-        self.log_ui(f"{self._chain.progress()}（{entry.run} 輪）", "info")
+        self.log_ui(f"{c.progress()}（{entry.run} 輪）", "info")
         if self._mini is None:
             self._show_mini()
-        self._mini_chain.configure(text=self._chain.progress())
-        w = win.pick_window(ui_dialogs.other_windows(), entry.program)
+        self._mini_chain.configure(text=c.progress())
+        if c.stopped:
+            return self._chain_not_launched()
+        w, fronted = self._bring_program_to_front(entry.program)
+        if c.stopped:
+            return self._chain_not_launched()
         if w is None:
-            return chain.failed(f"找不到視窗：{entry.program}沒在執行")
-        fronted = win.bring_to_front(w.hwnd)
-        if self._chain.stopped:
-            return chain.STOPPED
+            return self._chain_not_launched(f"找不到視窗：{entry.program}沒在執行")
         if not fronted:
-            return chain.failed("移不到前景（約 2 秒內沒有成為前景視窗）")
+            return self._chain_not_launched("移不到前景（約 2 秒內沒有成為前景視窗）")
         self.ensure_registered()
         try:
             self.runner.start(self.steps, "count", entry.run,
                               scan_region=self.scan_region,
                               calibration=self.flow_cal,
                               busy=self.busy_target,
-                              tools=self.tool_registry())
+                              tools=self.tool_registry(),
+                              stop=c.stop_event)
         except RuntimeError as e:
-            return chain.failed(str(e))
+            return self._chain_not_launched(str(e))
         self._run_steps = self.steps
-        if self._chain.stopped:
-            self.runner.stop()
-        return None
+        c.launched()
+        return True
+
+    def _chain_not_launched(self, reason=None):
+        """這份沒啟動執行器: 已急停就記中斷 (急停優先於失敗), 否則記失敗 (reason)."""
+        c = self._chain
+        if c.stopped:
+            c.report(chain.STOPPED)
+        else:
+            self.log_ui(f"{c.progress()} 失敗：{reason}", "error")
+            c.report(chain.failed(reason))
+        return False
 
     def _chain_turn_ended(self):
         r = self.runner
@@ -2206,13 +2226,25 @@ class App:
     def _finish_chain(self):
         c, name = self._chain, self._chain_name
         self._chain = None
+        self._show_last_ran(c.last_ran)
         lines = c.summary()
-        all_done = all(line.endswith("：" + chain.DONE_TEXT) for line in lines)
-        self.log_ui(f"串接「{name}」結束：", "ok" if all_done else "warn")
+        self.log_ui(f"串接「{name}」結束：", "ok" if c.all_done else "warn")
         for line in lines:
             self.log_ui("　" + line)
         applog.log("chain", name=name, summary="；".join(lines))
         self._close_mini()
+
+    def _show_last_ran(self, turn):
+        """主視窗停在最後實際跑過的那份 (已經是它就不動; 一份都沒跑過也不動)."""
+        if turn is None or self.flow_name() == turn.entry.flow:
+            return
+        folder = os.path.join(apppaths.flows_root(), turn.entry.flow)
+        try:
+            flow = flowfile.read_flow(folder)
+        except flowfile.FlowError as e:
+            self.log_ui(f"切不回最後跑過的「{turn.entry.flow}」：{e}", "warn")
+            return
+        self._switch_flow(folder, flow)
 
     def _confirm_next_bad(self, steps):
         return flowcheck.confirm_next_bad(steps)
@@ -2371,14 +2403,7 @@ class App:
             self._engine_state_seen = self.hub.state
             self._on_engine_state(self.hub.state)
         self.drain_preload()
-        latest = None
-        for e in self.runner.logs_since(self.last_seq):
-            self.last_seq = e["seq"]
-            self._append_log(e["t"], e["level"], e["msg"])
-            latest = e
-        if (self._chain is not None and self._chain.current is not None
-                and not self.runner.status()["running"]):
-            self._chain_turn_ended()
+        latest = self._drain_logs_then_advance_chain()
         st = self.runner.status()
         running = st["running"]
         self.recognition.want(self.btn_run, not running)
@@ -2418,6 +2443,19 @@ class App:
                 fg=LOG_COLORS.get(latest["level"], C["muted"]))
 
         self.root.after(300, self._poll)
+
+    def _drain_logs_then_advance_chain(self):
+        """先印執行器的新紀錄 (含「執行完成」), 再讓串接收這份的結果、接下一份或印總結;
+        回傳最後一筆執行器紀錄 (沒有新的是 None)."""
+        latest = None
+        for e in self.runner.logs_since(self.last_seq):
+            self.last_seq = e["seq"]
+            self._append_log(e["t"], e["level"], e["msg"])
+            latest = e
+        c = self._chain
+        if c is not None and c.current is not None and not self.runner.status()["running"]:
+            self._chain_turn_ended()
+        return latest
 
     def _fuse_check(self):
         try:

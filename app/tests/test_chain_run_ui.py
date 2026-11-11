@@ -15,6 +15,7 @@ TC = r"C:\Program Files\GRYPHLINK\games\Arknights_TC\Arknights.exe"
 CN = r"C:\Program Files\Arknights bilibili\games\Arknights Game\Arknights.exe"
 WINDOWS = {TC: 11, CN: 22}
 CAL = {"pair": ["p", "q"], "baseline": 100.0}
+RUNNER_END_LOG = {"done": "執行完成", "stopped": "已停止 (使用者中斷)", "error": "執行錯誤: x"}
 
 
 def _png():
@@ -44,13 +45,14 @@ class _Runner:
         self.ended = None
         self.error_reason = None
         self.count = 0
+        self.logs = []
 
     def status(self):
         return {"running": self.running, "prerun": None, "round": 1 if self.running else 0,
                 "totalRounds": self.count, "step": 0, "stepTotal": 0, "loops": []}
 
-    def logs_since(self, _seq):
-        return []
+    def logs_since(self, seq):
+        return [e for e in self.logs if e["seq"] > seq]
 
     def start(self, steps, run_mode="count", run_count=1, **kw):
         assert not self.running, "上一份還沒結束就開始下一份"
@@ -63,6 +65,8 @@ class _Runner:
 
     def finish(self, ended="done", reason=None):
         self.running, self.ended, self.error_reason = False, ended, reason
+        self.logs.append({"seq": len(self.logs) + 1, "t": "00:00:00", "level": "ok",
+                          "msg": RUNNER_END_LOG[ended]})
 
 
 @pytest.fixture
@@ -289,3 +293,56 @@ def test_執行器停止_整條結束_不跑下一份(chain_app, windows, fronte
     assert [s[0] for s in a.runner.started] == ["早_繁中"]
     [rec] = filelog.of("chain")
     assert rec["summary"] == "1. 早_繁中：中斷（急停）；2. 早_簡中：未執行（急停）"
+
+
+def test_最後一份找不到視窗_主視窗切回之前實際跑過的那份(chain_app, windows, fronted, filelog):
+    a = chain_app
+    _flow("早_繁中", TC)
+    _flow("早_簡中", CN)
+    _chain("早班", ("早_繁中", 1), ("早_簡中", 1))
+    _start(a, "早班")
+    windows[:] = [w for w in windows if w.path != CN]
+    _finish(a)
+    [rec] = filelog.of("chain")
+    assert rec["summary"] == f"1. 早_繁中：完成；2. 早_簡中：失敗（找不到視窗：{CN}沒在執行）"
+    assert a.flow_name() == "早_繁中"
+    assert a.steps and not a.dirty
+
+
+@pytest.mark.parametrize("cn_window", [True, False], ids=["視窗還在", "視窗不見了"])
+def test_切換流程時按F12_不再移動視窗_記中斷不記失敗(
+        chain_app, windows, fronted, filelog, monkeypatch, cn_window):
+    a = chain_app
+    switch = a._switch_flow
+
+    def switch_then_f12(folder, flow):
+        switch(folder, flow)
+        if os.path.basename(folder) == "早_簡中":
+            a._on_hotkey()
+
+    monkeypatch.setattr(a, "_switch_flow", switch_then_f12)
+    _flow("早_繁中", TC)
+    _flow("早_簡中", CN)
+    _flow("晚_繁中", TC)
+    _chain("早班", ("早_繁中", 1), ("早_簡中", 1), ("晚_繁中", 1))
+    _start(a, "早班")
+    if not cn_window:
+        windows[:] = [w for w in windows if w.path != CN]
+    _finish(a)
+    assert fronted == [WINDOWS[TC]]
+    assert [s[0] for s in a.runner.started] == ["早_繁中"]
+    assert filelog.of("chain") == [{"name": "早班", "summary": "；".join([
+        "1. 早_繁中：完成", "2. 早_簡中：中斷（急停）", "3. 晚_繁中：未執行（急停）"])}]
+    assert not any("失敗" in m for m in _logs(a))
+    assert a.flow_name() == "早_繁中"
+
+
+def test_總結排在執行器的結束紀錄後面(chain_app, windows, fronted):
+    a = chain_app
+    _flow("早_繁中", TC)
+    _chain("早班", ("早_繁中", 1))
+    _start(a, "早班")
+    _finish(a)
+    logs = [m.split(" ", 1)[-1] for m in _logs(a)]
+    assert logs.index("執行完成") < next(
+        i for i, m in enumerate(logs) if m.startswith("串接「早班」結束"))

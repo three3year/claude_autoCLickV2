@@ -42,12 +42,14 @@ def test_讀不到的流程只報讀不到():
 
 
 def _run_all(c, outcomes):
+    """每份都啟動了執行器, 結束時回報 outcomes 裡對應的結果."""
     handed = []
     for out in outcomes:
         turn = c.next()
         if turn is None:
             break
         handed.append(((turn.entry.flow, turn.entry.run), c.progress()))
+        c.launched()
         c.report(out)
     return handed
 
@@ -111,9 +113,47 @@ def test_急停_正在跑的記中斷_其餘記未執行_不再交出下一份()
 def test_最後一項被跳過_最後實際跑過的是它前面跑過的那份():
     entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN), Entry("晚_繁中", 1, TC)]
     c = chain.Chain(entries)
-    _run_all(c, [chain.failed("移不到前景"), chain.DONE])
+    _run_all(c, [chain.failed("找不到圖：開始"), chain.DONE])
     assert c.next() is None and c.finished
     assert (c.last_ran.no, c.last_ran.entry.flow) == (2, "早_簡中")
+
+
+def test_交出了但執行器沒啟動就失敗的那份_不算實際跑過():
+    entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN)]
+    c = chain.Chain(entries)
+    _run_all(c, [chain.DONE])
+    assert c.next().no == 2
+    c.report(chain.failed("找不到視窗"))
+    assert c.next() is None and c.finished
+    assert c.summary() == ["1. 早_繁中：完成", "2. 早_簡中：失敗（找不到視窗）"]
+    assert (c.last_ran.no, c.last_ran.entry.flow) == (1, "早_繁中")
+
+
+def test_急停後才回報失敗_急停優先_這份記中斷_不跳過其他():
+    entries = [Entry("早_繁中", 1, TC), Entry("晚_繁中", 1, TC)]
+    c = chain.Chain(entries)
+    c.next()
+    c.stop()
+    c.report(chain.failed("找不到視窗"))
+    assert c.next() is None
+    assert c.summary() == ["1. 早_繁中：中斷（急停）", "2. 晚_繁中：未執行（急停）"]
+    assert c.last_ran is None
+
+
+def test_全部完成才算整條完成():
+    c = chain.Chain([Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN)])
+    _run_all(c, [chain.DONE, chain.DONE])
+    assert c.next() is None and c.all_done
+    c = chain.Chain([Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN)])
+    _run_all(c, [chain.DONE, chain.failed("找不到圖：開始")])
+    assert c.next() is None and not c.all_done
+
+
+def test_急停會設串接擁有的停止旗標():
+    c = chain.Chain([Entry("早_繁中", 1, TC)])
+    assert not c.stop_event.is_set()
+    c.stop()
+    assert c.stop_event.is_set() and c.stopped
 
 
 def test_一份都沒交出就結束_沒有最後實際跑過的():
@@ -128,6 +168,7 @@ def test_兩份之間急停_不再交出下一份_其餘記未執行():
     entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN), Entry("收尾", 1, CN)]
     c = chain.Chain(entries)
     assert c.next().no == 1
+    c.launched()
     c.report(chain.DONE)
     c.stop()
     assert c.next() is None and c.finished

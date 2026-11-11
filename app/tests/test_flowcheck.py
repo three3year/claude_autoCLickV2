@@ -79,12 +79,19 @@ def test_執行前檢查_合格的流程沒有問題():
 
 def test_執行前檢查_沒有步驟():
     [p] = problems(run_flow([]))
-    assert (p.category, p.title, p.text) == (flowcheck.NO_STEPS, "執行", "請先新增步驟")
+    assert (p.category, p.text) == (flowcheck.NO_STEPS, "請先新增步驟")
+    assert p.notice, "沒有步驟只是提醒, 不是警告"
+    assert p.brief == "沒有步驟", "串接準備檢查列在流程名下的是短的那句"
+
+
+def test_執行前檢查_其他問題是警告_串接列出的文字同彈窗():
+    [p] = problems(run_flow([st("find_click")], calibration=None))
+    assert not p.notice and p.brief == p.text
 
 
 def test_執行前檢查_沒有校準對():
     [p] = problems(run_flow([st("find_click")], calibration=None))
-    assert (p.category, p.title) == (flowcheck.NO_CALIBRATION, "執行")
+    assert p.category == flowcheck.NO_CALIBRATION
     assert p.text == ("這份流程沒有校準對（尚未設定），不能執行。\n"
                       "請先在「流程設定…」設定校準對（遊戲畫面內兩張相距夠遠的固定圖）")
 
@@ -96,7 +103,7 @@ def test_執行前檢查_範本缺圖_找圖確認圖校準對忙碌指示一則
     flow = run_flow(steps, calibration={"pair": ["c1", "右上"], "baseline": 100.0},
                     busy={"template": "沙漏"})
     [p] = problems(flow, templates={"c1"})
-    assert (p.category, p.title) == (flowcheck.MISSING_TEMPLATES, "執行")
+    assert p.category == flowcheck.MISSING_TEMPLATES
     assert p.text == ("範本不存在：\n門\n勾（確認圖）\n(未選擇)\n"
                       "右上（校準對）\n沙漏（忙碌指示）")
 
@@ -106,7 +113,7 @@ def test_執行前檢查_外部工具找不到_沒登錄與路徑不存在都擋
              st("external", external="基建")]
     tools = external.ToolRegistry({"基建": {"dir": str(tmp_path / "沒有"), "exe": "x.exe"}})
     [p] = problems(run_flow(steps), tools=tools)
-    assert (p.category, p.title) == (flowcheck.TOOLS_NOT_FOUND, "執行")
+    assert p.category == flowcheck.TOOLS_NOT_FOUND
     assert p.text == ("外部工具找不到：\n"
                       "外部工具「公開招募」沒有登錄（流程資料夾的 external_tools.yaml）\n"
                       f"外部工具「基建」登錄的資料夾不存在：{tmp_path / '沒有'}")
@@ -116,7 +123,7 @@ def test_執行前檢查_勾了忙碌檢查卻沒設忙碌指示():
     steps = [st("find_click", busy_check=True), st("find"),
              st("find_click", busy_check=True)]
     [p] = problems(run_flow(steps))
-    assert (p.category, p.title) == (flowcheck.BUSY_NOT_SET, "執行")
+    assert p.category == flowcheck.BUSY_NOT_SET
     assert p.text == ("有步驟勾了「忙碌檢查」，但這份流程沒有設定忙碌指示：\n"
                       "步驟 1, 3\n"
                       "請先在「流程設定…」設定忙碌指示，或取消這些步驟的勾選")
@@ -125,7 +132,7 @@ def test_執行前檢查_勾了忙碌檢查卻沒設忙碌指示():
 
 def test_執行前檢查_區段結構錯():
     [p] = problems(run_flow([st("find"), st("repeat_end")]))
-    assert (p.category, p.title) == (flowcheck.SECTION_ERROR, "執行")
+    assert p.category == flowcheck.SECTION_ERROR
     assert p.text == "步驟 2「重複結束」缺少對應的開始標記"
 
 
@@ -133,7 +140,7 @@ def test_執行前檢查_原點的圖離開_原點不是找圖():
     steps = [st("click", confirm="gone"), st("find_click"), st("click", confirm="gone"),
              st("click"), st("click", confirm="gone")]
     [p] = problems(run_flow(steps))
-    assert (p.category, p.title) == (flowcheck.ORIGIN_LEAVES_NOT_FIND, "執行")
+    assert p.category == flowcheck.ORIGIN_LEAVES_NOT_FIND
     assert p.text == ("「原點的圖離開」需要原點來自找圖步驟：\n"
                       "步驟 1, 5 前面最近的原點來自點擊／拖曳（或沒有原點）。\n"
                       "請在它前面放找圖步驟當原點，或改用確認圖")
@@ -143,7 +150,7 @@ def test_執行前檢查_點到下一步的圖出現_下一步不是找圖():
     steps = [st("click", confirm="next"), st("wait"), st("find_click", confirm="next"),
              st("find"), st("click", confirm="next")]
     [p] = problems(run_flow(steps))
-    assert (p.category, p.title) == (flowcheck.CONFIRM_NEXT_NOT_FIND, "執行")
+    assert p.category == flowcheck.CONFIRM_NEXT_NOT_FIND
     assert p.text == ("「點到下一步的圖出現」需要下一個步驟是找圖步驟：\n"
                       "步驟 1, 5 的下一步不是找圖（或已是最後一步）。\n"
                       "請把下一個找圖步驟排在其後")
