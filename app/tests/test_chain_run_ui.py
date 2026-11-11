@@ -195,19 +195,99 @@ def test_未存檔時先問存或丟_取消就不開始(chain_app, windows, fron
     assert a.runner.started == [("早_繁中", "count", 1)]
 
 
-def test_移不到前景_這份記為失敗_整條結束不跑下一份(chain_app, windows, monkeypatch, filelog):
+def test_第一份失敗_同目標程式的第三份跳過_不同目標程式的第二份照跑(
+        chain_app, windows, fronted, filelog):
+    a = chain_app
+    _flow("早_繁中", TC)
+    _flow("早_簡中", CN)
+    _flow("晚_繁中", TC)
+    _chain("早班", ("早_繁中", 1), ("早_簡中", 1), ("晚_繁中", 1))
+    _start(a, "早班")
+    _finish(a, "error", "找不到圖：開始")
+    assert [s[0] for s in a.runner.started] == ["早_繁中", "早_簡中"]
+    _finish(a)
+    assert [s[0] for s in a.runner.started] == ["早_繁中", "早_簡中"]
+    assert fronted == [WINDOWS[TC], WINDOWS[CN]]
+    assert filelog.of("chain") == [{"name": "早班", "summary": "；".join([
+        "1. 早_繁中：失敗（找不到圖：開始）", "2. 早_簡中：完成",
+        "3. 晚_繁中：跳過（因為第 1 份「早_繁中」失敗）"])}]
+    assert a.flow_name() == "早_簡中", "停在最後實際跑過的那份, 不切到跳過的"
+    assert a._mini is None
+
+
+def test_移不到前景_這份記為失敗_同目標程式的跳過_其他照跑(
+        chain_app, windows, monkeypatch, filelog):
     a = chain_app
     monkeypatch.setattr(win, "bring_to_front", lambda hwnd, **kw: hwnd != WINDOWS[CN])
+    _flow("早_繁中", TC)
+    _flow("早_簡中", CN)
+    _flow("晚_簡中", CN)
+    _flow("晚_繁中", TC)
+    _chain("早班", ("早_繁中", 1), ("早_簡中", 1), ("晚_簡中", 1), ("晚_繁中", 1))
+    _start(a, "早班")
+    _finish(a)
+    assert [s[0] for s in a.runner.started] == ["早_繁中", "晚_繁中"]
+    _finish(a)
+    [rec] = filelog.of("chain")
+    lines = rec["summary"].split("；")
+    assert lines[1].startswith("2. 早_簡中：失敗（移不到前景")
+    assert lines[2:] == ["3. 晚_簡中：跳過（因為第 2 份「早_簡中」失敗）", "4. 晚_繁中：完成"]
+    assert a.flow_name() == "晚_繁中"
+
+
+def test_兩份之間按F12_下一份不會開始(chain_app, windows, monkeypatch, filelog):
+    """移到最上層的那約 2 秒裡按 F12: 執行器還沒開始, 停止旗標會被下一次 start 清掉,
+    串接要自己記住急停."""
+    a = chain_app
+
+    def front_then_f12(hwnd, **kw):
+        if hwnd == WINDOWS[CN]:
+            a._on_hotkey()
+        return True
+
+    monkeypatch.setattr(win, "bring_to_front", front_then_f12)
     _flow("早_繁中", TC)
     _flow("早_簡中", CN)
     _flow("晚_繁中", TC)
     _chain("早班", ("早_繁中", 1), ("早_簡中", 1), ("晚_繁中", 1))
     _start(a, "早班")
     _finish(a)
+    a.run_poll()
+    assert [s[0] for s in a.runner.started] == ["早_繁中"]
+    assert filelog.of("chain") == [{"name": "早班", "summary": "；".join([
+        "1. 早_繁中：完成", "2. 早_簡中：中斷（急停）", "3. 晚_繁中：未執行（急停）"])}]
+    assert a._mini is None
+
+
+def test_停止鈕_執行中按下_整條結束(chain_app, windows, fronted, filelog):
+    a = chain_app
+    _flow("早_繁中", TC)
+    _flow("早_簡中", CN)
+    _chain("早班", ("早_繁中", 1), ("早_簡中", 1))
+    _start(a, "早班")
+    a.run_poll()
+    a.btn_stop.invoke()
+    a.runner.finish("stopped")
+    a.run_poll()
     assert [s[0] for s in a.runner.started] == ["早_繁中"]
     [rec] = filelog.of("chain")
-    assert "2. 早_簡中：失敗（移不到前景" in rec["summary"]
-    assert a._mini is None
+    assert rec["summary"] == "1. 早_繁中：中斷（急停）；2. 早_簡中：未執行（急停）"
+
+
+def test_最後一份讀不到_主視窗停在之前實際跑過的那份(chain_app, windows, fronted, filelog):
+    a = chain_app
+    _flow("早_繁中", TC)
+    _flow("早_簡中", CN)
+    _chain("早班", ("早_繁中", 1), ("早_簡中", 1))
+    _start(a, "早班")
+    with open(os.path.join(apppaths.flows_root(), "早_簡中", "flow.yaml"), "w",
+              encoding="utf-8") as f:
+        f.write("format: 999\n")
+    _finish(a)
+    assert [s[0] for s in a.runner.started] == ["早_繁中"]
+    [rec] = filelog.of("chain")
+    assert "2. 早_簡中：失敗（讀不到流程：" in rec["summary"]
+    assert a.flow_name() == "早_繁中"
 
 
 def test_執行器停止_整條結束_不跑下一份(chain_app, windows, fronted, filelog):

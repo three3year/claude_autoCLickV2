@@ -103,6 +103,7 @@ class Chain:
     """一條已通過準備檢查的串接, 從開始到結束的進行狀態.
 
     呼叫端反覆: next() 拿下一份 → 執行 → report(結果); next() 回 None＝整條結束。
+    急停隨時可以 stop() (任何執行緒: 只記下來), 下一次 next() 就結束整條。
     每份的結果文字存在 _results (None＝還沒判定)。
     """
 
@@ -113,8 +114,19 @@ class Chain:
         self._current = None
         self._last = None
         self.finished = False
+        self.stopped = False
+
+    def stop(self):
+        """急停: 交出去還沒回報的那份記中斷、還沒判定的記未執行 (已跳過的維持), 不再交出.
+        只設旗標 (F12 從鍵盤監聽的執行緒呼叫), 標記在呼叫端執行緒的下一次 next() 做."""
+        self.stopped = True
 
     def next(self):
+        if self.stopped and not self.finished:
+            if self._current is not None:
+                self._results[self._current.no - 1] = INTERRUPTED_TEXT
+                self._current = None
+            self._end(NOT_RUN_STOP_TEXT)
         if self.finished or self._current is not None:
             return self._current
         for i, res in enumerate(self._results):
@@ -135,17 +147,22 @@ class Chain:
         return f"串接 {t.no}/{t.total}：{t.entry.flow}" if t else ""
 
     def report(self, outcome):
-        """回報剛交出的那份的結果. 失敗 (本階段) 與急停都結束整條串接, 還沒判定的記為未執行."""
+        """回報剛交出的那份的結果. 急停＝這份記中斷並結束整條;
+        失敗＝之後同一個目標程式的都跳過 (不再交出), 其他目標程式的照常交出."""
         t = self._current
         self._current = None
         if outcome.kind == "done":
             self._results[t.no - 1] = DONE_TEXT
         elif outcome.kind == "stopped":
             self._results[t.no - 1] = INTERRUPTED_TEXT
-            self._end(NOT_RUN_STOP_TEXT)
+            self.stopped = True
         else:
             self._results[t.no - 1] = f"失敗（{outcome.reason}）"
-            self._end(f"未執行（第 {t.no} 份失敗，串接結束）")
+            skip = f"跳過（因為第 {t.no} 份「{t.entry.flow}」失敗）"
+            for i, e in enumerate(self.entries):
+                if (self._results[i] is None
+                        and win.same_program(e.program, t.entry.program)):
+                    self._results[i] = skip
 
     def _end(self, rest):
         self._results = [rest if r is None else r for r in self._results]
@@ -153,7 +170,7 @@ class Chain:
 
     @property
     def last_ran(self):
-        """最後實際交出去跑的那份 (Turn); 一份都沒跑過是 None."""
+        """最後實際交出去跑的那份 (Turn; 跳過與未執行的不算); 一份都沒跑過是 None."""
         return self._last
 
     def summary(self):
