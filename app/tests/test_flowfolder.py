@@ -217,3 +217,25 @@ def test_逾時10秒存檔照樣寫出_等於5秒的不寫(tmp_path):
     assert "{find_click: 乙}" in text
     assert "{click: [1, 2], confirm: next, timeout: 10}" in text
     assert [s["timeout"] for s in flowfile.read_flow(tmp_path)["steps"]] == [10, 5, 10]
+
+
+TC = r"C:\Program Files\GRYPHLINK\games\Arknights_TC\Arknights.exe"
+
+
+def test_目標程式讀寫來回不變(tmp_path):
+    data = flow([find("a")], program=TC)
+    flowfile.write_flow(tmp_path, data, {})
+    assert flowfile.read_flow(tmp_path) == data
+    assert flowfile.dump_flow(flowfile.parse_flow(flowfile.dump_flow(data))) == \
+        flowfile.dump_flow(data)
+
+
+def test_沒設目標程式_讀成沒有_寫出時不出現():
+    f = flowfile.parse_flow("format: 1\nsteps: []\n")
+    assert f["program"] is None
+    assert "program" not in flowfile.dump_flow(f)
+
+
+@pytest.mark.parametrize("value", ["123", "[a, b]", "''"])
+def test_目標程式不是路徑字串_讀檔擋下(value):
+    assert "program" in parse_error(f"format: 1\nprogram: {value}\nsteps: []\n")

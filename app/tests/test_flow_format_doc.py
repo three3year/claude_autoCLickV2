@@ -153,3 +153,33 @@ def test_改壞的副本_沒寫預設但app有():
     bad = text.replace(line, line.replace("| `1` |", "| 一輪 |"))
     [got] = problems(bad)
     assert "適用 頂層、鍵 run" in got and "app 預設是 1" in got
+
+
+CHAIN_PLACES = {"頂層": flowfile.CHAIN_TOP_KEYS, "flows 的項目": flowfile.CHAIN_ITEM_KEYS}
+
+
+def read_chain_table(text):
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("|") and "位置" in line and "鍵" in line and "值" in line:
+            head = _cells(line)
+            col_where, col_key = head.index("位置"), head.index("鍵")
+            out = {}
+            for row in lines[i + 2:]:
+                if not row.startswith("|"):
+                    break
+                c = _cells(row)
+                key = (_ticks(c[col_key]) or [c[col_key]])[0]
+                out.setdefault(c[col_where], set()).add(key)
+            return out
+    raise AssertionError("docs/flow-format.md 找不到串接檔的鍵表（表頭要有「位置」「鍵」「值」）")
+
+
+def test_格式規範的串接檔鍵表跟app一致():
+    assert read_chain_table(doc_text()) == {w: set(k) for w, k in CHAIN_PLACES.items()}
+
+
+def test_串接檔一節寫明輪數不能無限():
+    text = doc_text()
+    section = text[text.index("## 串接檔"):]
+    assert "forever" in section

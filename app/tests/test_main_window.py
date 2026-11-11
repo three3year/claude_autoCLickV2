@@ -145,7 +145,8 @@ def _menu_of(a, button_text):
 def test_第一列與第二列的按鈕對照版面D(main_app):
     row1, row2 = toolbar_rows(main_app)
     assert buttons(row1) == sorted(["新流程", "開檔", "存檔", "框選", "清除", "流程設定…"])
-    assert buttons(row2) == sorted(["▶ 開始執行", "■ 停止"])
+    assert buttons(row2) == sorted(["▶ 開始執行", "■ 停止", "▶ 執行串接", "串接…"])
+    assert "TCombobox" in [w.winfo_class() for w in all_widgets(row2)]
     assert "F12 = 急停" in texts(row2) and "待機" in texts(row2)
     assert main_app.settings_lbl.cget("text") == "校準對 ✗　忙碌指示 —"
 
@@ -197,6 +198,16 @@ def test_存檔開檔快速鍵照舊(main_app):
     assert main_app.root.bind("<Control-s>") and main_app.root.bind("<Control-o>")
 
 
+
+def test_第二列在最小寬度下放得下_最長的狀態文字也不擠掉按鈕(main_app):
+    a = main_app
+    row2 = toolbar_rows(a)[1]
+    for text in ("引擎載入中…", "引擎載入失敗", "辨識中…", "待機"):
+        a.status_lbl.configure(text=text)
+        a.root.update_idletasks()
+        assert row2.winfo_reqwidth() <= a.root.minsize()[0], text
+
+
 SETTINGS = "流程設定"
 CAL = {"pair": ["左", "右"], "baseline": 300.0}
 CAL_FB = dict(CAL, fallback=calibration.make_fallback(["圖示", "關閉"], 500.0, (1, 2)))
@@ -228,28 +239,30 @@ def _logs(a):
     return a.log_text.get("1.0", "end").splitlines()
 
 
-def test_流程設定三列_名稱說明圖示與現狀(main_app):
+def test_流程設定四列_名稱說明圖示與現狀(main_app):
     a = main_app
     a.flow_cal = dict(CAL_FB)
     a.busy_target = {"template": "忙"}
+    a.program = r"C:\Games\a.exe"
     seen = {}
 
     def look(dr):
-        seen["rows"] = [_row_texts(dr.dlg, r) for r in range(3)]
+        seen["rows"] = [_row_texts(dr.dlg, r) for r in range(4)]
         seen["tips"] = len(tips(dr.dlg))
         seen["buttons"] = sorted(texts(dr.dlg, ("TButton",)))
     _settings(a, look)
     assert seen["rows"] == [["左 × 右（基準 300 px）"],
-                            ["圖示 × 關閉（基準 500 px）"], ["忙"]]
-    assert seen["tips"] == 3
-    assert seen["buttons"] == sorted(["設定…", "清除", "測試"] * 3 + ["關閉"])
+                            ["圖示 × 關閉（基準 500 px）"], ["忙"], [r"a.exe（C:\Games）"]]
+    assert seen["tips"] == 4
+    assert seen["buttons"] == sorted(["設定…", "清除", "測試"] * 4 + ["關閉"])
 
 
 def test_流程設定沒設時的現狀文字(main_app):
     seen = {}
     _settings(main_app, lambda dr: seen.update(
-        rows=[_row_texts(dr.dlg, r) for r in range(3)]))
-    assert seen["rows"] == [["沒有（不能執行）"], ["沒有"], ["不設"]]
+        rows=[_row_texts(dr.dlg, r) for r in range(4)]))
+    assert seen["rows"] == [["沒有（不能執行）"], ["沒有"], ["不設"],
+                            ["未設定（串接時必須有）"]]
 
 
 def test_清除主校準對_有備用時先確認_回答否不清(main_app, no_real_dialogs):

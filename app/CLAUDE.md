@@ -9,16 +9,19 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 - `app.py` 主視窗（步驟清單、範本面板、紀錄區、執行與迷你視窗）
 - `enginehub.py` 引擎生命週期（載入中／就緒／失敗）＋範本清單綁定＋query／預載／單張登錄；也是 runner 的偵測接縫實作
 - `recognition.py` 背景辨識入口（`辨識中`）：編輯器的辨識都在背景執行緒做
-- `flowfile.py` 流程資料夾讀寫與本流程範本（`FlowTemplates`）的唯一入口
+- `flowfile.py` 流程資料夾讀寫與本流程範本（`FlowTemplates`）的唯一入口；`串接檔`（`<串接名>.chain.yaml`）的讀寫、驗證、
+  列出、新增改名刪除也在這裡（`read_chain`／`write_chain`／`list_chains`）
 - `calibration.py` 校準與畫面倍率的全部純邏輯
 - `apppaths.py` 流程存放區、本機狀態資料夾、上次開的流程（佈局寫在它的 docstring）
 - `applog.py` 檔案日誌（本機狀態資料夾的 `autoclick.log`，超過 1MB 輪替一份）
 - `ui_dialogs.py` 步驟編輯與各對話框、拾取入口；`ui_overlay.py` 全螢幕截圖選取層與清場；
-  `ui_theme.py` 深色主題；`window_coord.py` modal 堆疊＋清場還原清單的純狀態機；`ui_grab.py` 堆疊的 Tk 執行層
+  `ui_chain.py` 串接編輯對話框（主視窗「串接…」，⚠ 只提示不擋存檔）；`ui_theme.py` 深色主題；`window_coord.py` modal 堆疊＋清場還原清單的純狀態機；`ui_grab.py` 堆疊的 Tk 執行層
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：`runner.py` 步驟執行緒；
+  `chain.py` `串接`的進行規則（純邏輯：準備檢查 `blockers`、`Chain` 交出下一份／收結果／進度／總結；主視窗「執行串接」`App.start_chain` 讀檔與檢查後交給它，`App._poll` 看到執行器結束就回報、接下一份；
+  急停旗標由 `Chain.stop_event` 擁有、交給 `Runner.start(stop=)` 共用）；`programpath.py` 「同一個目標程式」的路徑比對（純邏輯）；
   `findtarget.py` 找圖目標的存取、限定範圍／挑選規則／位置是否仍有匹配的唯一實作（執行器、編輯器比對測試、
   影片轉流程三處共用）；`flowcheck.py` 執行前的結構檢查；`flowdefaults.py` 步驟與流程的「沒寫＝」表；
-  `flowfmt.py` 存檔座標⇄螢幕座標；`pickcheck.py` 拾取檢查；`capture.py` mss 截圖；`win.py` ctypes 滑鼠／DPI／視窗；
+  `flowfmt.py` 存檔座標⇄螢幕座標；`pickcheck.py` 拾取檢查；`capture.py` mss 截圖；`win.py` ctypes 滑鼠／DPI／視窗（含`目標程式`的列視窗、依路徑挑視窗、移到最上層）；
   `hotkey.py` F12 急停；`imgio.py` 中文路徑圖片讀寫；`extproc.py` 啟動`外部工具`（runner 只透過它碰行程，
   測試 harness 換掉 `extproc.start`）；`external.py` 外部步驟的約定常數與`外部工具登錄`（`ToolRegistry`，
   登錄檔的讀檔驗證在 `flowfile.read_tools`）
@@ -118,8 +121,9 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 
 **執行語意：哪個函式負責**（語意本身寫在格式規範）：區段在記憶體是平面標記、yaml 巢狀，`flowfile` 讀寫時轉換，
 runner 用堆疊與跳轉解譯（`Runner._exec_branch`、`_break_out`、`runner.enclosing_end`）。**執行前的結構檢查只有
-`automation/flowcheck.py` 一份**（`flow_errors` 一次跑完整份）：App 與 `tools/flow_check` 都只呼叫它，新增執行前會擋
-的條件加在這裡。找圖 `Runner._exec_find`（三態）；原點執行期 `Runner._set_origin`（記找圖目標＋挑中的框，
+`automation/flowcheck.py` 一份**，兩個入口組同一批檢查：主視窗「執行」（含測試選取）呼叫 `run_problems`（依單獨執行的
+檢查順序列出全部問題，一類一則、帶類別與警告文字，單獨執行只顯示第一則；不擋相對座標前沒有原點）；`tools/flow_check`
+與影片轉流程呼叫 `flow_errors`（多擋相對座標前沒有原點，不管缺圖與沒有步驟）。新增執行前會擋的條件加在這裡。找圖 `Runner._exec_find`（三態）；原點執行期 `Runner._set_origin`（記找圖目標＋挑中的框，
 `原點的圖離開`靠它），編輯器與檢查用 `runner.origin_source` 靜態推算；生效確認三種步驟同一個迴圈
 `Runner._await_effect`，所有輸入都經 `Runner._input`（新增送輸入的地方也要走它）；忙碌檢查 `Runner._busy_check`。
 檔案日誌：找圖確認寫 `find.target`，座標點擊／拖曳寫 `input.confirm`（沒開確認寫 `input`），勾了忙碌檢查的步驟

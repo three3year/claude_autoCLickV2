@@ -89,7 +89,7 @@ FLOW_FORMAT = 1
 
 HEADS = ("find_click", "find", "wait_gone", "click", "drag", "wait", "external",
          "repeat", "branch")
-TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy",
+TOP_KEYS = ("format", "run", "scan_region", "calibration", "busy", "program",
             "template_pos", "engine", "steps")
 TARGET_ATTRS = ("within", "pick", "color")
 CALIBRATION_KEYS = ("pair", "baseline", "fallback")
@@ -117,21 +117,26 @@ class FlowError(ValueError):
 
 def template_name_problem(name):
     """範本名能不能當檔名 (範本名＝檔名): 不行回傳原因, 可以回傳 None."""
+    return file_name_problem(name, "範本名")
+
+
+def file_name_problem(name, what):
+    """name 能不能當檔名 (what 是給人看的稱呼, 如「範本名」): 不行回傳原因, 可以回傳 None."""
     if not isinstance(name, str) or not name:
-        return "範本名不能是空的"
+        return f"{what}不能是空的"
     bad = sorted({c for c in name if c in _BAD_NAME_CHARS})
     if bad:
-        return f"範本名「{name}」不能有 {' '.join(bad)}（檔名不允許）"
+        return f"{what}「{name}」不能有 {' '.join(bad)}（檔名不允許）"
     if name != name.strip():
-        return f"範本名「{name}」開頭或結尾不能是空白"
+        return f"{what}「{name}」開頭或結尾不能是空白"
     if name.endswith("."):
-        return f"範本名「{name}」結尾不能是句點"
+        return f"{what}「{name}」結尾不能是句點"
     return None
 
 
 def new_flow():
     return {"run": flowdefaults.FLOW["run"], "scan_region": None,
-            "calibration": None, "busy": None, "template_pos": {},
+            "calibration": None, "busy": None, "program": None, "template_pos": {},
             "engine": {}, "steps": [], "tools": external.ToolRegistry()}
 
 
@@ -251,6 +256,8 @@ def parse_flow(text):
         flow["calibration"] = _calibration(doc["calibration"])
     if doc.get("busy") is not None:
         flow["busy"] = _yaml_target("busy", doc["busy"], "template")
+    if doc.get("program") is not None:
+        flow["program"] = _program(doc["program"])
     if doc.get("template_pos") is not None:
         flow["template_pos"] = _template_pos(doc["template_pos"])
     if doc.get("engine") is not None:
@@ -351,6 +358,12 @@ def _pair(where, c):
     if not _num(base) or base <= 0:
         raise FlowError(f"{where}.baseline 要是大於 0 的數字，收到 {base!r}")
     return {"pair": list(pair), "baseline": float(base)}
+
+
+def _program(v):
+    if not isinstance(v, str) or not v.strip():
+        raise FlowError(f"program 要是目標程式的完整路徑（字串），收到 {v!r}")
+    return v
 
 
 def _template_pos(tp):
@@ -580,6 +593,8 @@ def dump_flow(flow):
     busy = flow.get("busy")
     if busy:
         lines.append(f"busy: {_flow_style(_target_yaml(busy, 'template'))}")
+    if flow.get("program"):
+        lines.append(f"program: {_flow_style(flow['program'])}")
     refs = set(template_refs(flow))
     pos = {n: p for n, p in (flow.get("template_pos") or {}).items() if n in refs}
     if pos:
@@ -729,7 +744,10 @@ def _emit(nodes, ind):
 
 def replace_flow_yaml(folder, text):
     """flow.yaml 整份換成 text: 先寫暫存檔再取代, 寫到一半失敗不留半份 (暫存檔也清掉)."""
-    path = os.path.join(folder, FLOW_YAML)
+    _replace_file(os.path.join(folder, FLOW_YAML), text)
+
+
+def _replace_file(path, text):
     tmp = path + ".tmp"
     try:
         with open(tmp, "w", encoding="utf-8", newline="\n") as f:
@@ -1008,3 +1026,128 @@ def folder_template_bytes(folder, name):
             return f.read()
     except OSError:
         return None
+
+
+CHAIN_SUFFIX = ".chain.yaml"
+CHAIN_FORMAT = 1
+CHAIN_TOP_KEYS = ("format", "flows")
+CHAIN_ITEM_KEYS = ("flow", "run")
+
+
+def chain_path(root, name):
+    return os.path.join(str(root), name + CHAIN_SUFFIX)
+
+
+def parse_chain(text):
+    """串接檔的文字 → [{"flow", "run"}]; 讀不進來丟 FlowError (訊息指明第幾項)."""
+    import yaml
+    try:
+        doc = yaml.safe_load(text)
+    except yaml.YAMLError as e:
+        raise FlowError(f"串接檔的 YAML 語法有錯：{getattr(e, 'problem', None) or e}") from None
+    if not isinstance(doc, dict):
+        raise FlowError("串接檔的最外層要是 {鍵: 值}")
+    extra = [k for k in doc if k not in CHAIN_TOP_KEYS]
+    if extra:
+        raise FlowError(f"串接檔頂層不認得的鍵：{'、'.join(map(str, extra))}")
+    if doc.get("format") != CHAIN_FORMAT or isinstance(doc.get("format"), bool):
+        raise FlowError(f"串接檔的 format 要是 {CHAIN_FORMAT}，收到 {doc.get('format')!r}")
+    flows = doc.get("flows")
+    if flows is None:
+        flows = []
+    if not isinstance(flows, list):
+        raise FlowError("串接檔的 flows 要是清單")
+    return [_chain_item(f"第 {n} 項", item) for n, item in enumerate(flows, 1)]
+
+
+def _chain_item(where, item):
+    if not isinstance(item, dict):
+        raise FlowError(f"串接檔{where}要寫成 {{flow: 流程名, run: 輪數}}，收到 {item!r}")
+    extra = [k for k in item if k not in CHAIN_ITEM_KEYS]
+    if extra:
+        raise FlowError(f"串接檔{where}不認得的鍵：{'、'.join(map(str, extra))}")
+    if "flow" not in item:
+        raise FlowError(f"串接檔{where}缺 flow（流程存放區裡的流程資料夾名稱）")
+    flow = item["flow"]
+    problem = file_name_problem(flow, "流程名")
+    if problem:
+        raise FlowError(f"串接檔{where}：{problem}")
+    run = item.get("run", 1)
+    if not (_int(run) and run >= 1):
+        raise FlowError(f"串接檔{where}的 run 要是 1 以上的整數（串接不能無限輪），收到 {run!r}")
+    return {"flow": flow, "run": run}
+
+
+def dump_chain(items):
+    lines = [f"format: {CHAIN_FORMAT}"]
+    if not items:
+        lines.append("flows: []")
+    else:
+        lines.append("flows:")
+        for item in items:
+            d = {"flow": item["flow"]}
+            if item.get("run", 1) != 1:
+                d["run"] = item["run"]
+            lines.append(f"  - {_flow_style(d)}")
+    return "\n".join(lines) + "\n"
+
+
+def read_chain(root, name):
+    path = chain_path(root, name)
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            text = f.read()
+    except OSError as e:
+        raise FlowError(f"讀不到 {path}（{e.strerror or e}）") from None
+    return parse_chain(text)
+
+
+def write_chain(root, name, items):
+    """整份重寫 (先寫暫存檔再取代); 寫之前先照讀檔的規則驗一次, 寫不出讀不回來的檔."""
+    text = dump_chain(items)
+    parse_chain(text)
+    os.makedirs(str(root), exist_ok=True)
+    _replace_file(chain_path(root, name), text)
+
+
+def list_chains(root):
+    try:
+        entries = os.listdir(str(root))
+    except OSError:
+        return []
+    n = len(CHAIN_SUFFIX)
+    return sorted(fn[:-n] for fn in entries
+                  if fn.lower().endswith(CHAIN_SUFFIX) and len(fn) > n
+                  and os.path.isfile(os.path.join(str(root), fn)))
+
+
+def chain_name_problem(root, name, renaming=None):
+    """新串接名能不能用: 不能當檔名、或跟既有串接檔同名 (不分大小寫) 回傳原因, 可以回傳 None.
+
+    renaming: 改名時的舊名 (只改大小寫不算撞名)。
+    """
+    problem = file_name_problem(name, "串接名")
+    if problem:
+        return problem
+    taken = {c.casefold() for c in list_chains(root) if c != renaming}
+    if name.casefold() in taken:
+        return f"已經有叫「{name}」的串接檔"
+    return None
+
+
+def create_chain(root, name):
+    problem = chain_name_problem(root, name)
+    if problem:
+        raise FlowError(problem)
+    write_chain(root, name, [])
+
+
+def rename_chain(root, old, new):
+    problem = chain_name_problem(root, new, renaming=old)
+    if problem:
+        raise FlowError(problem)
+    os.replace(chain_path(root, old), chain_path(root, new))
+
+
+def delete_chain(root, name):
+    os.remove(chain_path(root, name))

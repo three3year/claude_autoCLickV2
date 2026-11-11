@@ -2,6 +2,8 @@
 
 輸入是記憶體裡的完整步驟清單 (平面標記, 見 flowfile), 回傳給人看的錯誤訊息。
 """
+from dataclasses import dataclass
+
 from . import external, findtarget
 from .runner import (branch_layout, confirm_next_connected, has_busy_check,
                      origin_source, uses_confirm_next, uses_origin_leaves)
@@ -135,7 +137,7 @@ def _nos(idx):
 def flow_errors(flow):
     """整份流程 (記憶體模型) 執行前一定會被擋下的問題, 一則一行 (空清單＝沒有).
 
-    與 app 執行前的檢查同一套判斷: 沒有校準對、區段結構、相對座標前沒有原點、
+    沒有校準對、區段結構、相對座標前沒有原點、
     「原點的圖離開」的原點不是找圖、「點到下一步的圖出現」不相連、勾了忙碌檢查
     卻沒設忙碌指示、外部工具沒登錄或登錄檔格式錯。缺圖不在這裡 (那是檔案的事);
     外部工具的路徑不存在在 flow_warnings。
@@ -172,3 +174,87 @@ def flow_warnings(flow):
     """整份流程在這台電腦上執行會被擋、換台電腦卻可能沒事的問題: 外部工具登錄的路徑不存在."""
     steps = flow.get("steps") or []
     return tool_problems(steps, _flow_tools(flow))[1]
+
+
+NO_STEPS = "沒有步驟"
+NO_CALIBRATION = "沒有校準對"
+MISSING_TEMPLATES = "範本缺圖"
+TOOLS_NOT_FOUND = "外部工具找不到"
+BUSY_NOT_SET = "沒設忙碌指示"
+SECTION_ERROR = "區段結構錯"
+ORIGIN_LEAVES_NOT_FIND = "原點的圖離開的原點不是找圖"
+CONFIRM_NEXT_NOT_FIND = "點到下一步的圖出現的下一步不是找圖"
+
+
+@dataclass(frozen=True)
+class RunProblem:
+    """text: 單獨執行彈窗的文字; brief: 串接準備檢查列在流程名下的文字;
+    notice: 只是提醒 (資訊窗), 不是警告."""
+    category: str
+    text: str
+    brief: str
+    notice: bool = False
+
+
+def run_problems(flow, templates, tools):
+    """按「執行」前會擋下的全部問題 (空清單＝可以執行), 依單獨執行的檢查順序, 一類一則.
+
+    flow: 記憶體的流程 (steps、calibration、busy; 測試選取時 steps 是片段);
+    templates: 現有範本圖的名字; tools: `外部工具登錄`。單獨執行只顯示第一則。
+    """
+    steps = flow.get("steps") or []
+    out = []
+
+    def add(category, text):
+        out.append(RunProblem(category, text, text))
+
+    if not steps:
+        out.append(RunProblem(NO_STEPS, "請先新增步驟", NO_STEPS, notice=True))
+    cal = flow.get("calibration")
+    if not cal:
+        add(NO_CALIBRATION, "這份流程沒有校準對（尚未設定），不能執行。\n"
+            "請先在「流程設定…」設定校準對（遊戲畫面內兩張相距夠遠的固定圖）")
+    missing = _missing_templates(steps, cal, flow.get("busy"), set(templates))
+    if missing:
+        add(MISSING_TEMPLATES, "範本不存在：\n" + "\n".join(missing))
+    errors, warnings = tool_problems(steps, tools)
+    if errors or warnings:
+        add(TOOLS_NOT_FOUND, "外部工具找不到：\n" + "\n".join(errors + warnings))
+    bad = busy_check_bad(steps, flow.get("busy"))
+    if bad:
+        add(BUSY_NOT_SET, "有步驟勾了「忙碌檢查」，但這份流程沒有設定忙碌指示：\n"
+            f"步驟 {_nums(bad)}\n"
+            "請先在「流程設定…」設定忙碌指示，或取消這些步驟的勾選")
+    err = section_error(steps)
+    if err:
+        add(SECTION_ERROR, err)
+    bad = origin_leaves_bad(steps)
+    if bad:
+        add(ORIGIN_LEAVES_NOT_FIND, "「原點的圖離開」需要原點來自找圖步驟：\n"
+            f"步驟 {_nums(bad)} 前面最近的原點來自點擊／拖曳（或沒有原點）。\n"
+            "請在它前面放找圖步驟當原點，或改用確認圖")
+    bad = confirm_next_bad(steps)
+    if bad:
+        add(CONFIRM_NEXT_NOT_FIND, "「點到下一步的圖出現」需要下一個步驟是找圖步驟：\n"
+            f"步驟 {_nums(bad)} 的下一步不是找圖（或已是最後一步）。\n"
+            "請把下一個找圖步驟排在其後")
+    return out
+
+
+def _nums(idx):
+    return ", ".join(str(i + 1) for i in idx)
+
+
+def _missing_templates(steps, cal, busy, have):
+    missing = []
+    for s in steps:
+        if findtarget.is_find(s) and findtarget.template(s) not in have:
+            missing.append(findtarget.template(s) or "(未選擇)")
+        if (findtarget.uses_confirm_target(s)
+                and findtarget.confirm_template(s) not in have):
+            missing.append((findtarget.confirm_template(s) or "(未選擇)") + "（確認圖）")
+    if cal:
+        missing += [f"{n}（校準對）" for n in cal["pair"] if n not in have]
+    if busy and busy["template"] not in have:
+        missing.append(f"{busy['template']}（忙碌指示）")
+    return missing
