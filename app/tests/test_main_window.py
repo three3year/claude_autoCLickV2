@@ -145,7 +145,8 @@ def _menu_of(a, button_text):
 def test_第一列與第二列的按鈕對照版面D(main_app):
     row1, row2 = toolbar_rows(main_app)
     assert buttons(row1) == sorted(["新流程", "開檔", "存檔", "框選", "清除", "流程設定…"])
-    assert buttons(row2) == sorted(["▶ 開始執行", "■ 停止", "串接…"])
+    assert buttons(row2) == sorted(["▶ 開始執行", "■ 停止", "▶ 執行串接", "串接…"])
+    assert "TCombobox" in [w.winfo_class() for w in all_widgets(row2)]
     assert "F12 = 急停" in texts(row2) and "待機" in texts(row2)
     assert main_app.settings_lbl.cget("text") == "校準對 ✗　忙碌指示 —"
 
@@ -195,6 +196,16 @@ def test_選取步驟列只剩編輯與刪除兩個圖示(main_app):
 
 def test_存檔開檔快速鍵照舊(main_app):
     assert main_app.root.bind("<Control-s>") and main_app.root.bind("<Control-o>")
+
+
+
+def test_第二列在最小寬度下放得下_最長的狀態文字也不擠掉按鈕(main_app):
+    a = main_app
+    row2 = toolbar_rows(a)[1]
+    for text in ("引擎載入中…", "引擎載入失敗", "辨識中…", "待機"):
+        a.status_lbl.configure(text=text)
+        a.root.update_idletasks()
+        assert row2.winfo_reqwidth() <= a.root.minsize()[0], text
 
 
 SETTINGS = "流程設定"

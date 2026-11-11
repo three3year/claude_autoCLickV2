@@ -29,7 +29,7 @@ import ui_dialogs
 import ui_grab
 import ui_overlay
 import ui_theme
-from automation import (capture, external, findtarget, flowcheck, flowdefaults, flowfmt,
+from automation import (capture, chain, external, findtarget, flowcheck, flowdefaults, flowfmt,
                         hotkey, imgio, pickcheck, win)
 from automation.flowcheck import STEP_LABELS
 from automation.runner import (Runner, grab_clear, has_busy_check, confirm_next_connected,
@@ -69,6 +69,7 @@ PROGRAM_UNSET = "未設定（串接時必須有）"
 PROGRAM_TEXT_MAX = 44
 PROGRAM_TEST_HOLD_MS = 2000
 UNREF_MARK = "（未引用）"
+CHAIN_TITLE = "執行串接"
 
 
 def program_text(path, limit=PROGRAM_TEXT_MAX):
@@ -314,6 +315,7 @@ class App:
     flow_cal = None
     busy_target = None
     program = None
+    _chain = None  # 進行中的`串接` (automation.chain.Chain); None＝沒有在串接
 
     def __init__(self, root):
         self.root = root
@@ -342,7 +344,7 @@ class App:
 
         self._update_title()
         root.geometry("1120x700")
-        root.minsize(900, 560)
+        root.minsize(960, 560)  # 第二列 (執行區＋串接) 在最長的狀態文字下放得下
         ui_theme.apply(root)
 
         self._build_menu()
@@ -953,6 +955,10 @@ class App:
 
     def open_chains(self):
         ui_chain.edit_chains(self)
+        self._refresh_chain_pick()
+
+    def _refresh_chain_pick(self):
+        self.chain_pick.configure(values=flowfile.list_chains(apppaths.flows_root()))
 
     def _build_menu(self):
         self.root.bind("<Control-s>", lambda e: self.recognition.busy or self.save_flow())
@@ -990,6 +996,14 @@ class App:
         ttk.Label(bar2, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
         ttk.Button(bar2, text="串接…", style="Small.TButton", takefocus=False,
                    command=self.open_chains).pack(side="right", padx=(0, 12))
+        self.btn_chain = ttk.Button(bar2, text="▶ 執行串接", style="Small.TButton",
+                                    takefocus=False, command=self.start_chain)
+        self.btn_chain.pack(side="right", padx=(0, 6))
+        rec.register(self.btn_chain)
+        self.chain_pick = ttk.Combobox(bar2, width=8, state="readonly",
+                                       postcommand=self._refresh_chain_pick)
+        self.chain_pick.pack(side="right", padx=(0, 4))
+        self._refresh_chain_pick()
         ttk.Label(bar2, text="模式").pack(side="left")
         self.run_mode = ttk.Combobox(bar2, width=8, state="readonly",
                                      values=["執行次數", "直到停止"])
@@ -2094,6 +2108,115 @@ class App:
     def stop_all(self):
         self.runner.stop()
 
+    def start_chain(self):
+        """「執行串接」: gate → 存或丟 → 讀串接檔 → 逐份從磁碟讀流程做準備檢查 → 交給進行規則.
+
+        準備檢查不過就一個警告視窗列出全部問題、不開始; 過了就開跑第一份, 之後由輪詢接下一份。"""
+        if self.recognition.busy or self.runner.status()["running"]:
+            return
+        if not self.engine_gate():
+            return
+        name = self.chain_pick.get()
+        if not name:
+            messagebox.showinfo(CHAIN_TITLE, "請先在旁邊的下拉選單選一份串接檔",
+                                parent=self.root)
+            return
+        if not self.confirm_discard(CHAIN_TITLE):
+            return
+        root = apppaths.flows_root()
+        try:
+            items = flowfile.read_chain(root, name)
+        except flowfile.FlowError as e:
+            messagebox.showwarning(CHAIN_TITLE, f"讀不到串接檔「{name}」：\n{e}",
+                                   parent=self.root)
+            return
+        entries, problems = [], {}
+        for item in items:
+            folder = os.path.join(root, item["flow"])
+            try:
+                flow = flowfile.read_flow(folder)
+            except flowfile.FlowError as e:
+                entries.append(chain.Entry(item["flow"], item["run"], read_error=str(e)))
+                continue
+            entries.append(chain.Entry(item["flow"], item["run"], flow["program"]))
+            found = flowcheck.run_problems(flow, flowfile.folder_template_names(folder),
+                                           flow["tools"])
+            problems[item["flow"]] = [p.category if p.category == flowcheck.NO_STEPS
+                                      else p.text for p in found]
+        running = [w.path for w in ui_dialogs.other_windows() if w.path]
+        blocked = chain.blockers(entries, problems, running)
+        if blocked:
+            self.log_ui(f"串接「{name}」準備檢查沒過，沒有開始", "warn")
+            messagebox.showwarning(CHAIN_TITLE, f"串接「{name}」不能開始：\n\n"
+                                   + chain.blocker_text(blocked), parent=self.root)
+            return
+        self._chain = chain.Chain(entries)
+        self._chain_name = name
+        self.log_ui(f"開始串接「{name}」（共 {len(entries)} 份）", "ok")
+        self._chain_next()
+
+    def _chain_next(self):
+        """接下一份; 這份開不起來 (讀不到、找不到視窗、移不到前景) 就記為失敗再問下一份.
+        沒有下一份＝整條結束, 收尾."""
+        while True:
+            turn = self._chain.next()
+            if turn is None:
+                self._finish_chain()
+                return
+            reason = self._chain_launch(turn.entry)
+            if reason is None:
+                return
+            self.log_ui(f"{self._chain.progress()} 失敗：{reason}", "error")
+            self._chain.report(chain.failed(reason))
+
+    def _chain_launch(self, entry):
+        """切到這份流程 (不跳對話框: 開始時已問過存或丟) → 目標程式移到最上層 →
+        以串接檔的輪數、次數模式啟動執行器 (不讀主視窗的輪數欄位). 開不起來回原因."""
+        folder = os.path.join(apppaths.flows_root(), entry.flow)
+        try:
+            flow = flowfile.read_flow(folder)
+        except flowfile.FlowError as e:
+            return f"讀不到流程：{e}"
+        self._switch_flow(folder, flow)
+        self.log_ui(f"{self._chain.progress()}（{entry.run} 輪）", "info")
+        # 迷你視窗要在移到最上層之前出現: 之後才開的置頂視窗可能把前景搶回來
+        if self._mini is None:
+            self._show_mini()
+        self._mini_chain.configure(text=self._chain.progress())
+        w = win.pick_window(ui_dialogs.other_windows(), entry.program)
+        if w is None:
+            return f"找不到視窗：{entry.program}沒在執行"
+        if not win.bring_to_front(w.hwnd):
+            return "移不到前景（約 2 秒內沒有成為前景視窗）"
+        self.ensure_registered()
+        try:
+            self.runner.start(self.steps, "count", entry.run,
+                              scan_region=self.scan_region,
+                              calibration=self.flow_cal,
+                              busy=self.busy_target,
+                              tools=self.tool_registry())
+        except RuntimeError as e:
+            return str(e)
+        self._run_steps = self.steps
+        return None
+
+    def _chain_turn_ended(self):
+        r = self.runner
+        self._chain.report(chain.outcome(r.ended, r.error_reason))
+        self._chain_next()
+
+    def _finish_chain(self):
+        """整條結束: 執行紀錄印總結、檔案日誌記一筆 chain、關迷你視窗 (主視窗停在最後跑的那份)."""
+        c, name = self._chain, self._chain_name
+        self._chain = None
+        lines = c.summary()
+        all_done = all(line.endswith("：" + chain.DONE_TEXT) for line in lines)
+        self.log_ui(f"串接「{name}」結束：", "ok" if all_done else "warn")
+        for line in lines:
+            self.log_ui("　" + line)
+        applog.log("chain", name=name, summary="；".join(lines))
+        self._close_mini()
+
     def _confirm_next_bad(self, steps):
         return flowcheck.confirm_next_bad(steps)
 
@@ -2155,6 +2278,12 @@ class App:
         row1 = tk.Frame(inner, bg=C["panel"])
         row1.pack(fill="x")
 
+        # 串接中多一行進度「串接 第幾份/共幾份：流程名」, 兩份之間不關 (整條結束才關)
+        self._mini_chain = tk.Label(inner, text="", bg=C["panel"], fg=C["accent"],
+                                    font=FONT, anchor="w")
+        if self._chain is not None:
+            self._mini_chain.pack(fill="x", padx=(10, 10), pady=(4, 0), before=row1)
+
         tk.Label(row1, text="●", bg=C["panel"], fg=C["accent"], font=FONT).pack(
             side="left", padx=(10, 4), pady=(4, 0))
         self._mini_lbl = tk.Label(row1, text="執行中…", bg=C["panel"],
@@ -2185,7 +2314,8 @@ class App:
         def d_move(e):
             m.geometry(f"+{e.x_root - drag['x']}+{e.y_root - drag['y']}")
 
-        for wdg in (inner, row1, self._mini_lbl, self._mini_step, self._mini_log):
+        for wdg in (inner, row1, self._mini_chain, self._mini_lbl, self._mini_step,
+                    self._mini_log):
             wdg.bind("<ButtonPress-1>", d_start)
             wdg.bind("<B1-Motion>", d_move)
 
@@ -2245,9 +2375,19 @@ class App:
             self._engine_state_seen = self.hub.state
             self._on_engine_state(self.hub.state)
         self.drain_preload()
+        # 執行器的紀錄先收進來: 串接的總結要排在最後一份的「執行完成」之後
+        latest = None
+        for e in self.runner.logs_since(self.last_seq):
+            self.last_seq = e["seq"]
+            self._append_log(e["t"], e["level"], e["msg"])
+            latest = e
+        if (self._chain is not None and self._chain.current is not None
+                and not self.runner.status()["running"]):
+            self._chain_turn_ended()
         st = self.runner.status()
         running = st["running"]
         self.recognition.want(self.btn_run, not running)
+        self.recognition.want(self.btn_chain, not running)
         self.btn_stop.configure(state="normal" if running else "disabled")
         if running:
             total = st["totalRounds"]
@@ -2276,11 +2416,6 @@ class App:
             else:
                 self.status_lbl.configure(text="待機", foreground=C["muted"])
 
-        latest = None
-        for e in self.runner.logs_since(self.last_seq):
-            self.last_seq = e["seq"]
-            self._append_log(e["t"], e["level"], e["msg"])
-            latest = e
         if latest is not None and self._mini is not None:
             msg = latest["msg"]
             self._mini_log.configure(
