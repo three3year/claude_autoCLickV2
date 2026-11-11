@@ -118,8 +118,9 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 
 **執行語意：哪個函式負責**（語意本身寫在格式規範）：區段在記憶體是平面標記、yaml 巢狀，`flowfile` 讀寫時轉換，
 runner 用堆疊與跳轉解譯（`Runner._exec_branch`、`_break_out`、`runner.enclosing_end`）。**執行前的結構檢查只有
-`automation/flowcheck.py` 一份**（`flow_errors` 一次跑完整份）：App 與 `tools/flow_check` 都只呼叫它，新增執行前會擋
-的條件加在這裡。找圖 `Runner._exec_find`（三態）；原點執行期 `Runner._set_origin`（記找圖目標＋挑中的框，
+`automation/flowcheck.py` 一份**，兩個入口組同一批檢查：主視窗「執行」（含測試選取）呼叫 `run_problems`（依單獨執行的
+檢查順序列出全部問題，一類一則、帶類別與警告文字，單獨執行只顯示第一則；不擋相對座標前沒有原點）；`tools/flow_check`
+與影片轉流程呼叫 `flow_errors`（多擋相對座標前沒有原點，不管缺圖與沒有步驟）。新增執行前會擋的條件加在這裡。找圖 `Runner._exec_find`（三態）；原點執行期 `Runner._set_origin`（記找圖目標＋挑中的框，
 `原點的圖離開`靠它），編輯器與檢查用 `runner.origin_source` 靜態推算；生效確認三種步驟同一個迴圈
 `Runner._await_effect`，所有輸入都經 `Runner._input`（新增送輸入的地方也要走它）；忙碌檢查 `Runner._busy_check`。
 檔案日誌：找圖確認寫 `find.target`，座標點擊／拖曳寫 `input.confirm`（沒開確認寫 `input`），勾了忙碌檢查的步驟
