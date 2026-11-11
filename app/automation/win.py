@@ -350,9 +350,6 @@ def cursor_pos():
     return pt.x, pt.y
 
 
-# ---- 目標程式: 列出視窗、依路徑挑視窗、移到最上層 ----
-# 挑選與路徑比對是純邏輯 (可單獨測); 列舉與移到前景才碰 Win32, 不做自動測試。
-
 class Window(NamedTuple):
     """一個可見的頂層視窗. size＝還原後的 (寬, 高): 最小化視窗的目前矩形只是個小框,
     清單顯示與挑選都看還原後的大小; path＝所屬程式的完整路徑, 讀不到是 None."""
@@ -369,7 +366,6 @@ class Window(NamedTuple):
 
 
 def program_key(path):
-    """「同一個目標程式」比對用的正規化路徑: 大小寫不分、正斜線與反斜線視為相同."""
     return ntpath.normpath(str(path)).casefold()
 
 
@@ -416,7 +412,6 @@ _k32.CloseHandle.argtypes = [wintypes.HANDLE]
 
 
 def root_hwnd(tk_winfo_id):
-    """Tk 元件的 winfo_id() → 它所在的 OS 頂層視窗."""
     return _u32.GetAncestor(tk_winfo_id, GA_ROOT) or tk_winfo_id
 
 
@@ -466,7 +461,6 @@ def _restored_size(hwnd, minimized):
 
 
 def list_windows():
-    """所有可見、有標題的頂層視窗 (含最小化), 不含工具視窗與被隱藏 (cloaked) 的視窗."""
     get_l = getattr(_u32, "GetWindowLongPtrW", _u32.GetWindowLongW)
     found = []
 

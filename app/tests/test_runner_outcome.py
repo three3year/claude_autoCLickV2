@@ -1,5 +1,3 @@
-"""執行器記下每一次執行的結果種類 (ended) 與錯誤原因 (error_reason). 串接靠它判斷一份流程的成敗."""
-
 from harness import CAL_PAIR, cal, click, find, wait
 
 ERROR_PREFIX = "執行錯誤: "

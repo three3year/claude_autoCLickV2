@@ -16,8 +16,6 @@ templates/, templates/ 只留被引用的範本 (步驟的找圖目標與確認�
 
 讀檔 (`read_flow`) 是唯一的入口驗證, 格式規則只有這一個模組說得上話; UI 與執行器只呼叫它。
 給寫流程的人看的欄位表在 docs/flow-format.md (app/tests/test_flow_format_doc.py 對照, 改鍵要同步)。
-
-`串接檔`也只經這裡: 流程存放區頂層的 <串接名>.chain.yaml (見檔尾「串接檔」一段與格式規範「串接檔」一節)。
 """
 import os
 import re
@@ -1030,9 +1028,6 @@ def folder_template_bytes(folder, name):
         return None
 
 
-# ---- 串接檔: 流程存放區頂層的 <串接名>.chain.yaml (詞彙見 app/GLOSSARY.md「串接檔」) ----
-# 記憶體的串接＝[{"flow": 流程資料夾名稱, "run": 輪數}, ...], 依執行順序; 同一份流程可出現多次。
-
 CHAIN_SUFFIX = ".chain.yaml"
 CHAIN_FORMAT = 1
 CHAIN_TOP_KEYS = ("format", "flows")
@@ -1116,7 +1111,6 @@ def write_chain(root, name, items):
 
 
 def list_chains(root):
-    """流程存放區頂層的串接名 (檔名去掉 .chain.yaml, 已排序)."""
     try:
         entries = os.listdir(str(root))
     except OSError:

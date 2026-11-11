@@ -1,8 +1,3 @@
-"""串接編輯對話框 (主視窗「串接…」; 詞彙見 app/GLOSSARY.md「串接」「串接檔」).
-
-建立、改名、刪除流程存放區裡的串接檔, 排串接裡的流程與每份的輪數。串接檔的讀寫與驗證只經
-flowfile; 這裡的 ⚠ 只提示、不擋存檔 (真正擋下的是「執行串接」的準備檢查)。編輯串接不會改到任何流程。
-"""
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -23,7 +18,6 @@ COLUMNS = (("flow", "流程", 200), ("run", "輪數", 60), ("warn", "提示", 20
 
 
 def flow_warning(root, name):
-    """串接裡的一份流程有什麼該提醒的 (三種 ⚠ 之一), 沒有回 None. 只讀不寫."""
     folder = os.path.join(root, name)
     if not os.path.isfile(os.path.join(folder, flowfile.FLOW_YAML)):
         return NOT_IN_STORE
@@ -68,7 +62,6 @@ class _ChainEditor:
         chains = flowfile.list_chains(self.root)
         self._load(initial if initial in chains else (chains[0] if chains else None))
 
-    # ---- 版面 ----
     def _build(self):
         dlg = self.dlg = tk.Toplevel(self.app.root)
         dlg.title(TITLE)
@@ -136,7 +129,6 @@ class _ChainEditor:
         self.dlg.focus_force()
         self.app.root.wait_window(self.dlg)
 
-    # ---- 狀態 ----
     @property
     def dirty(self):
         return self.items != self.saved
@@ -202,7 +194,6 @@ class _ChainEditor:
             return
         self.msg.configure(foreground=C["danger"])
 
-    # ---- 輪數 ----
     def _sync_run(self):
         i = self._selected()
         self._syncing = True
@@ -229,7 +220,6 @@ class _ChainEditor:
         self.tree.set(node, "run", int(text))
         self._refresh_state()
 
-    # ---- 清單操作 ----
     def add_flow(self):
         flow = _pick_flow(self.app.root, self.root, self._warning)
         if flow is None:
@@ -253,7 +243,6 @@ class _ChainEditor:
         self.items[i], self.items[i + d] = self.items[i + d], self.items[i]
         self._render(select=i + d)
 
-    # ---- 存檔與串接檔 ----
     def save(self):
         if self.name is None or self.problem is not None:
             return True
@@ -269,7 +258,6 @@ class _ChainEditor:
         return True
 
     def confirm_discard(self, title):
-        """有未存檔改動就問「存檔／不存／取消」; 可以往下走回 True."""
         if self.name is None or self.problem is not None or not self.dirty:
             return True
         answer = messagebox.askyesnocancel(
@@ -344,7 +332,6 @@ class _ChainEditor:
 
 
 def _pick_flow(parent, root, warning_of):
-    """從流程存放區的流程清單選一份 (清單也標 ⚠), 回傳流程資料夾名稱; 取消回 None."""
     dlg = tk.Toplevel(parent)
     dlg.title(ADD_TITLE)
     dlg.configure(bg=C["panel"])

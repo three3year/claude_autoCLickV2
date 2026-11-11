@@ -1,8 +1,3 @@
-"""`串接`的進行規則 (詞彙見 app/GLOSSARY.md「串接」「串接檔」「目標程式」).
-
-純邏輯: 不碰 Tk、Win32、執行器, 只決定「能不能開始」與「下一步做什麼」
-(「同一個目標程式」的比對借用 `win.same_program`, 那是純字串比對)。
-"""
 from dataclasses import dataclass
 from typing import Optional
 
@@ -78,7 +73,6 @@ def failed(reason):
 
 
 def outcome(ended, error_reason):
-    """執行器的結果 (`Runner.ended`＋`Runner.error_reason`) → 串接的結果."""
     if ended == "done":
         return DONE
     if ended == "stopped":
@@ -104,7 +98,6 @@ class Chain:
 
     呼叫端反覆: next() 拿下一份 → 執行 → report(結果); next() 回 None＝整條結束。
     急停隨時可以 stop() (任何執行緒: 只記下來), 下一次 next() 就結束整條。
-    每份的結果文字存在 _results (None＝還沒判定)。
     """
 
     def __init__(self, entries):
@@ -142,7 +135,6 @@ class Chain:
         return self._current
 
     def progress(self):
-        """迷你視窗的進度文字: 「串接 第幾份/共幾份：流程名」(還沒交出任何一份＝空字串)."""
         t = self._current or self._last
         return f"串接 {t.no}/{t.total}：{t.entry.flow}" if t else ""
 
@@ -170,7 +162,6 @@ class Chain:
 
     @property
     def last_ran(self):
-        """最後實際交出去跑的那份 (Turn; 跳過與未執行的不算); 一份都沒跑過是 None."""
         return self._last
 
     def summary(self):
@@ -179,7 +170,6 @@ class Chain:
 
 
 def blocker_text(found):
-    """警告視窗的文字: 每份流程一段 (「流程名」＋每個問題一條, 多行的問題縮排接續)."""
     parts = []
     for b in found:
         if b.flow is None:

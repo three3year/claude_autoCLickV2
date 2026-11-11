@@ -61,8 +61,6 @@ def test_整份流程的錯誤清單():
     assert errs[1].startswith("步驟 2：勾了忙碌檢查")
 
 
-# ---- 「執行」前會擋的檢查 (run_problems) ----
-
 CAL = {"pair": ["c1", "c2"], "baseline": 100.0}
 HAVE = {"a", "c1", "c2"}
 

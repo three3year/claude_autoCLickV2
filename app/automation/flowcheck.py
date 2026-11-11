@@ -137,11 +137,10 @@ def _nos(idx):
 def flow_errors(flow):
     """整份流程 (記憶體模型) 執行前一定會被擋下的問題, 一則一行 (空清單＝沒有).
 
-    檢查指令與影片轉流程用: 沒有校準對、區段結構、相對座標前沒有原點、
+    沒有校準對、區段結構、相對座標前沒有原點、
     「原點的圖離開」的原點不是找圖、「點到下一步的圖出現」不相連、勾了忙碌檢查
     卻沒設忙碌指示、外部工具沒登錄或登錄檔格式錯。缺圖不在這裡 (那是檔案的事);
-    外部工具的路徑不存在在 flow_warnings。app 按「執行」擋的是 run_problems
-    (不擋相對座標前沒有原點, 多擋沒有步驟與缺圖)。
+    外部工具的路徑不存在在 flow_warnings。
     """
     steps = flow.get("steps") or []
     out = []
@@ -189,7 +188,6 @@ CONFIRM_NEXT_NOT_FIND = "點到下一步的圖出現的下一步不是找圖"
 
 @dataclass(frozen=True)
 class RunProblem:
-    """按「執行」會被擋下的一類問題: 類別＋單獨執行時那個警告視窗的標題與文字."""
     category: str
     title: str
     text: str
@@ -245,7 +243,6 @@ def _nums(idx):
 
 
 def _missing_templates(steps, cal, busy, have):
-    """執行要用卻沒有圖的範本, 每項附上它的用途 (校準對只看主對, 備用對缺圖不擋)."""
     missing = []
     for s in steps:
         if findtarget.is_find(s) and findtarget.template(s) not in have:

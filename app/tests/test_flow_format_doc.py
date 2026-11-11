@@ -159,7 +159,6 @@ CHAIN_PLACES = {"頂層": flowfile.CHAIN_TOP_KEYS, "flows 的項目": flowfile.C
 
 
 def read_chain_table(text):
-    """「串接檔」一節的鍵表 (表頭「位置／鍵／值」, 刻意跟 flow.yaml 欄位表不同) → {位置: {鍵}}."""
     lines = text.splitlines()
     for i, line in enumerate(lines):
         if line.startswith("|") and "位置" in line and "鍵" in line and "值" in line:

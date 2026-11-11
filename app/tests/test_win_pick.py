@@ -1,4 +1,3 @@
-"""目標程式的視窗挑選 (假的視窗清單; 真的列舉與移到前景不做自動測試)."""
 from automation import win
 
 TC = r"C:\Program Files\GRYPHLINK\games\Arknights_TC\Arknights.exe"

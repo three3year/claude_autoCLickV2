@@ -73,7 +73,6 @@ CHAIN_TITLE = "執行串接"
 
 
 def program_text(path, limit=PROGRAM_TEXT_MAX):
-    """`目標程式`的顯示文字「檔名（所在資料夾）」; 太長就省略資料夾的中間."""
     name, folder = ntpath.basename(path), ntpath.dirname(path)
     text = f"{name}（{folder}）"
     room = limit - len(name) - 3
@@ -315,7 +314,7 @@ class App:
     flow_cal = None
     busy_target = None
     program = None
-    _chain = None  # 進行中的`串接` (automation.chain.Chain); None＝沒有在串接
+    _chain = None
 
     def __init__(self, root):
         self.root = root
@@ -344,7 +343,7 @@ class App:
 
         self._update_title()
         root.geometry("1120x700")
-        root.minsize(960, 560)  # 第二列 (執行區＋串接) 在最長的狀態文字下放得下
+        root.minsize(960, 560)
         ui_theme.apply(root)
 
         self._build_menu()
@@ -516,7 +515,6 @@ class App:
                  self.test_busy_indicator),
                 ("目標程式", PROGRAM_TIP, self._program_text,
                  self.set_program, self.clear_program, self.test_program))
-        # 圖片類動作 (辨識中反灰) 登記在 recognition; 目標程式跟圖片無關, 一個都不登記
         image_actions = ({"設定…", "測試"}, {"設定…", "測試"}, {"測試"}, set())
         shown = []
         rec = self.recognition
@@ -933,7 +931,6 @@ class App:
         self.log_ui("已清除目標程式", "ok")
 
     def test_program(self):
-        """把目標程式移到最上層, 約 2 秒後把 AutoClick 移回前景 (跟串接同一條移上去的路)."""
         path = self.program
         if not path:
             self.log_ui("測試目標程式：目標程式還沒設定", "warn")
@@ -2106,17 +2103,12 @@ class App:
         self._show_mini()
 
     def stop_all(self):
-        """F12／停止鈕 (F12 從鍵盤監聽的執行緒呼叫). 串接要另外記住急停:
-        兩份之間按下時執行器還沒開始, 停止旗標會被下一份的 start 清掉."""
         c = self._chain
         if c is not None:
             c.stop()
         self.runner.stop()
 
     def start_chain(self):
-        """「執行串接」: gate → 存或丟 → 讀串接檔 → 逐份從磁碟讀流程做準備檢查 → 交給進行規則.
-
-        準備檢查不過就一個警告視窗列出全部問題、不開始; 過了就開跑第一份, 之後由輪詢接下一份。"""
         if self.recognition.busy or self.runner.status()["running"]:
             return
         if not self.engine_gate():
@@ -2161,8 +2153,6 @@ class App:
         self._chain_next()
 
     def _chain_next(self):
-        """接下一份; 這份開不起來 (讀不到、找不到視窗、移不到前景) 就記為失敗、
-        急停了就記為急停, 再問下一份. 沒有下一份 (含急停) ＝整條結束, 收尾."""
         while True:
             turn = self._chain.next()
             if turn is None:
@@ -2176,9 +2166,6 @@ class App:
             self._chain.report(result)
 
     def _chain_launch(self, entry):
-        """切到這份流程 (不跳對話框: 開始時已問過存或丟) → 目標程式移到最上層 →
-        以串接檔的輪數、次數模式啟動執行器 (不讀主視窗的輪數欄位).
-        開起來回 None; 開不起來回 chain.failed(原因); 途中急停回 chain.STOPPED."""
         folder = os.path.join(apppaths.flows_root(), entry.flow)
         try:
             flow = flowfile.read_flow(folder)
@@ -2186,14 +2173,12 @@ class App:
             return chain.failed(f"讀不到流程：{e}")
         self._switch_flow(folder, flow)
         self.log_ui(f"{self._chain.progress()}（{entry.run} 輪）", "info")
-        # 迷你視窗要在移到最上層之前出現: 之後才開的置頂視窗可能把前景搶回來
         if self._mini is None:
             self._show_mini()
         self._mini_chain.configure(text=self._chain.progress())
         w = win.pick_window(ui_dialogs.other_windows(), entry.program)
         if w is None:
             return chain.failed(f"找不到視窗：{entry.program}沒在執行")
-        # 移到最上層在介面執行緒上最多等約 2 秒, 這段時間按的 F12 只有串接記得
         fronted = win.bring_to_front(w.hwnd)
         if self._chain.stopped:
             return chain.STOPPED
@@ -2210,7 +2195,7 @@ class App:
             return chain.failed(str(e))
         self._run_steps = self.steps
         if self._chain.stopped:
-            self.runner.stop()  # F12 剛好落在上面的檢查與 start 之間: start 清掉了它的停止旗標
+            self.runner.stop()
         return None
 
     def _chain_turn_ended(self):
@@ -2219,7 +2204,6 @@ class App:
         self._chain_next()
 
     def _finish_chain(self):
-        """整條結束: 執行紀錄印總結、檔案日誌記一筆 chain、關迷你視窗 (主視窗停在最後跑的那份)."""
         c, name = self._chain, self._chain_name
         self._chain = None
         lines = c.summary()
@@ -2291,7 +2275,6 @@ class App:
         row1 = tk.Frame(inner, bg=C["panel"])
         row1.pack(fill="x")
 
-        # 串接中多一行進度「串接 第幾份/共幾份：流程名」, 兩份之間不關 (整條結束才關)
         self._mini_chain = tk.Label(inner, text="", bg=C["panel"], fg=C["accent"],
                                     font=FONT, anchor="w")
         if self._chain is not None:
@@ -2388,7 +2371,6 @@ class App:
             self._engine_state_seen = self.hub.state
             self._on_engine_state(self.hub.state)
         self.drain_preload()
-        # 執行器的紀錄先收進來: 串接的總結要排在最後一份的「執行完成」之後
         latest = None
         for e in self.runner.logs_since(self.last_seq):
             self.last_seq = e["seq"]

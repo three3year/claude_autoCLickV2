@@ -1,8 +1,3 @@
-"""主視窗「執行串接」(會開視窗, 在隱藏桌面跑).
-
-執行器換成替身 (記下每次 start、由測試決定何時結束); 列視窗與移到最上層換成假的。
-流程與串接檔寫在 conftest 換好的暫存流程存放區。輪詢由測試手動推 (`run_poll`)。
-"""
 import os
 
 import numpy as np
@@ -42,8 +37,6 @@ def _chain(name, *items):
 
 
 class _Runner:
-    """執行器替身: start 記下 (當時主視窗開的流程, 模式, 輪數), finish 讓它結束."""
-
     def __init__(self, app):
         self.app = app
         self.started = []
@@ -83,7 +76,6 @@ def chain_app(main_app, monkeypatch):
 
 @pytest.fixture
 def windows(monkeypatch):
-    """假的「列出視窗」: 預設兩個客戶端都開著."""
     shown = [win.Window(hwnd=h, pid=1000 + h, title="明日方舟", size=(1280, 720), path=p)
              for p, h in WINDOWS.items()]
     monkeypatch.setattr(win, "list_windows", lambda: list(shown))
@@ -92,7 +84,6 @@ def windows(monkeypatch):
 
 @pytest.fixture
 def fronted(monkeypatch):
-    """假的「移到最上層」: 記下被移上去的視窗, 一律成功."""
     got = []
     monkeypatch.setattr(win, "bring_to_front", lambda hwnd, **kw: got.append(hwnd) or True)
     return got
@@ -236,8 +227,6 @@ def test_移不到前景_這份記為失敗_同目標程式的跳過_其他照�
 
 
 def test_兩份之間按F12_下一份不會開始(chain_app, windows, monkeypatch, filelog):
-    """移到最上層的那約 2 秒裡按 F12: 執行器還沒開始, 停止旗標會被下一次 start 清掉,
-    串接要自己記住急停."""
     a = chain_app
 
     def front_then_f12(hwnd, **kw):

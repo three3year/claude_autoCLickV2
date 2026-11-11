@@ -1,4 +1,3 @@
-"""串接檔 (`<名稱>.chain.yaml`) 的讀寫、驗證與檔案操作: 只經 flowfile, 用暫存目錄真測."""
 import os
 
 import pytest

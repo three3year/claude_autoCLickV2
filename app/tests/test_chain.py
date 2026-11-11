@@ -1,4 +1,3 @@
-"""`串接`的進行規則 (automation/chain.py): 純資料進、純資料出, 不碰 Tk、Win32、執行器."""
 from automation import chain
 from automation.chain import Entry
 
@@ -43,7 +42,6 @@ def test_讀不到的流程只報讀不到():
 
 
 def _run_all(c, outcomes):
-    """照順序交出每一份並回報結果; 回傳 (交出的流程名與輪數, 當時的進度文字)."""
     handed = []
     for out in outcomes:
         turn = c.next()
@@ -139,7 +137,6 @@ def test_兩份之間急停_不再交出下一份_其餘記未執行():
 
 
 def test_執行中急停_還沒回報結果_這份記中斷():
-    """交出去還沒回報 (例: 正在移到最上層) 時急停: 那份記中斷, 不再交出任何一份."""
     entries = [Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN)]
     c = chain.Chain(entries)
     c.next()
@@ -164,7 +161,6 @@ def test_急停時已跳過的維持跳過():
 
 
 def test_急停後才回報完成_這份記完成_其餘未執行():
-    """急停與這份剛好自己跑完同時發生: 照實記完成."""
     c = chain.Chain([Entry("早_繁中", 1, TC), Entry("早_簡中", 1, CN)])
     c.next()
     c.stop()

@@ -136,7 +136,6 @@ def info_tip(parent, text, bg=None):
 
 
 def hover_tip(lbl, text_of):
-    """滑鼠移到元件上時浮出 text_of() 的文字 (空字串＝不浮出)."""
     tip = []
 
     def show(e):
@@ -561,8 +560,6 @@ def pick_template(app, title="選擇範本", initial=None):
 
 
 def other_windows():
-    """開著的程式視窗, 不含 AutoClick 自己這個程序 (以程序判斷: 從原始碼執行時路徑是
-    python.exe, 以路徑排除會連別的 Python 視窗一起藏掉)."""
     me = os.getpid()
     return [w for w in win.list_windows() if w.pid != me]
 
@@ -583,7 +580,7 @@ def pick_program(app, current=None):
     dlg.configure(bg=C["panel"])
     dlg.transient(root)
     result = [None]
-    paths = {}  # 列 → 路徑; 不能選的列是 None
+    paths = {}
 
     body = ttk.Frame(dlg, style="Panel.TFrame", padding=16)
     body.pack(fill="both", expand=True)

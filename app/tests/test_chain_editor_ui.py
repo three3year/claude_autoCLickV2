@@ -1,7 +1,3 @@
-"""串接編輯對話框 (主視窗「串接…」; 會開視窗, 在隱藏桌面跑).
-
-流程存放區是 conftest 換好的暫存目錄; 斷言看得到的清單與存檔後的檔案內容。
-"""
 import os
 
 import pytest
@@ -44,7 +40,6 @@ def _chain_text(name):
 
 
 def _edit(a, *actions):
-    """按主視窗「串接…」, 依序做 actions, 最後按關閉 (已經關了就不按)."""
     d = _Driver(a.root, TITLE)
 
     def close(dr):
@@ -94,7 +89,6 @@ def _select(dr, index):
 
 
 def _add(dr, flow, look=None):
-    """按「加入…」, 在流程清單選 flow 按確定; look(加入流程清單的列) 先看一眼."""
     d = _Driver(dr.root, ui_chain.ADD_TITLE)
 
     def choose(pdr):
@@ -201,7 +195,6 @@ def test_改選中列的輪數_不是正整數不收_存檔寫出非1的輪數(m
 
 @pytest.fixture
 def names(monkeypatch):
-    """假的「輸入名稱」: 依序回答這個清單裡的名字 (None＝取消)."""
     answers = []
     monkeypatch.setattr(ui_dialogs, "ask_string", lambda *a, **kw: answers.pop(0))
     return answers
@@ -209,7 +202,6 @@ def names(monkeypatch):
 
 @pytest.fixture
 def answers(monkeypatch):
-    """假的「存檔／不存／取消」與「確定刪除」: 記下問題, 依序回答."""
     got = {"asked": [], "yesnocancel": [], "yesno": []}
 
     def yesnocancel(title, msg, **kw):

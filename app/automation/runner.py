@@ -237,8 +237,6 @@ class Runner:
     def __init__(self, detector, filelog=None):
         self.detector = detector
         self.filelog = filelog or _applog
-        # 這一次執行的結果: None＝還沒結束 (每次 start 重設), 結束時是
-        # "done" / "stopped" / "error"; error_reason＝錯誤時執行紀錄「執行錯誤: …」冒號後的文字
         self.ended = None
         self.error_reason = None
         self._thread = None

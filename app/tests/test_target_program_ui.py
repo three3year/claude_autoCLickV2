@@ -1,7 +1,3 @@
-"""流程設定的「目標程式」列、選程式對話框、測試鈕 (會開視窗, 在隱藏桌面跑).
-
-列視窗與移到最上層都換成假的; 「約 2 秒後移回」用 after 的替身, 不真的等。
-"""
 import os
 import tkinter as tk
 
@@ -28,7 +24,6 @@ def W(hwnd, path, size=(1280, 720), title="明日方舟", pid=None, minimized=Fa
 
 @pytest.fixture
 def windows(monkeypatch):
-    """假的「列出視窗」: 測試往這個清單放視窗."""
     shown = []
     monkeypatch.setattr(win, "list_windows", lambda: list(shown))
     return shown
@@ -36,7 +31,6 @@ def windows(monkeypatch):
 
 @pytest.fixture
 def fronted(monkeypatch):
-    """假的「移到最上層」: 記下被移上去的視窗, 一律成功."""
     got = []
     monkeypatch.setattr(win, "bring_to_front", lambda hwnd, **kw: got.append(hwnd) or True)
     return got
@@ -260,8 +254,6 @@ def test_開流程讀進目標程式_存檔寫回(main_app, tmp_path):
 
 
 class _After:
-    """root.after 的替身: 記下排程, 由測試決定什麼時候「時間到」."""
-
     def __init__(self, a, monkeypatch):
         self.calls = []
         monkeypatch.setattr(a.root, "after", self.after, raising=False)
