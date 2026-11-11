@@ -9,12 +9,13 @@ Windows 桌面按鍵精靈：找圖點擊＋步驟序列自動執行；辨識全
 - `app.py` 主視窗（步驟清單、範本面板、紀錄區、執行與迷你視窗）
 - `enginehub.py` 引擎生命週期（載入中／就緒／失敗）＋範本清單綁定＋query／預載／單張登錄；也是 runner 的偵測接縫實作
 - `recognition.py` 背景辨識入口（`辨識中`）：編輯器的辨識都在背景執行緒做
-- `flowfile.py` 流程資料夾讀寫與本流程範本（`FlowTemplates`）的唯一入口
+- `flowfile.py` 流程資料夾讀寫與本流程範本（`FlowTemplates`）的唯一入口；`串接檔`（`<串接名>.chain.yaml`）的讀寫、驗證、
+  列出、新增改名刪除也在這裡（`read_chain`／`write_chain`／`list_chains`）
 - `calibration.py` 校準與畫面倍率的全部純邏輯
 - `apppaths.py` 流程存放區、本機狀態資料夾、上次開的流程（佈局寫在它的 docstring）
 - `applog.py` 檔案日誌（本機狀態資料夾的 `autoclick.log`，超過 1MB 輪替一份）
 - `ui_dialogs.py` 步驟編輯與各對話框、拾取入口；`ui_overlay.py` 全螢幕截圖選取層與清場；
-  `ui_theme.py` 深色主題；`window_coord.py` modal 堆疊＋清場還原清單的純狀態機；`ui_grab.py` 堆疊的 Tk 執行層
+  `ui_chain.py` 串接編輯對話框（主視窗「串接…」，⚠ 只提示不擋存檔）；`ui_theme.py` 深色主題；`window_coord.py` modal 堆疊＋清場還原清單的純狀態機；`ui_grab.py` 堆疊的 Tk 執行層
 - `automation/`（舊名 engine，改名避免與主體偵測「引擎」混淆）：`runner.py` 步驟執行緒；
   `findtarget.py` 找圖目標的存取、限定範圍／挑選規則／位置是否仍有匹配的唯一實作（執行器、編輯器比對測試、
   影片轉流程三處共用）；`flowcheck.py` 執行前的結構檢查；`flowdefaults.py` 步驟與流程的「沒寫＝」表；

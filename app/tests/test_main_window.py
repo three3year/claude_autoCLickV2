@@ -145,7 +145,7 @@ def _menu_of(a, button_text):
 def test_第一列與第二列的按鈕對照版面D(main_app):
     row1, row2 = toolbar_rows(main_app)
     assert buttons(row1) == sorted(["新流程", "開檔", "存檔", "框選", "清除", "流程設定…"])
-    assert buttons(row2) == sorted(["▶ 開始執行", "■ 停止"])
+    assert buttons(row2) == sorted(["▶ 開始執行", "■ 停止", "串接…"])
     assert "F12 = 急停" in texts(row2) and "待機" in texts(row2)
     assert main_app.settings_lbl.cget("text") == "校準對 ✗　忙碌指示 —"
 
