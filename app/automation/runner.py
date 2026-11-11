@@ -237,7 +237,10 @@ class Runner:
     def __init__(self, detector, filelog=None):
         self.detector = detector
         self.filelog = filelog or _applog
+        # 這一次執行的結果: None＝還沒結束 (每次 start 重設), 結束時是
+        # "done" / "stopped" / "error"; error_reason＝錯誤時執行紀錄「執行錯誤: …」冒號後的文字
         self.ended = None
+        self.error_reason = None
         self._thread = None
         self._stop = threading.Event()
         self._lock = threading.Lock()
@@ -295,6 +298,8 @@ class Runner:
         if self.running:
             raise RuntimeError("已在執行中")
         self._stop.clear()
+        self.ended = None
+        self.error_reason = None
         self.running = True
         self.round = 0
         self.total_rounds = 0 if run_mode == "infinite" else max(1, int(run_count))
@@ -400,6 +405,7 @@ class Runner:
             self.ended = "stopped"
         except Exception as e:
             self.log(f"執行錯誤: {e}", "error")
+            self.error_reason = str(e)
             self.ended = "error"
         finally:
             self._prerun = None
