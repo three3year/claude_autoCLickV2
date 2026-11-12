@@ -5,6 +5,7 @@ calibration:
   baseline: 1650.0
   fallback: {pair: [主画面设置钮, 主画面仓库], baseline: 1709.1, offset: [-33, -61]}
 busy: {template: 忙碌指示, within: [880, 780, 333, 101]}
+program: C:\Program Files\Arknights bilibili\games\Arknights Game\Arknights.exe
 template_pos:
   公开招募画面: [275, 213]
   主画面仓库: [1596, 778]

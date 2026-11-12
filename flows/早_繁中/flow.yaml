@@ -5,6 +5,7 @@ calibration:
   baseline: 1868.0
   fallback: {pair: [主畫面設定鈕, 主畫面倉庫], baseline: 1933.6, offset: [-40, -67]}
 busy: {template: 忙碌指示, within: [994, 885, 382, 105]}
+program: C:\Program Files\GRYPHLINK\games\Arknights_TC\Arknights.exe
 template_pos:
   公開招募畫面: [311, 237]
   主畫面倉庫: [1800, 891]
