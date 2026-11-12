@@ -1,0 +1,4 @@
+format: 1
+flows:
+  - {flow: 早_繁中}
+  - {flow: 早_簡中}
