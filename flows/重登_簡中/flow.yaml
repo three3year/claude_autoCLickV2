@@ -1,0 +1,19 @@
+format: 1
+scan_region: [-8, 0, 1928, 1038]
+calibration:
+  pair: [主画面设置钮, 主画面仓库]
+  baseline: 1709.1
+  fallback: {pair: [標題列圖示, 標題列關閉鈕], baseline: 1650.0, offset: [33, 61]}
+program: C:\Program Files\Arknights bilibili\games\Arknights Game\Arknights.exe
+template_pos:
+  主画面仓库: [1563, 717]
+  主画面设置钮: [0, 0]
+  基建图标: [1287, 697]
+  载入画面: [802, 376]
+  确认勾: [798, 537]
+engine: {scale_range: [0.6, 1.5]}
+steps:
+  - {find_click: 基建图标, within: [1217, 611, 152, 158], confirm: gone, timeout: 30}    # 1
+  - {find_click: 确认勾, within: [754, 493, 88, 88], confirm: gone, timeout: 30}    # 2
+  - {find: 载入画面, within: [458, 67, 688, 619], timeout: 90, on_fail: skip}    # 3
+  - {wait_gone: 载入画面, within: [458, 67, 688, 619], timeout: 60}    # 4

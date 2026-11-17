@@ -1,0 +1,21 @@
+format: 1
+scan_region: [-8, 0, 1928, 1034]
+calibration:
+  pair: [主畫面設定鈕, 主畫面倉庫]
+  baseline: 1933.6
+  fallback: {pair: [標題列圖示, 標題列關閉鈕], baseline: 1868.0, offset: [40, 67]}
+program: C:\Program Files\GRYPHLINK\games\Arknights_TC\Arknights.exe
+template_pos:
+  主畫面倉庫: [1760, 824]
+  主畫面設定鈕: [0, 0]
+  基建BASE: [1450, 771]
+  開始喚醒: [901, 636]
+  載入畫面: [905, 429]
+  確認勾: [900, 610]
+engine: {scale_range: [0.6, 1.5]}
+steps:
+  - {find_click: 基建BASE, within: [1360, 674, 168, 170], confirm: gone, timeout: 30}    # 1
+  - {find_click: 確認勾, within: [848, 558, 104, 104], confirm: next, timeout: 30}    # 2
+  - {find_click: 開始喚醒, within: [647, 564, 508, 144], confirm: gone, timeout: 30}    # 3
+  - {find: 載入畫面, within: [515, 79, 780, 700], timeout: 90, on_fail: skip}    # 4
+  - {wait_gone: 載入畫面, within: [515, 79, 780, 700], timeout: 60}    # 5
