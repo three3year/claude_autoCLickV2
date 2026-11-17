@@ -1007,7 +1007,7 @@ class App:
         ttk.Label(bar2, text="F12 = 急停", foreground=C["muted"]).pack(side="right")
         ttk.Button(bar2, text="串接…", style="Small.TButton", takefocus=False,
                    command=self.open_chains).pack(side="right", padx=(0, 12))
-        self.btn_chain = ttk.Button(bar2, text="▶ 執行串接", style="Small.TButton",
+        self.btn_chain = ttk.Button(bar2, text="▶ 執行串接", style="SmallRun.TButton",
                                     takefocus=False, command=self.start_chain)
         self.btn_chain.pack(side="right", padx=(0, 6))
         rec.register(self.btn_chain)

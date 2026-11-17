@@ -111,6 +111,15 @@ def apply(root):
               focuscolor=[("active", HOVER), ("disabled", C["panel"])],
               foreground=[("active", C["text"]), ("disabled", "#5B6B80")])
 
+    # Small 的尺寸, Run 的綠色: 放在擠的第二列也不撐寬
+    style.configure("SmallRun.TButton", background=C["accent"], foreground="#06240F",
+                    bordercolor=C["accent_dark"], focuscolor=C["accent"],
+                    padding=(5, 2), width=0, font=("Microsoft JhengHei UI", 9, "bold"))
+    style.map("SmallRun.TButton",
+              background=[("active", "#16A34A"), ("disabled", "#1C3A28")],
+              focuscolor=[("active", "#16A34A"), ("disabled", "#1C3A28")],
+              foreground=[("disabled", "#4A6B55")])
+
     style.configure("TMenubutton", background=C["panel2"], foreground=C["text"],
                     bordercolor=C["border"], arrowcolor=C["muted"], padding=(10, 4))
     style.map("TMenubutton",
